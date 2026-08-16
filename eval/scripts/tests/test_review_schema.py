@@ -1,201 +1,188 @@
 #!/usr/bin/env python3
-"""Tests for eval/scripts/review_schema.py."""
+"""Tests for the ReviewFile v3 data contract."""
 
-import json
+from __future__ import annotations
+
+import copy
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from review_io import parse_review_file  # noqa: E402
+
 from review_schema import (  # noqa: E402
     get_schema,
+    resolve_handling_mode,
     validate_issue_row,
-    validate_review_file,
-    validate_review_header,
+    validate_issue_transition,
+    validate_probe_finding,
+    validate_review_content,
 )
 
-_HEADER_LINES = [
-    "# Tech Review — E2 | revision1 round 1",
-    "",
-    "**Date:** 2026-01-01",
-    "**Refs:** codebase",
-    "",
-    "| ID | root_cause | sot_ref | location | severity | evidence "
-    "| description | status | decision | resolution |",
-    "|----|------------|---------|----------|----------|----------"
-    "|-------------|--------|----------|------------|",
-]
+
+def _row(**overrides: str) -> dict[str, str]:
+    row = {
+        "id": "e2-1",
+        "root_cause": "WO-ERROR",
+        "handling_mode": "direct",
+        "sot_ref": "—",
+        "location": "target §3",
+        "severity": "critical",
+        "evidence": "bad API",
+        "description": "wrong API",
+        "status": "pending",
+        "decision": "—",
+        "resolution": "",
+    }
+    row.update(overrides)
+    return row
 
 
-class TestGetSchema:
-    def test_has_ten_columns_and_decision_required_root_cause(self):
+def _content(row: str = "") -> str:
+    return (
+        "---\n"
+        "schema_version: 3\n"
+        "dimension_id: synthetic-quality\n"
+        "round_token: round-1\n"
+        "---\n\n"
+        "# Review\n\n"
+        "| ID | root_cause | handling_mode | sot_ref | location | severity | evidence "
+        "| description | status | decision | resolution |\n"
+        "|----|------------|---------------|---------|----------|----------|----------"
+        "|-------------|--------|----------|------------|\n"
+        f"{row}"
+    )
+
+
+class TestSchema:
+    def test_v3_has_required_frontmatter_and_eleven_columns(self):
         schema = get_schema()
-        assert len(schema["columns"]) == 10
-        assert "WO-MISS" in schema["enums"]["root_cause"]
-        assert "DECISION-REQUIRED" in schema["enums"]["root_cause"]
-
-
-class TestValidateReviewHeader:
-    def test_valid_header(self):
-        assert validate_review_header(_HEADER_LINES) == []
-
-    def test_invalid_header(self):
-        bad = list(_HEADER_LINES)
-        bad[5] = "| ID | bad | cols |"
-        errors = validate_review_header(bad)
-        assert errors
-
-
-class TestValidateIssueRow:
-    def test_valid_probe_row(self):
-        row = {
-            "id": "e2-1",
-            "root_cause": "WO-ERROR",
-            "sot_ref": "—",
-            "location": "tech-doc §3",
-            "severity": "critical",
-            "evidence": "bad API design",
-            "description": "wrong API",
-            "status": "pending",
-            "decision": "—",
-            "resolution": "",
-        }
-        assert validate_issue_row(row, phase="probe") == []
-
-    def test_probe_rejects_nonempty_resolution_except_human_created_wo_error(self):
-        row = {
-            "id": "e2-1",
-            "root_cause": "SOT-DEFECT",
-            "sot_ref": "product §1",
-            "location": "tech-doc §3",
-            "severity": "critical",
-            "evidence": "ambiguous requirement",
-            "description": "cannot choose an implementation",
-            "status": "pending",
-            "decision": "—",
-            "resolution": "choose option A",
-        }
-        errors = validate_issue_row(row, phase="probe")
-        assert any("resolution" in error for error in errors)
-
-        row["root_cause"] = "WO-ERROR"
-        assert validate_issue_row(row, phase="probe") == []
-
-    def test_remediation_preserves_resolution(self):
-        row = {
-            "id": "e2-1",
-            "root_cause": "DECISION-REQUIRED",
-            "sot_ref": "—",
-            "location": "tech-doc §3",
-            "severity": "critical",
-            "evidence": "two incompatible product readings",
-            "description": "human decision required",
-            "status": "reclassified",
-            "decision": "reclassify",
-            "resolution": "adopt the first reading",
-        }
-        assert validate_issue_row(row, phase="remediation") == []
-
-    def test_sot_ref_required_for_wo_miss(self):
-        row = {
-            "id": "e1-1",
-            "root_cause": "WO-MISS",
-            "sot_ref": "",
-            "location": "tech-doc §2",
-            "severity": "medium",
-            "evidence": "gap",
-            "description": "missing",
-            "status": "pending",
-            "decision": "—",
-            "resolution": "",
-        }
-        errors = validate_issue_row(row, phase="probe")
-        assert any("sot_ref" in e for e in errors)
+        assert schema["version"] == "3"
+        assert schema["required_frontmatter"] == [
+            "schema_version",
+            "dimension_id",
+            "round_token",
+        ]
+        assert len(schema["columns"]) == 11
+        assert schema["columns"][2] == "handling_mode"
 
     @pytest.mark.parametrize(
-        ("status", "decision"),
+        ("policy", "root_cause", "expected"),
         [
-            ("approved", "fix"),
-            ("accepted-divergence", "accept-divergence"),
+            ("class-default", "WO-MISS", "direct"),
+            ("class-default", "WO-ERROR", "direct"),
+            ("class-default", "DECISION-REQUIRED", "human-gated"),
+            ("class-default", "SOT-DEFECT", "human-gated"),
+            ("human-first", "WO-MISS", "human-gated"),
+            ("human-first", "SOT-DEFECT", "human-gated"),
         ],
     )
-    def test_forced_artifact_dispositions_are_valid(self, status: str, decision: str):
-        row = {
+    def test_handling_mode_mapping(
+        self,
+        policy: str,
+        root_cause: str,
+        expected: str,
+    ):
+        assert resolve_handling_mode(policy, root_cause) == expected
+
+    def test_probe_payload_must_not_supply_handling_mode(self):
+        errors = validate_probe_finding({
             "id": "e2-1",
             "root_cause": "WO-ERROR",
-            "sot_ref": "—",
-            "location": "loc",
-            "severity": "medium",
-            "evidence": "ev",
-            "description": "desc",
-            "status": status,
-            "decision": decision,
-            "resolution": "human rationale",
-        }
-        assert validate_issue_row(row, phase="remediation") == []
+            "handling_mode": "direct",
+        })
+        assert "probe finding must not include handling_mode" in errors
 
-    def test_accept_divergence_is_artifact_only(self):
-        row = {
-            "id": "e2-1",
-            "root_cause": "SOT-DEFECT",
-            "sot_ref": "sot",
-            "location": "loc",
-            "severity": "medium",
-            "evidence": "ev",
-            "description": "desc",
-            "status": "accepted-divergence",
-            "decision": "accept-divergence",
-            "resolution": "human rationale",
-        }
+
+class TestIssueRows:
+    @pytest.mark.parametrize("handling_mode", ["direct", "human-gated"])
+    def test_pending_issue_is_valid(self, handling_mode: str):
+        assert validate_issue_row(_row(handling_mode=handling_mode), phase="probe") == []
+
+    @pytest.mark.parametrize(
+        "status",
+        ["approved", "fixed", "accepted-divergence", "ignored", "escalated", "reclassified"],
+    )
+    def test_result_shaped_statuses_are_rejected(self, status: str):
+        errors = validate_issue_row(
+            _row(status=status, decision="fix", resolution="done"),
+            phase="remediation",
+        )
+        assert any("invalid status" in error for error in errors)
+
+    @pytest.mark.parametrize(
+        "decision",
+        ["fix", "accept-divergence", "select", "allow-multiple", "escalate"],
+    )
+    def test_resolved_issue_accepts_target_decisions(self, decision: str):
+        assert validate_issue_row(
+            _row(
+                handling_mode="human-gated",
+                status="resolved",
+                decision=decision,
+                resolution="recorded result",
+            ),
+            phase="remediation",
+        ) == []
+
+    def test_pending_requires_em_dash_and_empty_resolution(self):
+        assert validate_issue_row(_row(), phase="probe") == []
         assert any(
-            "Artifact-class" in error
-            for error in validate_issue_row(row, phase="remediation")
+            "pending decision" in error
+            for error in validate_issue_row(_row(decision="fix"), phase="probe")
+        )
+        assert any(
+            "pending resolution" in error
+            for error in validate_issue_row(_row(resolution="premature"), phase="probe")
         )
 
-    def test_invalid_root_cause(self):
-        row = {
-            "id": "e2-1",
-            "root_cause": "B-SELF",
-            "sot_ref": "—",
-            "location": "loc",
-            "severity": "minor",
-            "evidence": "ev",
-            "description": "desc",
-            "status": "pending",
-            "decision": "—",
-            "resolution": "",
-        }
-        errors = validate_issue_row(row, phase="probe")
-        assert any("root_cause" in e for e in errors)
-
-
-class TestValidateReviewFile:
-    def test_valid_file(self, tmp_path: Path):
-        path = tmp_path / "review.md"
-        path.write_text(
-            "\n".join(_HEADER_LINES)
-            + "\n| e2-1 | WO-ERROR | — | loc | minor | ev | desc | pending | — | |\n",
-            encoding="utf-8",
+    def test_resolved_requires_decision_and_resolution(self):
+        errors = validate_issue_row(
+            _row(status="resolved", decision="—"),
+            phase="remediation",
         )
-        assert validate_review_file(path) == []
+        assert any("resolved decision" in error for error in errors)
+        assert any("resolved resolution" in error for error in errors)
 
-    def test_header_only_valid(self, tmp_path: Path):
-        path = tmp_path / "review.md"
-        path.write_text("\n".join(_HEADER_LINES) + "\n", encoding="utf-8")
-        assert validate_review_file(path) == []
+    def test_published_handling_mode_is_immutable(self):
+        before = _row(handling_mode="direct")
+        after = copy.deepcopy(before)
+        after["handling_mode"] = "human-gated"
+        assert validate_issue_transition(before, after) == [
+            "e2-1: handling_mode is immutable",
+        ]
 
-    def test_cli_schema(self):
-        import subprocess
 
-        script = Path(__file__).resolve().parents[1] / "review_schema.py"
-        proc = subprocess.run(
-            [sys.executable, str(script), "--schema"],
-            capture_output=True,
-            text=True,
-            check=False,
+class TestReviewDocument:
+    def test_valid_v3_document(self):
+        row = (
+            "| e2-1 | WO-ERROR | direct | — | loc | minor | ev | desc "
+            "| pending | — | |\n"
         )
-        assert proc.returncode == 0
-        data = json.loads(proc.stdout)
-        assert data["version"] == "2"
+        assert validate_review_content(_content(row)) == []
+
+    def test_shared_template_declares_v3_identity_and_handling_mode(self):
+        template = (
+            Path(__file__).resolve().parents[2] / "review.template.md"
+        ).read_text(encoding="utf-8")
+        assert template.startswith("---\nschema_version: 3\n")
+        assert "dimension_id: {{DIMENSION_ID}}" in template
+        assert "round_token: {{ROUND_TOKEN}}" in template
+        assert "| ID | root_cause | handling_mode |" in template
+
+    @pytest.mark.parametrize(
+        "frontmatter",
+        [
+            "",
+            "---\ndimension_id: synthetic-quality\nround_token: round-1\n---\n",
+            "---\nschema_version: 2\ndimension_id: synthetic-quality\nround_token: round-1\n---\n",
+        ],
+    )
+    def test_legacy_review_is_stably_rejected(self, frontmatter: str):
+        content = _content()
+        content = frontmatter + content.split("---\n", 2)[-1]
+        assert any(
+            "incompatible_round" in error
+            for error in validate_review_content(content)
+        )

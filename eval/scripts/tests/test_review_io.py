@@ -1,112 +1,151 @@
 #!/usr/bin/env python3
-"""Tests for eval/scripts/review_io.py."""
+"""Tests for ReviewFile v3 parsing and filtering."""
 
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import review_io  # noqa: E402
+
 from review_io import (  # noqa: E402
-    has_pending_human,
     count_resolved,
-    issues_by_root_cause,
-    parse_review_file,
-    pending_artifact_rows,
-    pending_human_rows,
-    pending_resolution_rows,
-)
-
-_REVIEW_HEADER = (
-    "# Tech Review — E2 | revision1 round 1\n\n"
-    "**Date:** 2026-01-01\n"
-    "**Refs:** codebase\n\n"
-    "| ID | root_cause | sot_ref | location | severity | evidence "
-    "| description | status | decision | resolution |\n"
-    "|----|------------|---------|----------|----------|----------"
-    "|-------------|--------|----------|------------|\n"
+    has_escalated,
+    parse_review_content,
+    parse_review_frontmatter,
+    pending_rows,
+    rows_by_handling_mode,
 )
 
 
-def _write_review(tmp_path: Path, rows: str) -> Path:
-    path = tmp_path / "tech-review-e12.md"
-    path.write_text(_REVIEW_HEADER + rows, encoding="utf-8")
-    return path
+def _review(rows: str) -> str:
+    return (
+        "---\n"
+        "schema_version: 3\n"
+        "dimension_id: synthetic-quality\n"
+        "round_token: round-1\n"
+        "---\n\n"
+        "| ID | root_cause | handling_mode | sot_ref | location | severity | evidence "
+        "| description | status | decision | resolution |\n"
+        "|----|------------|---------------|---------|----------|----------|----------"
+        "|-------------|--------|----------|------------|\n"
+        f"{rows}"
+    )
 
 
-class TestParseReviewFile:
-    def test_parses_resolution_column(self, tmp_path: Path):
-        path = _write_review(
-            tmp_path,
-            "| e2-1 | WO-ERROR | — | tech-doc §3 | critical | bad API | "
-            "wrong API | pending | — | decision applied |\n",
+def test_parses_frontmatter_and_handling_mode():
+    content = _review(
+        "| e2-1 | WO-ERROR | direct | — | loc | critical | ev | desc "
+        "| pending | — | |\n",
+    )
+    assert parse_review_frontmatter(content) == {
+        "schema_version": "3",
+        "dimension_id": "synthetic-quality",
+        "round_token": "round-1",
+    }
+    assert parse_review_content(content)[0]["handling_mode"] == "direct"
+    assert parse_review_content(
+        content,
+        expected_dimension_id="synthetic-quality",
+        expected_round_token="round-1",
+    )[0]["id"] == "e2-1"
+
+
+def test_filters_by_persisted_handling_mode_not_policy_or_root_cause():
+    rows = parse_review_content(_review(
+        "| e2-1 | WO-ERROR | human-gated | — | loc | medium | ev | desc "
+        "| pending | — | |\n"
+        "| e2-2 | SOT-DEFECT | human-gated | sot | loc | critical | ev | desc "
+        "| pending | — | |\n"
+        "| e2-3 | WO-MISS | direct | sot | loc | medium | ev | desc "
+        "| resolved | fix | fixed |\n",
+    ))
+    assert [row["id"] for row in rows_by_handling_mode(rows, "human-gated")] == [
+        "e2-1",
+        "e2-2",
+    ]
+    assert [row["id"] for row in pending_rows(rows)] == ["e2-1", "e2-2"]
+    assert count_resolved(rows) == 1
+
+
+def test_escalation_is_a_decision_not_a_status():
+    rows = parse_review_content(_review(
+        "| e2-1 | SOT-DEFECT | human-gated | sot | loc | critical | ev | desc "
+        "| resolved | escalate | upstream decision required |\n",
+    ))
+    assert has_escalated(rows)
+
+
+def test_parser_rejects_legacy_review_before_reading_business_rows():
+    legacy = (
+        "| ID | root_cause | status | decision |\n"
+        "|----|------------|--------|----------|\n"
+        "| old-1 | WO-ERROR | fixed | fix |\n"
+    )
+    with pytest.raises(ValueError, match="incompatible_round"):
+        parse_review_content(legacy)
+
+
+def test_parser_rejects_reordered_v3_header():
+    content = _review("").replace(
+        "| ID | root_cause | handling_mode |",
+        "| root_cause | ID | handling_mode |",
+    )
+    with pytest.raises(ValueError, match="header"):
+        parse_review_content(content)
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        "| e2-1 | WO-ERROR | direct | — | loc | critical | ev | desc | pending | — |\n",
+        "| e2-1 | WO-ERROR | direct | — | loc | critical | ev | desc | pending | — | | extra |\n",
+    ],
+)
+def test_parser_rejects_rows_with_nonexact_cell_count(row: str):
+    with pytest.raises(ValueError, match="11 cells"):
+        parse_review_content(_review(row))
+
+
+def test_parser_rejects_legacy_id_and_description_aliases():
+    content = _review(
+        "| e2-1 | WO-ERROR | direct | — | loc | critical | ev | desc "
+        "| pending | — | |\n",
+    ).replace("| ID |", "| # |").replace("| description |", "| issue |")
+    with pytest.raises(ValueError, match="header"):
+        parse_review_content(content)
+
+
+@pytest.mark.parametrize("missing", ["dimension_id", "round_token"])
+def test_parser_requires_complete_v3_identity(missing: str):
+    content = _review("").replace(
+        f"{missing}: "
+        + ("synthetic-quality" if missing == "dimension_id" else "round-1")
+        + "\n",
+        "",
+    )
+    with pytest.raises(ValueError, match=missing):
+        parse_review_content(content)
+
+
+@pytest.mark.parametrize(
+    ("expected_dimension_id", "expected_round_token", "mismatch"),
+    [
+        ("other-dimension", "round-1", "dimension_id"),
+        ("synthetic-quality", "other-round", "round_token"),
+    ],
+)
+def test_parser_rejects_expected_identity_mismatch_before_rows(
+    expected_dimension_id: str,
+    expected_round_token: str,
+    mismatch: str,
+):
+    malformed_row = (
+        "| too | few | cells |\n"
+    )
+    with pytest.raises(ValueError, match=mismatch):
+        parse_review_content(
+            _review(malformed_row),
+            expected_dimension_id=expected_dimension_id,
+            expected_round_token=expected_round_token,
         )
-        rows = parse_review_file(path)
-        assert len(rows) == 1
-        assert rows[0]["id"] == "e2-1"
-        assert rows[0]["root_cause"] == "WO-ERROR"
-        assert rows[0]["severity"] == "critical"
-        assert rows[0]["resolution"] == "decision applied"
-
-    def test_empty_data_rows(self, tmp_path: Path):
-        path = _write_review(tmp_path, "")
-        assert parse_review_file(path) == []
-
-
-class TestFilterRows:
-    def test_pending_artifact_rows(self, tmp_path: Path):
-        path = _write_review(
-            tmp_path,
-            "| e2-1 | WO-MISS | product §1 | tech-doc §2 | medium | gap | "
-            "missing | pending | — | |\n"
-            "| e2-2 | SOT-DEFECT | product §1 | tech-doc §2 | medium | gap | "
-            "ambiguous | pending | — | |\n"
-            "| e2-3 | DECISION-REQUIRED | product §2 | tech-doc §4 | critical | "
-            "two valid readings | human choice required | pending | — | |\n",
-        )
-        rows = parse_review_file(path)
-        assert len(pending_artifact_rows(
-            rows,
-            force_human_resolution=False,
-        )) == 1
-        assert len(pending_human_rows(rows)) == 2
-        assert has_pending_human(rows)
-
-    def test_old_sot_names_are_unavailable(self):
-        assert not hasattr(review_io, "_SOT_LABELS")
-        assert not hasattr(review_io, "pending_sot_rows")
-        assert not hasattr(review_io, "has_pending_sot")
-
-    def test_issues_by_root_cause(self, tmp_path: Path):
-        path = _write_review(
-            tmp_path,
-            "| e2-1 | WO-ERROR | — | loc | minor | ev | desc | pending | — | |\n",
-        )
-        rows = parse_review_file(path)
-        filtered = issues_by_root_cause(rows, frozenset({"WO-ERROR"}))
-        assert len(filtered) == 1
-
-    def test_forced_policy_routes_all_pending_rows_to_human(self, tmp_path: Path):
-        path = _write_review(
-            tmp_path,
-            "| e2-1 | WO-ERROR | — | loc | medium | ev | desc | pending | — | |\n"
-            "| e2-2 | SOT-DEFECT | sot | loc | critical | ev | desc | pending | — | |\n",
-        )
-        rows = parse_review_file(path)
-        assert [row["id"] for row in pending_resolution_rows(
-            rows,
-            force_human_resolution=True,
-        )] == ["e2-1", "e2-2"]
-        assert [row["id"] for row in pending_resolution_rows(
-            rows,
-            force_human_resolution=False,
-        )] == ["e2-2"]
-
-    def test_count_resolved_uses_terminal_dispositions_only(self, tmp_path: Path):
-        path = _write_review(
-            tmp_path,
-            "| e2-1 | WO-ERROR | — | loc | medium | ev | desc | approved | fix | why |\n"
-            "| e2-2 | WO-MISS | sot | loc | medium | ev | desc | "
-            "accepted-divergence | accept-divergence | intentional |\n"
-            "| e2-3 | WO-ERROR | — | loc | medium | ev | desc | ignored | ignore | why |\n",
-        )
-        assert count_resolved(parse_review_file(path)) == 1

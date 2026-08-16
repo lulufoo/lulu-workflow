@@ -2,5 +2,6 @@
   "workflow_id": "lulu-decision",
   "enabled": true,
   "adapter_module": "decision/scripts/eval/decision_eval_adapter.py",
-  "adapter_class": "DecisionEvalAdapter"
+  "adapter_class": "DecisionEvalAdapter",
+  "eval_capability": "probe-only"
 }

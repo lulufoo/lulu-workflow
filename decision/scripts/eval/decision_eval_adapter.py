@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import shutil
 import sys
 from pathlib import Path
@@ -17,13 +16,7 @@ for p in (_DECISION_SCRIPTS, _EVAL_SCRIPTS):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-from corpus_compose import (  # noqa: E402
-    compose_corpus,
-    corpus_fingerprint,
-    is_composed_corpus_ref,
-    load_dimension_def,
-)
-from corpus_schema import corpus_ref, dispatch_ids  # noqa: E402
+from corpus_compose import compose_corpus, load_dimension_def  # noqa: E402
 from dec_domain_constraints_schema import KERNEL_STAGE, load_domain_constraints  # noqa: E402
 from dec_eval_runtime_schema import (  # noqa: E402
     allocate_lease,
@@ -54,11 +47,8 @@ from eval_handoff_schema import (  # noqa: E402
     validate_artifact_manifest_v2,
     validate_eval_handoff_v2,
 )
-from evaluate_state_schema import (  # noqa: E402
-    build_initial_evaluate_state,
-    load_evaluate_state,
-    save_evaluate_state,
-)
+from evaluate_state_ops import init_evaluate_state_for_corpus  # noqa: E402
+from evaluate_state_schema import load_evaluate_state, save_evaluate_state  # noqa: E402
 from workflow_adapter import SessionContext  # noqa: E402
 
 _WORKFLOW_ID = "lulu-decision"
@@ -66,37 +56,7 @@ _CORPUS_ID = "lulu-decision-composed"
 _CORPUS_VERSION = "2"
 _CORPUS_REF = f"{_CORPUS_ID}@{_CORPUS_VERSION}"
 _DIMENSION_ORDER = ("decision-consistency",)
-
-
-def _init_evaluate_state(
-    path: Path,
-    corpus: dict[str, Any],
-    *,
-    evaluate_round: int,
-    focus_l: str,
-) -> None:
-    """Init evaluate-state without importing Compose discussion_pointer helpers."""
-    ids = dispatch_ids(corpus)
-    ref = corpus_ref(corpus)
-    fingerprint = ""
-    if is_composed_corpus_ref(ref):
-        fingerprint = corpus_fingerprint(ids, cycle_type="feature")
-    save_evaluate_state(
-        path,
-        build_initial_evaluate_state(
-            dimension_ids=ids,
-            corpus_ref=ref,
-            corpus_fingerprint=fingerprint,
-            dimension_dispatch=str(corpus.get("dimension_dispatch", "parallel")),
-            evaluate_round=evaluate_round,
-            focus_l=focus_l,
-            force_human_resolution={
-                str(dimension["id"]): dimension["force_human_resolution"]
-                for dimension in corpus["dimensions"]
-            },
-        ),
-        merge=False,
-    )
+_EVAL_CAPABILITY = "probe-only"
 
 
 class DecisionEvalAdapter:
@@ -285,16 +245,17 @@ class DecisionEvalAdapter:
         already = runtime.get("focus_phase") == "evaluating"
         runtime = enter_evaluating_runtime(runtime)
         evaluate_round = int(runtime["evaluate_round"])
-        eval_dir = evaluate_dir(session_dir, evaluate_round)
-        eval_dir.mkdir(parents=True, exist_ok=True)
         es_path = evaluate_state_path(session_dir)
-        if not already:
-            _init_evaluate_state(
+        if not already and not es_path.is_file():
+            init_evaluate_state_for_corpus(
                 es_path,
                 self.resolve_eval_corpus(cycle_id, project_root),
+                eval_capability=_EVAL_CAPABILITY,
+                cycle_type="feature",
                 evaluate_round=evaluate_round,
                 focus_l="DC",
             )
+        evaluate_dir(session_dir, evaluate_round).mkdir(parents=True, exist_ok=True)
         self._save_runtime(cycle_id, project_root, runtime)
         return {
             "ok": True,
@@ -339,6 +300,7 @@ class DecisionEvalAdapter:
                 "mode": "tech",
                 "cycle_type": "feature",
                 "upstream_baseline_ref": "",
+                "eval_capability": _EVAL_CAPABILITY,
             },
         )
         errors = validate_eval_handoff_v2(handoff)
@@ -419,6 +381,16 @@ class DecisionEvalAdapter:
         self._save_runtime(cycle_id, project_root, runtime)
         return {"ok": True}
 
+    def read_eval_target_digest(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        target_path: Path,
+    ) -> str:
+        del cycle_id, project_root
+        return hashlib.sha256(Path(target_path).read_bytes()).hexdigest()
+
     def finalize_eval_outcome(
         self,
         cycle_id: str,
@@ -427,22 +399,9 @@ class DecisionEvalAdapter:
         outcome: str,
         issues: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
-        """Decision exit: mark evaluate-state done and leave evaluating."""
+        """Decision runtime exit after Eval Control complete-probe-only."""
         session_dir = self._session_dir(cycle_id, project_root)
         runtime = load_runtime(runtime_path(session_dir))
-        es_path = evaluate_state_path(session_dir)
-        if es_path.is_file():
-            data = load_evaluate_state(es_path)
-            # Mark every dimension complete so shared complete-round is unused.
-            status = json.loads(data.get("dimension_status") or "{}")
-            if isinstance(status, dict):
-                for key in list(status):
-                    status[key] = "complete"
-                data["dimension_status"] = json.dumps(status, separators=(",", ":"))
-            data["fix_phase"] = "done"
-            data["eval_status"] = "done"
-            save_evaluate_state(es_path, data, merge=False)
-
         runtime = exit_evaluating_runtime(runtime, outcome=outcome)
         self._save_runtime(cycle_id, project_root, runtime)
         return {

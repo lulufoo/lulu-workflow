@@ -35,7 +35,8 @@
     "enabled": true,
     "workflow_id": "lulu-plan",
     "adapter_module": "lulu-plan/scripts/eval/tech_plan_eval_adapter.py",
-    "adapter_class": "TechPlanEvalAdapter"
+    "adapter_class": "TechPlanEvalAdapter",
+    "eval_capability": "full-remediation"
   },
   "delivery_index": {
     "layout": "revision",

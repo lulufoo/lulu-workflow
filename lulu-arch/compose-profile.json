@@ -35,7 +35,8 @@
     "enabled": true,
     "workflow_id": "lulu-arch",
     "adapter_module": "lulu-arch/scripts/eval/tech_arch_eval_adapter.py",
-    "adapter_class": "TechArchEvalAdapter"
+    "adapter_class": "TechArchEvalAdapter",
+    "eval_capability": "full-remediation"
   },
   "delivery_index": {
     "layout": "revision",

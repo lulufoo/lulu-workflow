@@ -44,24 +44,15 @@ from fact_intake_eval_runtime_schema import (  # noqa: E402
     write_workflow_state_file,
 )
 from compose_session import workflow_state_path as compose_workflow_state_path  # noqa: E402
-from corpus_compose import (  # noqa: E402
-    compose_corpus,
-    corpus_fingerprint,
-    is_composed_corpus_ref,
-    load_dimension_def,
-)
-from corpus_schema import corpus_ref, dispatch_ids  # noqa: E402
+from corpus_compose import compose_corpus, load_dimension_def  # noqa: E402
 from l_ledger_schema import active_slice_dir  # noqa: E402
 from eval_handoff_schema import (  # noqa: E402
     build_eval_handoff_v2,
     validate_artifact_manifest_v2,
     validate_eval_handoff_v2,
 )
-from evaluate_state_schema import (  # noqa: E402
-    build_initial_evaluate_state,
-    load_evaluate_state,
-    save_evaluate_state,
-)
+from evaluate_state_ops import init_evaluate_state_for_corpus  # noqa: E402
+from evaluate_state_schema import load_evaluate_state, save_evaluate_state  # noqa: E402
 from facts_schema import facts_path  # noqa: E402
 from resolved_refs_schema import has_resolved_refs, resolved_scope_ref  # noqa: E402
 from scope_package_convert import (  # noqa: E402
@@ -78,6 +69,7 @@ _CORPUS_VERSION = "2"
 _CORPUS_REF = f"{_CORPUS_ID}@{_CORPUS_VERSION}"
 _DIMENSION_ORDER = ("e1-doc-coverage", "e2-fact-provenance")
 _PROFILE_ENV = "COMPOSE_FACT_INTAKE_PROFILE_ID"
+_EVAL_CAPABILITY = "full-remediation"
 
 
 def _profile_id() -> str:
@@ -110,36 +102,6 @@ def _source_path(revision_dir: Path) -> str:
     except ScopePackageAntiseepError:
         return ""
     return ""
-
-
-def _init_evaluate_state(
-    path: Path,
-    corpus: dict[str, Any],
-    *,
-    evaluate_round: int,
-    focus_l: str,
-) -> None:
-    ids = dispatch_ids(corpus)
-    ref = corpus_ref(corpus)
-    fingerprint = ""
-    if is_composed_corpus_ref(ref):
-        fingerprint = corpus_fingerprint(ids, cycle_type="feature")
-    save_evaluate_state(
-        path,
-        build_initial_evaluate_state(
-            dimension_ids=ids,
-            corpus_ref=ref,
-            corpus_fingerprint=fingerprint,
-            dimension_dispatch=str(corpus.get("dimension_dispatch", "parallel")),
-            evaluate_round=evaluate_round,
-            focus_l=focus_l,
-            force_human_resolution={
-                str(dimension["id"]): dimension["force_human_resolution"]
-                for dimension in corpus["dimensions"]
-            },
-        ),
-        merge=False,
-    )
 
 
 def _file_digest(path: Path) -> str:
@@ -314,16 +276,17 @@ class FactIntakeEvalAdapter:
         already = runtime.get("focus_phase") == "evaluating"
         runtime = enter_evaluating_runtime(runtime)
         evaluate_round = int(runtime["evaluate_round"])
-        eval_round_dir = evaluate_dir(slice_dir, evaluate_round)
-        eval_round_dir.mkdir(parents=True, exist_ok=True)
         es_path = evaluate_state_path(slice_dir)
         if not already:
-            _init_evaluate_state(
+            init_evaluate_state_for_corpus(
                 es_path,
                 self.resolve_eval_corpus(cycle_id, project_root),
+                eval_capability=_EVAL_CAPABILITY,
+                cycle_type="feature",
                 evaluate_round=evaluate_round,
                 focus_l=str(slice_dir.name),
             )
+        evaluate_dir(slice_dir, evaluate_round).mkdir(parents=True, exist_ok=True)
         self._save_runtime(cycle_id, project_root, runtime)
         return {
             "ok": True,
@@ -377,6 +340,7 @@ class FactIntakeEvalAdapter:
                 "cycle_type": "feature",
                 "upstream_baseline_ref": "",
                 "completion_mode": "return_to_caller",
+                "eval_capability": _EVAL_CAPABILITY,
             },
         )
         errors = validate_eval_handoff_v2(handoff)
@@ -439,7 +403,17 @@ class FactIntakeEvalAdapter:
         shutil.copy2(staged_state_path, es_path)
         return {"ok": True}
 
-    def commit_remediation_target(
+    def read_eval_target_digest(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        target_path: Path,
+    ) -> str:
+        del cycle_id, project_root
+        return _file_digest(Path(target_path))
+
+    def commit_eval_target(
         self,
         cycle_id: str,
         project_root: Path,
@@ -479,13 +453,13 @@ class FactIntakeEvalAdapter:
             "target_digest": _file_digest(target),
         }
 
-    def restore_remediation_target(
+    def restore_eval_target(
         self,
         cycle_id: str,
         project_root: Path,
         *,
         snapshot_path: Path,
-        expected_digest: str,
+        expected_current_digest: str,
         lease_id: str,
     ) -> dict[str, Any]:
         slice_dir = _slice_dir(cycle_id, project_root)
@@ -495,16 +469,22 @@ class FactIntakeEvalAdapter:
         if not snapshot_path.is_file():
             return {"ok": False, "error": f"snapshot missing: {snapshot_path}"}
         target = facts_path(slice_dir).resolve()
+        if not target.is_file() or _file_digest(target) != expected_current_digest:
+            return {
+                "ok": False,
+                "error": "cas_rejected: live digest is not expected_current",
+            }
         try:
             replacement = target.with_name(target.name + ".eval-restore.tmp")
             shutil.copy2(snapshot_path, replacement)
             _atomic_replace(replacement, target)
         except OSError as exc:
             return {"ok": False, "error": f"target restore failed: {exc}"}
-        digest = _file_digest(target)
-        if digest != expected_digest:
-            return {"ok": False, "error": "restored digest mismatch"}
-        return {"ok": True, "target_path": target.as_posix(), "target_digest": digest}
+        return {
+            "ok": True,
+            "target_path": target.as_posix(),
+            "target_digest": _file_digest(target),
+        }
 
     def discard_eval_staging(
         self,

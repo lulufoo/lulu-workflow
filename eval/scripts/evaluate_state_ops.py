@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import fcntl
+import re
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,7 @@ from corpus_schema import (
     corpus_ref,
     dispatch_ids,
     dispatch_legacy_aliases,
+    normalize_corpus,
     resolve_dim_id,
 )
 from evaluate_state_schema import (
@@ -36,14 +38,16 @@ def dispatch_legacy_for_corpus(corpus: dict[str, Any]) -> list[str]:
 def build_initial_evaluate_state_for_corpus(
     corpus: dict[str, Any],
     *,
+    eval_capability: str,
     cycle_type: str = "feature",
     evaluate_round: int | None = None,
     focus_l: str = "",
 ) -> dict[str, str]:
     """Return frontmatter for a new evaluate-state from an EvalCorpus."""
+    corpus = normalize_corpus(corpus)
     ids = dispatch_ids(corpus)
     policy = {
-        str(dimension["id"]): bool(dimension["force_human_resolution"])
+        str(dimension["id"]): str(dimension["handling_policy"])
         for dimension in corpus["dimensions"]
     }
     ref = corpus_ref(corpus)
@@ -57,7 +61,8 @@ def build_initial_evaluate_state_for_corpus(
         dimension_dispatch=str(corpus.get("dimension_dispatch", "parallel")),
         evaluate_round=evaluate_round,
         focus_l=focus_l,
-        force_human_resolution=policy,
+        eval_capability=eval_capability,
+        handling_policy=policy,
     )
 
 
@@ -65,21 +70,56 @@ def init_evaluate_state_for_corpus(
     path: Path,
     corpus: dict[str, Any],
     *,
+    eval_capability: str,
     cycle_type: str = "feature",
     evaluate_round: int | None = None,
     focus_l: str = "",
 ) -> None:
-    """Initialize evaluate-state.md from a resolved EvalCorpus."""
-    save_evaluate_state(
-        path,
-        build_initial_evaluate_state_for_corpus(
-            corpus,
-            cycle_type=cycle_type,
-            evaluate_round=evaluate_round,
-            focus_l=focus_l,
-        ),
-        merge=False,
-    )
+    """Create evaluate-state only when its Eval storage is empty."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_name(f".{path.name}.init.lock")
+    lock_path.touch(exist_ok=True)
+    with lock_path.open("w", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            if path.exists():
+                existing = parse_frontmatter_fields(
+                    path.read_text(encoding="utf-8"),
+                )
+                version = existing.get("version")
+                if version != "7":
+                    raise ValueError(
+                        "incompatible_round: existing evaluate-state version "
+                        f"{version!r} cannot be initialized as v7",
+                    )
+                raise ValueError(
+                    "incompatible_storage: evaluate-state already exists",
+                )
+
+            residue = [
+                entry
+                for entry in path.parent.iterdir()
+                if entry != lock_path
+            ]
+            if residue:
+                names = ", ".join(sorted(entry.name for entry in residue))
+                raise ValueError(
+                    f"incompatible_storage: Eval storage is not empty: {names}",
+                )
+
+            save_evaluate_state(
+                path,
+                build_initial_evaluate_state_for_corpus(
+                    corpus,
+                    eval_capability=eval_capability,
+                    cycle_type=cycle_type,
+                    evaluate_round=evaluate_round,
+                    focus_l=focus_l,
+                ),
+                merge=False,
+            )
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def _resolve_dim_key(
@@ -132,7 +172,22 @@ def dimension_status_legacy_map(
     return result
 
 
-def save_evaluate_state_locked(
+def _read_frontmatter_version(content: str) -> str | None:
+    """Read only the version scalar from frontmatter."""
+    if not content.startswith("---"):
+        return None
+    end = content.find("\n---", 3)
+    if end < 0:
+        return None
+    match = re.search(
+        r"^version:\s*(.*?)\s*$",
+        content[3:end],
+        re.MULTILINE,
+    )
+    return match.group(1) if match else None
+
+
+def locked_patch_evaluate_state(
     path: Path,
     patch_fn,
 ) -> dict[str, str]:
@@ -145,9 +200,14 @@ def save_evaluate_state_locked(
         fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
         try:
             if path.exists():
-                existing = parse_frontmatter_fields(
-                    path.read_text(encoding="utf-8"),
-                )
+                content = path.read_text(encoding="utf-8")
+                version = _read_frontmatter_version(content)
+                if version != "7":
+                    raise ValueError(
+                        "incompatible_round: existing evaluate-state version "
+                        f"{version!r} is not supported (expected '7')",
+                    )
+                existing = parse_frontmatter_fields(content)
                 data = patch_fn(dict(existing))
             else:
                 data = patch_fn({})
@@ -161,3 +221,6 @@ def save_evaluate_state_locked(
             return data
         finally:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+save_evaluate_state_locked = locked_patch_evaluate_state

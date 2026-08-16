@@ -61,8 +61,8 @@ from workflow_state_schema import load_workflow_state  # noqa: E402
 _CMD_REQUEST = "request-handoff"
 _CMD_COMMIT = "commit-artifacts"
 _CMD_COMMIT_STATE = "commit-evaluate-state"
-_CMD_COMMIT_TARGET = "commit-remediation-target"
-_CMD_RESTORE_TARGET = "restore-remediation-target"
+_CMD_COMMIT_TARGET = "commit-eval-target"
+_CMD_RESTORE_TARGET = "restore-eval-target"
 _CMD_DISCARD = "discard-staging"
 _STAGING_ROOT = ".eval-staging"
 _LEASE_META = "lease.json"
@@ -347,6 +347,9 @@ def request_handoff(
             "mode": state.get("mode", "tech"),
             "cycle_type": detect_cycle_type(cycle_id),
             "upstream_baseline_ref": upstream or "",
+            "eval_capability": str(
+                (profile.get("eval") or {}).get("eval_capability") or ""
+            ).strip(),
         },
     }
     handoff = {"adapter": adapter, "context": context}
@@ -624,7 +627,12 @@ def _lease_scoped_path(
     return resolved
 
 
-def commit_remediation_target(
+def read_eval_target_digest(*, target_path: Path) -> str:
+    """Return the live SHA-256 digest of an EvalTarget file."""
+    return _file_digest(Path(target_path))
+
+
+def commit_eval_target(
     cycle_id: str,
     project_root: Path,
     *,
@@ -668,12 +676,12 @@ def commit_remediation_target(
     )
 
 
-def restore_remediation_target(
+def restore_eval_target(
     cycle_id: str,
     project_root: Path,
     *,
     snapshot_path: Path,
-    expected_digest: str,
+    expected_current_digest: str,
     lease_id: str,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
@@ -695,7 +703,7 @@ def restore_remediation_target(
     snapshot = _lease_scoped_path(lease_dir, snapshot_path, command=_CMD_RESTORE_TARGET)
     if isinstance(snapshot, dict):
         return snapshot
-    if not target.is_file() or _file_digest(target) != expected_digest:
+    if not target.is_file() or _file_digest(target) != expected_current_digest:
         return _failure(_CMD_RESTORE_TARGET, "target changed before rollback")
     try:
         replacement = target.with_name(target.name + ".eval-remediation.tmp")

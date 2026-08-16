@@ -18,9 +18,10 @@ from pathlib import Path
 from typing import Any
 
 _SCHEMA: dict[str, Any] = {
-    "version": "5",
+    "schema_version": "6",
     "required_top_level": [
         "id",
+        "schema_version",
         "version",
         "scope",
         "context",
@@ -30,6 +31,7 @@ _SCHEMA: dict[str, Any] = {
     "enums": {
         "context": ["offline"],
         "dimension_dispatch": ["parallel", "serial"],
+        "handling_policy": ["class-default", "human-first"],
     },
     "bind_placeholders": [
         "eval_target_path",
@@ -43,6 +45,11 @@ _SCHEMA: dict[str, Any] = {
 _PLACEHOLDER_RE = re.compile(r"\{(\w+)\}")
 _VALID_CONTEXT = frozenset(_SCHEMA["enums"]["context"])
 _VALID_DISPATCH = frozenset(_SCHEMA["enums"]["dimension_dispatch"])
+_VALID_HANDLING_POLICY = frozenset(_SCHEMA["enums"]["handling_policy"])
+_REMOVED_DIMENSION_FIELDS = frozenset({
+    "force_human_resolution",
+    "remediation_target",
+})
 
 
 def get_schema() -> dict[str, Any]:
@@ -88,14 +95,16 @@ def _validate_dimension(dim: Any, errors: list[str], *, ctx: str) -> None:
         return
     _require_str(dim, "id", errors, ctx=ctx)
     _require_str(dim, "label", errors, ctx=ctx)
-    if not isinstance(dim.get("force_human_resolution"), bool):
-        errors.append(f"{ctx}: force_human_resolution must be a boolean")
-    for target_key in ("eval_target", "remediation_target"):
-        target = dim.get(target_key)
-        if not isinstance(target, dict):
-            errors.append(f"{ctx}: {target_key} must be an object")
-        else:
-            _require_str(target, "path", errors, ctx=f"{ctx}.{target_key}")
+    for field in sorted(_REMOVED_DIMENSION_FIELDS & dim.keys()):
+        errors.append(f"{ctx}: unsupported field: {field!r}")
+    handling_policy = dim.get("handling_policy", "class-default")
+    if handling_policy not in _VALID_HANDLING_POLICY:
+        errors.append(f"{ctx}: invalid handling_policy: {handling_policy!r}")
+    target = dim.get("eval_target")
+    if not isinstance(target, dict):
+        errors.append(f"{ctx}: eval_target must be an object")
+    else:
+        _require_str(target, "path", errors, ctx=f"{ctx}.eval_target")
     sots = dim.get("sots")
     if not isinstance(sots, list):
         errors.append(f"{ctx}: sots must be an array")
@@ -116,6 +125,12 @@ def _validate_dimension(dim: Any, errors: list[str], *, ctx: str) -> None:
 
 def validate_corpus(data: dict[str, Any]) -> list[str]:
     """Return validation errors; empty list means valid."""
+    if data.get("schema_version") != _SCHEMA["schema_version"]:
+        return [
+            "incompatible_round: EvalCorpus schema_version "
+            f"{data.get('schema_version')!r} is not supported "
+            f"(expected {_SCHEMA['schema_version']!r})",
+        ]
     errors: list[str] = []
     for key in _SCHEMA["required_top_level"]:
         if key not in data:
@@ -156,6 +171,17 @@ def validate_corpus(data: dict[str, Any]) -> list[str]:
     return errors
 
 
+def normalize_corpus(data: dict[str, Any]) -> dict[str, Any]:
+    """Return a validated copy with every Dimension policy made explicit."""
+    errors = validate_corpus(data)
+    if errors:
+        raise ValueError(f"corpus invalid: {'; '.join(errors)}")
+    normalized = copy.deepcopy(data)
+    for dimension in normalized["dimensions"]:
+        dimension.setdefault("handling_policy", "class-default")
+    return normalized
+
+
 def _substitute_string(value: str, bind: dict[str, str]) -> str:
     def repl(match: re.Match[str]) -> str:
         key = match.group(1)
@@ -178,10 +204,7 @@ def _expand_value(value: Any, bind: dict[str, str]) -> Any:
 
 def expand_corpus(data: dict[str, Any], bind: dict[str, str]) -> dict[str, Any]:
     """Return a copy of corpus with bind placeholders substituted."""
-    errors = validate_corpus(data)
-    if errors:
-        raise ValueError(f"corpus invalid: {'; '.join(errors)}")
-    return _expand_value(copy.deepcopy(data), bind)
+    return _expand_value(normalize_corpus(data), bind)
 
 
 def corpus_ref(data: dict[str, Any]) -> str:

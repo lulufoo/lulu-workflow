@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Authoritative schema and I/O helpers for evaluate-state.md (v6).
+"""Authoritative schema and I/O helpers for evaluate-state.md (v7).
 
 CLI:
     python3 evaluate_state_schema.py --schema
@@ -18,27 +18,27 @@ from typing import Any
 
 _SCHEMA: list[dict[str, Any]] = [
     {"field": "version", "type": "string", "required": True,
-     "description": "Schema version (currently 6)"},
+     "description": "Schema version (currently 7)"},
     {"field": "phase", "type": "string", "required": True,
      "description": "Fixed value: evaluate"},
     {"field": "eval_status", "type": "string", "required": True,
      "description": "Round-level status: active | done | abandoned"},
-    {"field": "fix_phase", "type": "string", "required": True,
-     "description": "probe | artifact-remediation | human-resolution | done"},
+    {"field": "eval_phase", "type": "string", "required": True,
+     "description": "probe | remediation | done"},
+    {"field": "eval_capability", "type": "string", "required": True,
+     "description": "full-remediation | probe-only"},
     {"field": "corpus_ref", "type": "string", "required": False,
      "description": "EvalCorpus id@version (optional)"},
     {"field": "corpus_fingerprint", "type": "string", "required": False,
      "description": "Hash of composed dimension id set (dynamic corpus)"},
-    {"field": "force_human_resolution", "type": "string", "required": True,
-     "description": "JSON map dim_id -> boolean pinned for this Eval round"},
+    {"field": "handling_policy", "type": "string", "required": True,
+     "description": "JSON map dim_id -> class-default|human-first"},
     {"field": "dimension_dispatch", "type": "string", "required": True,
      "description": "parallel | serial"},
     {"field": "round_token", "type": "string", "required": True,
      "description": "Opaque token for this Eval round"},
     {"field": "dimension_status", "type": "string", "required": True,
-     "description": "JSON map dim_id -> pending|in_progress|probed|complete"},
-    {"field": "dimension_tokens", "type": "string", "required": True,
-     "description": "JSON map dim_id -> open Dimension operation token"},
+     "description": "JSON map dim_id -> pending|probing|probed|remediating|complete"},
     {"field": "issue_counts", "type": "string", "required": True,
      "description": "JSON map dim_id -> {total, resolved}"},
     {"field": "total_issues", "type": "string", "required": True,
@@ -61,14 +61,14 @@ _KEY_ORDER = [
     "version",
     "phase",
     "eval_status",
-    "fix_phase",
+    "eval_phase",
+    "eval_capability",
     "corpus_ref",
     "corpus_fingerprint",
-    "force_human_resolution",
+    "handling_policy",
     "dimension_dispatch",
     "round_token",
     "dimension_status",
-    "dimension_tokens",
     "issue_counts",
     "total_issues",
     "resolved_issues",
@@ -77,24 +77,33 @@ _KEY_ORDER = [
 ]
 
 _VALID_EVAL_STATUS = frozenset({"active", "done", "abandoned"})
-_VALID_FIX_PHASE = frozenset({
-    "probe",
-    "artifact-remediation",
-    "human-resolution",
-    "done",
+_VALID_EVAL_PHASE = frozenset({"probe", "remediation", "done"})
+_VALID_EVAL_CAPABILITY = frozenset({"full-remediation", "probe-only"})
+_VALID_HANDLING_POLICY = frozenset({"class-default", "human-first"})
+_VALID_DIM_STATUS = frozenset({
+    "pending",
+    "probing",
+    "probed",
+    "remediating",
+    "complete",
 })
-_VALID_DIM_STATUS = frozenset({"pending", "in_progress", "probed", "complete"})
 _VALID_DISPATCH = frozenset({"parallel", "serial"})
 _DIM_STATUS_ORDER = {
     "pending": 0,
-    "in_progress": 1,
+    "probing": 1,
     "probed": 2,
-    "complete": 3,
+    "remediating": 3,
+    "complete": 4,
 }
+_REMOVED_FIELDS = frozenset({
+    "fix_phase",
+    "force_human_resolution",
+    "dimension_tokens",
+})
 
 
 def get_schema() -> list[dict[str, Any]]:
-    """Return field definitions for evaluate-state.md v6."""
+    """Return field definitions for evaluate-state.md v7."""
     return list(_SCHEMA)
 
 
@@ -141,44 +150,50 @@ def parse_dimension_status(raw: str) -> dict[str, str]:
     return result
 
 
-def parse_dimension_tokens(raw: str) -> dict[str, str]:
-    """Parse dimension_tokens JSON string."""
-    parsed = parse_json_map(raw, field_name="dimension_tokens")
+def parse_handling_policy(raw: str) -> dict[str, str]:
+    """Parse the pinned per-Dimension handling policy map."""
+    parsed = parse_json_map(raw, field_name="handling_policy")
     result: dict[str, str] = {}
     for key, value in parsed.items():
-        if not isinstance(value, str) or not value:
-            raise ValueError(f"invalid dimension token for {key!r}")
-        result[str(key)] = value
-    return result
-
-
-def parse_force_human_resolution(raw: str) -> dict[str, bool]:
-    """Parse the pinned per-dimension Human Resolution policy map."""
-    parsed = parse_json_map(raw, field_name="force_human_resolution")
-    result: dict[str, bool] = {}
-    for key, value in parsed.items():
-        if not isinstance(value, bool):
+        if value not in _VALID_HANDLING_POLICY:
             raise ValueError(
-                f"invalid force_human_resolution value for {key!r}: {value!r}",
+                f"invalid handling_policy value for {key!r}: {value!r}",
             )
-        result[str(key)] = value
+        result[str(key)] = str(value)
     return result
 
 
-def parse_issue_counts(raw: str) -> dict[str, dict[str, str]]:
+def parse_issue_counts(raw: str) -> dict[str, dict[str, int]]:
     """Parse issue_counts JSON string."""
     parsed = parse_json_map(raw, field_name="issue_counts")
-    result: dict[str, dict[str, str]] = {}
+    result: dict[str, dict[str, int]] = {}
     for dim_id, counts in parsed.items():
         if not isinstance(counts, dict):
             raise ValueError(f"issue_counts[{dim_id!r}] must be an object")
+        if set(counts) != {"total", "resolved"}:
+            raise ValueError(
+                f"issue_counts[{dim_id!r}] requires exactly total and resolved",
+            )
         total = counts.get("total")
         resolved = counts.get("resolved")
-        if total is None or resolved is None:
-            raise ValueError(f"issue_counts[{dim_id!r}] requires total and resolved")
+        if (
+            isinstance(total, bool)
+            or not isinstance(total, int)
+            or total < 0
+            or isinstance(resolved, bool)
+            or not isinstance(resolved, int)
+            or resolved < 0
+        ):
+            raise ValueError(
+                f"issue_counts[{dim_id!r}] values must be nonnegative integers",
+            )
+        if resolved > total:
+            raise ValueError(
+                f"issue_counts[{dim_id!r}].resolved must not exceed total",
+            )
         result[str(dim_id)] = {
-            "total": str(total),
-            "resolved": str(resolved),
+            "total": total,
+            "resolved": resolved,
         }
     return result
 
@@ -192,37 +207,40 @@ def build_initial_evaluate_state(
     evaluate_round: int | None = None,
     focus_l: str = "",
     round_token: str | None = None,
-    force_human_resolution: dict[str, bool],
+    eval_capability: str,
+    handling_policy: dict[str, str],
 ) -> dict[str, str]:
-    """Return frontmatter fields for a new evaluate-state.md v6."""
+    """Return frontmatter fields for a new evaluate-state.md v7."""
     if not dimension_ids:
         raise ValueError("dimension_ids must be non-empty")
     if dimension_dispatch not in _VALID_DISPATCH:
         raise ValueError(
             f"invalid dimension_dispatch: {dimension_dispatch!r}",
         )
+    if eval_capability not in _VALID_EVAL_CAPABILITY:
+        raise ValueError(f"invalid eval_capability: {eval_capability!r}")
 
     dim_status = {dim_id: "pending" for dim_id in dimension_ids}
     issue_counts = {
-        dim_id: {"total": "0", "resolved": "0"} for dim_id in dimension_ids
+        dim_id: {"total": 0, "resolved": 0} for dim_id in dimension_ids
     }
-    policy = dict(force_human_resolution)
+    policy = dict(handling_policy)
     if set(policy) != set(dimension_ids):
         raise ValueError(
-            "force_human_resolution keys must match dimension_ids",
+            "handling_policy keys must match dimension_ids",
         )
-    if any(not isinstance(value, bool) for value in policy.values()):
-        raise ValueError("force_human_resolution values must be boolean")
+    if any(value not in _VALID_HANDLING_POLICY for value in policy.values()):
+        raise ValueError("handling_policy values must be class-default or human-first")
     data: dict[str, str] = {
-        "version": "6",
+        "version": "7",
         "phase": "evaluate",
         "eval_status": "active",
-        "fix_phase": "probe",
+        "eval_phase": "probe",
+        "eval_capability": eval_capability,
         "dimension_dispatch": dimension_dispatch,
-        "force_human_resolution": serialize_json_map(policy),
+        "handling_policy": serialize_json_map(policy),
         "round_token": round_token or uuid.uuid4().hex,
         "dimension_status": serialize_json_map(dim_status),
-        "dimension_tokens": serialize_json_map({}),
         "issue_counts": serialize_json_map(issue_counts),
         "total_issues": "0",
         "resolved_issues": "0",
@@ -240,69 +258,137 @@ def build_initial_evaluate_state(
     return data
 
 
-def is_v5_state(data: dict[str, str]) -> bool:
-    """Return True when evaluate-state uses the legacy v5 schema."""
-    return data.get("version") == "5" and "dimension_status" in data
-
-
-def is_v6_state(data: dict[str, str]) -> bool:
-    """Return True when evaluate-state uses the current v6 schema."""
+def is_v7_state(data: dict[str, str]) -> bool:
+    """Return True only for a structurally recognizable v7 state."""
     return (
-        data.get("version") == "6"
+        data.get("version") == "7"
         and "dimension_status" in data
-        and "force_human_resolution" in data
+        and "handling_policy" in data
+        and "eval_capability" in data
     )
 
 
 def validate_evaluate_state(data: dict[str, Any]) -> list[str]:
     """Return validation errors; empty list means valid."""
+    if data.get("version") != "7":
+        return [
+            "incompatible_round: evaluate-state version "
+            f"{data.get('version')!r} is not supported (expected '7')",
+        ]
     errors: list[str] = []
     for field in _REQUIRED_FIELDS:
         if field not in data:
             errors.append(f"missing required field: '{field}'")
-    if data.get("version") not in (None, "6"):
-        errors.append(f"invalid version: {data.get('version')!r} (expected '6')")
+    for field in sorted(_REMOVED_FIELDS & data.keys()):
+        errors.append(f"unsupported field: {field!r}")
     if data.get("phase") not in (None, "evaluate"):
         errors.append(f"invalid phase: {data.get('phase')!r} (expected 'evaluate')")
     eval_status = data.get("eval_status", "")
     if eval_status and eval_status not in _VALID_EVAL_STATUS:
         errors.append(f"invalid eval_status: {eval_status!r}")
-    fix_phase = data.get("fix_phase", "")
-    if fix_phase and fix_phase not in _VALID_FIX_PHASE:
-        errors.append(f"invalid fix_phase: {fix_phase!r}")
+    eval_phase = data.get("eval_phase", "")
+    if eval_phase and eval_phase not in _VALID_EVAL_PHASE:
+        errors.append(f"invalid eval_phase: {eval_phase!r}")
+    capability = data.get("eval_capability", "")
+    if capability and capability not in _VALID_EVAL_CAPABILITY:
+        errors.append(f"invalid eval_capability: {capability!r}")
     dispatch = data.get("dimension_dispatch", "")
     if dispatch and dispatch not in _VALID_DISPATCH:
         errors.append(f"invalid dimension_dispatch: {dispatch!r}")
     if data.get("round_token") == "":
         errors.append("round_token must be a non-empty string")
+    dimensions: dict[str, str] = {}
     raw_dim = data.get("dimension_status", "")
-    if raw_dim:
-        try:
-            parse_dimension_status(raw_dim)
-        except ValueError as exc:
-            errors.append(str(exc))
-    raw_tokens = data.get("dimension_tokens", "")
-    if raw_tokens:
-        try:
-            parse_dimension_tokens(raw_tokens)
-        except ValueError as exc:
-            errors.append(str(exc))
-    raw_policy = data.get("force_human_resolution", "")
     try:
-        policy = parse_force_human_resolution(raw_policy)
-        dimensions = parse_dimension_status(data.get("dimension_status", "{}"))
+        dimensions = parse_dimension_status(raw_dim)
+    except ValueError as exc:
+        errors.append(str(exc))
+    raw_policy = data.get("handling_policy", "")
+    policy: dict[str, str] = {}
+    try:
+        policy = parse_handling_policy(raw_policy)
         if set(policy) != set(dimensions):
             errors.append(
-                "force_human_resolution keys must match dimension_status keys",
+                "handling_policy keys must match dimension_status keys",
             )
     except ValueError as exc:
         errors.append(str(exc))
+    counts: dict[str, dict[str, int]] = {}
     raw_counts = data.get("issue_counts", "")
-    if raw_counts:
+    try:
+        counts = parse_issue_counts(raw_counts)
+        if set(counts) != set(dimensions):
+            errors.append("issue_counts keys must match dimension_status keys")
+    except ValueError as exc:
+        errors.append(str(exc))
+
+    aggregates: dict[str, int] = {}
+    for field in ("total_issues", "resolved_issues"):
+        raw_value = data.get(field)
         try:
-            parse_issue_counts(raw_counts)
-        except ValueError as exc:
-            errors.append(str(exc))
+            value = int(raw_value)
+            if str(value) != raw_value or value < 0:
+                raise ValueError
+            aggregates[field] = value
+        except (TypeError, ValueError):
+            errors.append(f"{field} must be a nonnegative integer")
+    if counts and "total_issues" in aggregates:
+        expected_total = sum(item["total"] for item in counts.values())
+        if aggregates["total_issues"] != expected_total:
+            errors.append(
+                f"total_issues must equal issue_counts sum {expected_total}",
+            )
+    if counts and "resolved_issues" in aggregates:
+        expected_resolved = sum(item["resolved"] for item in counts.values())
+        if aggregates["resolved_issues"] != expected_resolved:
+            errors.append(
+                f"resolved_issues must equal issue_counts sum {expected_resolved}",
+            )
+
+    dimension_values = set(dimensions.values())
+    if eval_status == "active" and eval_phase == "done":
+        errors.append("inconsistent eval_status active with eval_phase done")
+    if eval_status in {"done", "abandoned"} and eval_phase != "done":
+        errors.append(
+            f"inconsistent eval_status {eval_status} requires eval_phase done",
+        )
+    if eval_phase == "done" and eval_status not in {"done", "abandoned"}:
+        errors.append("inconsistent eval_phase done requires terminal eval_status")
+    if capability == "probe-only":
+        if eval_phase == "remediation":
+            errors.append("inconsistent probe-only capability with remediation phase")
+        if eval_status == "abandoned":
+            errors.append("inconsistent probe-only capability with abandoned status")
+
+    if eval_phase == "probe" and not dimension_values <= {
+        "pending",
+        "probing",
+        "probed",
+        "complete",
+    }:
+        errors.append("inconsistent dimension_status for probe phase")
+    if eval_phase == "remediation" and not dimension_values <= {
+        "probed",
+        "remediating",
+        "complete",
+    }:
+        errors.append("inconsistent dimension_status for remediation phase")
+    if eval_phase == "done" and eval_status == "done" and dimension_values != {
+        "complete",
+    }:
+        errors.append("inconsistent done round requires all dimensions complete")
+    if eval_phase == "done" and eval_status == "abandoned" and not dimension_values <= {
+        "probed",
+        "remediating",
+        "complete",
+    }:
+        errors.append("inconsistent abandoned dimension_status")
+    if (
+        capability == "full-remediation"
+        and eval_status == "done"
+        and aggregates.get("resolved_issues") != aggregates.get("total_issues")
+    ):
+        errors.append("full-remediation done requires all issues resolved")
     return errors
 
 
@@ -322,11 +408,17 @@ def _serialize_frontmatter(data: dict[str, str]) -> str:
 def save_evaluate_state(path: Path, data: dict[str, str], *, merge: bool = True) -> None:
     """Write evaluate-state.md with YAML frontmatter."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists() and merge:
+    if path.exists():
         existing = parse_frontmatter_fields(path.read_text(encoding="utf-8"))
-        merged = dict(existing)
-        merged.update(data)
-        data = merged
+        if existing.get("version") != "7":
+            raise ValueError(
+                "incompatible_round: existing evaluate-state version "
+                f"{existing.get('version')!r} is not supported (expected '7')",
+            )
+        if merge:
+            merged = dict(existing)
+            merged.update(data)
+            data = merged
     errors = validate_evaluate_state(data)
     if errors:
         raise ValueError(f"evaluate-state data invalid: {'; '.join(errors)}")
@@ -373,11 +465,11 @@ def patch_issue_count(
 ) -> dict[str, str]:
     """Update issue_counts entry for one dimension."""
     counts = parse_issue_counts(data.get("issue_counts", "{}"))
-    entry = dict(counts.get(dim_id, {"total": "0", "resolved": "0"}))
+    entry = dict(counts.get(dim_id, {"total": 0, "resolved": 0}))
     if total is not None:
-        entry["total"] = str(total)
+        entry["total"] = int(total)
     if resolved is not None:
-        entry["resolved"] = str(resolved)
+        entry["resolved"] = int(resolved)
     counts[dim_id] = entry
     merged = dict(data)
     merged["issue_counts"] = serialize_json_map(counts)
@@ -387,7 +479,7 @@ def patch_issue_count(
 def sum_issue_totals(data: dict[str, str], dispatch: list[str]) -> int:
     """Sum total issue counts for dispatch dimension ids."""
     counts = parse_issue_counts(data.get("issue_counts", "{}"))
-    return sum(int(counts.get(dim, {}).get("total", "0") or "0") for dim in dispatch)
+    return sum(counts.get(dim, {}).get("total", 0) for dim in dispatch)
 
 
 def all_dims_at_least(
@@ -408,7 +500,7 @@ def all_dims_at_least(
 
 
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="evaluate-state v6 schema I/O")
+    parser = argparse.ArgumentParser(description="evaluate-state v7 schema I/O")
     parser.add_argument("--schema", action="store_true", help="Print field schema JSON")
     parser.add_argument("--validate", action="store_true", help="Validate file")
     parser.add_argument("--path", type=Path, help="Path to evaluate-state.md")

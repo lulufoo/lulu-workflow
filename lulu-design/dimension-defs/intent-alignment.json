@@ -2,11 +2,8 @@
   "id": "intent-alignment",
   "legacy_alias": "d3",
   "label": "Product Intent Alignment",
-  "force_human_resolution": true,
+  "handling_policy": "human-first",
   "eval_target": {
-    "path": "{eval_target_path}"
-  },
-  "remediation_target": {
     "path": "{eval_target_path}"
   },
   "sots": [

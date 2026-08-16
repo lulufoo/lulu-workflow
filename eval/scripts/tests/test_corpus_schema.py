@@ -1,216 +1,127 @@
 #!/usr/bin/env python3
-"""Tests for eval/scripts/corpus_schema.py."""
+"""Tests for the EvalCorpus v6 data contract."""
 
+from __future__ import annotations
+
+import copy
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "lulu-plan" / "scripts"))
 
-from corpus_compose import compose_corpus, load_dimension_def  # noqa: E402
+from corpus_compose import compose_corpus  # noqa: E402
 from corpus_schema import (  # noqa: E402
     corpus_ref,
     dispatch_ids,
     expand_corpus,
     get_schema,
-    resolve_dim_id,
+    normalize_corpus,
     validate_corpus,
 )
 
-_DIMENSION_DEFS = Path(__file__).resolve().parents[3] / "lulu-plan" / "dimension-defs"
-_LULU_PLAN_COMPOSED_CORPUS_REF = "lulu-plan-composed@2"
+
+def _dimension(*, handling_policy: str | None = None) -> dict:
+    dimension = {
+        "id": "synthetic-quality",
+        "label": "Synthetic quality",
+        "eval_target": {"path": "{eval_target_path}"},
+        "sots": [{"ref": "."}],
+        "method": {"ref": "eval/method.md", "focus": "quality"},
+        "review": {
+            "seq": 1,
+            "output_path": "review.md",
+            "template": "eval/review.template.md",
+        },
+    }
+    if handling_policy is not None:
+        dimension["handling_policy"] = handling_policy
+    return dimension
 
 
-def _feature_tech_upstream_corpus() -> dict:
-    dims = [
-        load_dimension_def(_DIMENSION_DEFS / "codebase-consistency.json"),
-        load_dimension_def(_DIMENSION_DEFS / "solution-quality.json"),
-        load_dimension_def(_DIMENSION_DEFS / "tech-conformance.json"),
-    ]
-    return compose_corpus(
-        corpus_id="lulu-plan-composed",
-        corpus_version="2",
-        scope="lulu-plan",
-        dimensions=dims,
-    )
-
-
-def _feature_base_corpus() -> dict:
-    dims = [
-        load_dimension_def(_DIMENSION_DEFS / "codebase-consistency.json"),
-        load_dimension_def(_DIMENSION_DEFS / "solution-quality.json"),
-    ]
-    return compose_corpus(
-        corpus_id="lulu-plan-composed",
-        corpus_version="2",
-        scope="lulu-plan",
-        dimensions=dims,
-    )
-
-
-class TestGetSchema:
-    def test_has_bind_placeholders(self):
-        schema = get_schema()
-        assert schema["bind_placeholders"] == [
-            "eval_target_path",
-            "compose_doc",
-            "upstream_baseline_ref",
-            "cycle_type",
-            "M",
-        ]
-        assert schema["version"] == "5"
-        assert "sot_kind" not in schema["enums"]
-        assert "method_kind" not in schema["enums"]
-
-
-class TestValidateCorpus:
-    def test_feature_tech_upstream_corpus_valid(self):
-        assert validate_corpus(_feature_tech_upstream_corpus()) == []
-
-    def test_feature_base_corpus_valid(self):
-        assert validate_corpus(_feature_base_corpus()) == []
-
-    def test_missing_dimensions(self):
-        errors = validate_corpus({"id": "x", "version": "3"})
-        assert any("dimensions" in err for err in errors)
-
-    def test_duplicate_dimension_id(self):
-        dim = {
-            "id": "a",
-            "label": "A",
-            "force_human_resolution": False,
-            "eval_target": {"path": "{eval_target_path}"},
-            "remediation_target": {"path": "{eval_target_path}"},
-            "sots": [],
-            "method": {
-                "ref": "lulu-dev-workflow/lulu-plan/eval/methods/solution-quality.md",
-                "focus": "f",
-            },
-            "review": {"seq": 1, "output_path": "r.md", "template": "eval/review.template.md"},
-        }
-        errors = validate_corpus(
-            {
-                "id": "x",
-                "version": "3",
-                "scope": "lulu-plan",
-                "context": "offline",
-                "dimension_dispatch": "parallel",
-                "dimensions": [dim, dict(dim)],
-            },
-        )
-        assert any("duplicate dimension id" in err for err in errors)
-
-    def test_force_human_resolution_is_required_boolean(self):
-        corpus = _feature_base_corpus()
-        del corpus["dimensions"][0]["force_human_resolution"]
-        assert any(
-            "force_human_resolution must be a boolean" in error
-            for error in validate_corpus(corpus)
-        )
-
-        corpus["dimensions"][0]["force_human_resolution"] = "false"
-        assert any(
-            "force_human_resolution must be a boolean" in error
-            for error in validate_corpus(corpus)
-        )
-
-
-class TestExpandCorpus:
-    _BIND = {
-        "eval_target_path": "/abs/tech-doc.md",
-        "compose_doc": "/abs/tech-doc.md",
-        "upstream_baseline_ref": "/abs/product-doc.md",
-        "cycle_type": "feature",
-        "M": "1",
-        "upstream_doc_path": "/abs/design-doc.md",
+def _corpus(*, handling_policy: str | None = None) -> dict:
+    return {
+        "id": "synthetic-corpus",
+        "schema_version": "6",
+        "version": "2",
+        "scope": "tests",
+        "context": "offline",
+        "dimension_dispatch": "parallel",
+        "dimensions": [_dimension(handling_policy=handling_policy)],
     }
 
-    def test_expand_substitutes_tech_conformance_paths(self):
-        data = _feature_tech_upstream_corpus()
-        expanded = expand_corpus(data, self._BIND)
-        e4 = expanded["dimensions"][2]
-        assert e4["eval_target"]["path"] == "/abs/tech-doc.md"
-        assert e4["sots"][0]["ref"] == "/abs/design-doc.md"
-        assert e4["sots"][0] == {"ref": "/abs/design-doc.md"}
-        assert e4["method"]["ref"] == (
-            "lulu-dev-workflow/lulu-plan/eval/methods/tech-conformance.md"
-        )
-        assert e4["review"]["output_path"] == "tech-review-e13.md"
 
-    def test_expand_preserves_codebase_ref_dot(self):
-        data = _feature_base_corpus()
-        expanded = expand_corpus(data, self._BIND)
-        e2 = expanded["dimensions"][0]
-        assert e2["sots"][0] == {"ref": "."}
+class TestSchemaAndValidation:
+    def test_schema_version_is_separate_from_identity_version(self):
+        schema = get_schema()
+        assert schema["schema_version"] == "6"
+        assert {"schema_version", "version"} <= set(schema["required_top_level"])
+        assert corpus_ref(_corpus()) == "synthetic-corpus@2"
 
-    def test_expand_e3_preserves_local_method_and_sot_paths(self):
-        data = _feature_tech_upstream_corpus()
-        expanded = expand_corpus(data, self._BIND)
-        e3 = expanded["dimensions"][1]
-        assert e3["sots"][0]["ref"] == (
-            "lulu-dev-workflow/lulu-plan/eval/sots/solution-quality.md"
-        )
-        assert e3["method"]["ref"] == (
-            "lulu-dev-workflow/lulu-plan/eval/methods/solution-quality.md"
-        )
+    def test_missing_policy_defaults_to_class_default(self):
+        normalized = normalize_corpus(_corpus())
+        assert normalized["dimensions"][0]["handling_policy"] == "class-default"
 
-    def test_rejects_legacy_method_and_sot_shapes(self):
-        dim = {
-            "id": "a",
-            "label": "A",
-            "force_human_resolution": False,
-            "eval_target": {"path": "{eval_target_path}"},
-            "remediation_target": {"path": "{eval_target_path}"},
-            "sots": [
-                {
-                    "kind": "codebase",
-                    "role": "primary",
-                    "ref": {"root": ".", "strategy": "glob:**"},
-                },
-            ],
-            "method": {
-                "kind": "builtin",
-                "source": {"procedure_id": "codebase_consistency"},
-                "focus": "f",
-            },
-            "review": {"seq": 1, "output_path": "r.md", "template": "eval/review.template.md"},
-        }
-        errors = validate_corpus(
-            {
-                "id": "x",
-                "version": "3",
-                "scope": "lulu-plan",
-                "context": "offline",
-                "dimension_dispatch": "parallel",
-                "dimensions": [dim],
-            },
+    def test_human_first_is_valid_and_other_values_are_rejected(self):
+        assert validate_corpus(_corpus(handling_policy="human-first")) == []
+        errors = validate_corpus(_corpus(handling_policy="automatic"))
+        assert any("invalid handling_policy" in error for error in errors)
+
+    @pytest.mark.parametrize("field", ["force_human_resolution", "remediation_target"])
+    def test_removed_dimension_fields_are_rejected(self, field: str):
+        corpus = _corpus()
+        corpus["dimensions"][0][field] = (
+            False if field == "force_human_resolution" else {"path": "target.md"}
         )
-        assert any("missing or invalid string field 'ref'" in err for err in errors)
+        assert any(f"unsupported field: {field!r}" in error for error in validate_corpus(corpus))
+
+    @pytest.mark.parametrize("schema_version", [None, "5", 6])
+    def test_old_or_malformed_schema_versions_are_stably_rejected(self, schema_version):
+        corpus = _corpus()
+        if schema_version is None:
+            del corpus["schema_version"]
+        else:
+            corpus["schema_version"] = schema_version
+        assert any("incompatible_round" in error for error in validate_corpus(corpus))
+
+    def test_old_schema_is_rejected_before_business_fields_are_read(self):
+        assert validate_corpus({
+            "schema_version": "5",
+            "dimensions": "legacy-shape",
+        }) == [
+            "incompatible_round: EvalCorpus schema_version '5' is not supported "
+            "(expected '6')",
+        ]
+
+
+class TestNormalizationAndComposition:
+    def test_bind_expansion_outputs_explicit_resolved_policy(self):
+        expanded = expand_corpus(
+            _corpus(),
+            {"eval_target_path": "/abs/target.md"},
+        )
+        assert expanded["dimensions"][0]["eval_target"]["path"] == "/abs/target.md"
+        assert expanded["dimensions"][0]["handling_policy"] == "class-default"
+
+    def test_normalization_does_not_mutate_input(self):
+        corpus = _corpus()
+        before = copy.deepcopy(corpus)
+        normalize_corpus(corpus)
+        assert corpus == before
+
+    def test_composed_corpus_persists_schema_version_and_normalized_policy(self):
+        composed = compose_corpus(
+            corpus_id="synthetic-composed",
+            corpus_version="2",
+            scope="tests",
+            dimensions=[_dimension()],
+        )
+        assert composed["schema_version"] == "6"
+        assert composed["version"] == "2"
+        assert composed["dimensions"][0]["handling_policy"] == "class-default"
+        assert dispatch_ids(composed) == ["synthetic-quality"]
 
     def test_unbound_placeholder_raises(self):
-        data = _feature_tech_upstream_corpus()
         with pytest.raises(ValueError, match="unbound placeholder"):
-            expand_corpus(data, {"compose_doc": "/abs/tech-doc.md"})
-
-
-class TestHelpers:
-    def test_corpus_ref(self):
-        data = _feature_tech_upstream_corpus()
-        assert corpus_ref(data) == _LULU_PLAN_COMPOSED_CORPUS_REF
-
-    def test_dispatch_ids(self):
-        data = _feature_base_corpus()
-        assert dispatch_ids(data) == ["codebase-consistency", "solution-quality"]
-
-    def test_resolve_dim_id_legacy_alias(self):
-        data = _feature_tech_upstream_corpus()
-        assert resolve_dim_id(data, "e2") == "codebase-consistency"
-        assert resolve_dim_id(data, "e4") == "tech-conformance"
-        assert resolve_dim_id(data, "codebase-consistency") == "codebase-consistency"
-
-    def test_resolve_unknown_dim(self):
-        data = _feature_tech_upstream_corpus()
-        with pytest.raises(ValueError, match="unknown dimension"):
-            resolve_dim_id(data, "e9")
+            expand_corpus(_corpus(), {})

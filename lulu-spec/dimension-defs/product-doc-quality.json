@@ -2,11 +2,7 @@
   "id": "product-doc-quality",
   "legacy_alias": "pdqa",
   "label": "Product Document Quality (PDQA)",
-  "force_human_resolution": false,
   "eval_target": {
-    "path": "{eval_target_path}"
-  },
-  "remediation_target": {
     "path": "{eval_target_path}"
   },
   "sots": [

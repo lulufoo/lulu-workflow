@@ -21,6 +21,7 @@ from eval_adapter_config import (  # noqa: E402
     load_adapter_config_file,
     load_adapter_config_json,
     load_eval_adapter_from_config,
+    validate_adapter_protocol,
 )
 from eval_control import build_parser, run_eval  # noqa: E402
 
@@ -76,6 +77,11 @@ def main(argv: list[str] | None = None) -> int:
             cycle_id=cycle_id,
             project_root=project_root,
             require_evaluating=require_evaluating,
+        )
+        validate_adapter_protocol(
+            adapter,
+            eval_capability=config.eval_capability,
+            handoff=handoff,
         )
     except (ValueError, FileNotFoundError, OSError) as exc:
         print(f"错误：{exc}", file=sys.stderr)

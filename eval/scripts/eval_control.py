@@ -12,23 +12,19 @@ Invoke via eval_entry.py with caller-supplied adapter config
 Subcommands:
     init-round                  Initialize evaluate-state.md (internal; session_control)
     begin-eval-round            Enter focus evaluating (session stays Working) or next round
-    begin-dimension             Mark dimension in_progress and return eval-runner inputs
+    begin-dimension             Mark dimension probing and return eval-runner inputs
     read-b-snapshot             Read token-authorized EvalTarget B content
     read-evidence-snapshot      Read token-authorized dynamic SoT evidence
     submit-probe-findings       Validate and publish token-scoped probe findings
-    submit-remediation-diff     Validate and publish token-scoped remediation diff
     check-dimension             Read-only verify dimension probed after eval-runner
-    probe-complete              Sum issues; advance fix_phase to artifact-remediation
-    begin-artifact-remediation       Return artifact remediation dispatch list or skip
-    begin-dimension-artifact-remediation  Per-dim artifact runner input (plain text)
-    check-dimension-artifact-remediation  Reconcile one dim after artifact runner
-    artifact-remediation-complete    Advance fix_phase to done
-    begin-human-resolution           Return Human Resolution dispatch list or skip
-    begin-dimension-human-resolution Per-dim Human Resolution context
-    submit-human-resolution          Validate and publish a human resolution payload
-    check-dimension-human-resolution Reconcile one dimension after Human Resolution
-    human-resolution-complete        Advance to Artifact Remediation or abandon
-    complete-round              Finalize evaluate-state and return summary payload
+    begin-remediation           Enter remediation and return dispatch or skip
+    begin-dimension-remediation Create/resume one unified remediation context
+    cancel-remediation          Cancel context-open operation and release target lease
+    prepare-remediation         Read-only validation of a RemediationProposal
+    apply-remediation           Validate and commit a RemediationApplication
+    check-dimension-remediation Rebuild one Dimension projection
+    remediation-complete        Complete a full-remediation round
+    complete-probe-only         Complete a probe-only round with pending findings
 """
 
 from __future__ import annotations
@@ -50,31 +46,27 @@ sys.path.insert(0, str(_EVAL_LIB))
 
 from review_io import (  # noqa: E402
     count_resolved,
-    has_escalated,
-    nonterminal_rows,
-    parse_review_content,
     parse_review_file,
-    pending_artifact_rows,
-    pending_resolution_rows,
+    split_table_row,
 )
-from review_schema import validate_review_content, validate_review_file  # noqa: E402
+from review_schema import (  # noqa: E402
+    render_review_header,
+    validate_review_content,
+    validate_review_file,
+)
 from corpus_schema import (  # noqa: E402
     expand_corpus,
     resolve_dim_id,
 )
 from evaluate_state_schema import (  # noqa: E402
-    all_dims_at_least,
-    is_v5_state,
-    is_v6_state,
+    is_v7_state,
     load_evaluate_state,
     parse_frontmatter_fields,
     parse_dimension_status,
-    parse_dimension_tokens,
-    parse_force_human_resolution,
+    parse_handling_policy,
     parse_issue_counts,
     patch_issue_count,
     save_evaluate_state,
-    sum_issue_totals,
 )
 
 from evaluate_state_ops import (  # noqa: E402
@@ -96,20 +88,23 @@ from eval_operation_context import (  # noqa: E402
     read_target_snapshot,
 )
 from eval_operation_record_schema import (  # noqa: E402
-    close_operation,
-    close_probe_operation,
+    advance_operation_record,
+    cancel_operation_record,
     get_operation_record,
     load_operation_records,
 )
-from eval_human_resolution_txn_schema import (  # noqa: E402
-    load_human_resolution_txn,
-    save_human_resolution_txn,
+from remediation_schema import (  # noqa: E402
+    application_submission_digest,
+    canonicalize_remediation_application,
+    prepare_remediation_proposal,
+    validate_remediation_application,
 )
 from unified_diff import apply_unified_diff  # noqa: E402
 
 _ADAPTER_CTX: ContextVar[WorkflowAdapter | None] = ContextVar("workflow_adapter", default=None)
 _WORKFLOW_ID_CTX: ContextVar[str | None] = ContextVar("workflow_id", default=None)
 _HANDOFF_CTX: ContextVar[dict[str, Any] | None] = ContextVar("eval_handoff", default=None)
+_CRASH_AFTER_PHASE: ContextVar[str | None] = ContextVar("apply_crash_after_phase", default=None)
 
 
 def _adapter() -> WorkflowAdapter:
@@ -344,19 +339,15 @@ _CMD_BEGIN_DIMENSION = "begin-dimension"
 _CMD_READ_B_SNAPSHOT = "read-b-snapshot"
 _CMD_READ_EVIDENCE_SNAPSHOT = "read-evidence-snapshot"
 _CMD_SUBMIT_PROBE_FINDINGS = "submit-probe-findings"
-_CMD_SUBMIT_REMEDIATION_DIFF = "submit-remediation-diff"
 _CMD_CHECK_DIMENSION = "check-dimension"
-_CMD_PROBE_COMPLETE = "probe-complete"
-_CMD_BEGIN_ARTIFACT_REMEDIATION = "begin-artifact-remediation"
-_CMD_BEGIN_DIMENSION_ARTIFACT = "begin-dimension-artifact-remediation"
-_CMD_CHECK_DIMENSION_ARTIFACT = "check-dimension-artifact-remediation"
-_CMD_ARTIFACT_REMEDIATION_COMPLETE = "artifact-remediation-complete"
-_CMD_BEGIN_HUMAN_RESOLUTION = "begin-human-resolution"
-_CMD_BEGIN_DIMENSION_HUMAN = "begin-dimension-human-resolution"
-_CMD_SUBMIT_HUMAN_RESOLUTION = "submit-human-resolution"
-_CMD_CHECK_DIMENSION_HUMAN = "check-dimension-human-resolution"
-_CMD_HUMAN_RESOLUTION_COMPLETE = "human-resolution-complete"
-_CMD_COMPLETE_ROUND = "complete-round"
+_CMD_BEGIN_REMEDIATION = "begin-remediation"
+_CMD_BEGIN_DIMENSION_REMEDIATION = "begin-dimension-remediation"
+_CMD_CANCEL_REMEDIATION = "cancel-remediation"
+_CMD_PREPARE_REMEDIATION = "prepare-remediation"
+_CMD_APPLY_REMEDIATION = "apply-remediation"
+_CMD_CHECK_DIMENSION_REMEDIATION = "check-dimension-remediation"
+_CMD_REMEDIATION_COMPLETE = "remediation-complete"
+_CMD_COMPLETE_PROBE_ONLY = "complete-probe-only"
 
 def _review_prefix_from_corpus(corpus: dict[str, Any]) -> str:
     """Derive the review file prefix from the corpus output_path template.
@@ -374,36 +365,19 @@ def _review_prefix_from_corpus(corpus: dict[str, Any]) -> str:
     return ""
 
 
-_ENTRY_V6_KEYS = (
+_ENTRY_V7_KEYS = (
     "version",
     "corpus_ref",
     "corpus_fingerprint",
     "dimension_dispatch",
+    "eval_capability",
+    "handling_policy",
 )
 _EXPECTED_SESSION_STATE = "Working"
 _EXPECTED_FOCUS_PHASE = "evaluating"
 _VALID_MODES = frozenset({"product", "tech"})
 _SEVERITY_RANK = {"critical": 3, "medium": 2, "minor": 1}
 _PROBE_PAYLOAD_KEYS = frozenset({"dimension_token", "findings"})
-_REMEDIATION_PAYLOAD_KEYS = frozenset(
-    {"dimension_token", "base_digest", "unified_diff", "issue_ids"},
-)
-_HUMAN_RESOLUTION_PAYLOAD_KEYS = frozenset(
-    {
-        "dimension_token",
-        "base_digest",
-        "review_base_digest",
-        "resolutions",
-    },
-)
-_RESOLUTION_KEYS = frozenset({"issue_ids", "resolution_kind", "resolution"})
-_RESOLUTION_KINDS = frozenset({
-    "fix",
-    "accept-divergence",
-    "select",
-    "allow-multiple",
-    "escalate",
-})
 _FINDING_REQUIRED_KEYS = frozenset(
     {"id", "root_cause", "location", "severity", "evidence", "description"},
 )
@@ -452,60 +426,169 @@ def _canonical_dim(cycle_id: str, project_root: Path, dim: str) -> str:
     return resolve_dim_id(_load_corpus(cycle_id, project_root), dim)
 
 
-def _force_human_for_dim(
-    eval_data: dict[str, str],
-    cycle_id: str,
-    project_root: Path,
-    dim: str,
-) -> bool:
-    """Return the round-pinned Human Resolution policy for one dimension."""
-    canonical = _canonical_dim(cycle_id, project_root, dim)
-    policy = parse_force_human_resolution(eval_data["force_human_resolution"])
-    if canonical not in policy:
-        raise ValueError(
-            f"force_human_resolution missing dimension: {canonical!r}",
-        )
-    return policy[canonical]
+_ROOT_CAUSES = frozenset({
+    "WO-MISS",
+    "WO-ERROR",
+    "SOT-DEFECT",
+    "UNRESOLVABLE",
+    "DECISION-REQUIRED",
+})
+_ARTIFACT_ROOT_CAUSES = frozenset({"WO-MISS", "WO-ERROR"})
+_HANDLING_POLICIES = frozenset({"class-default", "human-first"})
+_HANDLING_MODES = frozenset({"direct", "human-gated"})
 
 
-def _allowed_resolution_kinds(
-    row: dict[str, str],
-    *,
-    force_human_resolution: bool,
+def handling_mode_for_issue(root_cause: str, handling_policy: str) -> str:
+    """Map classification and pinned policy to Control-owned handling mode."""
+    cause = root_cause.upper()
+    if cause not in _ROOT_CAUSES:
+        raise ValueError(f"invalid root_cause: {root_cause!r}")
+    if handling_policy not in _HANDLING_POLICIES:
+        raise ValueError(f"invalid handling_policy: {handling_policy!r}")
+    if handling_policy == "human-first" or cause not in _ARTIFACT_ROOT_CAUSES:
+        return "human-gated"
+    return "direct"
+
+
+def allowed_decisions_for_issue(
+    root_cause: str,
+    handling_mode: str,
 ) -> list[str]:
-    """Return control-owned Human Resolution permissions for one issue."""
-    root_cause = row.get("root_cause", "").upper()
-    if root_cause in {"WO-MISS", "WO-ERROR"}:
-        return (
-            ["fix", "accept-divergence", "escalate"]
-            if force_human_resolution
-            else []
-        )
-    if root_cause == "DECISION-REQUIRED":
+    """Return the exact decisions authorized by one immutable issue context."""
+    cause = root_cause.upper()
+    if cause not in _ROOT_CAUSES:
+        raise ValueError(f"invalid root_cause: {root_cause!r}")
+    if handling_mode not in _HANDLING_MODES:
+        raise ValueError(f"invalid handling_mode: {handling_mode!r}")
+    if handling_mode == "direct":
+        if cause not in _ARTIFACT_ROOT_CAUSES:
+            raise ValueError(f"{cause} cannot use direct handling")
+        return ["fix"]
+    if cause in _ARTIFACT_ROOT_CAUSES:
+        return ["fix", "accept-divergence", "escalate"]
+    if cause == "DECISION-REQUIRED":
         return ["select", "allow-multiple", "escalate"]
-    if root_cause in {"SOT-DEFECT", "UNRESOLVABLE"}:
-        return ["escalate"]
-    return []
+    return ["escalate"]
 
 
-def _policy_disposition_error(
+def _recompute_aggregate_counts(data: dict[str, str]) -> dict[str, str]:
+    """Keep v7 aggregate counters equal to their issue-count projection."""
+    updated = dict(data)
+    counts = parse_issue_counts(updated.get("issue_counts", "{}"))
+    updated["total_issues"] = str(sum(item["total"] for item in counts.values()))
+    updated["resolved_issues"] = str(
+        sum(item["resolved"] for item in counts.values()),
+    )
+    return updated
+
+
+def validate_review_against_probe_record(
     rows: list[dict[str, str]],
+    probe_record: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Fail closed if mutable Review identity/classification diverges from Probe."""
+    if (
+        probe_record.get("operation_kind") != "probe"
+        or probe_record.get("phase") != "committed"
+    ):
+        raise ValueError("Review requires a committed probe operation")
+    findings = probe_record.get("canonical_findings")
+    if not isinstance(findings, list) or any(
+        not isinstance(finding, dict) for finding in findings
+    ):
+        raise ValueError("committed probe canonical_findings are invalid")
+    expected_by_id = {
+        str(finding.get("id", "")): finding
+        for finding in findings
+    }
+    actual_by_id = {str(row.get("id", "")): row for row in rows}
+    if (
+        len(expected_by_id) != len(findings)
+        or len(actual_by_id) != len(rows)
+        or set(actual_by_id) != set(expected_by_id)
+    ):
+        raise ValueError("Review finding identity does not match canonical_findings")
+    for issue_id, expected in expected_by_id.items():
+        actual = actual_by_id[issue_id]
+        for field in ("root_cause", "handling_mode"):
+            if actual.get(field) != expected.get(field):
+                raise ValueError(
+                    f"Review {field} mismatch for issue {issue_id!r}",
+                )
+    return [dict(finding) for finding in findings]
+
+
+def canonical_probe_findings_from_reviews(
+    rows_by_dimension: dict[str, list[dict[str, str]]],
+    operation_records: list[dict[str, Any]],
     *,
-    force_human_resolution: bool,
-) -> str | None:
-    """Reject forced-only dispositions outside a forced dimension."""
-    if force_human_resolution:
-        return None
-    for row in rows:
-        if row.get("status", "").lower() in {
-            "approved",
-            "accepted-divergence",
-        }:
-            return (
-                f"issue {row.get('id', '')!r} uses a forced-only disposition "
-                "while force_human_resolution is false"
-            )
-    return None
+    expected_dimensions: list[str],
+) -> list[dict[str, Any]]:
+    """Validate every Review against Probe SSOT and return canonical findings."""
+    probe_by_dimension = {
+        str(record.get("dimension_id")): record
+        for record in operation_records
+        if record.get("operation_kind") == "probe"
+        and record.get("phase") == "committed"
+    }
+    if (
+        set(rows_by_dimension) != set(expected_dimensions)
+        or not set(expected_dimensions) <= set(probe_by_dimension)
+    ):
+        raise ValueError("missing current-round Review or committed probe operation")
+    result: list[dict[str, Any]] = []
+    for dimension_id in expected_dimensions:
+        findings = validate_review_against_probe_record(
+            rows_by_dimension[dimension_id],
+            probe_by_dimension[dimension_id],
+        )
+        result.extend(
+            {**finding, "dimension": dimension_id}
+            for finding in findings
+        )
+    return result
+
+
+def validate_review_completion(
+    *,
+    rows: list[dict[str, str]],
+    dimension_id: str,
+    remediation_records: list[dict[str, Any]],
+    review_digest: str,
+) -> bool:
+    """Authorize completion only from empty Probe output or committed remediation."""
+    if not rows:
+        return True
+    if any(row.get("status", "").lower() != "resolved" for row in rows):
+        raise ValueError(f"pending findings remain for {dimension_id!r}")
+    committed = [
+        record
+        for record in remediation_records
+        if record.get("operation_kind") == "remediation"
+        and record.get("dimension_id") == dimension_id
+        and record.get("phase") == "committed"
+    ]
+    if not committed:
+        raise ValueError(
+            f"resolved Review for {dimension_id!r} lacks committed remediation",
+        )
+    if not any(
+        record.get("review_after_digest") == review_digest
+        for record in committed
+    ):
+        raise ValueError(
+            f"Review review_after_digest mismatch for {dimension_id!r}",
+        )
+    return True
+
+
+def validate_live_target_digest(target_path: Path, expected_digest: str) -> None:
+    """Reject publication when the live target changed since context capture."""
+    actual = hashlib.sha256(target_path.read_bytes()).hexdigest()
+    if actual != expected_digest:
+        raise ValueError(
+            "stale target: live digest does not match operation target_base_digest",
+        )
 
 
 def _success(command: str, **extra: Any) -> dict[str, Any]:
@@ -518,6 +601,200 @@ def _failure(command: str, reason: str, **extra: Any) -> dict[str, Any]:
     payload: dict[str, Any] = {"ok": False, "command": command, "reason": reason}
     payload.update(extra)
     return payload
+
+
+def _crash_after(phase: str) -> None:
+    if _CRASH_AFTER_PHASE.get() == phase:
+        raise RuntimeError(f"injected crash after {phase}")
+
+
+def _content_digest(content: str) -> str:
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def _target_path_from_record(record: dict[str, Any]) -> Path:
+    raw = record.get("target_path") or record.get("target_lease_key")
+    if not isinstance(raw, str) or not raw:
+        raise ValueError("operation record missing target path")
+    return Path(raw)
+
+
+def _live_target_digest(
+    cycle_id: str,
+    project_root: Path,
+    target_path: Path,
+) -> str:
+    adapter = _adapter()
+    reader = getattr(adapter, "read_eval_target_digest", None)
+    if callable(reader):
+        return str(reader(cycle_id, project_root, target_path=target_path))
+    return hashlib.sha256(target_path.read_bytes()).hexdigest()
+
+
+def _review_live_state(review_path: Path, record: dict[str, Any]) -> str:
+    if not review_path.is_file():
+        return "before" if record.get("review_before_exists") is not True else "unknown"
+    digest = _content_digest(review_path.read_text(encoding="utf-8"))
+    if record.get("review_before_exists") is True and digest == record.get(
+        "review_base_digest",
+    ):
+        return "before"
+    if digest == record.get("review_after_digest"):
+        return "after"
+    return "unknown"
+
+
+def _target_live_state(live_digest: str, record: dict[str, Any]) -> str:
+    if record.get("target_effect") == "none":
+        return "base" if live_digest == record.get("target_base_digest") else "other"
+    if live_digest == record.get("target_base_digest"):
+        return "before"
+    if live_digest == record.get("target_after_digest"):
+        return "after"
+    return "unknown"
+
+
+def _render_review_after(
+    before_content: str,
+    updates: dict[str, tuple[str, str, str]],
+) -> str:
+    rendered: list[str] = []
+    header_seen = False
+    for line in before_content.splitlines(keepends=True):
+        stripped = line.strip()
+        if not stripped.startswith("|") or stripped.startswith("|---"):
+            rendered.append(line)
+            continue
+        cells = split_table_row(stripped)
+        if not header_seen:
+            header_seen = True
+            rendered.append(line)
+            continue
+        issue_id = cells[0] if cells else ""
+        if issue_id in updates and len(cells) >= 11:
+            status, decision, resolution = updates[issue_id]
+            cells[8] = status
+            cells[9] = decision
+            cells[10] = resolution
+            rendered.append("| " + " | ".join(cells) + " |\n")
+        else:
+            rendered.append(line)
+    return "".join(rendered)
+
+
+def _publish_review_after(review_path: Path, content: str) -> None:
+    _atomic_write_review(review_path, content)
+
+
+def _commit_eval_target(
+    cycle_id: str,
+    project_root: Path,
+    record: dict[str, Any],
+    paths: dict[str, str],
+) -> None:
+    staged = record.get("target_staged_path")
+    if not isinstance(staged, str) or not staged:
+        raise ValueError("prepared mutation is missing target_staged_path")
+    result = _adapter().commit_eval_target(
+        cycle_id,
+        project_root,
+        staged_target_path=Path(staged),
+        base_digest=str(record["target_base_digest"]),
+        lease_id=str(paths.get("lease_id", "")),
+    )
+    if not result.get("ok"):
+        raise ValueError(str(result.get("error") or "commit_eval_target failed"))
+
+
+def _advance_phase(
+    operations_path: Path,
+    record: dict[str, Any],
+    phase: str,
+) -> dict[str, Any]:
+    advanced = advance_operation_record(operations_path, {**record, "phase": phase})
+    _crash_after(phase)
+    return advanced
+
+
+def _forward_recover_to_committed(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    command: str,
+    operations_path: Path,
+    record: dict[str, Any],
+    paths: dict[str, str],
+    review_path: Path,
+    evaluate_round: int,
+) -> dict[str, Any]:
+    """Advance a prepared-or-later operation to committed, or fail closed."""
+    review_file = Path(record["review_path"]) if record.get("review_path") else review_path
+    target_path = _target_path_from_record(record)
+    try:
+        live_target = _live_target_digest(cycle_id, project_root, target_path)
+    except (OSError, ValueError) as exc:
+        return _failure(command, f"repair_required: {exc}")
+    review_state = _review_live_state(review_file, record)
+    target_state = _target_live_state(live_target, record)
+    if review_state == "unknown":
+        return _failure(command, "repair_required: live Review digest is unknown")
+    if record.get("target_effect") == "none":
+        if target_state != "base":
+            return _failure(
+                command,
+                "repair_required: live target is not the verified base digest",
+            )
+    else:
+        if target_state == "unknown":
+            return _failure(command, "repair_required: live target digest is unknown")
+        if target_state == "before" and review_state == "after":
+            return _failure(
+                command,
+                "repair_required: target before and Review after",
+            )
+
+    try:
+        if record.get("phase") == "prepared":
+            if record.get("target_effect") == "mutation" and target_state == "before":
+                _commit_eval_target(cycle_id, project_root, record, paths)
+                target_state = "after"
+            record = _advance_phase(operations_path, record, "target-applied")
+        if record.get("phase") == "target-applied":
+            if review_state == "before":
+                if record.get("operation_kind") == "probe":
+                    publish_error = _publish_probe_review(
+                        cycle_id,
+                        project_root,
+                        paths=paths,
+                        evaluate_round=evaluate_round,
+                        formal_review_path=review_file,
+                        content=str(record["review_after_content"]),
+                    )
+                    if publish_error is not None:
+                        return _failure(command, publish_error)
+                else:
+                    _publish_review_after(
+                        review_file,
+                        str(record["review_after_content"]),
+                    )
+                review_state = "after"
+            elif review_state != "after":
+                return _failure(
+                    command,
+                    "repair_required: live Review digest is unknown",
+                )
+            record = _advance_phase(operations_path, record, "review-applied")
+        if record.get("phase") == "review-applied":
+            record = advance_operation_record(
+                operations_path,
+                {**record, "phase": "committed"},
+            )
+    except ValueError as exc:
+        reason = str(exc)
+        if reason.startswith("repair_required"):
+            return _failure(command, reason)
+        return _failure(command, reason)
+    return {"ok": True, "record": record}
 
 
 def _abandoned_failure(
@@ -540,18 +817,19 @@ def _validate_evaluate_state_for_session(
     project_root: Path,
 ) -> str | None:
     """Return error reason when evaluate-state does not match session at entry."""
-    if not is_v6_state(eval_data):
-        return "evaluate-state is not v6; start a new Eval round."
+    if not is_v7_state(eval_data):
+        return "incompatible_round: evaluate-state is not v7."
     if eval_data.get("phase") != "evaluate":
         return f"phase is {eval_data.get('phase')!r}, expected 'evaluate'."
     try:
         expected = build_initial_evaluate_state_for_corpus(
             _load_corpus(cycle_id, project_root),
+            eval_capability=_eval_capability(),
             cycle_type=_adapter().detect_cycle_type(cycle_id),
         )
     except ValueError as exc:
         return str(exc)
-    for key in _ENTRY_V6_KEYS:
+    for key in _ENTRY_V7_KEYS:
         actual = eval_data.get(key)
         exp = expected.get(key)
         if actual != exp:
@@ -567,6 +845,20 @@ def _validate_evaluate_state_for_session(
             f"{sorted(expected_dimensions)!r} for this session."
         )
     return None
+
+
+def _eval_capability() -> str:
+    """Return the capability pinned by handoff, defaulting legacy adapters to full."""
+    context = _handoff_context() or {}
+    policy_context = context.get("policy_context")
+    if isinstance(policy_context, dict):
+        capability = policy_context.get("eval_capability")
+        if capability in {"full-remediation", "probe-only"}:
+            return str(capability)
+    capability = context.get("eval_capability")
+    if capability in {"full-remediation", "probe-only"}:
+        return str(capability)
+    return "full-remediation"
 
 
 def _review_path_for_dim(
@@ -825,26 +1117,16 @@ def _load_evaluating_context(
         )
 
     raw_state = parse_frontmatter_fields(es_path.read_text(encoding="utf-8"))
-    if is_v5_state(raw_state):
+    if not is_v7_state(raw_state):
         return _failure(
             "",
-            (
-                f"incompatible_round: v5 {raw_state.get('eval_status', 'active')} "
-                "round cannot resume under Eval v6"
-            ),
+            "incompatible_round: evaluate-state must be v7",
             current_state=current,
         )
     try:
         eval_data = load_evaluate_state(es_path)
     except ValueError as exc:
         return _failure("", str(exc), current_state=current)
-
-    if not is_v6_state(eval_data):
-        return _failure(
-            "",
-            "evaluate-state must be v6; start a new eval round.",
-            current_state=current,
-        )
 
     evaluate_round = 0
     context = _handoff_context()
@@ -872,26 +1154,6 @@ def _load_evaluating_context(
 
     active_doc = _adapter().session_context(cycle_id, project_root).active_doc
     mode = state["mode"]
-    paths = _eval_paths(
-        cycle_id,
-        project_root,
-        active_doc=active_doc,
-        evaluate_round=evaluate_round,
-        es_path=es_path,
-    )
-    try:
-        if _reconcile_human_transactions(
-            cycle_id,
-            project_root,
-            operations_path=_operations_path(paths),
-        ):
-            eval_data = load_evaluate_state(es_path)
-    except (OSError, ValueError) as exc:
-        return _failure(
-            "",
-            f"Human Resolution recovery failed: {exc}",
-            current_state=current,
-        )
     return state, ws_path, eval_data, evaluate_round, active_doc, mode
 
 
@@ -954,6 +1216,7 @@ def _start_next_eval_round(
     cycle_type = _adapter().detect_cycle_type(cycle_id)
     next_state = build_initial_evaluate_state_for_corpus(
         corpus,
+        eval_capability=_eval_capability(),
         cycle_type=cycle_type,
         evaluate_round=evaluate_round,
         focus_l=str(context.get("session_key", "")),
@@ -974,15 +1237,16 @@ def _start_next_eval_round(
 
 
 def _v5_incompatible_reason(es_path: Path) -> str | None:
+    """Return a hard-cut incompatibility for any existing non-v7 state."""
     if not es_path.is_file():
         return None
     raw_state = parse_frontmatter_fields(es_path.read_text(encoding="utf-8"))
-    if not is_v5_state(raw_state):
+    if is_v7_state(raw_state):
         return None
-    eval_status = raw_state.get("eval_status", "") or "active"
-    if eval_status == "done":
-        return None
-    return f"incompatible_round: v5 {eval_status} round cannot resume"
+    return (
+        "incompatible_round: evaluate-state version "
+        f"{raw_state.get('version')!r} is not supported (expected '7')"
+    )
 
 
 def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
@@ -1012,19 +1276,10 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
             )
 
         raw_state = parse_frontmatter_fields(es_path.read_text(encoding="utf-8"))
-        if is_v5_state(raw_state):
-            eval_status = raw_state.get("eval_status", "")
-            if eval_status == "done":
-                return _start_next_eval_round(
-                    cycle_id,
-                    project_root,
-                    state=state,
-                    ws_path=ws_path,
-                    mode=mode,
-                )
+        if not is_v7_state(raw_state):
             return _failure(
                 _CMD_BEGIN_EVAL_ROUND,
-                f"incompatible_round: v5 {eval_status or 'active'} round cannot resume",
+                "incompatible_round: evaluate-state must be v7",
                 current_state=current,
             )
         try:
@@ -1033,13 +1288,6 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
             return _failure(
                 _CMD_BEGIN_EVAL_ROUND,
                 str(exc),
-                current_state=current,
-            )
-
-        if not is_v6_state(eval_data):
-            return _failure(
-                _CMD_BEGIN_EVAL_ROUND,
-                "evaluate-state must be v6; start a new eval round.",
                 current_state=current,
             )
 
@@ -1197,6 +1445,7 @@ def init_round(
         session_key = str(context.get("session_key", ""))
     initial_state = build_initial_evaluate_state_for_corpus(
         corpus,
+        eval_capability=_eval_capability(),
         cycle_type=cycle_type,
         evaluate_round=evaluate_round,
         focus_l=session_key,
@@ -1243,10 +1492,10 @@ def begin_dimension(
             f"invalid dim: {dim!r} (not in corpus for mode {mode!r}).",
         )
 
-    if eval_data.get("fix_phase") != "probe":
+    if eval_data.get("eval_phase") != "probe":
         return _failure(
             _CMD_BEGIN_DIMENSION,
-            f"fix_phase is {eval_data.get('fix_phase')!r}, expected 'probe'.",
+            f"eval_phase is {eval_data.get('eval_phase')!r}, expected 'probe'.",
             current_state=state["current_state"],
         )
 
@@ -1293,13 +1542,7 @@ def begin_dimension(
         return _failure(_CMD_BEGIN_DIMENSION, str(exc), dim=dim)
 
     def _patch(data: dict[str, str]) -> dict[str, str]:
-        updated = merge_current_dimension(data, dim, "in_progress", corpus=corpus)
-        dimension_tokens = parse_dimension_tokens(updated["dimension_tokens"])
-        dimension_tokens[canonical_dim] = operation_ctx["dimension_token"]
-        updated["dimension_tokens"] = json.dumps(
-            dimension_tokens,
-            separators=(",", ":"),
-        )
+        updated = merge_current_dimension(data, dim, "probing", corpus=corpus)
         if paths.get("session_key"):
             updated["focus_l"] = str(paths["session_key"])
         updated["evaluate_round"] = str(evaluate_round)
@@ -1436,6 +1679,10 @@ def _load_probe_payload(path: Path) -> tuple[dict[str, Any], str]:
     for index, finding in enumerate(findings):
         if not isinstance(finding, dict):
             raise ValueError(f"findings[{index}] must be an object")
+        if "handling_mode" in finding:
+            raise ValueError(
+                f"findings[{index}] must not supply Control-owned handling_mode",
+            )
         allowed = _FINDING_REQUIRED_KEYS | _FINDING_OPTIONAL_KEYS
         if not _FINDING_REQUIRED_KEYS <= set(finding) or set(finding) - allowed:
             raise ValueError(
@@ -1461,335 +1708,77 @@ def _load_probe_payload(path: Path) -> tuple[dict[str, Any], str]:
     return payload, hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def _load_remediation_payload(path: Path) -> tuple[dict[str, Any], str]:
-    """Load the minimal, token-scoped remediation diff payload."""
+
+
+def prepare_remediation_at(
+    *,
+    operations_path: Path,
+    proposal_file: Path,
+) -> dict[str, Any]:
+    """Validate and canonicalize a proposal without writing any Eval-owned file."""
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        candidate = json.loads(proposal_file.read_text(encoding="utf-8"))
     except OSError as exc:
-        raise ValueError(f"cannot read payload file: {path}: {exc}") from exc
+        raise ValueError(f"cannot read proposal file: {proposal_file}: {exc}") from exc
     except json.JSONDecodeError as exc:
-        raise ValueError(f"invalid remediation payload JSON: {exc}") from exc
-    if not isinstance(payload, dict) or set(payload) != _REMEDIATION_PAYLOAD_KEYS:
-        raise ValueError(
-            "remediation payload must contain only dimension_token, base_digest, "
-            "unified_diff, and issue_ids",
-        )
-    for field in ("dimension_token", "base_digest", "unified_diff"):
-        if not isinstance(payload.get(field), str) or not payload[field]:
-            raise ValueError(f"remediation payload {field} must be a non-empty string")
-    base_digest = str(payload["base_digest"])
-    if len(base_digest) != 64 or any(char not in "0123456789abcdef" for char in base_digest):
-        raise ValueError("remediation payload base_digest must be a SHA-256 hex digest")
-    issue_ids = payload.get("issue_ids")
-    if (
-        not isinstance(issue_ids, list)
-        or not issue_ids
-        or any(not isinstance(issue_id, str) or not issue_id for issue_id in issue_ids)
-        or len(set(issue_ids)) != len(issue_ids)
-    ):
-        raise ValueError("remediation payload issue_ids must be unique non-empty strings")
-    canonical = json.dumps(
-        payload,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    )
-    return payload, hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        raise ValueError(f"invalid remediation proposal JSON: {exc}") from exc
+    if not isinstance(candidate, dict):
+        raise ValueError("remediation proposal must be an object")
+    operation_token = candidate.get("operation_token")
+    if not isinstance(operation_token, str) or not operation_token:
+        raise ValueError("remediation proposal operation_token must be non-empty")
+    operation = get_operation_record(operations_path, operation_token)
+    if operation.get("operation_kind") != "remediation":
+        raise ValueError("operation_token is not a remediation operation")
+    return prepare_remediation_proposal(operation, candidate)
 
 
-def _load_human_resolution_payload(path: Path) -> tuple[dict[str, Any], str]:
-    """Load a complete, token-scoped Human Resolution batch."""
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise ValueError(f"cannot read payload file: {path}: {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"invalid human resolution payload JSON: {exc}") from exc
-    if not isinstance(payload, dict) or set(payload) != _HUMAN_RESOLUTION_PAYLOAD_KEYS:
-        raise ValueError(
-            "human resolution payload must contain only dimension_token, "
-            "base_digest, review_base_digest, and resolutions",
-        )
-    for field in ("dimension_token", "base_digest", "review_base_digest"):
-        if not isinstance(payload.get(field), str) or not payload[field].strip():
-            raise ValueError(
-                f"human resolution payload {field} must be a non-empty string",
-            )
-    for field in ("base_digest", "review_base_digest"):
-        digest = str(payload[field])
-        if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
-            raise ValueError(
-                f"human resolution payload {field} must be a SHA-256 hex digest",
-            )
-    resolutions = payload.get("resolutions")
-    if not isinstance(resolutions, list) or not resolutions:
-        raise ValueError("human resolution payload resolutions must be a non-empty array")
-    seen_issue_ids: set[str] = set()
-    for index, resolution in enumerate(resolutions):
-        if not isinstance(resolution, dict) or set(resolution) != _RESOLUTION_KEYS:
-            raise ValueError(
-                f"resolutions[{index}] must contain only issue_ids, "
-                "resolution_kind, and resolution",
-            )
-        kind = resolution.get("resolution_kind")
-        text = resolution.get("resolution")
-        issue_ids = resolution.get("issue_ids")
-        if kind not in _RESOLUTION_KINDS:
-            raise ValueError(f"resolutions[{index}].resolution_kind is invalid")
-        if not isinstance(text, str) or not text.strip():
-            raise ValueError(f"resolutions[{index}].resolution must be non-empty")
-        if "\n" in text or "|" in text:
-            raise ValueError(
-                f"resolutions[{index}].resolution must be one table cell",
-            )
-        if (
-            not isinstance(issue_ids, list)
-            or not issue_ids
-            or any(not isinstance(issue_id, str) or not issue_id for issue_id in issue_ids)
-            or len(set(issue_ids)) != len(issue_ids)
-        ):
-            raise ValueError(
-                f"resolutions[{index}].issue_ids must be unique non-empty strings",
-            )
-        overlap = seen_issue_ids & set(issue_ids)
-        if overlap:
-            raise ValueError(f"issue ids appear in multiple resolutions: {sorted(overlap)!r}")
-        seen_issue_ids.update(issue_ids)
-        if kind == "select" and len(issue_ids) != 1:
-            raise ValueError("select resolution requires exactly one issue id")
-    canonical = json.dumps(
-        payload,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    )
-    return payload, hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def _remediation_rows(
-    rows: list[dict[str, str]],
-    *,
-    issue_ids: list[str],
-    operation_kind: str,
-    force_human_resolution: bool,
-) -> str | None:
-    """Validate that a diff resolves only pending rows authorized by its token."""
-    by_id = {row.get("id", ""): row for row in rows}
-    if len(by_id) != len(rows):
-        return "review contains duplicate issue ids"
-    if operation_kind != "artifact-remediation":
-        return f"invalid remediation operation kind: {operation_kind}"
-    expected = {"WO-MISS", "WO-ERROR"}
-    for issue_id in issue_ids:
-        row = by_id.get(issue_id)
-        if row is None:
-            return f"issue id is not in this dimension review: {issue_id}"
-        required_status = "approved" if force_human_resolution else "pending"
-        if row.get("status", "").lower() != required_status:
-            return f"issue id is not {required_status}: {issue_id}"
-        root_cause = row.get("root_cause", "").upper()
-        if root_cause == "SOT-DEFECT":
-            return "SOT-DEFECT requires escalation; B mutation is not authorized"
-        if root_cause not in expected:
-            return f"issue id is not authorized for {operation_kind}: {issue_id}"
-    return None
 
 
-def _render_remediated_review(
-    content: str,
-    *,
-    issue_ids: list[str],
-    operation_kind: str,
-) -> str:
-    """Change only selected review dispositions while preserving all other text."""
-    lines = content.splitlines(keepends=True)
-    header: list[str] | None = None
-    selected = set(issue_ids)
-    found: set[str] = set()
-    if operation_kind != "artifact-remediation":
-        raise ValueError(f"invalid remediation operation kind: {operation_kind}")
-    replacement_status = "fixed"
-    replacement_decision = "fix"
-    output: list[str] = []
-    for raw_line in lines:
-        stripped = raw_line.strip()
-        if stripped.startswith("|") and not stripped.startswith("|---"):
-            cells = [cell.strip() for cell in stripped.split("|")[1:-1]]
-            lowered = [cell.lower() for cell in cells]
-            if "id" in lowered and "status" in lowered and "decision" in lowered:
-                header = lowered
-            elif header is not None and len(cells) == len(header):
-                issue_id = cells[header.index("id")]
-                if issue_id in selected:
-                    cells[header.index("status")] = replacement_status
-                    cells[header.index("decision")] = replacement_decision
-                    ending = "\n" if raw_line.endswith("\n") else ""
-                    raw_line = "| " + " | ".join(cells) + " |" + ending
-                    found.add(issue_id)
-        output.append(raw_line)
-    if found != selected:
-        missing = sorted(selected - found)
-        raise ValueError(f"review issue ids could not be updated: {missing!r}")
-    rendered = "".join(output)
-    errors = validate_review_content(rendered, phase="remediation")
-    if errors:
-        raise ValueError(f"generated remediation review invalid: {'; '.join(errors)}")
-    return rendered
 
 
-def _human_resolution_batch_error(
-    rows: list[dict[str, str]],
-    *,
-    resolutions: list[dict[str, Any]],
-    required_issue_ids: list[str],
-    force_human_resolution: bool,
-) -> str | None:
-    """Validate a complete batch against policy and root-cause permissions."""
-    by_id = {row.get("id", ""): row for row in rows}
-    if len(by_id) != len(rows):
-        return "review contains duplicate issue ids"
-    submitted_ids = [
-        str(issue_id)
-        for resolution in resolutions
-        for issue_id in resolution["issue_ids"]
-    ]
-    if set(submitted_ids) != set(required_issue_ids):
-        return (
-            f"resolution issue ids {sorted(submitted_ids)!r} do not match required "
-            f"issue ids {sorted(required_issue_ids)!r}"
-        )
-    for resolution in resolutions:
-        kind = str(resolution["resolution_kind"])
-        for issue_id in resolution["issue_ids"]:
-            row = by_id.get(issue_id)
-            if row is None:
-                return f"issue id is not in this dimension review: {issue_id}"
-            if row.get("status", "").lower() != "pending":
-                return f"issue id is not pending: {issue_id}"
-            root_cause = row.get("root_cause", "").upper()
-            if root_cause in {"WO-MISS", "WO-ERROR"}:
-                if not force_human_resolution:
-                    return f"Artifact-class issue is not authorized for Human Resolution: {issue_id}"
-                if kind not in {"fix", "accept-divergence", "escalate"}:
-                    return f"{kind} is not authorized for Artifact-class issue: {issue_id}"
-            elif root_cause == "DECISION-REQUIRED":
-                if kind not in {"select", "allow-multiple", "escalate"}:
-                    return f"{kind} is not authorized for DECISION-REQUIRED: {issue_id}"
-            elif root_cause in {"SOT-DEFECT", "UNRESOLVABLE"}:
-                if kind != "escalate":
-                    return f"{kind} is not authorized for {root_cause}: {issue_id}"
-            else:
-                return f"unknown root_cause for Human Resolution: {root_cause!r}"
-    return None
 
 
-def _render_human_resolution_batch(
-    content: str,
-    *,
-    resolutions: list[dict[str, Any]],
-    force_human_resolution: bool,
-) -> str:
-    """Persist a complete Human Resolution batch without modifying B."""
-    lines = content.splitlines(keepends=True)
-    header: list[str] | None = None
-    by_issue = {
-        str(issue_id): resolution
-        for resolution in resolutions
-        for issue_id in resolution["issue_ids"]
-    }
-    selected = set(by_issue)
-    found: set[str] = set()
-    output: list[str] = []
-    for raw_line in lines:
-        stripped = raw_line.strip()
-        if stripped.startswith("|") and not stripped.startswith("|---"):
-            cells = [cell.strip() for cell in stripped.split("|")[1:-1]]
-            lowered = [cell.lower() for cell in cells]
-            if "id" in lowered and "status" in lowered and "decision" in lowered:
-                header = lowered
-            elif header is not None and len(cells) == len(header):
-                issue_id = cells[header.index("id")]
-                if issue_id in selected:
-                    disposition = by_issue[issue_id]
-                    resolution_kind = str(disposition["resolution_kind"])
-                    root_cause = cells[header.index("root_cause")].upper()
-                    if resolution_kind == "escalate":
-                        cells[header.index("status")] = "escalated"
-                        cells[header.index("decision")] = "escalate"
-                    elif resolution_kind == "fix":
-                        cells[header.index("status")] = "approved"
-                        cells[header.index("decision")] = "fix"
-                    elif resolution_kind == "accept-divergence":
-                        cells[header.index("status")] = "accepted-divergence"
-                        cells[header.index("decision")] = "accept-divergence"
-                    else:
-                        cells[header.index("root_cause")] = "WO-ERROR"
-                        cells[header.index("status")] = (
-                            "approved" if force_human_resolution else "pending"
-                        )
-                        cells[header.index("decision")] = (
-                            "fix" if force_human_resolution else "—"
-                        )
-                    if root_cause in {"WO-MISS", "WO-ERROR"} or resolution_kind in {
-                        "select",
-                        "allow-multiple",
-                        "escalate",
-                    }:
-                        cells[header.index("resolution")] = str(
-                            disposition["resolution"],
-                        )
-                    ending = "\n" if raw_line.endswith("\n") else ""
-                    raw_line = "| " + " | ".join(cells) + " |" + ending
-                    found.add(issue_id)
-        output.append(raw_line)
-    if found != selected:
-        missing = sorted(selected - found)
-        raise ValueError(f"review issue ids could not be updated: {missing!r}")
-    rendered = "".join(output)
-    errors = validate_review_content(rendered, phase="remediation")
-    if errors:
-        raise ValueError(
-            f"generated human resolution review invalid: {'; '.join(errors)}",
-        )
-    return rendered
 
 
 def _render_probe_review(
     *,
     dimension_label: str,
+    dimension_id: str,
+    round_token: str,
     active_doc: int,
     evaluate_round: int,
     method_focus: str,
+    handling_policy: str,
     findings: list[dict[str, Any]],
 ) -> str:
     """Render a validated ReviewFile without exposing its path to the runner."""
-    template_path = _EVAL_LIB.parent / "review.template.md"
-    template = template_path.read_text(encoding="utf-8")
-    if "| resolution |" not in template.lower():
-        template = template.replace(
-            "| description | status | decision |\n",
-            "| description | status | decision | resolution |\n",
-        ).replace(
-            "|-------------|--------|----------|\n",
-            "|-------------|--------|----------|------------|\n",
-        )
-    content = (
-        template.replace("{{DIM_LABEL}}", dimension_label)
-        .replace("{{REV}}", str(active_doc))
-        .replace("{{M}}", str(evaluate_round))
-        .replace("{{DATE}}", date.today().isoformat())
-        .replace("{{REFS}}", method_focus)
+    content = render_review_header(
+        dim_label=dimension_label,
+        rev=active_doc,
+        round_num=evaluate_round,
+        date=date.today().isoformat(),
+        refs=method_focus,
+        dimension_id=dimension_id,
+        round_token=round_token,
     )
     for finding in findings:
         row = {
             **finding,
+            "handling_mode": handling_mode_for_issue(
+                str(finding["root_cause"]),
+                handling_policy,
+            ),
             "sot_ref": finding.get("sot_ref", "—"),
             "status": "pending",
             "decision": "—",
             "resolution": "",
         }
         content += (
-            f"| {row['id']} | {row['root_cause']} | {row['sot_ref']} | "
+            f"| {row['id']} | {row['root_cause']} | {row['handling_mode']} | "
+            f"{row['sot_ref']} | "
             f"{row['location']} | {row['severity']} | {row['evidence']} | "
             f"{row['description']} | {row['status']} | {row['decision']} | "
             f"{row['resolution']} |\n"
@@ -1821,151 +1810,18 @@ def _atomic_write_review(path: Path, content: str) -> None:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
-def _patch_human_resolution_state(
-    data: dict[str, str],
-    *,
-    dimension_id: str,
-    resolved: int,
-    escalated: bool,
-) -> dict[str, str]:
-    updated = patch_issue_count(
-        data,
-        dimension_id,
-        resolved=str(resolved),
-    )
-    if escalated:
-        updated["eval_status"] = "abandoned"
-        updated["fix_phase"] = "done"
-    return updated
 
 
-def _human_transaction_path(record: dict[str, Any]) -> Path:
-    return Path(str(record["snapshot_path"])).parent / "_human-resolution-txn.json"
 
 
-def _human_transaction_lock_path(operations_path: Path) -> Path:
-    return operations_path.with_name("_human-resolution-txn.lock")
 
 
-def _write_human_transaction(path: Path, transaction: dict[str, Any]) -> None:
-    save_human_resolution_txn(path, transaction)
 
 
-def _close_human_operation_locked(
-    operations_path: Path,
-    *,
-    dimension_token: str,
-    submission_digest: str,
-    review_path: Path,
-    review_digest: str,
-    resolution_records: list[dict[str, Any]],
-) -> dict[str, Any]:
-    """Publish the final operation record at the innermost lock boundary."""
-    lock_path = operations_path.with_suffix(operations_path.suffix + ".lock")
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    lock_path.touch(exist_ok=True)
-    with lock_path.open("w", encoding="utf-8") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-        try:
-            return close_operation(
-                operations_path,
-                dimension_token=dimension_token,
-                submission_digest=submission_digest,
-                review_path=review_path,
-                review_digest=review_digest,
-                resolution_records=resolution_records,
-            )
-        finally:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
-def _restore_operation_records_locked(path: Path, content: str) -> None:
-    lock_path = path.with_suffix(path.suffix + ".lock")
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    lock_path.touch(exist_ok=True)
-    with lock_path.open("w", encoding="utf-8") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-        try:
-            _atomic_write_text(path, content)
-        finally:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
-def _reconcile_human_transactions(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    operations_path: Path,
-) -> bool:
-    """Complete prepared Human Resolution publications under adapter boundaries."""
-    if not operations_path.is_file():
-        return False
-    lock_path = _human_transaction_lock_path(operations_path)
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    lock_path.touch(exist_ok=True)
-    reconciled = False
-    with lock_path.open("w", encoding="utf-8") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-        try:
-            records = load_operation_records(operations_path)["operations"]
-            for dimension_token, record in records.items():
-                if record.get("operation_kind") != "human-resolution":
-                    continue
-                transaction_path = _human_transaction_path(record)
-                if not transaction_path.is_file():
-                    continue
-                transaction = load_human_resolution_txn(transaction_path)
-                if transaction.get("dimension_token") != dimension_token:
-                    raise ValueError("Human Resolution transaction token mismatch")
-                targets = dict(transaction["targets"])
-                actual_digests: dict[str, str] = {}
-                for name, target in targets.items():
-                    target_path = Path(str(target["path"]))
-                    if not target_path.is_file():
-                        raise ValueError(
-                            f"repair_required: transaction target missing: {target_path}",
-                        )
-                    actual_digests[name] = hashlib.sha256(
-                        target_path.read_bytes(),
-                    ).hexdigest()
-                    if actual_digests[name] not in {
-                        target["before_digest"],
-                        target["after_digest"],
-                    }:
-                        raise ValueError(
-                            f"repair_required: {name} digest is neither before nor after",
-                        )
-                if all(
-                    actual_digests[name] == target["after_digest"]
-                    for name, target in targets.items()
-                ):
-                    transaction_path.unlink(missing_ok=True)
-                    reconciled = True
-                    continue
-
-                review_target = targets["review_file"]
-                _atomic_write_review(
-                    Path(str(review_target["path"])),
-                    str(review_target["before"]),
-                )
-                state_target = targets["evaluate_state"]
-                state_error = _commit_staged_evaluate_state(
-                    cycle_id,
-                    project_root,
-                    state_content=str(state_target["before"]),
-                )
-                if state_error is not None:
-                    raise ValueError(state_error)
-                operations_target = targets["operation_records"]
-                _restore_operation_records_locked(
-                    Path(str(operations_target["path"])),
-                    str(operations_target["before"]),
-                )
-                transaction_path.unlink(missing_ok=True)
-                reconciled = True
-        finally:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-    return reconciled
 
 
 def _publish_probe_review(
@@ -2016,7 +1872,7 @@ def submit_probe_findings(
 ) -> dict[str, Any]:
     """Validate, publish, and record one token-scoped probe submission."""
     try:
-        payload, submission_digest = _load_probe_payload(payload_file)
+        payload, _caller_digest = _load_probe_payload(payload_file)
     except ValueError as exc:
         return _failure(_CMD_SUBMIT_PROBE_FINDINGS, str(exc))
 
@@ -2034,673 +1890,227 @@ def submit_probe_findings(
         es_path=_evaluate_state_path(cycle_id, project_root),
     )
     operations_path = _operations_path(paths)
-    lock_path = operations_path.with_suffix(operations_path.suffix + ".lock")
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    lock_path.touch(exist_ok=True)
+    try:
+        record = get_operation_record(operations_path, dimension_token)
+    except ValueError as exc:
+        return _failure(_CMD_SUBMIT_PROBE_FINDINGS, str(exc))
+    if (
+        record.get("operation_kind") != "probe"
+        or record.get("round_token") != eval_data["round_token"]
+    ):
+        return _failure(
+            _CMD_SUBMIT_PROBE_FINDINGS,
+            "operation_token is not authorized for this probe round",
+            dimension_token=dimension_token,
+        )
 
-    with lock_path.open("w", encoding="utf-8") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-        try:
-            try:
-                _refresh_handoff(cycle_id, project_root, require_evaluating=True)
-                paths = _eval_paths(
-                    cycle_id,
-                    project_root,
-                    active_doc=active_doc,
-                    evaluate_round=evaluate_round,
-                    es_path=_evaluate_state_path(cycle_id, project_root),
-                )
-            except ValueError as exc:
-                return _failure(_CMD_SUBMIT_PROBE_FINDINGS, str(exc))
-            try:
-                record = get_operation_record(operations_path, dimension_token)
-            except ValueError as exc:
-                return _failure(_CMD_SUBMIT_PROBE_FINDINGS, str(exc))
-            if record.get("status") == "closed":
-                if record.get("submission_digest") == submission_digest:
-                    return _success(
-                        _CMD_SUBMIT_PROBE_FINDINGS,
-                        dimension_token=dimension_token,
-                        outcome="probed",
-                        idempotent=True,
-                        review_path=record["review_path"],
-                    )
-                return _failure(
-                    _CMD_SUBMIT_PROBE_FINDINGS,
-                    "conflicting submission for closed dimension_token",
-                    dimension_token=dimension_token,
-                )
-            if (
-                record.get("operation_kind") != "probe"
-                or record.get("allowed_submission") != "finding"
-                or record.get("round_token") != eval_data["round_token"]
-            ):
-                return _failure(
-                    _CMD_SUBMIT_PROBE_FINDINGS,
-                    "dimension_token is not authorized for this probe round",
-                    dimension_token=dimension_token,
-                )
-
-            dimension_id = str(record["dimension_id"])
-            dimension_tokens = parse_dimension_tokens(eval_data["dimension_tokens"])
-            dimension_status = parse_dimension_status(eval_data["dimension_status"])
-            if (
-                dimension_tokens.get(dimension_id) != dimension_token
-                or dimension_status.get(dimension_id) != "in_progress"
-            ):
-                return _failure(
-                    _CMD_SUBMIT_PROBE_FINDINGS,
-                    "dimension_token does not own an in-progress dimension",
-                    dimension_token=dimension_token,
-                )
-
-            expanded = _expanded_corpus(
-                cycle_id,
-                state,
-                paths,
-                evaluate_round,
-                project_root=project_root,
-            )
-            dim_def = _dimension_def(expanded, dimension_id)
-            try:
-                review_content = _render_probe_review(
-                    dimension_label=str(dim_def["label"]),
-                    active_doc=active_doc,
-                    evaluate_round=evaluate_round,
-                    method_focus=str(dim_def["method"].get("focus", "")),
-                    findings=payload["findings"],
-                )
-            except (OSError, ValueError) as exc:
-                return _failure(_CMD_SUBMIT_PROBE_FINDINGS, str(exc))
-            review_path = _review_path_for_dim(
-                Path(paths["evaluate_dir"]),
-                cycle_id=cycle_id,
-                state=state,
-                paths=paths,
-                evaluate_round=evaluate_round,
-                dim=dimension_id,
-                project_root=project_root,
-            )
-            publish_error = _publish_probe_review(
-                cycle_id,
-                project_root,
-                paths=paths,
-                evaluate_round=evaluate_round,
-                formal_review_path=review_path,
-                content=review_content,
-            )
-            if publish_error is not None:
-                return _failure(
-                    _CMD_SUBMIT_PROBE_FINDINGS,
-                    publish_error,
-                    dimension_token=dimension_token,
-                )
-
-            corpus = _load_corpus(cycle_id, project_root)
-            total_issues = str(len(payload["findings"]))
-
-            def _patch(data: dict[str, str]) -> dict[str, str]:
-                updated = merge_current_dimension(
-                    data,
-                    dimension_id,
-                    "probed",
-                    corpus=corpus,
-                )
-                return patch_issue_count(updated, dimension_id, total=total_issues)
-
-            error = _commit_staged_evaluate_state(
-                cycle_id,
-                project_root,
-                update=_patch,
-            )
-            if error is not None:
-                if not str(paths.get("lease_id", "")).strip():
-                    review_path.unlink(missing_ok=True)
-                return _failure(
-                    _CMD_SUBMIT_PROBE_FINDINGS,
-                    error,
-                    dimension_token=dimension_token,
-                )
-            review_digest = hashlib.sha256(review_content.encode("utf-8")).hexdigest()
-            try:
-                close_probe_operation(
-                    operations_path,
-                    dimension_token=dimension_token,
-                    submission_digest=submission_digest,
-                    review_path=review_path,
-                    review_digest=review_digest,
-                    findings=payload["findings"],
-                )
-            except ValueError as exc:
-                return _failure(_CMD_SUBMIT_PROBE_FINDINGS, str(exc))
+    dimension_id = str(record["dimension_id"])
+    policies = parse_handling_policy(eval_data["handling_policy"])
+    handling_policy = policies.get(dimension_id)
+    if handling_policy is None:
+        return _failure(
+            _CMD_SUBMIT_PROBE_FINDINGS,
+            f"handling_policy missing dimension: {dimension_id!r}",
+        )
+    canonical_findings = [
+        {
+            **finding,
+            "handling_mode": handling_mode_for_issue(
+                str(finding["root_cause"]),
+                handling_policy,
+            ),
+        }
+        for finding in payload["findings"]
+    ]
+    submission_digest = hashlib.sha256(
+        json.dumps(
+            canonical_findings,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8"),
+    ).hexdigest()
+    if record.get("phase") == "committed":
+        if record.get("submission_digest") == submission_digest:
             return _success(
                 _CMD_SUBMIT_PROBE_FINDINGS,
                 dimension_token=dimension_token,
                 outcome="probed",
-                idempotent=False,
-                total_issues=total_issues,
-                review_path=review_path.resolve().as_posix(),
+                idempotent=True,
+                review_path=record.get("review_path", ""),
             )
-        finally:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+        return _failure(
+            _CMD_SUBMIT_PROBE_FINDINGS,
+            "conflict: different submission for operation_token",
+            dimension_token=dimension_token,
+        )
+    if record.get("phase") in {"prepared", "target-applied", "review-applied"}:
+        if record.get("submission_digest") != submission_digest:
+            return _failure(
+                _CMD_SUBMIT_PROBE_FINDINGS,
+                "conflict: different submission for operation_token",
+                dimension_token=dimension_token,
+            )
+        recovered = _forward_recover_to_committed(
+            cycle_id,
+            project_root,
+            command=_CMD_SUBMIT_PROBE_FINDINGS,
+            operations_path=operations_path,
+            record=record,
+            paths=paths,
+            review_path=Path(str(record.get("review_path") or "")),
+            evaluate_round=evaluate_round,
+        )
+        if not recovered.get("ok"):
+            return recovered
+        record = recovered["record"]
+        review_path = Path(str(record.get("review_path") or ""))
+        corpus = _load_corpus(cycle_id, project_root)
+        total_issues = len(record.get("canonical_findings") or [])
 
+        def _recover_patch(data: dict[str, str]) -> dict[str, str]:
+            next_status = "complete" if total_issues == 0 else "probed"
+            updated = merge_current_dimension(
+                data,
+                dimension_id,
+                next_status,
+                corpus=corpus or None,
+            )
+            return _recompute_aggregate_counts(
+                patch_issue_count(updated, dimension_id, total=str(total_issues)),
+            )
 
-def submit_remediation_diff(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    payload_file: Path,
-) -> dict[str, Any]:
-    """Validate and transactionally publish one token-scoped remediation diff."""
+        error = _commit_staged_evaluate_state(
+            cycle_id,
+            project_root,
+            update=_recover_patch,
+        )
+        if error is not None:
+            return _failure(
+                _CMD_SUBMIT_PROBE_FINDINGS,
+                f"projection_pending: {error}",
+            )
+        return _success(
+            _CMD_SUBMIT_PROBE_FINDINGS,
+            dimension_token=dimension_token,
+            operation_token=dimension_token,
+            outcome="probed",
+            idempotent=False,
+            total_issues=str(total_issues),
+            review_path=review_path.resolve().as_posix() if review_path else "",
+            findings=record.get("canonical_findings") or [],
+        )
+    if record.get("phase") != "context-open":
+        return _failure(
+            _CMD_SUBMIT_PROBE_FINDINGS,
+            f"repair_required: probe operation phase is {record.get('phase')!r}",
+        )
+    if parse_dimension_status(eval_data["dimension_status"]).get(
+        dimension_id,
+    ) != "probing":
+        return _failure(
+            _CMD_SUBMIT_PROBE_FINDINGS,
+            "operation_token does not own a probing dimension",
+        )
+
+    expanded = _expanded_corpus(
+        cycle_id,
+        state,
+        paths,
+        evaluate_round,
+        project_root=project_root,
+    )
+    dim_def = _dimension_def(expanded, dimension_id)
     try:
-        payload, submission_digest = _load_remediation_payload(payload_file)
+        review_content = _render_probe_review(
+            dimension_label=str(dim_def["label"]),
+            dimension_id=dimension_id,
+            round_token=str(eval_data["round_token"]),
+            active_doc=active_doc,
+            evaluate_round=evaluate_round,
+            method_focus=str(dim_def["method"].get("focus", "")),
+            handling_policy=handling_policy,
+            findings=payload["findings"],
+        )
+    except (OSError, ValueError) as exc:
+        return _failure(_CMD_SUBMIT_PROBE_FINDINGS, str(exc))
+    review_path = _review_path_for_dim(
+        Path(paths["evaluate_dir"]),
+        cycle_id=cycle_id,
+        state=state,
+        paths=paths,
+        evaluate_round=evaluate_round,
+        dim=dimension_id,
+        project_root=project_root,
+    )
+    review_digest = hashlib.sha256(review_content.encode("utf-8")).hexdigest()
+    prepared = {
+        **record,
+        "phase": "prepared",
+        "submission_digest": submission_digest,
+        "target_effect": "none",
+        "target_after_digest": record["target_base_digest"],
+        "review_after_digest": review_digest,
+        "canonical_findings": canonical_findings,
+        "remediation_application": None,
+        "review_before_content": None,
+        "review_after_content": review_content,
+        "target_staged_path": None,
+        "review_path": review_path.resolve().as_posix(),
+    }
+    try:
+        record = _advance_phase(operations_path, prepared, "prepared")
     except ValueError as exc:
-        return _failure(_CMD_SUBMIT_REMEDIATION_DIFF, str(exc))
-
-    ctx = _load_evaluating_context(cycle_id, project_root)
-    if isinstance(ctx, dict):
-        ctx["command"] = _CMD_SUBMIT_REMEDIATION_DIFF
-        return ctx
-    state, _ws_path, eval_data, evaluate_round, active_doc, _mode = ctx
-    dimension_token = str(payload["dimension_token"])
-    paths = _eval_paths(
+        return _failure(_CMD_SUBMIT_PROBE_FINDINGS, str(exc))
+    recovered = _forward_recover_to_committed(
         cycle_id,
         project_root,
-        active_doc=active_doc,
+        command=_CMD_SUBMIT_PROBE_FINDINGS,
+        operations_path=operations_path,
+        record=record,
+        paths=paths,
+        review_path=review_path,
         evaluate_round=evaluate_round,
-        es_path=_evaluate_state_path(cycle_id, project_root),
     )
-    operations_path = _operations_path(paths)
-    lock_path = operations_path.with_suffix(operations_path.suffix + ".lock")
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    lock_path.touch(exist_ok=True)
+    if not recovered.get("ok"):
+        return recovered
+    record = recovered["record"]
 
-    with lock_path.open("w", encoding="utf-8") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-        try:
-            try:
-                _refresh_handoff(cycle_id, project_root, require_evaluating=True)
-                paths = _eval_paths(
-                    cycle_id,
-                    project_root,
-                    active_doc=active_doc,
-                    evaluate_round=evaluate_round,
-                    es_path=_evaluate_state_path(cycle_id, project_root),
-                )
-                record = get_operation_record(operations_path, dimension_token)
-            except ValueError as exc:
-                return _failure(_CMD_SUBMIT_REMEDIATION_DIFF, str(exc))
-            if record.get("status") == "closed":
-                if record.get("submission_digest") == submission_digest:
-                    return _success(
-                        _CMD_SUBMIT_REMEDIATION_DIFF,
-                        dimension_token=dimension_token,
-                        outcome="remediated",
-                        idempotent=True,
-                    )
-                return _failure(
-                    _CMD_SUBMIT_REMEDIATION_DIFF,
-                    "conflicting submission for closed dimension_token",
-                    dimension_token=dimension_token,
-                )
-            operation_kind = str(record.get("operation_kind", ""))
-            if (
-                operation_kind != "artifact-remediation"
-                or record.get("allowed_submission") != "unified_diff"
-                or record.get("round_token") != eval_data["round_token"]
-            ):
-                return _failure(
-                    _CMD_SUBMIT_REMEDIATION_DIFF,
-                    "dimension_token is not authorized for remediation",
-                    dimension_token=dimension_token,
-                )
-            try:
-                snapshot = read_target_snapshot(
-                    operations_path=operations_path,
-                    dimension_token=dimension_token,
-                )
-            except ValueError as exc:
-                return _failure(_CMD_SUBMIT_REMEDIATION_DIFF, str(exc))
-            if payload["base_digest"] != snapshot["digest"]:
-                return _failure(
-                    _CMD_SUBMIT_REMEDIATION_DIFF,
-                    "base_digest does not match the token B snapshot",
-                    dimension_token=dimension_token,
-                )
-            try:
-                remediated_target = apply_unified_diff(
-                    snapshot["content"],
-                    str(payload["unified_diff"]),
-                )
-            except ValueError as exc:
-                return _failure(_CMD_SUBMIT_REMEDIATION_DIFF, str(exc))
+    corpus = _load_corpus(cycle_id, project_root)
+    total_issues = len(canonical_findings)
 
-            dimension_id = str(record["dimension_id"])
-            review_path = _review_path_from_context(
-                cycle_id,
-                project_root,
-                state=state,
-                evaluate_round=evaluate_round,
-                active_doc=active_doc,
-                dim=dimension_id,
-            )
-            if not review_path.is_file():
-                return _failure(
-                    _CMD_SUBMIT_REMEDIATION_DIFF,
-                    f"review file not found: {review_path}",
-                    dimension_token=dimension_token,
-                )
-            review_before = review_path.read_text(encoding="utf-8")
-            issue_ids = list(payload["issue_ids"])
-            force_human_resolution = _force_human_for_dim(
-                eval_data,
-                cycle_id,
-                project_root,
-                dimension_id,
-            )
-            review_rows = parse_review_file(review_path)
-            policy_error = _policy_disposition_error(
-                review_rows,
-                force_human_resolution=force_human_resolution,
-            )
-            if policy_error:
-                return _failure(
-                    _CMD_SUBMIT_REMEDIATION_DIFF,
-                    policy_error,
-                    dimension_token=dimension_token,
-                )
-            row_error = _remediation_rows(
-                review_rows,
-                issue_ids=issue_ids,
-                operation_kind=operation_kind,
-                force_human_resolution=force_human_resolution,
-            )
-            if row_error:
-                return _failure(
-                    _CMD_SUBMIT_REMEDIATION_DIFF,
-                    row_error,
-                    dimension_token=dimension_token,
-                )
-            try:
-                review_after = _render_remediated_review(
-                    review_before,
-                    issue_ids=issue_ids,
-                    operation_kind=operation_kind,
-                )
-            except ValueError as exc:
-                return _failure(_CMD_SUBMIT_REMEDIATION_DIFF, str(exc))
+    def _patch(data: dict[str, str]) -> dict[str, str]:
+        next_status = "complete" if total_issues == 0 else "probed"
+        updated = merge_current_dimension(
+            data,
+            dimension_id,
+            next_status,
+            corpus=corpus,
+        )
+        return _recompute_aggregate_counts(
+            patch_issue_count(updated, dimension_id, total=str(total_issues)),
+        )
 
-            scope_dir = Path(str(record["snapshot_path"])).parent
-            staged_target = scope_dir / "target.remediated"
-            _atomic_write_text(staged_target, remediated_target)
-            target_digest = hashlib.sha256(
-                remediated_target.encode("utf-8"),
-            ).hexdigest()
-            target_commit = _adapter().commit_remediation_target(
-                cycle_id,
-                project_root,
-                staged_target_path=staged_target,
-                base_digest=str(payload["base_digest"]),
-                lease_id=str(record["lease_id"]),
-            )
-            if not target_commit.get("ok"):
-                return _failure(
-                    _CMD_SUBMIT_REMEDIATION_DIFF,
-                    str(target_commit.get("error") or "commit-remediation-target failed"),
-                    dimension_token=dimension_token,
-                )
-
-            def _rollback_target() -> None:
-                _adapter().restore_remediation_target(
-                    cycle_id,
-                    project_root,
-                    snapshot_path=Path(str(record["snapshot_path"])),
-                    expected_digest=target_digest,
-                    lease_id=str(record["lease_id"]),
-                )
-
-            try:
-                _atomic_write_review(review_path, review_after)
-            except OSError as exc:
-                _rollback_target()
-                return _failure(_CMD_SUBMIT_REMEDIATION_DIFF, f"review publish failed: {exc}")
-
-            resolved = count_resolved(parse_review_file(review_path))
-
-            def _patch(data: dict[str, str]) -> dict[str, str]:
-                return patch_issue_count(
-                    data,
-                    dimension_id,
-                    resolved=str(resolved),
-                )
-
-            state_error = _commit_staged_evaluate_state(
-                cycle_id,
-                project_root,
-                update=_patch,
-            )
-            if state_error is not None:
-                _atomic_write_text(review_path, review_before)
-                _rollback_target()
-                return _failure(
-                    _CMD_SUBMIT_REMEDIATION_DIFF,
-                    state_error,
-                    dimension_token=dimension_token,
-                )
-            try:
-                close_operation(
-                    operations_path,
-                    dimension_token=dimension_token,
-                    submission_digest=submission_digest,
-                    review_path=review_path,
-                    review_digest=hashlib.sha256(
-                        review_after.encode("utf-8"),
-                    ).hexdigest(),
-                )
-            except ValueError as exc:
-                _commit_staged_evaluate_state(
-                    cycle_id,
-                    project_root,
-                    state=eval_data,
-                )
-                _atomic_write_text(review_path, review_before)
-                _rollback_target()
-                return _failure(_CMD_SUBMIT_REMEDIATION_DIFF, str(exc))
-            return _success(
-                _CMD_SUBMIT_REMEDIATION_DIFF,
-                dimension_token=dimension_token,
-                outcome="remediated",
-                idempotent=False,
-                issue_ids=issue_ids,
-            )
-        finally:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-
-
-def submit_human_resolution(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    payload_file: Path,
-) -> dict[str, Any]:
-    """Validate and atomically publish one Human Resolution disposition."""
-    try:
-        payload, submission_digest = _load_human_resolution_payload(payload_file)
-    except ValueError as exc:
-        return _failure(_CMD_SUBMIT_HUMAN_RESOLUTION, str(exc))
-
-    ctx = _load_evaluating_context(cycle_id, project_root)
-    if isinstance(ctx, dict):
-        ctx["command"] = _CMD_SUBMIT_HUMAN_RESOLUTION
-        return ctx
-    state, _ws_path, eval_data, evaluate_round, active_doc, _mode = ctx
-    dimension_token = str(payload["dimension_token"])
-    paths = _eval_paths(
-        cycle_id,
-        project_root,
-        active_doc=active_doc,
-        evaluate_round=evaluate_round,
-        es_path=_evaluate_state_path(cycle_id, project_root),
+    error = _commit_staged_evaluate_state(cycle_id, project_root, update=_patch)
+    if error is not None:
+        return _failure(
+            _CMD_SUBMIT_PROBE_FINDINGS,
+            f"projection_pending: {error}",
+        )
+    return _success(
+        _CMD_SUBMIT_PROBE_FINDINGS,
+        dimension_token=dimension_token,
+        operation_token=dimension_token,
+        outcome="probed",
+        idempotent=False,
+        total_issues=str(total_issues),
+        review_path=review_path.resolve().as_posix(),
+        findings=canonical_findings,
     )
-    operations_path = _operations_path(paths)
-    lock_path = _human_transaction_lock_path(operations_path)
-    lock_path.parent.mkdir(parents=True, exist_ok=True)
-    lock_path.touch(exist_ok=True)
 
-    with lock_path.open("w", encoding="utf-8") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-        try:
-            try:
-                _refresh_handoff(cycle_id, project_root, require_evaluating=True)
-                record = get_operation_record(operations_path, dimension_token)
-            except ValueError as exc:
-                return _failure(_CMD_SUBMIT_HUMAN_RESOLUTION, str(exc))
-            if record.get("status") == "closed":
-                if record.get("submission_digest") == submission_digest:
-                    return _success(
-                        _CMD_SUBMIT_HUMAN_RESOLUTION,
-                        dimension_token=dimension_token,
-                        outcome="resolved",
-                        idempotent=True,
-                    )
-                return _failure(
-                    _CMD_SUBMIT_HUMAN_RESOLUTION,
-                    "conflicting submission for closed dimension_token",
-                    dimension_token=dimension_token,
-                )
-            if (
-                record.get("operation_kind") != "human-resolution"
-                or record.get("allowed_submission") != "resolution"
-                or record.get("round_token") != eval_data["round_token"]
-            ):
-                return _failure(
-                    _CMD_SUBMIT_HUMAN_RESOLUTION,
-                    "dimension_token is not authorized for Human Resolution",
-                    dimension_token=dimension_token,
-                )
-            dimension_id = str(record["dimension_id"])
-            dimension_tokens = parse_dimension_tokens(eval_data["dimension_tokens"])
-            if dimension_tokens.get(dimension_id) != dimension_token:
-                return _failure(
-                    _CMD_SUBMIT_HUMAN_RESOLUTION,
-                    "dimension_token does not own this Human Resolution dimension",
-                    dimension_token=dimension_token,
-                )
-            try:
-                snapshot = read_target_snapshot(
-                    operations_path=operations_path,
-                    dimension_token=dimension_token,
-                )
-            except ValueError as exc:
-                return _failure(_CMD_SUBMIT_HUMAN_RESOLUTION, str(exc))
-            if payload["base_digest"] != snapshot["digest"]:
-                return _failure(
-                    _CMD_SUBMIT_HUMAN_RESOLUTION,
-                    "base_digest does not match the token B snapshot",
-                    dimension_token=dimension_token,
-                )
 
-            review_path = _review_path_from_context(
-                cycle_id,
-                project_root,
-                state=state,
-                evaluate_round=evaluate_round,
-                active_doc=active_doc,
-                dim=dimension_id,
-            )
-            if not review_path.is_file():
-                return _failure(
-                    _CMD_SUBMIT_HUMAN_RESOLUTION,
-                    f"review file not found: {review_path}",
-                    dimension_token=dimension_token,
-                )
-            review_before = review_path.read_text(encoding="utf-8")
-            review_base_digest = hashlib.sha256(
-                review_before.encode("utf-8"),
-            ).hexdigest()
-            if (
-                payload["review_base_digest"] != review_base_digest
-                or record.get("review_base_digest") != review_base_digest
-            ):
-                return _failure(
-                    _CMD_SUBMIT_HUMAN_RESOLUTION,
-                    "review_base_digest is stale; request a new Human Resolution context",
-                    dimension_token=dimension_token,
-                )
-            force_human_resolution = _force_human_for_dim(
-                eval_data,
-                cycle_id,
-                project_root,
-                dimension_id,
-            )
-            if record.get("force_human_resolution") is not force_human_resolution:
-                return _failure(
-                    _CMD_SUBMIT_HUMAN_RESOLUTION,
-                    "operation policy does not match the round snapshot",
-                    dimension_token=dimension_token,
-                )
-            resolutions = list(payload["resolutions"])
-            required_issue_ids = list(record.get("required_issue_ids", []))
-            allowed_by_issue = dict(record.get("allowed_resolution_kinds", {}))
-            for resolution in resolutions:
-                kind = str(resolution["resolution_kind"])
-                for issue_id in resolution["issue_ids"]:
-                    if kind not in allowed_by_issue.get(issue_id, []):
-                        return _failure(
-                            _CMD_SUBMIT_HUMAN_RESOLUTION,
-                            f"{kind} is not authorized for issue: {issue_id}",
-                            dimension_token=dimension_token,
-                        )
-            row_error = _human_resolution_batch_error(
-                parse_review_file(review_path),
-                resolutions=resolutions,
-                required_issue_ids=required_issue_ids,
-                force_human_resolution=force_human_resolution,
-            )
-            if row_error:
-                return _failure(
-                    _CMD_SUBMIT_HUMAN_RESOLUTION,
-                    row_error,
-                    dimension_token=dimension_token,
-                )
-            try:
-                review_after = _render_human_resolution_batch(
-                    review_before,
-                    resolutions=resolutions,
-                    force_human_resolution=force_human_resolution,
-                )
-            except ValueError as exc:
-                return _failure(_CMD_SUBMIT_HUMAN_RESOLUTION, str(exc))
 
-            resolved = count_resolved(parse_review_content(review_after))
-            escalated = any(
-                resolution["resolution_kind"] == "escalate"
-                for resolution in resolutions
-            )
-            state_after = _patch_human_resolution_state(
-                eval_data,
-                dimension_id=dimension_id,
-                resolved=resolved,
-                escalated=escalated,
-            )
-            scope_dir = Path(str(record["snapshot_path"])).parent
-            state_after_path = scope_dir / "evaluate-state.after.md"
-            save_evaluate_state(state_after_path, state_after, merge=False)
-            state_after_content = state_after_path.read_text(encoding="utf-8")
-            state_after_path.unlink(missing_ok=True)
-            operations_before = operations_path.read_text(encoding="utf-8")
-            operations_data = load_operation_records(operations_path)
-            closed_record = dict(record)
-            review_after_digest = hashlib.sha256(
-                review_after.encode("utf-8"),
-            ).hexdigest()
-            closed_record.update({
-                "status": "closed",
-                "submission_digest": submission_digest,
-                "review_path": review_path.resolve().as_posix(),
-                "review_digest": review_after_digest,
-                "resolution_records": resolutions,
-            })
-            operations_after_data = {
-                "version": operations_data["version"],
-                "operations": dict(operations_data["operations"]),
-            }
-            operations_after_data["operations"][dimension_token] = closed_record
-            operations_after = json.dumps(
-                operations_after_data,
-                ensure_ascii=False,
-                indent=2,
-                sort_keys=True,
-            ) + "\n"
-            state_path = _evaluate_state_path(cycle_id, project_root)
-            state_before_content = state_path.read_text(encoding="utf-8")
-            transaction_path = _human_transaction_path(record)
-            transaction = {
-                "version": "1",
-                "operation": "submit-human-resolution",
-                "dimension_token": dimension_token,
-                "submission_digest": submission_digest,
-                "phase": "prepared",
-                "targets": {
-                    "review_file": {
-                        "path": review_path.resolve().as_posix(),
-                        "before": review_before,
-                        "before_digest": review_base_digest,
-                        "after": review_after,
-                        "after_digest": review_after_digest,
-                    },
-                    "evaluate_state": {
-                        "path": state_path.resolve().as_posix(),
-                        "before": state_before_content,
-                        "before_digest": hashlib.sha256(
-                            state_before_content.encode("utf-8"),
-                        ).hexdigest(),
-                        "after": state_after_content,
-                        "after_digest": hashlib.sha256(
-                            state_after_content.encode("utf-8"),
-                        ).hexdigest(),
-                    },
-                    "operation_records": {
-                        "path": operations_path.resolve().as_posix(),
-                        "before": operations_before,
-                        "before_digest": hashlib.sha256(
-                            operations_before.encode("utf-8"),
-                        ).hexdigest(),
-                        "after": operations_after,
-                        "after_digest": hashlib.sha256(
-                            operations_after.encode("utf-8"),
-                        ).hexdigest(),
-                    },
-                },
-            }
-            _write_human_transaction(transaction_path, transaction)
-            try:
-                _atomic_write_review(review_path, review_after)
-            except OSError as exc:
-                transaction_path.unlink(missing_ok=True)
-                return _failure(
-                    _CMD_SUBMIT_HUMAN_RESOLUTION,
-                    f"review publish failed: {exc}",
-                )
 
-            state_error = _commit_staged_evaluate_state(
-                cycle_id,
-                project_root,
-                state=state_after,
-            )
-            if state_error is not None:
-                return _failure(
-                    _CMD_SUBMIT_HUMAN_RESOLUTION,
-                    f"{state_error}; transaction prepared for recovery",
-                    dimension_token=dimension_token,
-                )
-            try:
-                _close_human_operation_locked(
-                    operations_path,
-                    dimension_token=dimension_token,
-                    submission_digest=submission_digest,
-                    review_path=review_path,
-                    review_digest=review_after_digest,
-                    resolution_records=resolutions,
-                )
-            except ValueError as exc:
-                return _failure(
-                    _CMD_SUBMIT_HUMAN_RESOLUTION,
-                    f"{exc}; transaction prepared for recovery",
-                )
-            transaction["phase"] = "applied"
-            _write_human_transaction(transaction_path, transaction)
-            transaction_path.unlink(missing_ok=True)
-            return _success(
-                _CMD_SUBMIT_HUMAN_RESOLUTION,
-                dimension_token=dimension_token,
-                outcome="resolved",
-                idempotent=False,
-                issue_ids=required_issue_ids,
-                abandoned=escalated,
-            )
-        finally:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def check_dimension(
@@ -2835,16 +2245,16 @@ def _probe_result_issues(
             continue
         issues_by_dim.setdefault(dimension, []).append(issue)
 
-    dimension_tokens = parse_dimension_tokens(eval_data["dimension_tokens"])
-    for dimension_id in _dispatch_canonical(cycle_id, project_root):
-        token = dimension_tokens.get(dimension_id)
-        if not token:
+    records = load_operation_records(_operations_path(paths))["operations"]
+    for record in records.values():
+        dimension_id = str(record.get("dimension_id", ""))
+        if (
+            record.get("operation_kind") != "probe"
+            or record.get("round_token") != eval_data.get("round_token")
+            or record.get("phase") != "committed"
+        ):
             continue
-        try:
-            record = get_operation_record(_operations_path(paths), token)
-        except ValueError:
-            continue
-        findings = record.get("probe_findings")
+        findings = record.get("canonical_findings")
         if not isinstance(findings, list):
             continue
         issues_by_dim[dimension_id] = [
@@ -2859,106 +2269,1245 @@ def _probe_result_issues(
     return issues, review_paths
 
 
-def probe_complete(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    """Return probe findings and advance to Human Resolution."""
+def _application_outcome(record: dict[str, Any]) -> str | None:
+    application = record.get("remediation_application")
+    if not isinstance(application, dict):
+        return None
+    final = application.get("final")
+    if not isinstance(final, dict):
+        return None
+    outcome = final.get("outcome")
+    return str(outcome) if outcome is not None else None
+
+
+def _committed_abandon_record(
+    operations: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    for record in operations:
+        if (
+            record.get("operation_kind") == "remediation"
+            and record.get("phase") == "committed"
+            and _application_outcome(record) == "abandon"
+        ):
+            return record
+    return None
+
+
+def _project_abandoned_round(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    command: str,
+    eval_data: dict[str, str],
+    record: dict[str, Any],
+    review_path: Path | None,
+    extra_failure: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Rebuild abandoned/done from Review + committed abandon. None on success."""
+    extra = extra_failure or {}
+    dimension_id = str(record["dimension_id"])
+    rows: list[dict[str, str]] = []
+    if review_path is not None and review_path.is_file():
+        try:
+            rows = parse_review_file(
+                review_path,
+                expected_dimension_id=dimension_id,
+                expected_round_token=str(eval_data["round_token"]),
+            )
+        except ValueError as exc:
+            return _failure(command, str(exc), **extra)
+
+    def _project(data: dict[str, str]) -> dict[str, str]:
+        updated = dict(data)
+        updated["eval_status"] = "abandoned"
+        updated["eval_phase"] = "done"
+        if rows:
+            updated = patch_issue_count(
+                updated,
+                dimension_id,
+                total=str(len(rows)),
+                resolved=str(count_resolved(rows)),
+            )
+            updated = _recompute_aggregate_counts(updated)
+        return updated
+
+    error = _commit_staged_evaluate_state(cycle_id, project_root, update=_project)
+    if error is not None:
+        return _failure(command, f"projection_pending: {error}", **extra)
+    eval_data["eval_status"] = "abandoned"
+    eval_data["eval_phase"] = "done"
+    return None
+
+
+def _sync_committed_abandon_projection(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    command: str,
+    state: dict[str, str],
+    eval_data: dict[str, str],
+    evaluate_round: int,
+    active_doc: int,
+    paths: dict[str, str],
+    refuse_new_context: bool = False,
+    extra_failure: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Rebuild abandon projection on entry. Optionally refuse a new context."""
+    extra = extra_failure or {}
+    abandon = _committed_abandon_record(
+        _operations_for_round(paths, eval_data["round_token"]),
+    )
+    if abandon is None:
+        return None
+    try:
+        review_path = _review_path_from_context(
+            cycle_id,
+            project_root,
+            state=state,
+            evaluate_round=evaluate_round,
+            active_doc=active_doc,
+            dim=str(abandon["dimension_id"]),
+        )
+    except (OSError, ValueError):
+        review_path = None
+    blocked = _project_abandoned_round(
+        cycle_id,
+        project_root,
+        command=command,
+        eval_data=eval_data,
+        record=abandon,
+        review_path=review_path,
+        extra_failure=extra,
+    )
+    if blocked is not None:
+        return blocked
+    if refuse_new_context:
+        failure = _abandoned_failure(command, state, eval_data)
+        if failure is not None:
+            failure.update(extra)
+        return failure
+    return None
+
+
+def _remediation_command_context(
+    command: str,
+    cycle_id: str,
+    project_root: Path,
+) -> tuple[
+    dict[str, str],
+    dict[str, str],
+    int,
+    int,
+    dict[str, str],
+] | dict[str, Any]:
+    """Load common full-remediation command state and paths."""
     ctx = _load_evaluating_context(cycle_id, project_root)
     if isinstance(ctx, dict):
-        ctx["command"] = _CMD_PROBE_COMPLETE
+        ctx["command"] = command
         return ctx
-
-    state, _ws_path, eval_data, _evaluate_round, active_doc, _mode = ctx
-    dispatch = _dispatch_canonical(cycle_id, project_root)
-
-    if eval_data.get("fix_phase") != "probe":
+    state, _ws_path, eval_data, evaluate_round, active_doc, _mode = ctx
+    if eval_data.get("eval_capability") != "full-remediation":
         return _failure(
-            _CMD_PROBE_COMPLETE,
-            f"fix_phase is {eval_data.get('fix_phase')!r}, expected 'probe'.",
-            current_state=state["current_state"],
+            command,
+            "probe-only round rejects remediation commands",
         )
-
-    if not all_dims_at_least(eval_data, dispatch, "probed"):
-        return _failure(
-            _CMD_PROBE_COMPLETE,
-            "not all dispatch dimensions are probed.",
-            current_state=state["current_state"],
-        )
-
-    total = sum_issue_totals(eval_data, dispatch)
     paths = _eval_paths(
         cycle_id,
         project_root,
         active_doc=active_doc,
-        evaluate_round=_evaluate_round,
+        evaluate_round=evaluate_round,
         es_path=_evaluate_state_path(cycle_id, project_root),
     )
-    issues, review_paths = _probe_result_issues(
-        cycle_id=cycle_id,
-        project_root=project_root,
+    synced = _sync_committed_abandon_projection(
+        cycle_id,
+        project_root,
+        command=command,
+        state=state,
         eval_data=eval_data,
+        evaluate_round=evaluate_round,
+        active_doc=active_doc,
         paths=paths,
+        refuse_new_context=command == _CMD_BEGIN_DIMENSION_REMEDIATION,
+    )
+    if synced is not None:
+        return synced
+    return state, eval_data, evaluate_round, active_doc, paths
+
+
+def _operations_for_round(
+    paths: dict[str, str],
+    round_token: str,
+) -> list[dict[str, Any]]:
+    records = load_operation_records(_operations_path(paths))["operations"]
+    return [
+        record
+        for record in records.values()
+        if record.get("round_token") == round_token
+    ]
+
+
+def begin_remediation(cycle_id: str, project_root: Path) -> dict[str, Any]:
+    """Enter unified remediation after every Probe operation is committed."""
+    loaded = _remediation_command_context(
+        _CMD_BEGIN_REMEDIATION,
+        cycle_id,
+        project_root,
+    )
+    if isinstance(loaded, dict):
+        return loaded
+    state, eval_data, evaluate_round, active_doc, paths = loaded
+    phase = eval_data.get("eval_phase")
+    if phase not in {"probe", "remediation"}:
+        return _failure(
+            _CMD_BEGIN_REMEDIATION,
+            f"eval_phase is {phase!r}, expected 'probe' or 'remediation'",
+        )
+    dimensions = parse_dimension_status(eval_data["dimension_status"])
+    if phase == "probe" and any(
+        status not in {"probed", "complete"}
+        for status in dimensions.values()
+    ):
+        return _failure(
+            _CMD_BEGIN_REMEDIATION,
+            "not all dimensions are probed or complete",
+        )
+    operations = _operations_for_round(paths, eval_data["round_token"])
+    if any(
+        record.get("operation_kind") == "probe"
+        and record.get("phase") != "committed"
+        for record in operations
+    ):
+        return _failure(
+            _CMD_BEGIN_REMEDIATION,
+            "open probe operation prevents remediation",
+        )
+    committed_probe_dimensions = {
+        str(record.get("dimension_id"))
+        for record in operations
+        if record.get("operation_kind") == "probe"
+        and record.get("phase") == "committed"
+    }
+    if not set(dimensions) <= committed_probe_dimensions:
+        return _failure(
+            _CMD_BEGIN_REMEDIATION,
+            "missing committed probe operation for one or more dimensions",
+        )
+    probe_by_dimension = {
+        str(record.get("dimension_id")): record
+        for record in operations
+        if record.get("operation_kind") == "probe"
+        and record.get("phase") == "committed"
+    }
+    for dimension_id in dimensions:
+        review_path = _review_path_from_context(
+            cycle_id,
+            project_root,
+            state=state,
+            evaluate_round=evaluate_round,
+            active_doc=active_doc,
+            dim=dimension_id,
+        )
+        if not review_path.is_file():
+            return _failure(
+                _CMD_BEGIN_REMEDIATION,
+                f"ReviewFile missing for dimension {dimension_id!r}",
+            )
+        try:
+            rows = parse_review_file(
+                review_path,
+                expected_dimension_id=dimension_id,
+                expected_round_token=eval_data["round_token"],
+            )
+            validate_review_against_probe_record(
+                rows,
+                probe_by_dimension[dimension_id],
+            )
+            if any(row.get("status") == "resolved" for row in rows):
+                validate_review_completion(
+                    rows=rows,
+                    dimension_id=dimension_id,
+                    remediation_records=operations,
+                    review_digest=hashlib.sha256(
+                        review_path.read_bytes(),
+                    ).hexdigest(),
+                )
+        except ValueError as exc:
+            return _failure(_CMD_BEGIN_REMEDIATION, str(exc))
+    if phase == "probe":
+        error = _commit_staged_evaluate_state(
+            cycle_id,
+            project_root,
+            patch={"eval_phase": "remediation"},
+        )
+        if error is not None:
+            return _failure(_CMD_BEGIN_REMEDIATION, error)
+    dispatch = [
+        dimension_id
+        for dimension_id, status in dimensions.items()
+        if status == "probed"
+    ]
+    return _success(
+        _CMD_BEGIN_REMEDIATION,
+        skip=not dispatch,
+        dispatch=dispatch,
+        dimension_dispatch=eval_data.get("dimension_dispatch", "parallel"),
+        current_state=state["current_state"],
+        eval_phase="remediation",
     )
 
+
+def begin_dimension_remediation(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    dim: str,
+) -> dict[str, Any]:
+    """Create or resume one all-pending-Issue remediation context."""
+    loaded = _remediation_command_context(
+        _CMD_BEGIN_DIMENSION_REMEDIATION,
+        cycle_id,
+        project_root,
+    )
+    if isinstance(loaded, dict):
+        loaded["dim"] = dim
+        return loaded
+    state, eval_data, evaluate_round, active_doc, paths = loaded
+    blocked = _sync_committed_abandon_projection(
+        cycle_id,
+        project_root,
+        command=_CMD_BEGIN_DIMENSION_REMEDIATION,
+        state=state,
+        eval_data=eval_data,
+        evaluate_round=evaluate_round,
+        active_doc=active_doc,
+        paths=paths,
+        refuse_new_context=True,
+        extra_failure={"dim": dim},
+    )
+    if blocked is not None:
+        return blocked
+    if eval_data.get("eval_phase") != "remediation":
+        return _failure(
+            _CMD_BEGIN_DIMENSION_REMEDIATION,
+            "eval_phase must be 'remediation'",
+            dim=dim,
+        )
+    try:
+        dimension_id = _canonical_dim(cycle_id, project_root, dim)
+    except ValueError as exc:
+        return _failure(_CMD_BEGIN_DIMENSION_REMEDIATION, str(exc), dim=dim)
+    dimension_status = parse_dimension_status(eval_data["dimension_status"])
+    if dimension_status.get(dimension_id) not in {
+        "probed",
+        "remediating",
+        "complete",
+    }:
+        return _failure(
+            _CMD_BEGIN_DIMENSION_REMEDIATION,
+            f"dimension is not probed: {dimension_id!r}",
+            dim=dim,
+        )
+    review_path = _review_path_from_context(
+        cycle_id,
+        project_root,
+        state=state,
+        evaluate_round=evaluate_round,
+        active_doc=active_doc,
+        dim=dimension_id,
+    )
+    try:
+        rows = parse_review_file(
+            review_path,
+            expected_dimension_id=dimension_id,
+            expected_round_token=eval_data["round_token"],
+        )
+    except ValueError as exc:
+        return _failure(_CMD_BEGIN_DIMENSION_REMEDIATION, str(exc), dim=dim)
+    operations = _operations_for_round(paths, eval_data["round_token"])
+    probe_record = next(
+        (
+            record
+            for record in operations
+            if record.get("operation_kind") == "probe"
+            and record.get("phase") == "committed"
+            and record.get("dimension_id") == dimension_id
+        ),
+        None,
+    )
+    try:
+        if probe_record is None:
+            raise ValueError("missing committed probe operation")
+        validate_review_against_probe_record(rows, probe_record)
+    except ValueError as exc:
+        return _failure(_CMD_BEGIN_DIMENSION_REMEDIATION, str(exc), dim=dim)
+    pending = [
+        row for row in rows
+        if row.get("status", "").lower() == "pending"
+    ]
+    if not pending:
+        try:
+            validate_review_completion(
+                rows=rows,
+                dimension_id=dimension_id,
+                remediation_records=operations,
+                review_digest=hashlib.sha256(review_path.read_bytes()).hexdigest(),
+            )
+        except ValueError as exc:
+            return _failure(_CMD_BEGIN_DIMENSION_REMEDIATION, str(exc), dim=dim)
+        corpus = _load_corpus(cycle_id, project_root)
+
+        def _complete_zero(data: dict[str, str]) -> dict[str, str]:
+            updated = merge_current_dimension(
+                data,
+                dimension_id,
+                "complete",
+                corpus=corpus,
+            )
+            return _recompute_aggregate_counts(
+                patch_issue_count(
+                    updated,
+                    dimension_id,
+                    total=str(len(rows)),
+                    resolved=str(count_resolved(rows)),
+                ),
+            )
+
+        error = _commit_staged_evaluate_state(
+            cycle_id,
+            project_root,
+            update=_complete_zero,
+        )
+        if error is not None:
+            return _failure(_CMD_BEGIN_DIMENSION_REMEDIATION, error, dim=dim)
+        return _success(
+            _CMD_BEGIN_DIMENSION_REMEDIATION,
+            dim=dim,
+            skip=True,
+        )
+    if dimension_status.get(dimension_id) == "complete":
+        return _failure(
+            _CMD_BEGIN_DIMENSION_REMEDIATION,
+            "complete dimension has pending Review findings",
+            dim=dim,
+        )
+
+    required_issue_ids = [row["id"] for row in pending]
+    handling_modes = {
+        row["id"]: row["handling_mode"].lower()
+        for row in pending
+    }
+    try:
+        allowed_decisions = {
+            row["id"]: allowed_decisions_for_issue(
+                row["root_cause"],
+                handling_modes[row["id"]],
+            )
+            for row in pending
+        }
+        expanded = _expanded_corpus(
+            cycle_id,
+            state,
+            paths,
+            evaluate_round,
+            project_root=project_root,
+        )
+        dim_def = _dimension_def(expanded, dimension_id)
+        operation_ctx = issue_remediation_context(
+            operations_path=_operations_path(paths),
+            write_staging_dir=Path(
+                paths.get("write_staging_dir") or paths["evaluate_dir"],
+            ),
+            target_path=Path(str(dim_def["eval_target"]["path"])),
+            review_path=review_path,
+            round_token=eval_data["round_token"],
+            dimension_id=dimension_id,
+            method=dict(dim_def["method"]),
+            sots=[dict(sot) for sot in dim_def["sots"]],
+            required_issue_ids=required_issue_ids,
+            handling_modes_by_issue=handling_modes,
+            allowed_decisions_by_issue=allowed_decisions,
+        )
+    except (OSError, ValueError) as exc:
+        return _failure(_CMD_BEGIN_DIMENSION_REMEDIATION, str(exc), dim=dim)
+
+    corpus = _load_corpus(cycle_id, project_root)
     error = _commit_staged_evaluate_state(
         cycle_id,
         project_root,
-        patch={
-            "total_issues": str(total),
-            "fix_phase": "human-resolution",
-        },
+        update=lambda data: merge_current_dimension(
+            data,
+            dimension_id,
+            "remediating",
+            corpus=corpus,
+        ),
     )
     if error is not None:
-        return _failure(_CMD_PROBE_COMPLETE, error, current_state=state["current_state"])
-
+        return _failure(
+            _CMD_BEGIN_DIMENSION_REMEDIATION,
+            f"projection_pending: {error}",
+            dim=dim,
+        )
     return _success(
-        _CMD_PROBE_COMPLETE,
-        fix_phase="human-resolution",
-        total_issues=str(total),
-        current_state=state["current_state"],
+        _CMD_BEGIN_DIMENSION_REMEDIATION,
+        dim=dim,
+        skip=False,
+        operation_ctx=operation_ctx,
+        dispatch_input=_format_remediation_dispatch_input(
+            operation_ctx,
+            pending,
+        ),
+    )
+
+
+def cancel_remediation(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    operation_token: str,
+) -> dict[str, Any]:
+    """Cancel only a context-open remediation and release its persisted lease."""
+    loaded = _remediation_command_context(
+        _CMD_CANCEL_REMEDIATION,
+        cycle_id,
+        project_root,
+    )
+    if isinstance(loaded, dict):
+        return loaded
+    _state, eval_data, _evaluate_round, _active_doc, paths = loaded
+    try:
+        current = get_operation_record(_operations_path(paths), operation_token)
+        if (
+            current.get("operation_kind") != "remediation"
+            or current.get("round_token") != eval_data["round_token"]
+        ):
+            raise ValueError("operation_token is not owned by this remediation round")
+        cancelled = cancel_operation_record(
+            _operations_path(paths),
+            operation_token,
+        )
+    except ValueError as exc:
+        return _failure(_CMD_CANCEL_REMEDIATION, str(exc))
+    if cancelled.get("phase") == "cancelled":
+        dimension_id = str(cancelled["dimension_id"])
+        corpus = _load_corpus(cycle_id, project_root)
+        error = _commit_staged_evaluate_state(
+            cycle_id,
+            project_root,
+            update=lambda data: merge_current_dimension(
+                data,
+                dimension_id,
+                "probed",
+                corpus=corpus,
+            ),
+        )
+        if error is not None:
+            return _failure(
+                _CMD_CANCEL_REMEDIATION,
+                f"projection_pending: {error}",
+            )
+    return _success(
+        _CMD_CANCEL_REMEDIATION,
+        operation_token=operation_token,
+        phase=cancelled["phase"],
+        dimension_status="probed" if cancelled["phase"] == "cancelled" else None,
+    )
+
+
+def prepare_remediation(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    proposal_file: Path,
+) -> dict[str, Any]:
+    """Expose the read-only proposal validator through the Control API."""
+    loaded = _remediation_command_context(
+        _CMD_PREPARE_REMEDIATION,
+        cycle_id,
+        project_root,
+    )
+    if isinstance(loaded, dict):
+        return loaded
+    _state, eval_data, _evaluate_round, _active_doc, paths = loaded
+    if eval_data.get("eval_phase") != "remediation":
+        return _failure(_CMD_PREPARE_REMEDIATION, "eval_phase must be remediation")
+    try:
+        prepared = prepare_remediation_at(
+            operations_path=_operations_path(paths),
+            proposal_file=proposal_file,
+        )
+    except ValueError as exc:
+        return _failure(_CMD_PREPARE_REMEDIATION, str(exc))
+    return _success(_CMD_PREPARE_REMEDIATION, **prepared)
+
+
+def _project_after_remediation(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    record: dict[str, Any],
+    review_path: Path,
+    eval_data: dict[str, str],
+    idempotent: bool,
+) -> dict[str, Any]:
+    application = record.get("remediation_application")
+    if not isinstance(application, dict):
+        return _failure(
+            _CMD_APPLY_REMEDIATION,
+            "repair_required: committed remediation missing application",
+        )
+    outcome = str(application.get("final", {}).get("outcome") or "apply")
+    dimension_id = str(record["dimension_id"])
+    try:
+        rows = parse_review_file(
+            review_path,
+            expected_dimension_id=dimension_id,
+            expected_round_token=str(eval_data["round_token"]),
+        )
+    except ValueError as exc:
+        return _failure(_CMD_APPLY_REMEDIATION, str(exc))
+    pending = [row for row in rows if row.get("status") == "pending"]
+    corpus = _load_corpus(cycle_id, project_root) or None
+
+    def _project(data: dict[str, str]) -> dict[str, str]:
+        updated = dict(data)
+        if outcome == "abandon":
+            updated["eval_status"] = "abandoned"
+            updated["eval_phase"] = "done"
+        else:
+            next_status = "complete" if not pending else "remediating"
+            updated = merge_current_dimension(
+                updated,
+                dimension_id,
+                next_status,
+                corpus=corpus,
+            )
+        updated = patch_issue_count(
+            updated,
+            dimension_id,
+            total=str(len(rows)),
+            resolved=str(count_resolved(rows)),
+        )
+        return _recompute_aggregate_counts(updated)
+
+    error = _commit_staged_evaluate_state(cycle_id, project_root, update=_project)
+    if error is not None:
+        return _failure(
+            _CMD_APPLY_REMEDIATION,
+            f"projection_pending: {error}",
+        )
+    return _success(
+        _CMD_APPLY_REMEDIATION,
+        operation_token=record["operation_token"],
+        outcome=outcome,
+        target_effect=record.get("target_effect"),
+        idempotent=idempotent,
+        eval_status="abandoned" if outcome == "abandon" else eval_data.get("eval_status"),
+    )
+
+
+def apply_remediation(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    application_file: Path,
+) -> dict[str, Any]:
+    """Validate a RemediationApplication and commit the unified transaction."""
+    loaded = _remediation_command_context(
+        _CMD_APPLY_REMEDIATION,
+        cycle_id,
+        project_root,
+    )
+    if isinstance(loaded, dict):
+        return loaded
+    _state, eval_data, evaluate_round, active_doc, paths = loaded
+    try:
+        application = json.loads(application_file.read_text(encoding="utf-8"))
+    except OSError as exc:
+        return _failure(
+            _CMD_APPLY_REMEDIATION,
+            f"cannot read application file: {application_file}: {exc}",
+        )
+    except json.JSONDecodeError as exc:
+        return _failure(
+            _CMD_APPLY_REMEDIATION,
+            f"invalid remediation application JSON: {exc}",
+        )
+    if not isinstance(application, dict) or not isinstance(application.get("proposal"), dict):
+        return _failure(_CMD_APPLY_REMEDIATION, "application must embed a proposal")
+    operation_token = application["proposal"].get("operation_token")
+    if not isinstance(operation_token, str) or not operation_token:
+        return _failure(
+            _CMD_APPLY_REMEDIATION,
+            "application proposal.operation_token must be non-empty",
+        )
+    operations_path = _operations_path(paths)
+    try:
+        record = get_operation_record(operations_path, operation_token)
+    except ValueError as exc:
+        return _failure(_CMD_APPLY_REMEDIATION, str(exc))
+    if (
+        record.get("operation_kind") != "remediation"
+        or record.get("round_token") != eval_data["round_token"]
+    ):
+        return _failure(
+            _CMD_APPLY_REMEDIATION,
+            "operation_token is not owned by this remediation round",
+        )
+    review_path = _review_path_from_context(
+        cycle_id,
+        project_root,
+        state=_state,
+        evaluate_round=evaluate_round,
+        active_doc=active_doc,
+        dim=str(record["dimension_id"]),
+    )
+    phase = record.get("phase")
+    if phase == "cancelled":
+        return _failure(_CMD_APPLY_REMEDIATION, "cancelled operation cannot be applied")
+
+    if phase in {"prepared", "target-applied", "review-applied", "committed"}:
+        digest = application_submission_digest(
+            record,
+            canonicalize_remediation_application(record, application),
+        )
+        if digest != record.get("submission_digest"):
+            return _failure(
+                _CMD_APPLY_REMEDIATION,
+                "conflict: different submission for operation_token",
+            )
+        if phase == "committed":
+            return _project_after_remediation(
+                cycle_id,
+                project_root,
+                record=record,
+                review_path=review_path,
+                eval_data=eval_data,
+                idempotent=True,
+            )
+        recovered = _forward_recover_to_committed(
+            cycle_id,
+            project_root,
+            command=_CMD_APPLY_REMEDIATION,
+            operations_path=operations_path,
+            record=record,
+            paths=paths,
+            review_path=review_path,
+            evaluate_round=evaluate_round,
+        )
+        if not recovered.get("ok"):
+            return recovered
+        return _project_after_remediation(
+            cycle_id,
+            project_root,
+            record=recovered["record"],
+            review_path=review_path,
+            eval_data=eval_data,
+            idempotent=False,
+        )
+    if eval_data.get("eval_phase") != "remediation":
+        return _failure(_CMD_APPLY_REMEDIATION, "eval_phase must be remediation")
+    if phase != "context-open":
+        return _failure(
+            _CMD_APPLY_REMEDIATION,
+            f"repair_required: unknown operation phase {phase!r}",
+        )
+
+    errors = validate_remediation_application(record, application)
+    if errors:
+        return _failure(
+            _CMD_APPLY_REMEDIATION,
+            f"remediation application invalid: {'; '.join(errors)}",
+        )
+    try:
+        target_path = _target_path_from_record(record)
+        live_target = _live_target_digest(cycle_id, project_root, target_path)
+    except (OSError, ValueError) as exc:
+        return _failure(_CMD_APPLY_REMEDIATION, str(exc))
+    if live_target != record["target_base_digest"]:
+        return _failure(
+            _CMD_APPLY_REMEDIATION,
+            "stale target: live digest does not match operation target_base_digest",
+        )
+    if not review_path.is_file():
+        return _failure(_CMD_APPLY_REMEDIATION, "stale review: ReviewFile missing")
+    before_content = review_path.read_text(encoding="utf-8")
+    if _content_digest(before_content) != record["review_base_digest"]:
+        return _failure(
+            _CMD_APPLY_REMEDIATION,
+            "stale review: live digest does not match operation review_base_digest",
+        )
+
+    canonical = canonicalize_remediation_application(record, application)
+    final = canonical["final"]
+    outcome = str(final["outcome"])
+    updates = {
+        str(entry["issue_id"]): (
+            "resolved",
+            str(entry["decision"]),
+            str(entry["resolution"]),
+        )
+        for entry in final.get("resolutions", [])
+        if isinstance(entry, dict)
+    }
+    after_content = _render_review_after(before_content, updates)
+    review_errors = validate_review_content(after_content, phase="remediation")
+    if review_errors:
+        return _failure(
+            _CMD_APPLY_REMEDIATION,
+            f"generated review invalid: {'; '.join(review_errors)}",
+        )
+
+    target_effect = "none"
+    target_after_digest = str(record["target_base_digest"])
+    staged_path: str | None = None
+    mutation = final.get("mutation")
+    if outcome == "apply" and mutation is not None:
+        snapshot_path = record.get("snapshot_path")
+        if not isinstance(snapshot_path, str) or not snapshot_path:
+            return _failure(_CMD_APPLY_REMEDIATION, "operation snapshot_path is missing")
+        try:
+            after_target = apply_unified_diff(
+                Path(snapshot_path).read_text(encoding="utf-8"),
+                str(mutation["unified_diff"]),
+            )
+        except ValueError as exc:
+            return _failure(_CMD_APPLY_REMEDIATION, str(exc))
+        if after_target == Path(snapshot_path).read_text(encoding="utf-8"):
+            return _failure(
+                _CMD_APPLY_REMEDIATION,
+                "empty or no-op unified_diff is rejected",
+            )
+        target_after_digest = _content_digest(after_target)
+        if target_after_digest == record["target_base_digest"]:
+            return _failure(
+                _CMD_APPLY_REMEDIATION,
+                "empty or no-op unified_diff is rejected",
+            )
+        staged = Path(paths["write_staging_dir"]) / f"{operation_token}-target.staged"
+        _atomic_write_text(staged, after_target)
+        staged_path = staged.as_posix()
+        target_effect = "mutation"
+
+    prepared = {
+        **record,
+        "phase": "prepared",
+        "submission_digest": application_submission_digest(record, canonical),
+        "target_effect": target_effect,
+        "target_after_digest": target_after_digest,
+        "review_after_digest": _content_digest(after_content),
+        "canonical_findings": None,
+        "remediation_application": canonical,
+        "review_before_content": before_content,
+        "review_after_content": after_content,
+        "target_staged_path": staged_path,
+        "review_path": review_path.resolve().as_posix(),
+    }
+    try:
+        record = _advance_phase(operations_path, prepared, "prepared")
+    except ValueError as exc:
+        return _failure(_CMD_APPLY_REMEDIATION, str(exc))
+    recovered = _forward_recover_to_committed(
+        cycle_id,
+        project_root,
+        command=_CMD_APPLY_REMEDIATION,
+        operations_path=operations_path,
+        record=record,
+        paths=paths,
+        review_path=review_path,
+        evaluate_round=evaluate_round,
+    )
+    if not recovered.get("ok"):
+        return recovered
+    return _project_after_remediation(
+        cycle_id,
+        project_root,
+        record=recovered["record"],
+        review_path=review_path,
+        eval_data=eval_data,
+        idempotent=False,
+    )
+
+
+def restore_eval_target(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    snapshot_path: Path,
+    expected_current_digest: str,
+    target_path: Path,
+) -> dict[str, Any]:
+    """CAS restore of one EvalTarget; refuses when live digest drifted."""
+    del target_path
+    paths = _paths_from_handoff() or {}
+    result = _adapter().restore_eval_target(
+        cycle_id,
+        project_root,
+        snapshot_path=snapshot_path,
+        expected_current_digest=expected_current_digest,
+        lease_id=str(paths.get("lease_id", "")),
+    )
+    if not result.get("ok"):
+        return _failure(
+            "restore-eval-target",
+            str(result.get("error") or "restore_eval_target failed"),
+        )
+    return _success("restore-eval-target")
+
+
+def check_dimension_remediation(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    dim: str,
+) -> dict[str, Any]:
+    """Derive one Dimension projection from Review v3 and v4 operations."""
+    loaded = _remediation_command_context(
+        _CMD_CHECK_DIMENSION_REMEDIATION,
+        cycle_id,
+        project_root,
+    )
+    if isinstance(loaded, dict):
+        loaded["dim"] = dim
+        return loaded
+    state, eval_data, evaluate_round, active_doc, paths = loaded
+    try:
+        dimension_id = _canonical_dim(cycle_id, project_root, dim)
+        review_path = _review_path_from_context(
+            cycle_id,
+            project_root,
+            state=state,
+            evaluate_round=evaluate_round,
+            active_doc=active_doc,
+            dim=dimension_id,
+        )
+        rows = parse_review_file(
+            review_path,
+            expected_dimension_id=dimension_id,
+            expected_round_token=eval_data["round_token"],
+        )
+    except ValueError as exc:
+        return _failure(_CMD_CHECK_DIMENSION_REMEDIATION, str(exc), dim=dim)
+    pending = [row for row in rows if row.get("status") == "pending"]
+    records = [
+        record
+        for record in _operations_for_round(paths, eval_data["round_token"])
+        if record.get("operation_kind") == "remediation"
+        and record.get("dimension_id") == dimension_id
+    ]
+    probe_record = next(
+        (
+            record
+            for record in _operations_for_round(paths, eval_data["round_token"])
+            if record.get("operation_kind") == "probe"
+            and record.get("phase") == "committed"
+            and record.get("dimension_id") == dimension_id
+        ),
+        None,
+    )
+    try:
+        if probe_record is None:
+            raise ValueError("missing committed probe operation")
+        validate_review_against_probe_record(rows, probe_record)
+    except ValueError as exc:
+        return _failure(_CMD_CHECK_DIMENSION_REMEDIATION, str(exc), dim=dim)
+    latest = records[-1] if records else None
+    if not pending:
+        try:
+            validate_review_completion(
+                rows=rows,
+                dimension_id=dimension_id,
+                remediation_records=records,
+                review_digest=hashlib.sha256(review_path.read_bytes()).hexdigest(),
+            )
+        except ValueError as exc:
+            return _failure(_CMD_CHECK_DIMENSION_REMEDIATION, str(exc), dim=dim)
+        projected = "complete"
+    elif latest is None or latest.get("phase") == "cancelled":
+        projected = "probed"
+    elif latest.get("phase") == "committed":
+        if _application_outcome(latest) == "abandon":
+            blocked = _project_abandoned_round(
+                cycle_id,
+                project_root,
+                command=_CMD_CHECK_DIMENSION_REMEDIATION,
+                eval_data=eval_data,
+                record=latest,
+                review_path=review_path,
+                extra_failure={"dim": dim},
+            )
+            if blocked is not None:
+                return blocked
+            return _success(
+                _CMD_CHECK_DIMENSION_REMEDIATION,
+                dim=dim,
+                dimension_status=parse_dimension_status(
+                    eval_data["dimension_status"],
+                ).get(dimension_id),
+                pending_issue_ids=[row["id"] for row in pending],
+                operation_phase=latest.get("phase"),
+                eval_status="abandoned",
+            )
+        return _failure(
+            _CMD_CHECK_DIMENSION_REMEDIATION,
+            "repair_required: committed operation left pending issues",
+            dim=dim,
+        )
+    else:
+        projected = "remediating"
+    corpus = _load_corpus(cycle_id, project_root)
+
+    def _project(data: dict[str, str]) -> dict[str, str]:
+        updated = merge_current_dimension(
+            data,
+            dimension_id,
+            projected,
+            corpus=corpus,
+        )
+        updated = patch_issue_count(
+            updated,
+            dimension_id,
+            total=str(len(rows)),
+            resolved=str(count_resolved(rows)),
+        )
+        return _recompute_aggregate_counts(updated)
+
+    error = _commit_staged_evaluate_state(cycle_id, project_root, update=_project)
+    if error is not None:
+        return _failure(_CMD_CHECK_DIMENSION_REMEDIATION, error, dim=dim)
+    return _success(
+        _CMD_CHECK_DIMENSION_REMEDIATION,
+        dim=dim,
+        dimension_status=projected,
+        pending_issue_ids=[row["id"] for row in pending],
+        operation_phase=latest.get("phase") if latest else None,
+    )
+
+
+def remediation_complete(
+    cycle_id: str,
+    project_root: Path,
+) -> dict[str, Any]:
+    """Finish a full-remediation round only from Review and operation facts."""
+    loaded = _remediation_command_context(
+        _CMD_REMEDIATION_COMPLETE,
+        cycle_id,
+        project_root,
+    )
+    if isinstance(loaded, dict):
+        return loaded
+    state, eval_data, evaluate_round, active_doc, paths = loaded
+    if eval_data.get("eval_phase") != "remediation":
+        return _failure(_CMD_REMEDIATION_COMPLETE, "eval_phase must be remediation")
+    dimensions = _dispatch_canonical(cycle_id, project_root)
+    operations = _operations_for_round(paths, eval_data["round_token"])
+    probe_by_dimension = {
+        str(record.get("dimension_id")): record
+        for record in operations
+        if record.get("operation_kind") == "probe"
+        and record.get("phase") == "committed"
+    }
+    rows_by_dimension: dict[str, list[dict[str, str]]] = {}
+    for dimension_id in dimensions:
+        try:
+            review_path = _review_path_from_context(
+                cycle_id,
+                project_root,
+                state=state,
+                evaluate_round=evaluate_round,
+                active_doc=active_doc,
+                dim=dimension_id,
+            )
+            rows = parse_review_file(
+                review_path,
+                expected_dimension_id=dimension_id,
+                expected_round_token=eval_data["round_token"],
+            )
+            if dimension_id not in probe_by_dimension:
+                raise ValueError("missing committed probe operation")
+            validate_review_against_probe_record(
+                rows,
+                probe_by_dimension[dimension_id],
+            )
+            validate_review_completion(
+                rows=rows,
+                dimension_id=dimension_id,
+                remediation_records=operations,
+                review_digest=hashlib.sha256(review_path.read_bytes()).hexdigest(),
+            )
+            rows_by_dimension[dimension_id] = rows
+        except ValueError as exc:
+            return _failure(_CMD_REMEDIATION_COMPLETE, str(exc))
+    pending_ids = [
+        row["id"]
+        for rows in rows_by_dimension.values()
+        for row in rows
+        if row.get("status") == "pending"
+    ]
+    if pending_ids:
+        return _failure(
+            _CMD_REMEDIATION_COMPLETE,
+            f"pending findings remain: {pending_ids!r}",
+        )
+    if any(
+        record.get("operation_kind") == "remediation"
+        and record.get("phase") not in {"committed", "cancelled"}
+        for record in operations
+    ):
+        return _failure(_CMD_REMEDIATION_COMPLETE, "open remediation operation remains")
+    corpus = _load_corpus(cycle_id, project_root)
+
+    def _finish(data: dict[str, str]) -> dict[str, str]:
+        updated = dict(data)
+        for dimension_id, rows in rows_by_dimension.items():
+            updated = merge_current_dimension(
+                updated,
+                dimension_id,
+                "complete",
+                corpus=corpus,
+            )
+            updated = patch_issue_count(
+                updated,
+                dimension_id,
+                total=str(len(rows)),
+                resolved=str(count_resolved(rows)),
+            )
+        updated = _recompute_aggregate_counts(updated)
+        updated["eval_phase"] = "done"
+        updated["eval_status"] = "done"
+        return updated
+
+    error = _commit_staged_evaluate_state(cycle_id, project_root, update=_finish)
+    if error is not None:
+        return _failure(_CMD_REMEDIATION_COMPLETE, error)
+    return _success(
+        _CMD_REMEDIATION_COMPLETE,
+        eval_phase="done",
+        eval_status="done",
+    )
+
+
+def complete_probe_only(
+    cycle_id: str,
+    project_root: Path,
+) -> dict[str, Any]:
+    """Finish a probe-only round while preserving pending findings."""
+    ctx = _load_evaluating_context(cycle_id, project_root)
+    if isinstance(ctx, dict):
+        ctx["command"] = _CMD_COMPLETE_PROBE_ONLY
+        return ctx
+    state, _ws_path, eval_data, evaluate_round, active_doc, _mode = ctx
+    if eval_data.get("eval_capability") != "probe-only":
+        return _failure(
+            _CMD_COMPLETE_PROBE_ONLY,
+            "complete-probe-only requires probe-only capability",
+        )
+    dimensions = parse_dimension_status(eval_data["dimension_status"])
+    terminal_replay = (
+        eval_data.get("eval_phase") == "done"
+        and eval_data.get("eval_status") == "done"
+    )
+    if not terminal_replay and eval_data.get("eval_phase") != "probe":
+        return _failure(_CMD_COMPLETE_PROBE_ONLY, "eval_phase must be probe or done")
+    if any(status not in {"probed", "complete"} for status in dimensions.values()):
+        return _failure(
+            _CMD_COMPLETE_PROBE_ONLY,
+            "not all dimensions are probed",
+        )
+    paths = _eval_paths(
+        cycle_id,
+        project_root,
+        active_doc=active_doc,
+        evaluate_round=evaluate_round,
+        es_path=_evaluate_state_path(cycle_id, project_root),
+    )
+    operations = _operations_for_round(paths, eval_data["round_token"])
+    if any(
+        record.get("operation_kind") == "probe"
+        and record.get("phase") != "committed"
+        for record in operations
+    ):
+        return _failure(_CMD_COMPLETE_PROBE_ONLY, "open probe operation remains")
+    committed_probe_dimensions = {
+        str(record.get("dimension_id"))
+        for record in operations
+        if record.get("operation_kind") == "probe"
+        and record.get("phase") == "committed"
+    }
+    if not set(dimensions) <= committed_probe_dimensions:
+        return _failure(
+            _CMD_COMPLETE_PROBE_ONLY,
+            "missing committed probe operation for one or more dimensions",
+        )
+    rows_by_dimension: dict[str, list[dict[str, str]]] = {}
+    review_paths: list[str] = []
+    for dimension_id in dimensions:
+        review_path = _review_path_from_context(
+            cycle_id,
+            project_root,
+            state=state,
+            evaluate_round=evaluate_round,
+            active_doc=active_doc,
+            dim=dimension_id,
+        )
+        if not review_path.is_file():
+            return _failure(
+                _CMD_COMPLETE_PROBE_ONLY,
+                f"ReviewFile missing for dimension {dimension_id!r}",
+            )
+        try:
+            rows_by_dimension[dimension_id] = parse_review_file(
+                review_path,
+                expected_dimension_id=dimension_id,
+                expected_round_token=eval_data["round_token"],
+            )
+        except ValueError as exc:
+            return _failure(_CMD_COMPLETE_PROBE_ONLY, str(exc))
+        review_paths.append(review_path.as_posix())
+    try:
+        issues = canonical_probe_findings_from_reviews(
+            rows_by_dimension,
+            operations,
+            expected_dimensions=list(dimensions),
+        )
+    except ValueError as exc:
+        return _failure(_CMD_COMPLETE_PROBE_ONLY, str(exc))
+    if terminal_replay:
+        return _success(
+            _CMD_COMPLETE_PROBE_ONLY,
+            eval_phase="done",
+            eval_status="done",
+            idempotent=True,
+            issues=issues,
+            review_paths=review_paths,
+        )
+    corpus = _load_corpus(cycle_id, project_root)
+
+    def _finish(data: dict[str, str]) -> dict[str, str]:
+        updated = dict(data)
+        for dimension_id in dimensions:
+            updated = merge_current_dimension(
+                updated,
+                dimension_id,
+                "complete",
+                corpus=corpus,
+            )
+        updated["eval_phase"] = "done"
+        updated["eval_status"] = "done"
+        return updated
+
+    error = _commit_staged_evaluate_state(cycle_id, project_root, update=_finish)
+    if error is not None:
+        return _failure(_CMD_COMPLETE_PROBE_ONLY, error)
+    return _success(
+        _CMD_COMPLETE_PROBE_ONLY,
+        eval_phase="done",
+        eval_status="done",
+        idempotent=False,
         issues=issues,
         review_paths=review_paths,
     )
 
 
-def _build_remediation_operation_context(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    dim: str,
-    state: dict[str, str],
-    paths: dict[str, str],
-    evaluate_round: int,
-    round_token: str,
-    operation_kind: str,
-    review_path: Path | None = None,
-    force_human_resolution: bool | None = None,
-    required_issue_ids: list[str] | None = None,
-    allowed_resolution_kinds: dict[str, list[str]] | None = None,
-) -> dict[str, Any]:
-    expanded = _expanded_corpus(
-        cycle_id,
-        state,
-        paths,
-        evaluate_round,
-        project_root=project_root,
-    )
-    dim_def = _dimension_def(expanded, dim)
-    return issue_remediation_context(
-        operations_path=_operations_path(paths),
-        write_staging_dir=Path(
-            paths.get("write_staging_dir") or paths["evaluate_dir"],
-        ),
-        target_path=Path(str(dim_def["eval_target"]["path"])),
-        round_token=round_token,
-        dimension_id=str(dim_def["id"]),
-        operation_kind=operation_kind,
-        lease_id=str(paths.get("lease_id", "")),
-        method=dict(dim_def["method"]),
-        sots=[dict(sot) for sot in dim_def["sots"]],
-        review_path=review_path,
-        force_human_resolution=force_human_resolution,
-        required_issue_ids=required_issue_ids,
-        allowed_resolution_kinds=allowed_resolution_kinds,
-    )
 
 
 def _format_remediation_dispatch_input(
@@ -2967,30 +3516,30 @@ def _format_remediation_dispatch_input(
 ) -> str:
     lines = [
         f"ROUND_TOKEN: {operation_ctx['round_token']}",
-        f"DIMENSION_TOKEN: {operation_ctx['dimension_token']}",
+        f"OPERATION_TOKEN: {operation_ctx['operation_token']}",
         f"DIMENSION_ID: {operation_ctx['dimension_id']}",
         f"OPERATION_KIND: {operation_ctx['operation_kind']}",
-        f"BASE_DIGEST: {operation_ctx['target_digest']}",
+        f"TARGET_BASE_DIGEST: {operation_ctx['target_base_digest']}",
+        f"REVIEW_BASE_DIGEST: {operation_ctx['review_base_digest']}",
         f"ALLOWED_SUBMISSION: {operation_ctx['allowed_submission']}",
         "RESOLVED_METHOD: "
         + json.dumps(operation_ctx["resolved_method"], ensure_ascii=False),
         "RESOLVED_SOTS: "
         + json.dumps(operation_ctx["resolved_sots"], ensure_ascii=False),
         "PENDING_ISSUES: " + json.dumps(pending_issues, ensure_ascii=False),
+        "REQUIRED_ISSUE_IDS: "
+        + json.dumps(operation_ctx["required_issue_ids"], ensure_ascii=False),
+        "HANDLING_MODES_BY_ISSUE: "
+        + json.dumps(
+            operation_ctx["handling_modes_by_issue"],
+            ensure_ascii=False,
+        ),
+        "ALLOWED_DECISIONS_BY_ISSUE: "
+        + json.dumps(
+            operation_ctx["allowed_decisions_by_issue"],
+            ensure_ascii=False,
+        ),
     ]
-    if operation_ctx["operation_kind"] == "human-resolution":
-        lines.extend([
-            f"REVIEW_BASE_DIGEST: {operation_ctx['review_base_digest']}",
-            "FORCE_HUMAN_RESOLUTION: "
-            + json.dumps(operation_ctx["force_human_resolution"]),
-            "REQUIRED_ISSUE_IDS: "
-            + json.dumps(operation_ctx["required_issue_ids"], ensure_ascii=False),
-            "ALLOWED_RESOLUTION_KINDS: "
-            + json.dumps(
-                operation_ctx["allowed_resolution_kinds"],
-                ensure_ascii=False,
-            ),
-        ])
     return "\n".join(lines)
 
 
@@ -3014,1031 +3563,26 @@ def _review_rows_for_dim(
     return parse_review_file(review_path)
 
 
-def _dims_with_pending_artifact(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    state: dict[str, str],
-    eval_data: dict[str, str],
-    evaluate_round: int,
-    active_doc: int,
-) -> list[str]:
-    pending_dims: list[str] = []
-    for dim in dispatch_list(cycle_id, project_root):
-        rows = _review_rows_for_dim(
-            cycle_id,
-            project_root,
-            state=state,
-            evaluate_round=evaluate_round,
-            active_doc=active_doc,
-            dim=dim,
-        )
-        if pending_artifact_rows(
-            rows,
-            force_human_resolution=_force_human_for_dim(
-                eval_data,
-                cycle_id,
-                project_root,
-                dim,
-            ),
-        ):
-            pending_dims.append(dim)
-    return pending_dims
 
 
-def _dims_with_pending_human(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    state: dict[str, str],
-    eval_data: dict[str, str],
-    evaluate_round: int,
-    active_doc: int,
-) -> list[str]:
-    pending_dims: list[str] = []
-    for dim in dispatch_list(cycle_id, project_root):
-        rows = _review_rows_for_dim(
-            cycle_id,
-            project_root,
-            state=state,
-            evaluate_round=evaluate_round,
-            active_doc=active_doc,
-            dim=dim,
-        )
-        if pending_resolution_rows(
-            rows,
-            force_human_resolution=_force_human_for_dim(
-                eval_data,
-                cycle_id,
-                project_root,
-                dim,
-            ),
-        ):
-            pending_dims.append(dim)
-    return pending_dims
 
 
-def begin_artifact_remediation(
-    cycle_id: str,
-    project_root: Path,
-) -> dict[str, Any]:
-    """Return artifact remediation dispatch list or skip when no pending WO-* rows."""
-    ctx = _load_evaluating_context(cycle_id, project_root)
-    if isinstance(ctx, dict):
-        ctx["command"] = _CMD_BEGIN_ARTIFACT_REMEDIATION
-        return ctx
 
-    state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    abandoned = _abandoned_failure(
-        _CMD_BEGIN_ARTIFACT_REMEDIATION,
-        state,
-        eval_data,
-    )
-    if abandoned:
-        return abandoned
-    if eval_data.get("fix_phase") != "artifact-remediation":
-        return _failure(
-            _CMD_BEGIN_ARTIFACT_REMEDIATION,
-            (
-                f"fix_phase is {eval_data.get('fix_phase')!r}, "
-                "expected 'artifact-remediation'."
-            ),
-            current_state=state["current_state"],
-        )
-    pending_human_dims = _dims_with_pending_human(
-        cycle_id,
-        project_root,
-        state=state,
-        eval_data=eval_data,
-        evaluate_round=evaluate_round,
-        active_doc=active_doc,
-    )
-    if pending_human_dims:
-        return _failure(
-            _CMD_BEGIN_ARTIFACT_REMEDIATION,
-            (
-                "pending Human Resolution rows remain for dimensions: "
-                f"{pending_human_dims!r}."
-            ),
-            current_state=state["current_state"],
-        )
 
-    pending_dims = _dims_with_pending_artifact(
-        cycle_id,
-        project_root,
-        state=state,
-        eval_data=eval_data,
-        evaluate_round=evaluate_round,
-        active_doc=active_doc,
-    )
-    if not pending_dims:
-        return _success(
-            _CMD_BEGIN_ARTIFACT_REMEDIATION,
-            skip=True,
-            dispatch=[],
-            dimension_dispatch=eval_data.get("dimension_dispatch", "parallel"),
-            current_state=state["current_state"],
-        )
 
-    return _success(
-        _CMD_BEGIN_ARTIFACT_REMEDIATION,
-        skip=False,
-        dispatch=pending_dims,
-        dimension_dispatch=eval_data.get("dimension_dispatch", "parallel"),
-        current_state=state["current_state"],
-        pending_count=len(pending_dims),
-    )
 
 
-def begin_dimension_artifact_remediation(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    dim: str,
-) -> dict[str, Any]:
-    """Return per-dimension artifact remediation dispatch input (plain text)."""
-    if not dim.strip():
-        return _failure(_CMD_BEGIN_DIMENSION_ARTIFACT, "invalid dim: empty string")
 
-    ctx = _load_evaluating_context(cycle_id, project_root)
-    if isinstance(ctx, dict):
-        ctx["command"] = _CMD_BEGIN_DIMENSION_ARTIFACT
-        return ctx
 
-    state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    abandoned = _abandoned_failure(
-        _CMD_BEGIN_DIMENSION_ARTIFACT,
-        state,
-        eval_data,
-    )
-    if abandoned:
-        abandoned["dim"] = dim
-        return abandoned
-    if not _dispatch_dim_allowed(cycle_id, project_root, dim):
-        return _failure(
-            _CMD_BEGIN_DIMENSION_ARTIFACT,
-            f"invalid dim: {dim!r} (not in corpus for mode {mode!r}).",
-        )
-    if eval_data.get("fix_phase") != "artifact-remediation":
-        return _failure(
-            _CMD_BEGIN_DIMENSION_ARTIFACT,
-            (
-                f"fix_phase is {eval_data.get('fix_phase')!r}, "
-                "expected 'artifact-remediation'."
-            ),
-            current_state=state["current_state"],
-        )
-    if _dims_with_pending_human(
-        cycle_id,
-        project_root,
-        state=state,
-        eval_data=eval_data,
-        evaluate_round=evaluate_round,
-        active_doc=active_doc,
-    ):
-        return _failure(
-            _CMD_BEGIN_DIMENSION_ARTIFACT,
-            "pending Human Resolution rows must be resolved before Artifact Remediation.",
-            dim=dim,
-        )
 
-    rows = _review_rows_for_dim(
-        cycle_id,
-        project_root,
-        state=state,
-        evaluate_round=evaluate_round,
-        active_doc=active_doc,
-        dim=dim,
-    )
-    force_human_resolution = _force_human_for_dim(
-        eval_data,
-        cycle_id,
-        project_root,
-        dim,
-    )
-    policy_error = _policy_disposition_error(
-        rows,
-        force_human_resolution=force_human_resolution,
-    )
-    if policy_error:
-        return _failure(
-            _CMD_BEGIN_DIMENSION_ARTIFACT,
-            policy_error,
-            dim=dim,
-        )
-    if not pending_artifact_rows(
-        rows,
-        force_human_resolution=force_human_resolution,
-    ):
-        return _failure(
-            _CMD_BEGIN_DIMENSION_ARTIFACT,
-            f"no pending WO-* rows for dim {dim!r}.",
-            dim=dim,
-        )
 
-    try:
-        _refresh_handoff(cycle_id, project_root, require_evaluating=True)
-    except ValueError as exc:
-        return _failure(_CMD_BEGIN_DIMENSION_ARTIFACT, str(exc), dim=dim)
-    es_path = _evaluate_state_path(cycle_id, project_root)
-    paths = _eval_paths(
-        cycle_id,
-        project_root,
-        active_doc=active_doc,
-        evaluate_round=evaluate_round,
-        es_path=es_path,
-    )
-    try:
-        operation_ctx = _build_remediation_operation_context(
-            cycle_id,
-            project_root,
-            dim=dim,
-            state=state,
-            paths=paths,
-            evaluate_round=evaluate_round,
-            round_token=eval_data["round_token"],
-            operation_kind="artifact-remediation",
-        )
-    except (OSError, ValueError) as exc:
-        return _failure(_CMD_BEGIN_DIMENSION_ARTIFACT, str(exc), dim=dim)
-    return _success(
-        _CMD_BEGIN_DIMENSION_ARTIFACT,
-        dim=dim,
-        current_state=state["current_state"],
-        operation_ctx=operation_ctx,
-        dispatch_input=_format_remediation_dispatch_input(
-            operation_ctx,
-            pending_artifact_rows(
-                rows,
-                force_human_resolution=force_human_resolution,
-            ),
-        ),
-    )
 
 
-def check_dimension_artifact_remediation(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    dim: str,
-) -> dict[str, Any]:
-    """Reconcile WO-* rows for one dimension after artifact runner."""
-    ctx = _load_evaluating_context(cycle_id, project_root)
-    if isinstance(ctx, dict):
-        ctx["command"] = _CMD_CHECK_DIMENSION_ARTIFACT
-        ctx["dim"] = dim
-        return ctx
 
-    state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    if not _dispatch_dim_allowed(cycle_id, project_root, dim):
-        return _failure(
-            _CMD_CHECK_DIMENSION_ARTIFACT,
-            f"invalid dim: {dim!r} (not in corpus for mode {mode!r}).",
-            dim=dim,
-        )
 
-    review_path = _review_path_from_context(
-        cycle_id,
-        project_root,
-        state=state,
-        evaluate_round=evaluate_round,
-        active_doc=active_doc,
-        dim=dim,
-    )
-    errors = validate_review_file(review_path, phase="remediation")
-    if errors:
-        return _failure(
-            _CMD_CHECK_DIMENSION_ARTIFACT,
-            "; ".join(errors),
-            dim=dim,
-            review_path=review_path.as_posix(),
-        )
 
-    rows = parse_review_file(review_path)
-    force_human_resolution = _force_human_for_dim(
-        eval_data,
-        cycle_id,
-        project_root,
-        dim,
-    )
-    policy_error = _policy_disposition_error(
-        rows,
-        force_human_resolution=force_human_resolution,
-    )
-    if policy_error:
-        return _failure(
-            _CMD_CHECK_DIMENSION_ARTIFACT,
-            policy_error,
-            dim=dim,
-        )
-    if pending_artifact_rows(
-        rows,
-        force_human_resolution=force_human_resolution,
-    ):
-        return _failure(
-            _CMD_CHECK_DIMENSION_ARTIFACT,
-            f"pending WO-* rows remain for dim {dim!r}.",
-            dim=dim,
-        )
 
-    dim_id = _canonical_dim(cycle_id, project_root, dim)
-    merged = patch_issue_count(
-        eval_data,
-        dim_id,
-        resolved=str(count_resolved(rows)),
-    )
-    corpus = _load_corpus(cycle_id, project_root)
-    if not pending_resolution_rows(
-        rows,
-        force_human_resolution=force_human_resolution,
-    ):
-        merged = merge_current_dimension(merged, dim, "complete", corpus=corpus)
 
-    error = _commit_staged_evaluate_state(
-        cycle_id,
-        project_root,
-        patch={
-            "issue_counts": merged["issue_counts"],
-            "dimension_status": merged["dimension_status"],
-        },
-    )
-    if error is not None:
-        return _failure(_CMD_CHECK_DIMENSION_ARTIFACT, error, dim=dim)
-
-    return _success(
-        _CMD_CHECK_DIMENSION_ARTIFACT,
-        dim=dim,
-        resolved=count_resolved(rows),
-        current_state=state["current_state"],
-    )
-
-
-def artifact_remediation_complete(
-    cycle_id: str,
-    project_root: Path,
-) -> dict[str, Any]:
-    """Finalize Artifact Remediation after every pending artifact row is fixed."""
-    ctx = _load_evaluating_context(cycle_id, project_root)
-    if isinstance(ctx, dict):
-        ctx["command"] = _CMD_ARTIFACT_REMEDIATION_COMPLETE
-        return ctx
-
-    state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    if eval_data.get("fix_phase") != "artifact-remediation":
-        return _failure(
-            _CMD_ARTIFACT_REMEDIATION_COMPLETE,
-            (
-                f"fix_phase is {eval_data.get('fix_phase')!r}, "
-                "expected 'artifact-remediation'."
-            ),
-            current_state=state["current_state"],
-        )
-
-    dispatch = dispatch_list(cycle_id, project_root)
-    for dim in dispatch:
-        rows = _review_rows_for_dim(
-            cycle_id,
-            project_root,
-            state=state,
-            evaluate_round=evaluate_round,
-            active_doc=active_doc,
-            dim=dim,
-        )
-        force_human_resolution = _force_human_for_dim(
-            eval_data,
-            cycle_id,
-            project_root,
-            dim,
-        )
-        policy_error = _policy_disposition_error(
-            rows,
-            force_human_resolution=force_human_resolution,
-        )
-        if policy_error:
-            return _failure(
-                _CMD_ARTIFACT_REMEDIATION_COMPLETE,
-                policy_error,
-                current_state=state["current_state"],
-            )
-        if pending_resolution_rows(
-            rows,
-            force_human_resolution=force_human_resolution,
-        ):
-            return _failure(
-                _CMD_ARTIFACT_REMEDIATION_COMPLETE,
-                f"pending Human Resolution rows remain for dim {dim!r}.",
-                current_state=state["current_state"],
-            )
-        if pending_artifact_rows(
-            rows,
-            force_human_resolution=force_human_resolution,
-        ):
-            return _failure(
-                _CMD_ARTIFACT_REMEDIATION_COMPLETE,
-                f"pending WO-* rows remain for dim {dim!r}.",
-                current_state=state["current_state"],
-            )
-
-    resolved_total = int(eval_data.get("resolved_issues", "0") or "0")
-    counts = parse_issue_counts(eval_data.get("issue_counts", "{}"))
-    if resolved_total == 0 and counts:
-        resolved_total = sum(
-            int(entry.get("resolved", "0") or "0") for entry in counts.values()
-        )
-
-    corpus = _load_corpus(cycle_id, project_root)
-
-    def _complete_artifact_phase(data: dict[str, str]) -> dict[str, str]:
-        updated = dict(data)
-        for dim in dispatch:
-            updated = merge_current_dimension(
-                updated,
-                dim,
-                "complete",
-                corpus=corpus,
-            )
-        updated["resolved_issues"] = str(resolved_total)
-        updated["fix_phase"] = "done"
-        return updated
-
-    error = _commit_staged_evaluate_state(
-        cycle_id,
-        project_root,
-        update=_complete_artifact_phase,
-    )
-    if error is not None:
-        return _failure(
-            _CMD_ARTIFACT_REMEDIATION_COMPLETE,
-            error,
-            current_state=state["current_state"],
-        )
-
-    return _success(
-        _CMD_ARTIFACT_REMEDIATION_COMPLETE,
-        fix_phase="done",
-        current_state=state["current_state"],
-        resolved_issues=str(resolved_total),
-    )
-
-
-def begin_human_resolution(
-    cycle_id: str,
-    project_root: Path,
-) -> dict[str, Any]:
-    """Return Human Resolution dispatch list or skip when no human rows remain."""
-    ctx = _load_evaluating_context(cycle_id, project_root)
-    if isinstance(ctx, dict):
-        ctx["command"] = _CMD_BEGIN_HUMAN_RESOLUTION
-        return ctx
-
-    state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    abandoned = _abandoned_failure(
-        _CMD_BEGIN_HUMAN_RESOLUTION,
-        state,
-        eval_data,
-    )
-    if abandoned:
-        return abandoned
-    if eval_data.get("fix_phase") != "human-resolution":
-        return _failure(
-            _CMD_BEGIN_HUMAN_RESOLUTION,
-            (
-                f"fix_phase is {eval_data.get('fix_phase')!r}, "
-                "expected 'human-resolution'."
-            ),
-            current_state=state["current_state"],
-        )
-
-    pending_dims = _dims_with_pending_human(
-        cycle_id,
-        project_root,
-        state=state,
-        eval_data=eval_data,
-        evaluate_round=evaluate_round,
-        active_doc=active_doc,
-    )
-    if not pending_dims:
-        return _success(
-            _CMD_BEGIN_HUMAN_RESOLUTION,
-            skip=True,
-            dispatch=[],
-            dimension_dispatch=eval_data.get("dimension_dispatch", "parallel"),
-            current_state=state["current_state"],
-        )
-
-    return _success(
-        _CMD_BEGIN_HUMAN_RESOLUTION,
-        skip=False,
-        dispatch=pending_dims,
-        dimension_dispatch=eval_data.get("dimension_dispatch", "parallel"),
-        current_state=state["current_state"],
-        pending_count=len(pending_dims),
-    )
-
-
-def begin_dimension_human_resolution(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    dim: str,
-) -> dict[str, Any]:
-    """Return per-dimension Human Resolution dispatch input."""
-    if not dim.strip():
-        return _failure(_CMD_BEGIN_DIMENSION_HUMAN, "invalid dim: empty string")
-
-    ctx = _load_evaluating_context(cycle_id, project_root)
-    if isinstance(ctx, dict):
-        ctx["command"] = _CMD_BEGIN_DIMENSION_HUMAN
-        return ctx
-
-    state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    abandoned = _abandoned_failure(
-        _CMD_BEGIN_DIMENSION_HUMAN,
-        state,
-        eval_data,
-    )
-    if abandoned:
-        abandoned["dim"] = dim
-        return abandoned
-    if not _dispatch_dim_allowed(cycle_id, project_root, dim):
-        return _failure(
-            _CMD_BEGIN_DIMENSION_HUMAN,
-            f"invalid dim: {dim!r} (not in corpus for mode {mode!r}).",
-        )
-    if eval_data.get("fix_phase") != "human-resolution":
-        return _failure(
-            _CMD_BEGIN_DIMENSION_HUMAN,
-            (
-                f"fix_phase is {eval_data.get('fix_phase')!r}, "
-                "expected 'human-resolution'."
-            ),
-            current_state=state["current_state"],
-        )
-
-    rows = _review_rows_for_dim(
-        cycle_id,
-        project_root,
-        state=state,
-        evaluate_round=evaluate_round,
-        active_doc=active_doc,
-        dim=dim,
-    )
-    force_human_resolution = _force_human_for_dim(
-        eval_data,
-        cycle_id,
-        project_root,
-        dim,
-    )
-    policy_error = _policy_disposition_error(
-        rows,
-        force_human_resolution=force_human_resolution,
-    )
-    if policy_error:
-        return _failure(
-            _CMD_BEGIN_DIMENSION_HUMAN,
-            policy_error,
-            dim=dim,
-        )
-    required_rows = pending_resolution_rows(
-        rows,
-        force_human_resolution=force_human_resolution,
-    )
-    if not required_rows:
-        return _failure(
-            _CMD_BEGIN_DIMENSION_HUMAN,
-            f"no pending Human Resolution rows for dim {dim!r}.",
-            dim=dim,
-        )
-    canonical_dim = _canonical_dim(cycle_id, project_root, dim)
-
-    try:
-        _refresh_handoff(cycle_id, project_root, require_evaluating=True)
-    except ValueError as exc:
-        return _failure(_CMD_BEGIN_DIMENSION_HUMAN, str(exc), dim=dim)
-    es_path = _evaluate_state_path(cycle_id, project_root)
-    paths = _eval_paths(
-        cycle_id,
-        project_root,
-        active_doc=active_doc,
-        evaluate_round=evaluate_round,
-        es_path=es_path,
-    )
-    review_path = _review_path_from_context(
-        cycle_id,
-        project_root,
-        state=state,
-        evaluate_round=evaluate_round,
-        active_doc=active_doc,
-        dim=dim,
-    )
-    required_issue_ids = [row["id"] for row in required_rows]
-    allowed_resolution_kinds = {
-        row["id"]: _allowed_resolution_kinds(
-            row,
-            force_human_resolution=force_human_resolution,
-        )
-        for row in required_rows
-    }
-    try:
-        operation_ctx = _build_remediation_operation_context(
-            cycle_id,
-            project_root,
-            dim=dim,
-            state=state,
-            paths=paths,
-            evaluate_round=evaluate_round,
-            round_token=eval_data["round_token"],
-            operation_kind="human-resolution",
-            review_path=review_path,
-            force_human_resolution=force_human_resolution,
-            required_issue_ids=required_issue_ids,
-            allowed_resolution_kinds=allowed_resolution_kinds,
-        )
-    except (OSError, ValueError) as exc:
-        return _failure(_CMD_BEGIN_DIMENSION_HUMAN, str(exc), dim=dim)
-    def _patch_human_token(data: dict[str, str]) -> dict[str, str]:
-        updated = dict(data)
-        dimension_tokens = parse_dimension_tokens(updated["dimension_tokens"])
-        dimension_tokens[canonical_dim] = operation_ctx["dimension_token"]
-        updated["dimension_tokens"] = json.dumps(
-            dimension_tokens,
-            separators=(",", ":"),
-        )
-        return updated
-
-    error = _commit_staged_evaluate_state(
-        cycle_id,
-        project_root,
-        update=_patch_human_token,
-    )
-    if error is not None:
-        try:
-            discard_operation_context(
-                operations_path=_operations_path(paths),
-                dimension_token=operation_ctx["dimension_token"],
-            )
-        except (OSError, ValueError):
-            pass
-        return _failure(_CMD_BEGIN_DIMENSION_HUMAN, error, dim=dim)
-    return _success(
-        _CMD_BEGIN_DIMENSION_HUMAN,
-        dim=dim,
-        current_state=state["current_state"],
-        operation_ctx=operation_ctx,
-        dispatch_input=_format_remediation_dispatch_input(
-            operation_ctx,
-            required_rows,
-        ),
-    )
-
-
-def check_dimension_human_resolution(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    dim: str,
-) -> dict[str, Any]:
-    """Reconcile Human Resolution rows for one dimension."""
-    ctx = _load_evaluating_context(cycle_id, project_root)
-    if isinstance(ctx, dict):
-        ctx["command"] = _CMD_CHECK_DIMENSION_HUMAN
-        ctx["dim"] = dim
-        ctx["abandoned"] = False
-        return ctx
-
-    state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    if not _dispatch_dim_allowed(cycle_id, project_root, dim):
-        return _failure(
-            _CMD_CHECK_DIMENSION_HUMAN,
-            f"invalid dim: {dim!r} (not in corpus for mode {mode!r}).",
-            dim=dim,
-            abandoned=False,
-        )
-
-    review_path = _review_path_from_context(
-        cycle_id,
-        project_root,
-        state=state,
-        evaluate_round=evaluate_round,
-        active_doc=active_doc,
-        dim=dim,
-    )
-    errors = validate_review_file(review_path, phase="remediation")
-    if errors:
-        return _failure(
-            _CMD_CHECK_DIMENSION_HUMAN,
-            "; ".join(errors),
-            dim=dim,
-            abandoned=False,
-        )
-
-    rows = parse_review_file(review_path)
-    force_human_resolution = _force_human_for_dim(
-        eval_data,
-        cycle_id,
-        project_root,
-        dim,
-    )
-    policy_error = _policy_disposition_error(
-        rows,
-        force_human_resolution=force_human_resolution,
-    )
-    if policy_error:
-        return _failure(
-            _CMD_CHECK_DIMENSION_HUMAN,
-            policy_error,
-            dim=dim,
-            abandoned=False,
-        )
-    if pending_resolution_rows(
-        rows,
-        force_human_resolution=force_human_resolution,
-    ):
-        return _failure(
-            _CMD_CHECK_DIMENSION_HUMAN,
-            f"pending Human Resolution rows remain for dim {dim!r}.",
-            dim=dim,
-            abandoned=False,
-        )
-
-    escalated = has_escalated(rows)
-    dim_id = _canonical_dim(cycle_id, project_root, dim)
-    merged = patch_issue_count(
-        eval_data,
-        dim_id,
-        resolved=str(count_resolved(rows)),
-    )
-    patch: dict[str, str] = {
-        "issue_counts": merged["issue_counts"],
-    }
-    if escalated:
-        patch["eval_status"] = "abandoned"
-
-    error = _commit_staged_evaluate_state(
-        cycle_id,
-        project_root,
-        patch=patch,
-    )
-    if error is not None:
-        return _failure(
-            _CMD_CHECK_DIMENSION_HUMAN,
-            error,
-            dim=dim,
-            abandoned=False,
-        )
-
-    return _success(
-        _CMD_CHECK_DIMENSION_HUMAN,
-        dim=dim,
-        abandoned=escalated,
-        current_state=state["current_state"],
-    )
-
-
-def human_resolution_complete(
-    cycle_id: str,
-    project_root: Path,
-) -> dict[str, Any]:
-    """Finalize Human Resolution; continue to Artifact Remediation when clear."""
-    ctx = _load_evaluating_context(cycle_id, project_root)
-    if isinstance(ctx, dict):
-        ctx["command"] = _CMD_HUMAN_RESOLUTION_COMPLETE
-        return ctx
-
-    state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    dispatch = dispatch_list(cycle_id, project_root)
-
-    if eval_data.get("eval_status") == "abandoned":
-        if eval_data.get("fix_phase") != "done":
-            error = _commit_staged_evaluate_state(
-                cycle_id,
-                project_root,
-                patch={"fix_phase": "done"},
-            )
-            if error is not None:
-                return _failure(
-                    _CMD_HUMAN_RESOLUTION_COMPLETE,
-                    error,
-                    current_state=state["current_state"],
-                )
-        return _success(
-            _CMD_HUMAN_RESOLUTION_COMPLETE,
-            fix_phase="done",
-            abandoned=True,
-            current_state=state["current_state"],
-        )
-
-    if eval_data.get("fix_phase") != "human-resolution":
-        return _failure(
-            _CMD_HUMAN_RESOLUTION_COMPLETE,
-            (
-                f"fix_phase is {eval_data.get('fix_phase')!r}, "
-                "expected 'human-resolution'."
-            ),
-            current_state=state["current_state"],
-        )
-
-    escalated = False
-    for dim in dispatch:
-        rows = _review_rows_for_dim(
-            cycle_id,
-            project_root,
-            state=state,
-            evaluate_round=evaluate_round,
-            active_doc=active_doc,
-            dim=dim,
-        )
-        force_human_resolution = _force_human_for_dim(
-            eval_data,
-            cycle_id,
-            project_root,
-            dim,
-        )
-        policy_error = _policy_disposition_error(
-            rows,
-            force_human_resolution=force_human_resolution,
-        )
-        if policy_error:
-            return _failure(
-                _CMD_HUMAN_RESOLUTION_COMPLETE,
-                policy_error,
-                current_state=state["current_state"],
-            )
-        if pending_resolution_rows(
-            rows,
-            force_human_resolution=force_human_resolution,
-        ):
-            return _failure(
-                _CMD_HUMAN_RESOLUTION_COMPLETE,
-                f"pending Human Resolution rows remain for dim {dim!r}.",
-                current_state=state["current_state"],
-            )
-        escalated = escalated or has_escalated(rows)
-
-    if escalated:
-        error = _commit_staged_evaluate_state(
-            cycle_id,
-            project_root,
-            patch={"eval_status": "abandoned", "fix_phase": "done"},
-        )
-        if error is not None:
-            return _failure(
-                _CMD_HUMAN_RESOLUTION_COMPLETE,
-                error,
-                current_state=state["current_state"],
-            )
-        return _success(
-            _CMD_HUMAN_RESOLUTION_COMPLETE,
-            fix_phase="done",
-            abandoned=True,
-            current_state=state["current_state"],
-        )
-
-    error = _commit_staged_evaluate_state(
-        cycle_id,
-        project_root,
-        patch={
-            "fix_phase": "artifact-remediation",
-        },
-    )
-    if error is not None:
-        return _failure(
-            _CMD_HUMAN_RESOLUTION_COMPLETE,
-            error,
-            current_state=state["current_state"],
-        )
-    return _success(
-        _CMD_HUMAN_RESOLUTION_COMPLETE,
-        fix_phase="artifact-remediation",
-        abandoned=False,
-        current_state=state["current_state"],
-    )
-
-
-def complete_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
-    """Finalize evaluation round: compute severity, write done, return summary."""
-    ctx = _load_evaluating_context(cycle_id, project_root)
-    if isinstance(ctx, dict):
-        ctx["command"] = _CMD_COMPLETE_ROUND
-        return ctx
-
-    state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    dispatch = _dispatch_canonical(cycle_id, project_root)
-
-    eval_status = eval_data.get("eval_status", "")
-    if eval_status == "done":
-        return _failure(
-            _CMD_COMPLETE_ROUND,
-            "evaluate round is already complete (eval_status: done).",
-            current_state=state["current_state"],
-        )
-    if eval_status == "abandoned":
-        return _failure(
-            _CMD_COMPLETE_ROUND,
-            "evaluation was abandoned (eval_status: abandoned).",
-            current_state=state["current_state"],
-        )
-    if eval_data.get("fix_phase") != "done":
-        return _failure(
-            _CMD_COMPLETE_ROUND,
-            (
-                f"fix_phase is {eval_data.get('fix_phase')!r}, "
-                "expected 'done'."
-            ),
-            current_state=state["current_state"],
-        )
-
-    if not all_dims_at_least(eval_data, dispatch, "complete"):
-        return _failure(
-            _CMD_COMPLETE_ROUND,
-            "not all dispatch dimensions are complete.",
-            current_state=state["current_state"],
-        )
-
-    for dim in dispatch:
-        review_path = _review_path_from_context(
-            cycle_id,
-            project_root,
-            state=state,
-            evaluate_round=evaluate_round,
-            active_doc=active_doc,
-            dim=dim,
-        )
-        review_errors = validate_review_file(review_path, phase="remediation")
-        if review_errors:
-            return _failure(
-                _CMD_COMPLETE_ROUND,
-                "; ".join(review_errors),
-                current_state=state["current_state"],
-            )
-        rows = parse_review_file(review_path)
-        force_human_resolution = _force_human_for_dim(
-            eval_data,
-            cycle_id,
-            project_root,
-            dim,
-        )
-        policy_error = _policy_disposition_error(
-            rows,
-            force_human_resolution=force_human_resolution,
-        )
-        if policy_error:
-            return _failure(
-                _CMD_COMPLETE_ROUND,
-                policy_error,
-                current_state=state["current_state"],
-            )
-        incomplete = nonterminal_rows(rows)
-        if incomplete:
-            return _failure(
-                _CMD_COMPLETE_ROUND,
-                (
-                    f"nonterminal review dispositions remain for {dim!r}: "
-                    f"{[row.get('id', '') for row in incomplete]!r}"
-                ),
-                current_state=state["current_state"],
-            )
-
-    eval_dir = _eval_dir(
-        cycle_id,
-        project_root,
-        active_doc=active_doc,
-        evaluate_round=evaluate_round,
-    )
-    corpus = _load_corpus(cycle_id, project_root)
-    issues, review_paths = collect_review_issues(
-        eval_dir,
-        cycle_id=cycle_id,
-        project_root=project_root,
-    )
-    fix_severity, fix_severity_reason = compute_fix_severity(issues)
-
-    error = _commit_staged_evaluate_state(
-        cycle_id,
-        project_root,
-        patch={
-            "eval_status": "done",
-            "fix_severity": fix_severity,
-            "fix_severity_reason": fix_severity_reason,
-        },
-    )
-    if error is not None:
-        return _failure(_CMD_COMPLETE_ROUND, error, current_state=state["current_state"])
-    es_path = _evaluate_state_path(cycle_id, project_root)
-    eval_data = load_evaluate_state(es_path)
-
-    return _success(
-        _CMD_COMPLETE_ROUND,
-        evaluate_round=evaluate_round,
-        current_state=state["current_state"],
-        eval_status="done",
-        fix_severity=eval_data.get("fix_severity", ""),
-        fix_severity_reason=eval_data.get("fix_severity_reason", ""),
-        counts=build_issue_counts(eval_data, issues),
-        dimensions=build_dimensions(eval_data, corpus=corpus),
-        issues=issues,
-        review_paths=review_paths,
-    )
 
 
 
@@ -4088,13 +3632,23 @@ def build_parser() -> argparse.ArgumentParser:
         _CMD_READ_B_SNAPSHOT,
         help="Read a token-authorized EvalTarget B snapshot",
     )
-    snapshot_parser.add_argument("--dimension-token", required=True)
+    snapshot_parser.add_argument(
+        "--dimension-token",
+        "--operation-token",
+        dest="dimension_token",
+        required=True,
+    )
 
     evidence_snapshot_parser = sub.add_parser(
         _CMD_READ_EVIDENCE_SNAPSHOT,
         help="Read token-authorized dynamic SoT evidence",
     )
-    evidence_snapshot_parser.add_argument("--dimension-token", required=True)
+    evidence_snapshot_parser.add_argument(
+        "--dimension-token",
+        "--operation-token",
+        dest="dimension_token",
+        required=True,
+    )
     evidence_snapshot_parser.add_argument("--evidence-ref", required=True)
 
     submit_probe_parser = sub.add_parser(
@@ -4107,17 +3661,6 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="JSON payload containing dimension_token and findings",
     )
-    submit_remediation_parser = sub.add_parser(
-        _CMD_SUBMIT_REMEDIATION_DIFF,
-        help="Validate and publish a token-scoped remediation diff payload",
-    )
-    submit_remediation_parser.add_argument(
-        "--payload-file",
-        type=Path,
-        required=True,
-        help="JSON payload containing dimension_token, base_digest, unified_diff, and issue_ids",
-    )
-
     check_parser = sub.add_parser(
         _CMD_CHECK_DIMENSION,
         help="Read single-dimension outcome after dimension-probe-runner",
@@ -4129,58 +3672,51 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     sub.add_parser(
-        _CMD_PROBE_COMPLETE,
-        help="Sum probe issues and advance to Human Resolution",
+        _CMD_BEGIN_REMEDIATION,
+        help="Return unified remediation dispatch list or skip",
     )
-    sub.add_parser(
-        _CMD_BEGIN_HUMAN_RESOLUTION,
-        help="Begin Human Resolution phase; return dispatch list",
+    begin_remediation_dim = sub.add_parser(
+        _CMD_BEGIN_DIMENSION_REMEDIATION,
+        help="Begin unified remediation for one dimension",
     )
-    begin_human_dim = sub.add_parser(
-        _CMD_BEGIN_DIMENSION_HUMAN,
-        help="Begin Human Resolution for one dimension",
+    begin_remediation_dim.add_argument("--dim", required=True)
+    cancel_remediation_parser = sub.add_parser(
+        _CMD_CANCEL_REMEDIATION,
+        help="Cancel a context-open remediation operation",
     )
-    begin_human_dim.add_argument("--dim", required=True)
-    submit_human_parser = sub.add_parser(
-        _CMD_SUBMIT_HUMAN_RESOLUTION,
-        help="Validate and publish a token-scoped human resolution payload",
+    cancel_remediation_parser.add_argument("--operation-token", required=True)
+    prepare_remediation_parser = sub.add_parser(
+        _CMD_PREPARE_REMEDIATION,
+        help="Read-only validate a remediation proposal",
     )
-    submit_human_parser.add_argument(
-        "--payload-file",
+    prepare_remediation_parser.add_argument(
+        "--proposal-file",
         type=Path,
         required=True,
-        help="JSON payload containing dimension_token, base_digest, issue_ids, resolution_kind, and resolution",
+        help="Candidate RemediationProposal JSON",
     )
-    check_human_dim = sub.add_parser(
-        _CMD_CHECK_DIMENSION_HUMAN,
-        help="Check Human Resolution for one dimension",
+    apply_remediation_parser = sub.add_parser(
+        _CMD_APPLY_REMEDIATION,
+        help="Validate and commit a RemediationApplication transaction",
     )
-    check_human_dim.add_argument("--dim", required=True)
+    apply_remediation_parser.add_argument(
+        "--application-file",
+        type=Path,
+        required=True,
+        help="Final RemediationApplication JSON",
+    )
+    check_remediation_dim = sub.add_parser(
+        _CMD_CHECK_DIMENSION_REMEDIATION,
+        help="Check unified remediation for one dimension",
+    )
+    check_remediation_dim.add_argument("--dim", required=True)
     sub.add_parser(
-        _CMD_HUMAN_RESOLUTION_COMPLETE,
-        help="Complete Human Resolution phase",
-    )
-    sub.add_parser(
-        _CMD_BEGIN_ARTIFACT_REMEDIATION,
-        help="Begin Artifact Remediation phase; return dispatch list",
-    )
-    begin_art_dim = sub.add_parser(
-        _CMD_BEGIN_DIMENSION_ARTIFACT,
-        help="Begin Artifact Remediation for one dimension",
-    )
-    begin_art_dim.add_argument("--dim", required=True)
-    check_art_dim = sub.add_parser(
-        _CMD_CHECK_DIMENSION_ARTIFACT,
-        help="Check Artifact Remediation for one dimension",
-    )
-    check_art_dim.add_argument("--dim", required=True)
-    sub.add_parser(
-        _CMD_ARTIFACT_REMEDIATION_COMPLETE,
-        help="Complete Artifact Remediation phase",
+        _CMD_REMEDIATION_COMPLETE,
+        help="Complete a full-remediation round",
     )
     sub.add_parser(
-        _CMD_COMPLETE_ROUND,
-        help="Finalize evaluation round and return summary payload",
+        _CMD_COMPLETE_PROBE_ONLY,
+        help="Complete a probe-only round with pending findings",
     )
     return parser
 
@@ -4238,22 +3774,12 @@ def run_eval(
                     payload_file=args.payload_file,
                 ),
             )
-        if args.command == _CMD_SUBMIT_REMEDIATION_DIFF:
-            return _emit(
-                submit_remediation_diff(
-                    cycle_id,
-                    project_root,
-                    payload_file=args.payload_file,
-                ),
-            )
         if args.command == _CMD_CHECK_DIMENSION:
             return _emit(check_dimension(cycle_id, project_root, dim=args.dim))
-        if args.command == _CMD_PROBE_COMPLETE:
-            return _emit(probe_complete(cycle_id, project_root))
-        if args.command == _CMD_BEGIN_HUMAN_RESOLUTION:
-            return _emit(begin_human_resolution(cycle_id, project_root))
-        if args.command == _CMD_BEGIN_DIMENSION_HUMAN:
-            payload = begin_dimension_human_resolution(
+        if args.command == _CMD_BEGIN_REMEDIATION:
+            return _emit(begin_remediation(cycle_id, project_root))
+        if args.command == _CMD_BEGIN_DIMENSION_REMEDIATION:
+            payload = begin_dimension_remediation(
                 cycle_id,
                 project_root,
                 dim=args.dim,
@@ -4262,48 +3788,42 @@ def run_eval(
                 print(payload["dispatch_input"])
                 return 0
             return _emit(payload)
-        if args.command == _CMD_SUBMIT_HUMAN_RESOLUTION:
+        if args.command == _CMD_CANCEL_REMEDIATION:
             return _emit(
-                submit_human_resolution(
+                cancel_remediation(
                     cycle_id,
                     project_root,
-                    payload_file=args.payload_file,
+                    operation_token=args.operation_token,
                 ),
             )
-        if args.command == _CMD_CHECK_DIMENSION_HUMAN:
+        if args.command == _CMD_PREPARE_REMEDIATION:
             return _emit(
-                check_dimension_human_resolution(
+                prepare_remediation(
                     cycle_id,
                     project_root,
-                    dim=args.dim,
+                    proposal_file=args.proposal_file,
                 ),
             )
-        if args.command == _CMD_HUMAN_RESOLUTION_COMPLETE:
-            return _emit(human_resolution_complete(cycle_id, project_root))
-        if args.command == _CMD_BEGIN_ARTIFACT_REMEDIATION:
-            return _emit(begin_artifact_remediation(cycle_id, project_root))
-        if args.command == _CMD_BEGIN_DIMENSION_ARTIFACT:
-            payload = begin_dimension_artifact_remediation(
-                cycle_id,
-                project_root,
-                dim=args.dim,
-            )
-            if payload.get("ok") and "dispatch_input" in payload:
-                print(payload["dispatch_input"])
-                return 0
-            return _emit(payload)
-        if args.command == _CMD_CHECK_DIMENSION_ARTIFACT:
+        if args.command == _CMD_APPLY_REMEDIATION:
             return _emit(
-                check_dimension_artifact_remediation(
+                apply_remediation(
+                    cycle_id,
+                    project_root,
+                    application_file=args.application_file,
+                ),
+            )
+        if args.command == _CMD_CHECK_DIMENSION_REMEDIATION:
+            return _emit(
+                check_dimension_remediation(
                     cycle_id,
                     project_root,
                     dim=args.dim,
                 ),
             )
-        if args.command == _CMD_ARTIFACT_REMEDIATION_COMPLETE:
-            return _emit(artifact_remediation_complete(cycle_id, project_root))
-        if args.command == _CMD_COMPLETE_ROUND:
-            return _emit(complete_round(cycle_id, project_root))
+        if args.command == _CMD_REMEDIATION_COMPLETE:
+            return _emit(remediation_complete(cycle_id, project_root))
+        if args.command == _CMD_COMPLETE_PROBE_ONLY:
+            return _emit(complete_probe_only(cycle_id, project_root))
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 1

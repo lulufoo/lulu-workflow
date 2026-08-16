@@ -16,7 +16,7 @@ for p in (_SCRIPTS, _EVAL_ADAPTER, _EVAL_SCRIPTS):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-from decision_eval_adapter import DecisionEvalAdapter, _init_evaluate_state  # noqa: E402
+from decision_eval_adapter import DecisionEvalAdapter  # noqa: E402
 import io
 from contextlib import redirect_stdout
 
@@ -35,10 +35,8 @@ from dec_session_state_schema import write_session_state  # noqa: E402
 from dec_workflow_common import CACHE_DIR  # noqa: E402
 from eval_adapter_config import load_eval_adapter_from_config  # noqa: E402
 from eval_handoff_schema import validate_eval_handoff_v2  # noqa: E402
-from evaluate_state_schema import (  # noqa: E402
-    load_evaluate_state,
-    parse_force_human_resolution,
-)
+from evaluate_state_ops import init_evaluate_state_for_corpus  # noqa: E402
+from evaluate_state_schema import load_evaluate_state, parse_handling_policy  # noqa: E402
 
 
 def _run_json(fn, *args, **kwargs) -> dict:
@@ -150,19 +148,27 @@ def test_enter_evaluating_binds_target_and_handoff(tmp_path: Path) -> None:
     assert handoff["context"]["workflow_id"] == "lulu-decision"
     assert handoff["context"]["session_key"] == "DC"
     assert EVAL_TARGET_FILENAME in handoff["context"]["bindings"]["eval_target_path"]
+    assert handoff["context"]["policy_context"]["eval_capability"] == "probe-only"
 
 
 def test_initial_state_copies_policy_from_resolved_corpus(tmp_path: Path) -> None:
     cycle_id = "feature-dec-eval-policy"
     _seed_dc_session(tmp_path, cycle_id)
     corpus = DecisionEvalAdapter().resolve_eval_corpus(cycle_id, tmp_path)
-    corpus["dimensions"][0]["force_human_resolution"] = True
-    path = tmp_path / "evaluate-state.md"
-    _init_evaluate_state(path, corpus, evaluate_round=1, focus_l="decision")
+    corpus["dimensions"][0]["handling_policy"] = "human-first"
+    path = tmp_path / "eval-storage" / "evaluate-state.md"
+    init_evaluate_state_for_corpus(
+        path,
+        corpus,
+        eval_capability="probe-only",
+        evaluate_round=1,
+        focus_l="decision",
+    )
     state = load_evaluate_state(path)
-    assert parse_force_human_resolution(state["force_human_resolution"]) == {
-        "decision-consistency": True,
+    assert parse_handling_policy(state["handling_policy"]) == {
+        "decision-consistency": "human-first",
     }
+    assert state["eval_capability"] == "probe-only"
 
 
 def test_fail_exit_sets_realign_and_allows_retry(tmp_path: Path) -> None:
@@ -222,7 +228,7 @@ def test_route_then_fail_exit_still_allows_reentry(tmp_path: Path) -> None:
         "decision",
         probe_result={
             "ok": True,
-            "command": "probe-complete",
+            "command": "complete-probe-only",
             "issues": [
                 {
                     "dimension_id": "decision-consistency",
@@ -332,7 +338,7 @@ def test_probe_handoff_routes_eval_result_through_decision_realign(
         )
         assert submitted["ok"] is True
 
-        probe_result = eval_control.probe_complete(cycle_id, tmp_path)
+        probe_result = eval_control.complete_probe_only(cycle_id, tmp_path)
         assert probe_result["ok"] is True
         assert probe_result["issues"][0]["realign_gate"] == "D"
 
@@ -366,7 +372,7 @@ def test_probe_result_without_issues_routes_decision_pass(tmp_path: Path) -> Non
         "decision",
         probe_result={
             "ok": True,
-            "command": "probe-complete",
+            "command": "complete-probe-only",
             "issues": [],
         },
     )

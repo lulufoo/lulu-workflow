@@ -1,11 +1,7 @@
 {
   "id": "decision-consistency",
   "label": "Decision consistency (E↔D / D↔X / gap↔assumptions)",
-  "force_human_resolution": false,
   "eval_target": {
-    "path": "{eval_target_path}"
-  },
-  "remediation_target": {
     "path": "{eval_target_path}"
   },
   "sots": [],

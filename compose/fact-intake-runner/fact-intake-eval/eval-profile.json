@@ -3,5 +3,6 @@
   "enabled": true,
   "adapter_module": "compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_adapter.py",
   "adapter_class": "FactIntakeEvalAdapter",
-  "completion_mode": "return_to_caller"
+  "completion_mode": "return_to_caller",
+  "eval_capability": "full-remediation"
 }

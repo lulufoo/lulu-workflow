@@ -1,11 +1,7 @@
 {
   "id": "e2-fact-provenance",
   "label": "Fact → doc provenance",
-  "force_human_resolution": false,
   "eval_target": {
-    "path": "{facts_path}"
-  },
-  "remediation_target": {
     "path": "{facts_path}"
   },
   "sots": [

@@ -145,9 +145,9 @@ def cmd_route_probe_result(
     """Route Eval's completed Probe result through Decision's exit machine."""
     if (
         probe_result.get("ok") is not True
-        or probe_result.get("command") != "probe-complete"
+        or probe_result.get("command") != "complete-probe-only"
     ):
-        return _emit_error("probe result must be a successful probe-complete payload")
+        return _emit_error("probe result must be a successful complete-probe-only payload")
     issues = probe_result.get("issues")
     if not isinstance(issues, list) or any(not isinstance(issue, dict) for issue in issues):
         return _emit_error("probe result issues must be an array of objects")
@@ -179,7 +179,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     route.add_argument(
         "--probe-result-json",
         required=True,
-        help="Successful probe-complete JSON emitted by Eval control",
+        help="Successful complete-probe-only JSON emitted by Eval control",
     )
     return parser.parse_args(argv)
 

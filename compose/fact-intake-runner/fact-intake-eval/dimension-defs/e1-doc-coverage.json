@@ -1,11 +1,7 @@
 {
   "id": "e1-doc-coverage",
   "label": "Doc → facts coverage (no weakening)",
-  "force_human_resolution": false,
   "eval_target": {
-    "path": "{facts_path}"
-  },
-  "remediation_target": {
     "path": "{facts_path}"
   },
   "sots": [

@@ -27,6 +27,7 @@ def test_extract_passthrough_eval_block() -> None:
             "workflow_id": "lulu-design",
             "adapter_module": "lulu-design/scripts/eval/tech_design_eval_adapter.py",
             "adapter_class": "TechDesignEvalAdapter",
+            "eval_capability": "full-remediation",
         },
     }
     config = extract_eval_adapter_config(profile)
@@ -77,10 +78,10 @@ def test_main_forwards_full_round_completion_to_eval_entry(
             "--project-root",
             str(tmp_path),
             "--",
-            "complete-round",
+            "remediation-complete",
         ],
     )
 
     assert result == 0
-    assert captured["command"][-1] == "complete-round"
+    assert captured["command"][-1] == "remediation-complete"
     assert captured["config"]["workflow_id"] == "lulu-design"

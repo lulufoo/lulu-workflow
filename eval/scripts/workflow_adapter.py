@@ -20,7 +20,11 @@ class SessionContext:
 
 
 class WorkflowAdapter(Protocol):
-    """Port implemented by each workflow (e.g. lulu-plan)."""
+    """Port implemented by each workflow (e.g. lulu-plan, lulu-decision).
+
+    Probe-only adapters implement this contract. Mutation lives on
+    FullRemediationAdapter and is required only for full-remediation.
+    """
 
     def resolve_workflow_state_path(
         self, cycle_id: str, project_root: Path
@@ -101,7 +105,27 @@ class WorkflowAdapter(Protocol):
         previous_done_required: bool = False,
     ) -> dict[str, Any]: ...
 
-    def commit_remediation_target(
+    def read_eval_target_digest(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        target_path: Path,
+    ) -> str: ...
+
+    def discard_eval_staging(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        lease_id: str,
+    ) -> dict[str, Any]: ...
+
+
+class FullRemediationAdapter(WorkflowAdapter, Protocol):
+    """full-remediation port: commit and restore EvalTarget."""
+
+    def commit_eval_target(
         self,
         cycle_id: str,
         project_root: Path,
@@ -111,20 +135,12 @@ class WorkflowAdapter(Protocol):
         lease_id: str,
     ) -> dict[str, Any]: ...
 
-    def restore_remediation_target(
+    def restore_eval_target(
         self,
         cycle_id: str,
         project_root: Path,
         *,
         snapshot_path: Path,
-        expected_digest: str,
-        lease_id: str,
-    ) -> dict[str, Any]: ...
-
-    def discard_eval_staging(
-        self,
-        cycle_id: str,
-        project_root: Path,
-        *,
+        expected_current_digest: str,
         lease_id: str,
     ) -> dict[str, Any]: ...

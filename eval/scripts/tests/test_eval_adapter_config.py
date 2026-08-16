@@ -37,6 +37,7 @@ def test_loads_adapter_from_config_file(tmp_path: Path) -> None:
                     "non-compose/scripts/eval/non_compose_eval_adapter.py"
                 ),
                 "adapter_class": "NonComposeEvalAdapter",
+                "eval_capability": "full-remediation",
             }
         ),
         encoding="utf-8",
@@ -59,6 +60,7 @@ def test_rejects_missing_adapter_class(tmp_path: Path) -> None:
                     "non-compose/scripts/eval/non_compose_eval_adapter.py"
                 ),
                 "adapter_class": "MissingAdapter",
+                "eval_capability": "full-remediation",
             },
             workflow_root=workflow_root,
         )
@@ -72,6 +74,7 @@ def test_rejects_path_traversal(tmp_path: Path) -> None:
             {
                 "adapter_module": "../outside_adapter.py",
                 "adapter_class": "OutsideAdapter",
+                "eval_capability": "full-remediation",
             },
             workflow_root=workflow_root,
         )
@@ -83,6 +86,7 @@ def test_rejects_enabled_false() -> None:
             {
                 "adapter_module": "x.py",
                 "adapter_class": "X",
+                "eval_capability": "full-remediation",
                 "enabled": False,
             }
         )
@@ -96,6 +100,7 @@ def test_entry_loads_config_before_handoff(monkeypatch, tmp_path: Path) -> None:
                 "workflow_id": "non-compose",
                 "adapter_module": "unused.py",
                 "adapter_class": "Unused",
+                "eval_capability": "full-remediation",
             }
         ),
         encoding="utf-8",
@@ -105,7 +110,21 @@ def test_entry_loads_config_before_handoff(monkeypatch, tmp_path: Path) -> None:
     class FakeAdapter:
         def request_eval_handoff(self, **kwargs):
             captured["handoff_args"] = kwargs
-            return {"version": 2, "context": {}}
+            return {
+                "version": 2,
+                "context": {
+                    "policy_context": {"eval_capability": "full-remediation"},
+                },
+            }
+
+        def read_eval_target_digest(self, *args, **kwargs):
+            return "digest"
+
+        def commit_eval_target(self, *args, **kwargs):
+            return {"ok": True}
+
+        def restore_eval_target(self, *args, **kwargs):
+            return {"ok": True}
 
     def fake_run_eval(parsed_args, adapter, *, handoff):
         captured["workflow"] = parsed_args.workflow
@@ -122,6 +141,7 @@ def test_entry_loads_config_before_handoff(monkeypatch, tmp_path: Path) -> None:
                 "workflow_id": "non-compose",
                 "adapter_module": "m.py",
                 "adapter_class": "C",
+                "eval_capability": "full-remediation",
             }
         ),
     )

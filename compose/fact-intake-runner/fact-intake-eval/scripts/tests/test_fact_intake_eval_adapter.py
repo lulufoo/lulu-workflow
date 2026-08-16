@@ -28,17 +28,14 @@ sys.path.insert(0, str(CORE))
 from fact_intake_eval_adapter import (  # noqa: E402
     FactIntakeEvalAdapter,
     _PROFILE_ENV,
-    _init_evaluate_state,
 )
 from fact_intake_eval_runtime_schema import evaluate_state_path, load_runtime, runtime_path  # noqa: E402
 from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import FACTS_BASENAME  # noqa: E402
 from init_working_helpers import init_working_ready  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
-from evaluate_state_schema import (  # noqa: E402
-    load_evaluate_state,
-    parse_force_human_resolution,
-)
+from evaluate_state_ops import init_evaluate_state_for_corpus  # noqa: E402
+from evaluate_state_schema import load_evaluate_state, parse_handling_policy  # noqa: E402
 
 _CYCLE = "feat-fact-intake-eval"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
@@ -104,14 +101,21 @@ def test_initial_state_copies_policy_from_resolved_corpus(
     _seed(tmp_path)
     monkeypatch.setenv(_PROFILE_ENV, "lulu-plan")
     corpus = FactIntakeEvalAdapter().resolve_eval_corpus(_CYCLE, tmp_path)
-    corpus["dimensions"][0]["force_human_resolution"] = True
-    path = tmp_path / "evaluate-state.md"
-    _init_evaluate_state(path, corpus, evaluate_round=1, focus_l="L1")
+    corpus["dimensions"][0]["handling_policy"] = "human-first"
+    path = tmp_path / "eval-storage" / "evaluate-state.md"
+    init_evaluate_state_for_corpus(
+        path,
+        corpus,
+        eval_capability="full-remediation",
+        evaluate_round=1,
+        focus_l="L1",
+    )
     state = load_evaluate_state(path)
-    assert parse_force_human_resolution(state["force_human_resolution"]) == {
-        "e1-doc-coverage": True,
-        "e2-fact-provenance": False,
+    assert parse_handling_policy(state["handling_policy"]) == {
+        "e1-doc-coverage": "human-first",
+        "e2-fact-provenance": "class-default",
     }
+    assert state["eval_capability"] == "full-remediation"
 
 
 def test_handoff_binds_facts_json(tmp_path: Path, monkeypatch) -> None:
@@ -123,6 +127,7 @@ def test_handoff_binds_facts_json(tmp_path: Path, monkeypatch) -> None:
     bindings = handoff["context"]["bindings"]
     assert bindings["eval_target_path"].endswith(FACTS_BASENAME)
     assert handoff["context"]["policy_context"]["completion_mode"] == "return_to_caller"
+    assert handoff["context"]["policy_context"]["eval_capability"] == "full-remediation"
     assert Path(bindings["eval_target_path"]).is_file()
     assert "fact-intake-eval" in handoff["context"]["evaluate_state_path"]
     assert evaluate_state_path(active_slice_dir(rev)).is_file()
@@ -139,7 +144,7 @@ def test_commit_remediation_writes_facts(tmp_path: Path, monkeypatch) -> None:
     base = hashlib.sha256(target.read_bytes()).hexdigest()
     staged = staging / "target.remediated"
     staged.write_text('{"version":"1","facts":[]}\n', encoding="utf-8")
-    result = adapter.commit_remediation_target(
+    result = adapter.commit_eval_target(
         _CYCLE,
         tmp_path,
         staged_target_path=staged,

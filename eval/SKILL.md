@@ -20,12 +20,10 @@ adapter configuration.
 
 ## Principles
 
-- Findings require citable evidence. If evidence cannot be located, route it to Human Resolution; do not guess.
+- Findings require citable evidence. If evidence cannot be located, escalate; do not guess.
 - A defective SoT is escalated, never silently repaired. A valid SoT that the artifact fails to reflect is remediated.
 - Any non-zero control result is Blocking: stop, report it, and wait for user direction.
-- Human Resolution and Artifact Remediation process one dimension at a time.
-- `force_human_resolution` is pinned per dimension when the round starts. It
-  changes routing only; Probe keeps the same five root-cause classifications.
+- Remediation processes one dimension at a time.
 
 ## Begin Eval
 
@@ -35,8 +33,8 @@ adapter configuration.
 4. For each returned dimension, run `$EVAL_CONTROL check-dimension --dim {dim}`.
    - If the result reports abandonment, run **Abandon Handler** and stop.
    - On a non-zero result, apply Blocking and stop.
-5. Run `$EVAL_CONTROL probe-complete`.
-6. A probe-only caller stops here. A full-round caller continues to **Human Resolution**.
+5. A probe-only caller runs `$EVAL_CONTROL complete-probe-only` and stops.
+6. A full-round caller continues to **Remediation**.
 
 ## Single dimension (launch)
 
@@ -49,49 +47,29 @@ adapter configuration.
 
 3. Pin the returned handle and return immediately to **Begin Eval**.
 
-## Human Resolution
+## Remediation
 
-1. Run `$EVAL_CONTROL begin-human-resolution` and pin the result.
-2. Unless the result skips resolution, process each returned dimension serially.
-   A forced dimension sends every pending finding to this phase; other
-   dimensions send only Human-class findings:
-   1. Run `$EVAL_CONTROL begin-dimension-human-resolution --dim {dim}` and pin its operation context.
-   2. Dispatch `human-resolution-runner` synchronously with that context and this instruction:
+1. Run `$EVAL_CONTROL begin-remediation` and pin the result.
+2. Unless the result skips remediation, process each returned dimension serially:
+   1. Run `$EVAL_CONTROL begin-dimension-remediation --dim {dim}` and pin `OPERATION_TOKEN` from its dispatch_input.
+   2. Dispatch `remediation-runner` synchronously with that pinned context and this instruction:
 
       ```text
-      Load human-resolution-runner/SKILL.md and follow its instructions.
+      Load remediation-runner/SKILL.md and follow its instructions.
       ```
 
-   3. Run `$EVAL_CONTROL check-dimension-human-resolution --dim {dim}`.
+   3. Run `$EVAL_CONTROL check-dimension-remediation --dim {dim}`.
    4. If the result reports abandonment, run **Abandon Handler** and stop.
-3. Each dimension submits one complete disposition batch. Partial issue
-   coverage is Blocking.
-4. Run `$EVAL_CONTROL human-resolution-complete`.
-5. Continue to **Artifact Remediation**.
-
-## Artifact Remediation
-
-1. Run `$EVAL_CONTROL begin-artifact-remediation` and pin the result.
-2. Unless the result skips remediation, process each returned dimension serially.
-   Forced dimensions expose only Human-approved `fix` findings; accepted
-   divergences are terminal and are not dispatched:
-   1. Run `$EVAL_CONTROL begin-dimension-artifact-remediation --dim {dim}` and pin its operation context.
-   2. Dispatch `artifact-remediation-runner` synchronously with that context and this instruction:
-
-      ```text
-      Load artifact-remediation-runner/SKILL.md and follow its instructions.
-      ```
-
-   3. Run `$EVAL_CONTROL check-dimension-artifact-remediation --dim {dim}`.
-3. Run `$EVAL_CONTROL artifact-remediation-complete`.
-4. Continue to **Completion**.
+3. Each dimension submits one complete application. Partial issue coverage is Blocking.
+4. Run `$EVAL_CONTROL remediation-complete`.
+5. Continue to **Completion**.
 
 ## Completion
 
-1. Run `$EVAL_CONTROL complete-round` and present the result.
+1. Present the `remediation-complete` result.
 2. If the caller’s adapter-config / handoff `policy_context.completion_mode` is
    `return_to_caller` (e.g. Compose Atomize Eval), **stop here** and return the
-   `complete-round` payload to the caller. Do **not** present Accept L / Fix L /
+   `remediation-complete` payload to the caller. Do **not** present Accept L / Fix L /
    Re-evaluate / Deliver package.
 3. Otherwise ask the user to choose:
    - **Accept L** — run `$L_STEP accept --confirm`; exit Eval.

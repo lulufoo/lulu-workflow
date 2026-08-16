@@ -208,6 +208,7 @@ class ProductBlueprintEvalAdapter(ComposeEvalAdapterSupport):
                 init_evaluate_state_for_corpus(
                     self.resolve_evaluate_state_path(cycle_id, project_root),
                     self.resolve_eval_corpus(cycle_id, project_root),
+                    eval_capability=self.EVAL_CAPABILITY,
                     cycle_type=self.detect_cycle_type(cycle_id),
                     evaluate_round=int(result.get("evaluate_round") or 1),
                     focus_l=focus,

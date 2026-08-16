@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from corpus_schema import corpus_ref, validate_corpus
+from corpus_schema import corpus_ref, normalize_corpus, validate_corpus
 
 _COMPOSED_CORPUS_REF_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*-composed@\d+$")
 
@@ -69,6 +69,7 @@ def compose_corpus(
         raise ValueError("dimensions must be non-empty")
     data: dict[str, Any] = {
         "id": corpus_id,
+        "schema_version": "6",
         "version": corpus_version,
         "scope": scope,
         "context": context,
@@ -83,7 +84,7 @@ def compose_corpus(
         raise ValueError(f"composed corpus invalid: {'; '.join(errors)}")
     if corpus_ref(data) != f"{corpus_id}@{corpus_version}":
         raise ValueError("corpus_id/version mismatch after compose")
-    return data
+    return normalize_corpus(data)
 
 
 def is_composed_corpus_ref(ref: str) -> bool:

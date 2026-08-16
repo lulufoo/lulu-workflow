@@ -18,7 +18,9 @@ ADAPTER_REF_KEYS = frozenset(
         "framework_section",
     }
 )
-POLICY_CONTEXT_KEYS = frozenset({"mode", "cycle_type", "upstream_baseline_ref"})
+POLICY_CONTEXT_KEYS = frozenset(
+    {"mode", "cycle_type", "upstream_baseline_ref", "eval_capability"}
+)
 EVAL_CONTEXT_REQUIRED = frozenset(
     {
         "cycle_id",

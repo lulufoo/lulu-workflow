@@ -32,6 +32,5 @@ supplied by Eval orchestration.
 ## Constraints
 
 - Probe only; do not run a remediation loop or dispatch subagents.
-- Do not read or interpret `force_human_resolution`; classify findings exactly
-  as the resolved method requires. Eval control owns subsequent routing.
+- Do not read or interpret HandlingPolicy / handling_mode; classify exactly as the resolved method requires. Eval control owns subsequent routing.
 - Eval control validates and publishes all Eval artifacts and state.

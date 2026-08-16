@@ -17,7 +17,10 @@ from typing import Any
 
 _WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
 
-_REQUIRED_KEYS = ("adapter_module", "adapter_class")
+_REQUIRED_KEYS = ("adapter_module", "adapter_class", "eval_capability")
+_VALID_EVAL_CAPABILITY = frozenset({"full-remediation", "probe-only"})
+_READ_METHOD = "read_eval_target_digest"
+_MUTATION_METHODS = ("commit_eval_target", "restore_eval_target")
 
 
 @dataclass(frozen=True)
@@ -28,6 +31,7 @@ class AdapterConfig:
     adapter_class: str
     workflow_id: str
     enabled: bool
+    eval_capability: str
     raw: dict[str, Any]
 
 
@@ -59,11 +63,18 @@ def validate_adapter_config(payload: Any) -> AdapterConfig:
     adapter_module = str(payload["adapter_module"]).strip()
     adapter_class = str(payload["adapter_class"]).strip()
     workflow_id = str(payload.get("workflow_id") or "").strip() or adapter_class
+    eval_capability = str(payload.get("eval_capability") or "").strip()
+    if eval_capability not in _VALID_EVAL_CAPABILITY:
+        raise ValueError(
+            "adapter config.eval_capability must be "
+            "'full-remediation' or 'probe-only'",
+        )
     return AdapterConfig(
         adapter_module=adapter_module,
         adapter_class=adapter_class,
         workflow_id=workflow_id,
         enabled=True,
+        eval_capability=eval_capability,
         raw=dict(payload),
     )
 
@@ -161,3 +172,77 @@ def load_eval_adapter_from_config(
             f"{adapter_path.as_posix()}",
         )
     return adapter_type()
+
+
+def _handoff_capability(handoff: dict[str, Any]) -> str:
+    context = handoff.get("context") if isinstance(handoff, dict) else None
+    if not isinstance(context, dict):
+        return ""
+    policy = context.get("policy_context")
+    if isinstance(policy, dict):
+        return str(policy.get("eval_capability") or "").strip()
+    return ""
+
+
+def _evaluate_state_capability(handoff: dict[str, Any]) -> str | None:
+    """Return evaluate-state capability, or None only if the file is absent.
+
+    A present file with a missing or invalid field is incompatible, not unchecked.
+    """
+    context = handoff.get("context") if isinstance(handoff, dict) else None
+    if not isinstance(context, dict):
+        return None
+    raw_path = context.get("evaluate_state_path")
+    if not raw_path:
+        return None
+    path = Path(str(raw_path))
+    if not path.is_file():
+        return None
+    found: str | None = None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("eval_capability:"):
+            found = line.split(":", 1)[1].strip()
+            break
+    if found not in _VALID_EVAL_CAPABILITY:
+        raise ValueError(
+            "evaluate-state exists but eval_capability is missing or invalid"
+            if not found
+            else f"evaluate-state eval_capability is invalid: {found!r}",
+        )
+    return found
+
+
+def validate_adapter_protocol(
+    adapter: Any,
+    *,
+    eval_capability: str,
+    handoff: dict[str, Any],
+) -> None:
+    """Fail-closed if capability, methods, handoff, or evaluate-state disagree."""
+    if eval_capability not in _VALID_EVAL_CAPABILITY:
+        raise ValueError(f"invalid eval_capability: {eval_capability!r}")
+    if not callable(getattr(adapter, _READ_METHOD, None)):
+        raise ValueError(f"adapter missing required method {_READ_METHOD}")
+    if eval_capability == "full-remediation":
+        missing = [
+            name
+            for name in _MUTATION_METHODS
+            if not callable(getattr(adapter, name, None))
+        ]
+        if missing:
+            raise ValueError(
+                "full-remediation adapter missing required methods: "
+                + ", ".join(missing),
+            )
+    handoff_capability = _handoff_capability(handoff)
+    if handoff_capability != eval_capability:
+        raise ValueError(
+            "eval_capability mismatch between config "
+            f"({eval_capability!r}) and handoff ({handoff_capability!r})",
+        )
+    state_capability = _evaluate_state_capability(handoff)
+    if state_capability is not None and state_capability != eval_capability:
+        raise ValueError(
+            "eval_capability mismatch between config "
+            f"({eval_capability!r}) and evaluate-state ({state_capability!r})",
+        )

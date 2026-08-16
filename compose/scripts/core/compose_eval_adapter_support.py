@@ -8,10 +8,11 @@ from typing import Any
 from eval_handoff_control import (
     commit_artifacts,
     commit_evaluate_state,
-    commit_remediation_target,
+    commit_eval_target,
     discard_staging_for_cycle,
+    read_eval_target_digest,
     request_handoff,
-    restore_remediation_target,
+    restore_eval_target,
 )
 from eval_handoff_schema import (
     build_eval_handoff_v2,
@@ -24,6 +25,7 @@ class ComposeEvalAdapterSupport:
     """Mixin that keeps Compose handoff and lease mechanics out of Eval."""
 
     WORKFLOW_ID = ""
+    EVAL_CAPABILITY = "full-remediation"
 
     def _workflow_id(self) -> str:
         workflow_id = str(self.WORKFLOW_ID).strip()
@@ -66,7 +68,10 @@ class ComposeEvalAdapterSupport:
             write_staging_dir=str(context["write_staging_dir"]),
             lease_id=str(context["lease_id"]),
             bindings={"eval_target_path": str(context["compose_doc"])},
-            policy_context=dict(context["policy_context"]),
+            policy_context={
+                **dict(context["policy_context"]),
+                "eval_capability": self.EVAL_CAPABILITY,
+            },
         )
         errors = validate_eval_handoff_v2(generic_handoff)
         if errors:
@@ -127,7 +132,17 @@ class ComposeEvalAdapterSupport:
             previous_done_required=previous_done_required,
         )
 
-    def commit_remediation_target(
+    def read_eval_target_digest(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        target_path: Path,
+    ) -> str:
+        del cycle_id, project_root
+        return read_eval_target_digest(target_path=target_path)
+
+    def commit_eval_target(
         self,
         cycle_id: str,
         project_root: Path,
@@ -136,7 +151,7 @@ class ComposeEvalAdapterSupport:
         base_digest: str,
         lease_id: str,
     ) -> dict[str, Any]:
-        return commit_remediation_target(
+        return commit_eval_target(
             cycle_id,
             project_root,
             profile_id=self._workflow_id(),
@@ -145,21 +160,21 @@ class ComposeEvalAdapterSupport:
             lease_id=lease_id,
         )
 
-    def restore_remediation_target(
+    def restore_eval_target(
         self,
         cycle_id: str,
         project_root: Path,
         *,
         snapshot_path: Path,
-        expected_digest: str,
+        expected_current_digest: str,
         lease_id: str,
     ) -> dict[str, Any]:
-        return restore_remediation_target(
+        return restore_eval_target(
             cycle_id,
             project_root,
             profile_id=self._workflow_id(),
             snapshot_path=snapshot_path,
-            expected_digest=expected_digest,
+            expected_current_digest=expected_current_digest,
             lease_id=lease_id,
         )
 

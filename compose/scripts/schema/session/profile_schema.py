@@ -41,7 +41,7 @@ _COMPOSE_SHELL_PATH_KEYS = frozenset(
 _COMPOSE_SCHEME_PATH = KERNEL_SCHEMES / "compose-template-scheme.json"
 _PIPELINE_REQUIRED = frozenset({"inductive", "freeedit", "code_grounding", "post_writing_options"})
 _POST_WRITING_OPTIONS = frozenset({"freeedit", "evaluate"})
-_EVAL_REQUIRED = frozenset({"adapter_module", "adapter_class"})
+_EVAL_REQUIRED = frozenset({"adapter_module", "adapter_class", "eval_capability"})
 
 
 def _load_scheme() -> dict:

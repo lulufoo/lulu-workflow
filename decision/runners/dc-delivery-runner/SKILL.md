@@ -81,7 +81,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 1. Load `$SKILL_ROOT/eval/SKILL.md` and execute its **Begin Eval** probe-only segment.
    Eval owns all probe-runner dispatch and token-based submission; Decision does
    not call `$SUBAGENT_TOOL`, load `dimension-probe-runner`, or run remediation.
-2. Pin the successful `probe-complete` JSON as `probe_result`.
+2. Pin the successful `complete-probe-only` JSON as `probe_result`.
 3. Run `$DEC_EVAL route-probe-result --probe-result-json '<probe_result JSON>'`.
    - `outcome: pass` → continue to `$SESSION_INTEGRITY render`.
    - `outcome: fail` → RS at `realign_gate`.

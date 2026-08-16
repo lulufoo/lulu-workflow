@@ -94,7 +94,7 @@ def _require_fact_intake_eval_for_derive(slice_dir: Path) -> str | None:
     if not gate_allows_derive_from_evaluate_state(data):
         return (
             f"fact-intake eval gate not open (eval_status={data.get('eval_status')!r}); "
-            "Derive blocked until Intake Eval complete-round (eval_status=done)"
+            "Derive blocked until Intake Eval remediation-complete (eval_status=done)"
         )
     return None
 

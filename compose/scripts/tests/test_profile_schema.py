@@ -40,6 +40,7 @@ _MINIMAL_ACTIVE_PROFILE = {
     "eval": {
         "adapter_module": "tech-foo/scripts/eval/tech_foo_eval_adapter.py",
         "adapter_class": "TechFooEvalAdapter",
+        "eval_capability": "full-remediation",
     },
     "cycle_types": ["feature"],
 }

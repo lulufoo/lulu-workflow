@@ -9,20 +9,27 @@ CLI:
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import sys
 from pathlib import Path
 from typing import Literal
 
-from review_io import split_table_row
+from review_io import parse_review_frontmatter, split_table_row
 
 Phase = Literal["probe", "remediation"]
 
 _SCHEMA: dict = {
-    "version": "2",
+    "version": "3",
+    "required_frontmatter": [
+        "schema_version",
+        "dimension_id",
+        "round_token",
+    ],
     "columns": [
         "id",
         "root_cause",
+        "handling_mode",
         "sot_ref",
         "location",
         "severity",
@@ -40,28 +47,22 @@ _SCHEMA: dict = {
             "UNRESOLVABLE",
             "DECISION-REQUIRED",
         ],
+        "handling_mode": ["direct", "human-gated"],
         "severity": ["critical", "medium", "minor"],
-        "status_probe": ["pending"],
-        "status_remediation": [
-            "approved",
-            "accepted-divergence",
-            "fixed",
-            "ignored",
-            "escalated",
-            "reclassified",
-        ],
-        "decision_probe": ["—"],
-        "decision_remediation": [
+        "status": ["pending", "resolved"],
+        "decision": [
+            "—",
             "fix",
             "accept-divergence",
-            "ignore",
+            "select",
+            "allow-multiple",
             "escalate",
-            "reclassify",
         ],
     },
     "required_at_probe": [
         "id",
         "root_cause",
+        "handling_mode",
         "location",
         "severity",
         "evidence",
@@ -73,16 +74,62 @@ _SCHEMA: dict = {
 
 _SOT_REF_REQUIRED = frozenset(_SCHEMA["sot_ref_required_when"])
 _ROOT_CAUSES = frozenset(_SCHEMA["enums"]["root_cause"])
+_HANDLING_MODES = frozenset(_SCHEMA["enums"]["handling_mode"])
 _SEVERITIES = frozenset(_SCHEMA["enums"]["severity"])
-_STATUS_PROBE = frozenset(_SCHEMA["enums"]["status_probe"])
-_STATUS_REMEDIATION = frozenset(_SCHEMA["enums"]["status_remediation"])
-_DECISION_PROBE = frozenset(_SCHEMA["enums"]["decision_probe"])
-_DECISION_REMEDIATION = frozenset(_SCHEMA["enums"]["decision_remediation"])
+_STATUSES = frozenset(_SCHEMA["enums"]["status"])
+_DECISIONS = frozenset(_SCHEMA["enums"]["decision"])
+_ARTIFACT_CAUSES = frozenset({"WO-MISS", "WO-ERROR"})
+_HANDLING_POLICIES = frozenset({"class-default", "human-first"})
 
 
 def get_schema() -> dict:
     """Return review table schema dict."""
-    return dict(_SCHEMA)
+    return copy.deepcopy(_SCHEMA)
+
+
+def resolve_handling_mode(handling_policy: str, root_cause: str) -> str:
+    """Resolve the immutable mode Control stamps onto a published Issue."""
+    if handling_policy not in _HANDLING_POLICIES:
+        raise ValueError(f"invalid handling_policy: {handling_policy!r}")
+    normalized_cause = root_cause.upper()
+    if normalized_cause not in _ROOT_CAUSES:
+        raise ValueError(f"invalid root_cause: {root_cause!r}")
+    if handling_policy == "human-first" or normalized_cause not in _ARTIFACT_CAUSES:
+        return "human-gated"
+    return "direct"
+
+
+def validate_probe_finding(finding: dict) -> list[str]:
+    """Validate fields whose ownership belongs to Control, not Probe."""
+    if "handling_mode" in finding:
+        return ["probe finding must not include handling_mode"]
+    return []
+
+
+def validate_issue_transition(
+    before: dict[str, str],
+    after: dict[str, str],
+) -> list[str]:
+    """Validate immutable fields across a published Issue update."""
+    if before.get("handling_mode") != after.get("handling_mode"):
+        return [f"{before.get('id', '?')}: handling_mode is immutable"]
+    return []
+
+
+def validate_review_frontmatter(content: str) -> list[str]:
+    """Validate required ReviewFile v3 identity frontmatter."""
+    fields = parse_review_frontmatter(content)
+    if fields.get("schema_version") != _SCHEMA["version"]:
+        return [
+            "incompatible_round: ReviewFile schema_version "
+            f"{fields.get('schema_version')!r} is not supported "
+            f"(expected {_SCHEMA['version']!r})",
+        ]
+    errors: list[str] = []
+    for field in ("dimension_id", "round_token"):
+        if not fields.get(field):
+            errors.append(f"missing required frontmatter field: {field!r}")
+    return errors
 
 
 def _normalize_header(cells: list[str]) -> list[str]:
@@ -124,6 +171,10 @@ def validate_issue_row(row: dict[str, str], *, phase: Phase) -> list[str]:
     elif root_cause not in _ROOT_CAUSES:
         errors.append(f"{issue_id}: invalid root_cause: {root_cause!r}")
 
+    handling_mode = row.get("handling_mode", "").lower()
+    if handling_mode not in _HANDLING_MODES:
+        errors.append(f"{issue_id}: invalid handling_mode: {handling_mode!r}")
+
     location = row.get("location", "")
     if not location:
         errors.append(f"{issue_id}: missing required field: location")
@@ -145,48 +196,21 @@ def validate_issue_row(row: dict[str, str], *, phase: Phase) -> list[str]:
     status = row.get("status", "").lower()
     if not status:
         errors.append(f"{issue_id}: missing required field: status")
-    elif phase == "probe":
-        if status not in _STATUS_PROBE:
-            errors.append(f"{issue_id}: invalid probe status: {status!r}")
-    elif status not in _STATUS_REMEDIATION:
-        errors.append(f"{issue_id}: invalid remediation status: {status!r}")
+    elif status not in _STATUSES:
+        errors.append(f"{issue_id}: invalid status: {status!r}")
 
     decision = row.get("decision", "")
-    if phase == "probe":
-        if decision not in _DECISION_PROBE and decision != "—":
-            errors.append(f"{issue_id}: invalid probe decision: {decision!r}")
-    elif decision.lower() not in _DECISION_REMEDIATION:
-        errors.append(f"{issue_id}: invalid remediation decision: {decision!r}")
-
     resolution = row.get("resolution", "")
-    if phase == "probe" and resolution and root_cause != "WO-ERROR":
-        errors.append(
-            f"{issue_id}: probe resolution must be empty except for WO-ERROR",
-        )
-
-    artifact_causes = {"WO-MISS", "WO-ERROR"}
-    if status == "approved":
-        if root_cause not in artifact_causes:
-            errors.append(f"{issue_id}: approved requires an Artifact-class root_cause")
-        if decision.lower() != "fix":
-            errors.append(f"{issue_id}: approved requires decision 'fix'")
+    if status == "pending":
+        if decision != "—":
+            errors.append(f"{issue_id}: pending decision must be '—'")
+        if resolution:
+            errors.append(f"{issue_id}: pending resolution must be empty")
+    elif status == "resolved":
+        if decision.lower() not in _DECISIONS - {"—"}:
+            errors.append(f"{issue_id}: invalid resolved decision: {decision!r}")
         if not resolution:
-            errors.append(f"{issue_id}: approved requires resolution")
-    if status == "accepted-divergence":
-        if root_cause not in artifact_causes:
-            errors.append(
-                f"{issue_id}: accepted-divergence requires an Artifact-class root_cause",
-            )
-        if decision.lower() != "accept-divergence":
-            errors.append(
-                f"{issue_id}: accepted-divergence requires matching decision",
-            )
-        if not resolution:
-            errors.append(f"{issue_id}: accepted-divergence requires resolution")
-    if decision.lower() == "accept-divergence" and status != "accepted-divergence":
-        errors.append(
-            f"{issue_id}: decision accept-divergence requires matching status",
-        )
+            errors.append(f"{issue_id}: resolved resolution must be non-empty")
 
     sot_ref = row.get("sot_ref", "")
     if root_cause in _SOT_REF_REQUIRED and not sot_ref.strip():
@@ -201,6 +225,9 @@ def validate_review_content(content: str, *, phase: Phase = "probe") -> list[str
     Row phase is inferred per row: ``pending`` → probe rules; otherwise remediation.
     The ``phase`` parameter is retained for call-site documentation only.
     """
+    errors = validate_review_frontmatter(content)
+    if errors:
+        return errors
     lines = content.splitlines()
     errors = validate_review_header(lines)
     if errors:
@@ -252,15 +279,22 @@ def render_review_header(
     round_num: int,
     date: str,
     refs: str,
+    dimension_id: str,
+    round_token: str,
 ) -> str:
     """Render review file header from template placeholders."""
     return (
+        "---\n"
+        "schema_version: 3\n"
+        f"dimension_id: {dimension_id}\n"
+        f"round_token: {round_token}\n"
+        "---\n\n"
         f"# Tech Review — {dim_label} | revision{rev} round {round_num}\n\n"
         f"**Date:** {date}\n"
         f"**Refs:** {refs}\n\n"
-        "| ID | root_cause | sot_ref | location | severity | evidence "
+        "| ID | root_cause | handling_mode | sot_ref | location | severity | evidence "
         "| description | status | decision | resolution |\n"
-        "|----|------------|---------|----------|----------|----------"
+        "|----|------------|---------------|---------|----------|----------|----------"
         "|-------------|--------|----------|------------|\n"
     )
 

@@ -43,6 +43,7 @@ def test_request_handoff_translates_compose_context_to_generic_v2(
             "mode": "tech",
             "cycle_type": "feature",
             "upstream_baseline_ref": "",
+            "eval_capability": "full-remediation",
         },
     }
     monkeypatch.setattr(
@@ -60,6 +61,7 @@ def test_request_handoff_translates_compose_context_to_generic_v2(
     assert handoff["context"]["bindings"] == {
         "eval_target_path": "/tmp/revision1/design-doc.md",
     }
+    assert handoff["context"]["policy_context"]["eval_capability"] == "full-remediation"
     assert {"compose_doc", "focus_l", "ledger_fingerprint"}.isdisjoint(
         handoff["context"],
     )

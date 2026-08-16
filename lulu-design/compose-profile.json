@@ -36,7 +36,8 @@
     "enabled": true,
     "workflow_id": "lulu-design",
     "adapter_module": "lulu-design/scripts/eval/tech_design_eval_adapter.py",
-    "adapter_class": "TechDesignEvalAdapter"
+    "adapter_class": "TechDesignEvalAdapter",
+    "eval_capability": "full-remediation"
   },
   "delivery_index": {
     "layout": "revision",
