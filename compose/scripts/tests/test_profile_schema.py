@@ -38,8 +38,9 @@ _MINIMAL_ACTIVE_PROFILE = {
         "post_writing_options": ["freeedit", "evaluate"],
     },
     "eval": {
-        "adapter_module": "tech-foo/scripts/eval/tech_foo_eval_adapter.py",
-        "adapter_class": "TechFooEvalAdapter",
+        "workflow_id": "tech-foo",
+        "contributor_module": "tech-foo/scripts/eval/tech_foo_eval_contributor.py",
+        "contributor_class": "TechFooEvalContributor",
         "eval_capability": "full-remediation",
     },
     "cycle_types": ["feature"],
@@ -116,15 +117,18 @@ def test_active_profile_rejects_retired_start_block(tmp_path: Path) -> None:
     assert any("start adapter contract retired" in err for err in errors)
 
 
-def test_active_profile_missing_eval_adapter_class_fails(tmp_path: Path) -> None:
+def test_active_profile_missing_eval_contributor_class_fails(tmp_path: Path) -> None:
     stage_dir = tmp_path / "tech-foo"
     stage_dir.mkdir()
     path = stage_dir / "compose-profile.json"
     data = dict(_MINIMAL_ACTIVE_PROFILE)
-    data["eval"] = {"adapter_module": "tech-foo/scripts/eval/tech_foo_eval_adapter.py"}
+    data["eval"] = {
+        "workflow_id": "tech-foo",
+        "contributor_module": "tech-foo/scripts/eval/tech_foo_eval_contributor.py",
+    }
     path.write_text(json.dumps(data), encoding="utf-8")
     errors = _validate_profile(path)
-    assert any("missing eval.adapter_class" in err for err in errors)
+    assert any("missing eval.contributor_class" in err for err in errors)
 
 
 def test_active_profile_rejects_retired_display_layer(tmp_path: Path) -> None:

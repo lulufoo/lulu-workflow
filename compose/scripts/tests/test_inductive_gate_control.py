@@ -549,10 +549,10 @@ def test_gate_close_g4_succeeds_on_empty_findings_and_true_predicates(
     code, result = _run_gate(tmp_path, "gate-close", "--gate", "G4")
     assert code == 0, result
     assert result.get("closed") == "G4"
-    assert result.get("active_gate") == "G5"
+    assert result.get("active_gate") == "complete"
     code, ctx = _run_gate(tmp_path, "resolve-context")
     assert code == 0, ctx
-    assert ctx.get("active_gate") == "G5"
+    assert ctx.get("active_gate") == "complete"
     dqi_path = tmp_path / "inductive-dqi.json"
     if dqi_path.is_file():
         dqi = json.loads(dqi_path.read_text(encoding="utf-8"))

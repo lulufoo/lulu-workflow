@@ -20,9 +20,22 @@ from corpus_compose import compose_corpus, load_dimension_def
 from corpus_schema import normalize_corpus, validate_corpus
 
 
+class _AdmissionMixin:
+    def eval_admission_context(self, *args, **kwargs):
+        raise NotImplementedError
+
+    def prepare_eval_admission(self, *args, **kwargs):
+        return {"ok": False, "error": "stub"}
+
+    def abort_eval_admission(self, *args, **kwargs):
+        return {"ok": True}
+
+
 _DIMENSION_DEFS = sorted(_WORKFLOW_ROOT.glob("**/dimension-defs/*.json"))
-_HUMAN_FIRST_DEF = (
-    _WORKFLOW_ROOT / "lulu-design" / "dimension-defs" / "intent-alignment.json"
+_HUMAN_FIRST_DEFS = (
+    _WORKFLOW_ROOT / "compose" / "eval" / "dimension-defs" / "intent-fidelity.json",
+    _WORKFLOW_ROOT / "compose" / "eval" / "dimension-defs" / "parent-continuity.json",
+    _WORKFLOW_ROOT / "compose" / "eval" / "dimension-defs" / "norm-conformance.json",
 )
 _FULL_REMEDIATION_PROFILES = (
     _WORKFLOW_ROOT / "lulu-plan" / "compose-profile.json",
@@ -63,8 +76,8 @@ def _valid_config(**overrides) -> dict:
 
 
 class TestDimensionDefinitions:
-    def test_finds_exactly_twelve_dimension_definitions(self) -> None:
-        assert len(_DIMENSION_DEFS) == 12
+    def test_finds_exactly_fourteen_dimension_definitions(self) -> None:
+        assert len(_DIMENSION_DEFS) == 14
 
     def test_all_definitions_pass_corpus_schema_v6(self) -> None:
         for path in _DIMENSION_DEFS:
@@ -81,13 +94,13 @@ class TestDimensionDefinitions:
                 "human-first",
             }
 
-    def test_only_intent_alignment_declares_human_first(self) -> None:
+    def test_only_compose_common_dims_declare_human_first(self) -> None:
         human_first = []
         for path in _DIMENSION_DEFS:
             definition = load_dimension_def(path)
             if definition.get("handling_policy") == "human-first":
                 human_first.append(path)
-        assert human_first == [_HUMAN_FIRST_DEF]
+        assert sorted(human_first) == sorted(_HUMAN_FIRST_DEFS)
 
     @pytest.mark.parametrize("field", _REMOVED_FIELDS)
     def test_definitions_do_not_declare_removed_fields(self, field: str) -> None:
@@ -189,7 +202,7 @@ class TestEntryProtocol:
         monkeypatch,
         tmp_path: Path,
     ) -> None:
-        class ProbeOnlyAdapter:
+        class ProbeOnlyAdapter(_AdmissionMixin):
             def request_eval_handoff(self, **kwargs):
                 del kwargs
                 return {
@@ -241,7 +254,7 @@ class TestEntryProtocol:
         monkeypatch,
         tmp_path: Path,
     ) -> None:
-        class ProbeOnlyAdapter:
+        class ProbeOnlyAdapter(_AdmissionMixin):
             def request_eval_handoff(self, **kwargs):
                 del kwargs
                 return {
@@ -284,7 +297,9 @@ class TestEntryProtocol:
                 "C1",
                 "--project-root",
                 str(tmp_path),
-                "begin-eval-round",
+                "begin-dimension",
+                "--dim",
+                "quality",
             ]
         )
         assert code == 1
@@ -301,7 +316,7 @@ class TestEntryProtocol:
             encoding="utf-8",
         )
 
-        class FullAdapter:
+        class FullAdapter(_AdmissionMixin):
             def request_eval_handoff(self, **kwargs):
                 del kwargs
                 return {
@@ -345,7 +360,9 @@ class TestEntryProtocol:
                 "C1",
                 "--project-root",
                 str(tmp_path),
-                "begin-eval-round",
+                "begin-dimension",
+                "--dim",
+                "quality",
             ]
         )
         assert code == 1
@@ -359,7 +376,7 @@ class TestEntryProtocol:
         state_path = tmp_path / "evaluate-state.md"
         state_path.write_text("---\nversion: 7\n---\n", encoding="utf-8")
 
-        class FullAdapter:
+        class FullAdapter(_AdmissionMixin):
             def request_eval_handoff(self, **kwargs):
                 del kwargs
                 return {
@@ -403,7 +420,9 @@ class TestEntryProtocol:
                 "C1",
                 "--project-root",
                 str(tmp_path),
-                "begin-eval-round",
+                "begin-dimension",
+                "--dim",
+                "quality",
             ]
         )
         assert code == 1
@@ -420,7 +439,7 @@ class TestEntryProtocol:
             encoding="utf-8",
         )
 
-        class FullAdapter:
+        class FullAdapter(_AdmissionMixin):
             def request_eval_handoff(self, **kwargs):
                 del kwargs
                 return {
@@ -464,7 +483,9 @@ class TestEntryProtocol:
                 "C1",
                 "--project-root",
                 str(tmp_path),
-                "begin-eval-round",
+                "begin-dimension",
+                "--dim",
+                "quality",
             ]
         )
         assert code == 1
@@ -475,7 +496,7 @@ class TestEntryProtocol:
         monkeypatch,
         tmp_path: Path,
     ) -> None:
-        class FullAdapter:
+        class FullAdapter(_AdmissionMixin):
             def request_eval_handoff(self, **kwargs):
                 del kwargs
                 return {
@@ -529,7 +550,7 @@ class TestEntryProtocol:
 
 class TestEvaluateStateCapabilityFailClosed:
     def _full_adapter(self):
-        class FullAdapter:
+        class FullAdapter(_AdmissionMixin):
             def read_eval_target_digest(self, *args, **kwargs):
                 return "digest"
 
@@ -602,8 +623,8 @@ class TestSharedInitializerAndPrimitives:
         ).read_text(encoding="utf-8")
         assert "def _init_evaluate_state(" not in decision
         assert "def _init_evaluate_state(" not in fact_intake
-        assert "init_evaluate_state_for_corpus" in decision
-        assert "init_evaluate_state_for_corpus" in fact_intake
+        assert "prepare_eval_admission" in decision
+        assert "prepare_eval_admission" in fact_intake
 
     def test_decision_does_not_write_evaluate_state_in_finalize(self) -> None:
         source = (
@@ -613,14 +634,14 @@ class TestSharedInitializerAndPrimitives:
         assert "save_evaluate_state" not in finalize
         assert "load_evaluate_state" not in finalize
 
-    def test_compose_support_exposes_renamed_target_primitives(self) -> None:
+    def test_compose_adapter_exposes_renamed_target_primitives(self) -> None:
         sys.path.insert(0, str(_WORKFLOW_ROOT / "compose" / "scripts" / "core"))
-        from compose_eval_adapter_support import ComposeEvalAdapterSupport
+        from compose_eval_adapter import ComposeEvalAdapter
 
         for name in (_READ, _COMMIT, _RESTORE):
-            assert hasattr(ComposeEvalAdapterSupport, name)
+            assert hasattr(ComposeEvalAdapter, name)
         for name in _OLD_PRIMITIVES:
-            assert not hasattr(ComposeEvalAdapterSupport, name)
+            assert not hasattr(ComposeEvalAdapter, name)
 
     def test_decision_is_read_only_and_does_not_fake_mutation(self) -> None:
         sys.path.insert(0, str(_WORKFLOW_ROOT / "decision" / "scripts" / "eval"))

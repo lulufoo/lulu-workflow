@@ -15,7 +15,6 @@ Fetch compose framework templates on demand. Scheme roles: `schemes/compose-temp
 | `$L_STEP` | `python3 "$SKILL_ROOT/compose/scripts/section/l_step_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$INDUCTIVE_FACTS_PROJ` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_facts_projection.py"` |
 | `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
-| `$EVAL_HANDOFF` | `python3 "$SKILL_ROOT/compose/scripts/core/eval_handoff_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/compose_eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` |
 | `$FACT_INTAKE_EVAL_CTL` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` |
 | `$ATOMIZE_EVAL_CONTROL` | Same command as `$FACT_INTAKE_EVAL_CTL` (retired name; prefer `$FACT_INTAKE_EVAL_CTL`) |
@@ -38,7 +37,7 @@ Run `$SESSION_INFO --view session` and `$L_STEP status`. Bind:
 | `$POST_WRITING_OPTIONS` | `pipeline.post_writing_options` | Pause after Writing |
 | `$ROLE_PROMPT` | `role.role_prompt` | Scope persona |
 
-Follow `$L_STEP status` → `next_actions`.
+Follow `$L_STEP status` → `next_actions`. `begin-eval-round` means go to **Evaluating** and run `$EVAL_CONTROL begin-eval-round`; do not run it as `$L_STEP`.
 
 ## Spine
 
@@ -49,9 +48,9 @@ Inductive | Deductive
   → enter-writing → Writing
 Writing
   → enter-freeedit → FreeEdit     when listed
-  → enter-evaluating → Evaluating
+  → begin-eval-round → Evaluating
 FreeEdit
-  → enter-evaluating | reverse-to-producer | reverse-to-writing
+  → begin-eval-round | reverse-to-producer | reverse-to-writing
 Evaluating
   → accept → Completed | fix → FreeEdit | re-evaluate
 Completed
@@ -90,13 +89,11 @@ Then continue at **Producer** or **Writing**.
 
 ## Evaluating
 
-1. Run `$L_STEP enter-evaluating`. On failure → Blocking.
-2. Run `$EVAL_HANDOFF request-handoff`. On failure → Blocking.
-3. Load `{SKILL_ROOT}/eval/SKILL.md` and follow it.
-4. On Eval exit:
+1. Load `{SKILL_ROOT}/eval/SKILL.md` and follow it. `$EVAL_CONTROL begin-eval-round` owns prepare, Evaluating transition, and handoff. Do not run `$L_STEP enter-evaluating` first.
+2. On Eval exit, this reference owns the L transition. Eval SKILL does not run `$L_STEP`.
    - Accept → `$L_STEP accept --confirm`. Return to ## Working.
    - Fix → `$L_STEP fix --confirm`. Continue **FreeEdit**.
-   - Re-evaluate → `$L_STEP re-evaluate --confirm`, then `$EVAL_HANDOFF request-handoff` again.
+   - Re-evaluate → `$L_STEP re-evaluate --confirm`, then return to Eval **Begin Eval**.
 
 ## Reopen
 
@@ -118,6 +115,5 @@ On `Completed`, stop this reference. Do not advance, unfreeze, or deliver.
 | `{SKILL_ROOT}/compose/inductive-runner/open-point-detect-runner/SKILL.md` | Inductive Open detection |
 | `{SKILL_ROOT}/compose/inductive-runner/open-point-process-runner/SKILL.md` | Inductive Open processing |
 | `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Inductive runner internal |
-| `{SKILL_ROOT}/compose/inductive-runner/g5-provenance-runner/SKILL.md` | Inductive runner internal |
 | `{SKILL_ROOT}/compose/writing-runner/SKILL.md` | Writing |
 | `{SKILL_ROOT}/eval/SKILL.md` | Evaluating |

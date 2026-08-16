@@ -2,7 +2,7 @@
 """Inductive runner outer gate spine control.
 
 Manages the G1->G2->G3->G4 lock machine. After G4 closes, active_gate
-becomes G5 so the parent can load provenance. G5 close is not this CLI.
+becomes complete. Provenance audit is delivery Eval, not a G5 gate.
 
 Subcommands:
     init-session        Seed gate state only

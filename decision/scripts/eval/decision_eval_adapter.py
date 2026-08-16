@@ -47,7 +47,24 @@ from eval_handoff_schema import (  # noqa: E402
     validate_artifact_manifest_v2,
     validate_eval_handoff_v2,
 )
-from evaluate_state_ops import init_evaluate_state_for_corpus  # noqa: E402
+from corpus_schema import expand_corpus  # noqa: E402
+from corpus_snapshot import SNAPSHOT_REF  # noqa: E402
+from eval_admission import (  # noqa: E402
+    EvalAdmissionContext,
+    can_abort_admission,
+    delete_journal,
+    discard_lease_dir,
+    discard_published_snapshot,
+    discard_staging,
+    file_digest,
+    fingerprint_parts,
+    load_journal,
+    mark_prepared,
+    mark_transitioned,
+    prepare_snapshot,
+    reserve_journal,
+    stable_runtime_fingerprint,
+)
 from evaluate_state_schema import load_evaluate_state, save_evaluate_state  # noqa: E402
 from workflow_adapter import SessionContext  # noqa: E402
 
@@ -207,33 +224,116 @@ class DecisionEvalAdapter:
         del cycle_id
         return "feature"
 
-    def enter_evaluating(
+    def eval_admission_context(
         self, cycle_id: str, project_root: Path
+    ) -> EvalAdmissionContext:
+        session_dir = self._session_dir(cycle_id, project_root)
+        self._ensure_eval_target(cycle_id, project_root)
+        runtime = load_runtime(runtime_path(session_dir))
+        target = eval_target_path(session_dir).resolve()
+        current = int(runtime.get("evaluate_round") or 0)
+        already = runtime.get("focus_phase") == "evaluating"
+        return EvalAdmissionContext(
+            admission_root=session_dir,
+            session_key="DC",
+            provider_state_fingerprint=self._provider_fingerprint(session_dir),
+            previous_phase=str(runtime.get("focus_phase") or "pending"),
+            target_path=target,
+            target_digest=file_digest(target),
+            candidate_round=current if already and current >= 1 else current + 1,
+        )
+
+    def prepare_eval_admission(
+        self, cycle_id: str, project_root: Path
+    ) -> dict[str, Any]:
+        ctx = self.eval_admission_context(cycle_id, project_root)
+        journal = reserve_journal(ctx)
+        token = str(journal["token"])
+        try:
+            corpus = expand_corpus(
+                self.resolve_eval_corpus(cycle_id, project_root),
+                {
+                    "eval_target_path": ctx.target_path.as_posix(),
+                    "M": str(ctx.candidate_round),
+                },
+            )
+            manifest = prepare_snapshot(
+                ctx,
+                token=token,
+                corpus=corpus,
+                method_roots=[_WORKFLOW_ROOT, _WORKFLOW_ROOT.parent],
+                method_must_stay_under=_WORKFLOW_ROOT,
+                sot_roots=[project_root.resolve()],
+            )
+            mark_prepared(ctx, token=token, snapshot_digest=str(manifest["corpus_digest"]))
+        except Exception:
+            discard_staging(ctx.admission_root, token)
+            if str(journal.get("status")) == "preparing":
+                delete_journal(ctx.admission_root)
+            raise
+        return {
+            "ok": True,
+            "token": token,
+            "corpus": corpus,
+            "skip_reasons": {},
+            "snapshot_digest": str(manifest["corpus_digest"]),
+            "snapshot_ref": SNAPSHOT_REF,
+            "evaluate_dir": evaluate_dir(
+                self._session_dir(cycle_id, project_root), ctx.candidate_round
+            ).resolve().as_posix(),
+            "context": ctx,
+        }
+
+    def abort_eval_admission(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        token: str,
+    ) -> dict[str, Any]:
+        session_dir = self._session_dir(cycle_id, project_root)
+        journal = load_journal(session_dir)
+        if journal is None:
+            return {"ok": True, "aborted": False}
+        evaluate_round = int(journal.get("candidate_round") or 1)
+        if not can_abort_admission(
+            journal=journal,
+            token=token,
+            evaluate_state_path=evaluate_state_path(session_dir),
+            operations_path=evaluate_dir(session_dir, evaluate_round)
+            / "eval-operations.json",
+        ):
+            return {"ok": False, "error": "admission abort refused"}
+        discard_published_snapshot(evaluate_dir(session_dir, evaluate_round))
+        runtime = load_runtime(runtime_path(session_dir))
+        previous = str(journal.get("previous_phase") or "")
+        if (
+            str(journal.get("status")) == "transitioned"
+            and previous not in {"evaluating", "Evaluating"}
+        ):
+            runtime["focus_phase"] = previous or "pending"
+            runtime["evaluate_round"] = max(0, evaluate_round - 1)
+        lease_id = str(journal.get("lease_id") or runtime.get("active_lease_id") or "")
+        discard_lease_dir(session_dir / "eval" / "staging", lease_id)
+        runtime["active_lease_id"] = ""
+        runtime["write_staging_dir"] = ""
+        self._save_runtime(cycle_id, project_root, runtime)
+        discard_staging(session_dir, token)
+        delete_journal(session_dir)
+        return {"ok": True, "aborted": True}
+
+    def enter_evaluating(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        admission_token: str | None = None,
     ) -> dict[str, Any]:
         paths = self._paths(cycle_id, project_root)
         session_dir = paths["session_dir"]
         runtime = load_runtime(runtime_path(session_dir))
-        gate_state = load_gate_state(paths["gate_state"])
-        if str(gate_state.get("active_gate", "")) != "DC":
-            return {
-                "ok": False,
-                "current_state": "Working",
-                "transitioned": False,
-                "error": (
-                    f"active_gate is {gate_state.get('active_gate')!r}, expected 'DC'"
-                ),
-            }
-
-        constraints = load_domain_constraints(paths["domain_constraints"])
-        r_closed = is_gate_closed(gate_state, "R")
         try:
-            render_and_save_eval_target(
-                session_dir,
-                cycle_id=cycle_id,
-                stage=str(constraints.get("stage") or KERNEL_STAGE),
-                constraints=constraints,
-                r_gate_closed=r_closed,
-            )
+            self._ensure_eval_target(cycle_id, project_root)
         except (FileNotFoundError, ValueError) as exc:
             return {
                 "ok": False,
@@ -245,18 +345,14 @@ class DecisionEvalAdapter:
         already = runtime.get("focus_phase") == "evaluating"
         runtime = enter_evaluating_runtime(runtime)
         evaluate_round = int(runtime["evaluate_round"])
-        es_path = evaluate_state_path(session_dir)
-        if not already and not es_path.is_file():
-            init_evaluate_state_for_corpus(
-                es_path,
-                self.resolve_eval_corpus(cycle_id, project_root),
-                eval_capability=_EVAL_CAPABILITY,
-                cycle_type="feature",
-                evaluate_round=evaluate_round,
-                focus_l="DC",
-            )
         evaluate_dir(session_dir, evaluate_round).mkdir(parents=True, exist_ok=True)
         self._save_runtime(cycle_id, project_root, runtime)
+        if admission_token:
+            mark_transitioned(
+                session_dir,
+                token=admission_token,
+                provider_state_fingerprint=self._provider_fingerprint(session_dir),
+            )
         return {
             "ok": True,
             "current_state": "Working",
@@ -264,6 +360,32 @@ class DecisionEvalAdapter:
             "evaluate_round": evaluate_round,
             "focus": "DC",
         }
+
+    def _ensure_eval_target(self, cycle_id: str, project_root: Path) -> None:
+        paths = self._paths(cycle_id, project_root)
+        gate_state = load_gate_state(paths["gate_state"])
+        if str(gate_state.get("active_gate", "")) != "DC":
+            raise ValueError(
+                f"active_gate is {gate_state.get('active_gate')!r}, expected 'DC'"
+            )
+        constraints = load_domain_constraints(paths["domain_constraints"])
+        render_and_save_eval_target(
+            paths["session_dir"],
+            cycle_id=cycle_id,
+            stage=str(constraints.get("stage") or KERNEL_STAGE),
+            constraints=constraints,
+            r_gate_closed=is_gate_closed(gate_state, "R"),
+        )
+
+    def _provider_fingerprint(self, session_dir: Path) -> str:
+        parts = []
+        runtime = runtime_path(session_dir)
+        if runtime.is_file():
+            parts.append(stable_runtime_fingerprint(load_runtime(runtime)))
+        gate = session_artifact_paths(session_dir)["gate_state"]
+        if Path(gate).is_file():
+            parts.append(file_digest(Path(gate)))
+        return fingerprint_parts(*parts)
 
     def request_eval_handoff(
         self,

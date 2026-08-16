@@ -34,8 +34,8 @@
   "eval": {
     "enabled": true,
     "workflow_id": "lulu-blueprint",
-    "adapter_module": "lulu-blueprint/scripts/eval/product_blueprint_eval_adapter.py",
-    "adapter_class": "ProductBlueprintEvalAdapter",
+    "contributor_module": "lulu-blueprint/scripts/eval/product_blueprint_eval_contributor.py",
+    "contributor_class": "ProductBlueprintEvalContributor",
     "eval_capability": "full-remediation"
   },
   "delivery_index": {

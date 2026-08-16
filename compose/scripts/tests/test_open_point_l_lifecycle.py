@@ -181,12 +181,11 @@ def _repair_required_txn(slice_dir: Path) -> None:
     )
 
 
-def _close_g4_g5(slice_dir: Path) -> None:
+def _close_producer_gates(slice_dir: Path) -> None:
     state = init_gate_state(cycle_id="c1", stage="lulu-design")
     for gate in ("G1", "G2", "G3", "G4"):
         state = close_gate(state, gate)
     save_gate_state(slice_dir / "inductive-gate-state.json", state)
-    _write_json(slice_dir / "provenance-gate-state.json", {"status": "closed"})
 
 
 def test_from_report_crash_after_opens_restores_before(
@@ -350,7 +349,7 @@ def test_complete_producer_fails_while_txn_repair_required(tmp_path: Path):
     _set_cell(rev, "L1", state="Inductive")
     l1 = rev / "L1"
     (l1 / "_facts.json").write_text("[]\n", encoding="utf-8")
-    _close_g4_g5(l1)
+    _close_producer_gates(l1)
     _repair_required_txn(l1)
     result = l_step_control.complete_producer(_CYCLE, tmp_path, profile_id=_PROFILE)
     assert result["ok"] is False
@@ -374,7 +373,7 @@ def test_advance_fails_while_txn_repair_required(tmp_path: Path):
     assert open_point_txn_path(l1).is_file()
 
 
-def test_complete_producer_still_requires_g4_g5_closed(tmp_path: Path):
+def test_complete_producer_still_requires_g4_complete(tmp_path: Path):
     ws = _seed_inductive_session(tmp_path, order=["L1"])
     rev = ws.parent
     _set_cell(rev, "L1", state="Inductive")

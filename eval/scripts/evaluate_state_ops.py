@@ -35,6 +35,28 @@ def dispatch_legacy_for_corpus(corpus: dict[str, Any]) -> list[str]:
     return dispatch_legacy_aliases(corpus)
 
 
+_EVAL_RESIDUE_NAMES = frozenset({
+    "evaluate-state.md",
+    "operation-records.json",
+    "_human-resolution-txn.json",
+    "corpus-snapshot",
+    "eval-admission.json",
+    ".eval-admission",
+    "staging",
+})
+
+
+def _is_eval_residue(entry: Path, state_path: Path) -> bool:
+    name = entry.name
+    if name in {state_path.name, f".{state_path.name}.init.lock"}:
+        return True
+    if name in _EVAL_RESIDUE_NAMES:
+        return True
+    if name.endswith(".md") and "review" in name:
+        return True
+    return False
+
+
 def build_initial_evaluate_state_for_corpus(
     corpus: dict[str, Any],
     *,
@@ -42,6 +64,10 @@ def build_initial_evaluate_state_for_corpus(
     cycle_type: str = "feature",
     evaluate_round: int | None = None,
     focus_l: str = "",
+    corpus_digest: str = "",
+    corpus_snapshot_ref: str = "",
+    skipped_ids: list[str] | None = None,
+    skip_reasons: dict[str, str] | None = None,
 ) -> dict[str, str]:
     """Return frontmatter for a new evaluate-state from an EvalCorpus."""
     corpus = normalize_corpus(corpus)
@@ -58,11 +84,15 @@ def build_initial_evaluate_state_for_corpus(
         dimension_ids=ids,
         corpus_ref=ref,
         corpus_fingerprint=fingerprint,
+        corpus_digest=corpus_digest,
+        corpus_snapshot_ref=corpus_snapshot_ref,
         dimension_dispatch=str(corpus.get("dimension_dispatch", "parallel")),
         evaluate_round=evaluate_round,
         focus_l=focus_l,
         eval_capability=eval_capability,
         handling_policy=policy,
+        skipped_ids=skipped_ids,
+        skip_reasons=skip_reasons,
     )
 
 
@@ -74,6 +104,8 @@ def init_evaluate_state_for_corpus(
     cycle_type: str = "feature",
     evaluate_round: int | None = None,
     focus_l: str = "",
+    corpus_digest: str = "",
+    corpus_snapshot_ref: str = "",
 ) -> None:
     """Create evaluate-state only when its Eval storage is empty."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -87,10 +119,10 @@ def init_evaluate_state_for_corpus(
                     path.read_text(encoding="utf-8"),
                 )
                 version = existing.get("version")
-                if version != "7":
+                if version != "8":
                     raise ValueError(
                         "incompatible_round: existing evaluate-state version "
-                        f"{version!r} cannot be initialized as v7",
+                        f"{version!r} cannot be initialized as v8",
                     )
                 raise ValueError(
                     "incompatible_storage: evaluate-state already exists",
@@ -99,7 +131,7 @@ def init_evaluate_state_for_corpus(
             residue = [
                 entry
                 for entry in path.parent.iterdir()
-                if entry != lock_path
+                if entry != lock_path and _is_eval_residue(entry, path)
             ]
             if residue:
                 names = ", ".join(sorted(entry.name for entry in residue))
@@ -115,6 +147,8 @@ def init_evaluate_state_for_corpus(
                     cycle_type=cycle_type,
                     evaluate_round=evaluate_round,
                     focus_l=focus_l,
+                    corpus_digest=corpus_digest,
+                    corpus_snapshot_ref=corpus_snapshot_ref,
                 ),
                 merge=False,
             )
@@ -202,10 +236,10 @@ def locked_patch_evaluate_state(
             if path.exists():
                 content = path.read_text(encoding="utf-8")
                 version = _read_frontmatter_version(content)
-                if version != "7":
+                if version != "8":
                     raise ValueError(
                         "incompatible_round: existing evaluate-state version "
-                        f"{version!r} is not supported (expected '7')",
+                        f"{version!r} is not supported (expected '8')",
                     )
                 existing = parse_frontmatter_fields(content)
                 data = patch_fn(dict(existing))

@@ -3,7 +3,7 @@
 
 Owns mechanical writes to evaluate-state.md. Workflow-specific paths and state
 transitions go through an injected WorkflowAdapter, loaded per-profile by
-eval_entry.py (dynamic ``profile.eval.adapter_module`` / ``adapter_class``
+eval_entry.py (caller-supplied adapter config: flat Adapter or decorator envelope)
 loading, mirrors start.py's StartAdapter loading).
 
 Invoke via eval_entry.py with caller-supplied adapter config
@@ -59,14 +59,30 @@ from corpus_schema import (  # noqa: E402
     resolve_dim_id,
 )
 from evaluate_state_schema import (  # noqa: E402
-    is_v7_state,
+    is_v8_state,
     load_evaluate_state,
     parse_frontmatter_fields,
     parse_dimension_status,
     parse_handling_policy,
     parse_issue_counts,
+    parse_skip_reason,
     patch_issue_count,
     save_evaluate_state,
+)
+from corpus_snapshot import (  # noqa: E402
+    SNAPSHOT_REF,
+    load_materialized_corpus,
+    snapshot_dir,
+)
+from eval_admission import (  # noqa: E402
+    finalize_admission,
+    load_journal,
+    load_prepared_admission_corpus,
+    mark_transitioned,
+    publish_prepared_snapshot,
+    record_handoff_lease,
+    recover_admission,
+    this_attempt_is_committed,
 )
 
 from evaluate_state_ops import (  # noqa: E402
@@ -172,8 +188,45 @@ def _upstream_baseline_ref(cycle_id: str, project_root: Path) -> str:
 
 
 def _load_corpus(cycle_id: str, project_root: Path):
-    """Resolve session EvalCorpus via workflow adapter."""
-    return _adapter().resolve_eval_corpus(cycle_id, project_root)
+    """Load the pinned round snapshot, or resolve only before admission."""
+    es_path = _evaluate_state_path(cycle_id, project_root)
+    if not es_path.is_file():
+        return _adapter().resolve_eval_corpus(cycle_id, project_root)
+    fields = parse_frontmatter_fields(es_path.read_text(encoding="utf-8"))
+    digest = str(fields.get("corpus_digest") or "").strip()
+    ref = str(fields.get("corpus_snapshot_ref") or "").strip()
+    if not digest or not ref:
+        raise ValueError(
+            "incompatible_round: evaluate-state missing corpus snapshot",
+        )
+    evaluate_dir = _evaluate_dir_for_snapshot(cycle_id, project_root, fields)
+    return load_materialized_corpus(
+        snapshot_dir(evaluate_dir),
+        expected_digest=digest,
+    )
+
+
+def _evaluate_dir_for_snapshot(
+    cycle_id: str,
+    project_root: Path,
+    fields: dict[str, str],
+) -> Path:
+    context = _handoff_context() or {}
+    raw = context.get("evaluate_dir")
+    if raw:
+        return Path(str(raw))
+    try:
+        evaluate_round = int(fields.get("evaluate_round") or 1)
+    except ValueError:
+        evaluate_round = 1
+    paths = _eval_paths(
+        cycle_id,
+        project_root,
+        active_doc=_adapter().session_context(cycle_id, project_root).active_doc,
+        evaluate_round=evaluate_round,
+        es_path=_evaluate_state_path(cycle_id, project_root),
+    )
+    return Path(str(paths["evaluate_dir"]))
 
 
 def _dispatch_dim_allowed(cycle_id: str, project_root: Path, dim: str) -> bool:
@@ -817,8 +870,8 @@ def _validate_evaluate_state_for_session(
     project_root: Path,
 ) -> str | None:
     """Return error reason when evaluate-state does not match session at entry."""
-    if not is_v7_state(eval_data):
-        return "incompatible_round: evaluate-state is not v7."
+    if not is_v8_state(eval_data):
+        return "incompatible_round: evaluate-state is not v8."
     if eval_data.get("phase") != "evaluate":
         return f"phase is {eval_data.get('phase')!r}, expected 'evaluate'."
     try:
@@ -1117,10 +1170,10 @@ def _load_evaluating_context(
         )
 
     raw_state = parse_frontmatter_fields(es_path.read_text(encoding="utf-8"))
-    if not is_v7_state(raw_state):
+    if not is_v8_state(raw_state):
         return _failure(
             "",
-            "incompatible_round: evaluate-state must be v7",
+            "incompatible_round: evaluate-state must be v8",
             current_state=current,
         )
     try:
@@ -1202,51 +1255,241 @@ def _start_next_eval_round(
     ws_path: Path,
     mode: str,
 ) -> dict[str, Any]:
-    """Allocate next per-L (or legacy) round, re-init evaluate-state, return payload."""
-    del ws_path, state
-    try:
-        handoff = _refresh_handoff(cycle_id, project_root, require_evaluating=True)
-    except ValueError as exc:
-        return _failure(_CMD_BEGIN_EVAL_ROUND, str(exc))
-    context = handoff["context"]
-    evaluate_round = int(context["evaluate_round"])
-    formal_es = Path(str(context["evaluate_state_path"]))
-
-    corpus = _load_corpus(cycle_id, project_root)
-    cycle_type = _adapter().detect_cycle_type(cycle_id)
-    next_state = build_initial_evaluate_state_for_corpus(
-        corpus,
-        eval_capability=_eval_capability(),
-        cycle_type=cycle_type,
-        evaluate_round=evaluate_round,
-        focus_l=str(context.get("session_key", "")),
-    )
-    error = _commit_staged_evaluate_state(
-        cycle_id,
-        project_root,
-        state=next_state,
-        previous_done_required=formal_es.is_file(),
-    )
-    if error is not None:
-        return _failure(
-            _CMD_BEGIN_EVAL_ROUND,
-            error,
-        )
-    del mode
+    """Admit the next evaluate round and return the loop payload."""
+    del ws_path, state, mode
+    admitted = _admit_eval_round(cycle_id, project_root)
+    if admitted is not None:
+        return admitted
     return build_eval_loop_payload(cycle_id, project_root)
 
 
 def _v5_incompatible_reason(es_path: Path) -> str | None:
-    """Return a hard-cut incompatibility for any existing non-v7 state."""
+    """Return a hard-cut incompatibility for any existing non-v8 state."""
     if not es_path.is_file():
         return None
     raw_state = parse_frontmatter_fields(es_path.read_text(encoding="utf-8"))
-    if is_v7_state(raw_state):
+    if is_v8_state(raw_state):
         return None
     return (
         "incompatible_round: evaluate-state version "
-        f"{raw_state.get('version')!r} is not supported (expected '7')"
+        f"{raw_state.get('version')!r} is not supported (expected '8')"
     )
+
+
+def _require_admission_protocol() -> str | None:
+    adapter = _adapter()
+    missing = [
+        name
+        for name in (
+            "eval_admission_context",
+            "prepare_eval_admission",
+            "abort_eval_admission",
+        )
+        if not callable(getattr(adapter, name, None))
+    ]
+    if missing:
+        return "adapter missing admission protocol: " + ", ".join(missing)
+    return None
+
+
+def _admit_eval_round(
+    cycle_id: str,
+    project_root: Path,
+) -> dict[str, Any] | None:
+    """Run two-phase admission. Return a failure payload, or None on success."""
+    protocol_error = _require_admission_protocol()
+    if protocol_error:
+        return _failure(_CMD_BEGIN_EVAL_ROUND, protocol_error)
+    adapter = _adapter()
+    try:
+        ctx = adapter.eval_admission_context(cycle_id, project_root)
+    except (OSError, ValueError) as exc:
+        return _failure(_CMD_BEGIN_EVAL_ROUND, str(exc))
+    es_path = adapter.resolve_evaluate_state_path(cycle_id, project_root)
+    evaluate_dir = Path(
+        adapter.eval_paths(
+            cycle_id,
+            project_root,
+            active_doc=adapter.session_context(cycle_id, project_root).active_doc,
+            evaluate_round=ctx.candidate_round,
+            es_path=es_path,
+        )["evaluate_dir"]
+    )
+    try:
+        recovery = recover_admission(
+            ctx,
+            evaluate_state_path=es_path,
+            evaluate_dir=evaluate_dir,
+            focus_phase=_focus_phase(cycle_id, project_root),
+        )
+    except ValueError as exc:
+        return _failure(_CMD_BEGIN_EVAL_ROUND, str(exc))
+    if recovery["action"] == "committed":
+        try:
+            _refresh_handoff(cycle_id, project_root, require_evaluating=True)
+        except ValueError as exc:
+            return _failure(_CMD_BEGIN_EVAL_ROUND, str(exc))
+        return None
+
+    token = ""
+    try:
+        journal = load_journal(ctx.admission_root)
+        if (
+            journal
+            and str(journal.get("status")) in {"prepared", "transitioned"}
+            and str(journal.get("snapshot_digest") or "")
+        ):
+            token = str(journal["token"])
+            digest = str(journal["snapshot_digest"])
+            prepared = {
+                "ok": True,
+                "token": token,
+                "snapshot_digest": digest,
+                "snapshot_ref": SNAPSHOT_REF,
+                "skip_reasons": dict(journal.get("skip_reasons") or {}),
+                "corpus": load_prepared_admission_corpus(
+                    ctx.admission_root,
+                    token=token,
+                    evaluate_dir=evaluate_dir,
+                    expected_digest=digest,
+                ),
+            }
+        else:
+            prepared = adapter.prepare_eval_admission(cycle_id, project_root)
+            if not prepared.get("ok"):
+                return _failure(
+                    _CMD_BEGIN_EVAL_ROUND,
+                    str(prepared.get("error") or "prepare_eval_admission failed"),
+                )
+            token = str(prepared["token"])
+
+        entered = False
+        if _focus_phase(cycle_id, project_root) != _EXPECTED_FOCUS_PHASE:
+            entry = adapter.enter_evaluating(
+                cycle_id,
+                project_root,
+                admission_token=token,
+            )
+            if not entry.get("ok"):
+                adapter.abort_eval_admission(cycle_id, project_root, token=token)
+                return _failure(
+                    _CMD_BEGIN_EVAL_ROUND,
+                    str(
+                        entry.get("error")
+                        or (entry.get("resume") or {}).get("action")
+                        or "cannot enter evaluating"
+                    ),
+                    current_state=entry.get("current_state", ""),
+                )
+            entered = True
+        post_ctx = adapter.eval_admission_context(cycle_id, project_root)
+        if post_ctx.target_digest != ctx.target_digest:
+            raise ValueError("admission target digest drifted after prepare")
+        if not entered:
+            mark_transitioned(
+                ctx.admission_root,
+                token=token,
+                provider_state_fingerprint=post_ctx.provider_state_fingerprint,
+            )
+
+        handoff = _refresh_handoff(cycle_id, project_root, require_evaluating=True)
+        from eval_adapter_config import validate_adapter_protocol  # noqa: WPS433
+
+        adapter_capability = ""
+        for name in ("EVAL_CAPABILITY", "_EVAL_CAPABILITY"):
+            adapter_capability = str(getattr(adapter, name, "") or "").strip()
+            if adapter_capability in {"full-remediation", "probe-only"}:
+                break
+        validate_adapter_protocol(
+            adapter,
+            eval_capability=adapter_capability or _eval_capability(),
+            handoff=handoff,
+        )
+        context = handoff["context"]
+        journal = load_journal(ctx.admission_root)
+        if journal is None:
+            raise ValueError("admission journal missing after transition")
+        if str(context.get("session_key")) != str(journal.get("session_key")):
+            raise ValueError("handoff session_key does not match admission journal")
+        if int(context.get("evaluate_round") or 0) != int(
+            journal.get("candidate_round") or 0
+        ):
+            raise ValueError("handoff evaluate_round does not match admission journal")
+        post_handoff = adapter.eval_admission_context(cycle_id, project_root)
+        if post_handoff.target_digest != str(journal.get("target_digest") or ""):
+            raise ValueError("handoff target digest does not match admission journal")
+        if post_handoff.provider_state_fingerprint != str(
+            journal.get("provider_state_fingerprint") or ""
+        ):
+            raise ValueError(
+                "handoff provider fingerprint does not match admission journal"
+            )
+        lease_id = str(context.get("lease_id") or "")
+        if lease_id:
+            record_handoff_lease(
+                ctx.admission_root,
+                token=token,
+                lease_id=lease_id,
+            )
+
+        published = snapshot_dir(Path(str(context["evaluate_dir"])))
+        digest = str(prepared["snapshot_digest"])
+        if not published.is_dir():
+            publish_prepared_snapshot(
+                ctx.admission_root,
+                token=token,
+                evaluate_dir=Path(str(context["evaluate_dir"])),
+                expected_digest=digest,
+            )
+        else:
+            load_materialized_corpus(published, expected_digest=digest)
+
+        skip_reasons = dict(prepared.get("skip_reasons") or {})
+        if not this_attempt_is_committed(
+            es_path,
+            evaluate_round=int(ctx.candidate_round),
+        ):
+            existing_done = False
+            if es_path.is_file():
+                existing_done = (
+                    str(
+                        parse_frontmatter_fields(
+                            es_path.read_text(encoding="utf-8")
+                        ).get("eval_status")
+                        or ""
+                    )
+                    == "done"
+                )
+            initial = build_initial_evaluate_state_for_corpus(
+                prepared["corpus"],
+                eval_capability=_eval_capability(),
+                cycle_type=adapter.detect_cycle_type(cycle_id),
+                evaluate_round=int(context["evaluate_round"]),
+                focus_l=str(context.get("session_key") or ""),
+                corpus_digest=digest,
+                corpus_snapshot_ref=str(prepared.get("snapshot_ref") or SNAPSHOT_REF),
+                skipped_ids=list(skip_reasons),
+                skip_reasons=skip_reasons,
+            )
+            error = _commit_staged_evaluate_state(
+                cycle_id,
+                project_root,
+                state=initial,
+                set_phase_evaluating=True,
+                previous_done_required=existing_done,
+            )
+            if error is not None:
+                adapter.abort_eval_admission(cycle_id, project_root, token=token)
+                return _failure(_CMD_BEGIN_EVAL_ROUND, error)
+        finalize_admission(ctx.admission_root, token)
+        return None
+    except Exception as exc:
+        if token:
+            try:
+                adapter.abort_eval_admission(cycle_id, project_root, token=token)
+            except Exception:
+                pass
+        return _failure(_CMD_BEGIN_EVAL_ROUND, str(exc))
 
 
 def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
@@ -1269,17 +1512,22 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
 
     if _focus_phase(cycle_id, project_root) == _EXPECTED_FOCUS_PHASE:
         if not es_path.exists():
-            return _failure(
-                _CMD_BEGIN_EVAL_ROUND,
-                "evaluate-state.md not found.",
-                current_state=current,
-            )
+            admitted = _admit_eval_round(cycle_id, project_root)
+            if admitted is not None:
+                return admitted
+            es_path = _evaluate_state_path(cycle_id, project_root)
+            if not es_path.exists():
+                return _failure(
+                    _CMD_BEGIN_EVAL_ROUND,
+                    "incompatible_round: evaluating without EvalState or admission journal",
+                    current_state=current,
+                )
 
         raw_state = parse_frontmatter_fields(es_path.read_text(encoding="utf-8"))
-        if not is_v7_state(raw_state):
+        if not is_v8_state(raw_state):
             return _failure(
                 _CMD_BEGIN_EVAL_ROUND,
-                "incompatible_round: evaluate-state must be v7",
+                "incompatible_round: evaluate-state must be v8",
                 current_state=current,
             )
         try:
@@ -1316,6 +1564,31 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
                 mismatch,
                 current_state=current,
             )
+        try:
+            adapter = _adapter()
+            ctx = adapter.eval_admission_context(cycle_id, project_root)
+            recover_admission(
+                ctx,
+                evaluate_state_path=es_path,
+                evaluate_dir=Path(
+                    adapter.eval_paths(
+                        cycle_id,
+                        project_root,
+                        active_doc=adapter.session_context(
+                            cycle_id, project_root
+                        ).active_doc,
+                        evaluate_round=ctx.candidate_round,
+                        es_path=es_path,
+                    )["evaluate_dir"]
+                ),
+                focus_phase=_EXPECTED_FOCUS_PHASE,
+            )
+        except (OSError, ValueError) as exc:
+            return _failure(
+                _CMD_BEGIN_EVAL_ROUND,
+                str(exc),
+                current_state=current,
+            )
         return build_eval_loop_payload(cycle_id, project_root)
 
     incompatible = _v5_incompatible_reason(es_path)
@@ -1326,36 +1599,12 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
             current_state=current,
         )
 
-    entry = _adapter().enter_evaluating(cycle_id, project_root)
-    if not entry.get("ok"):
-        resume = entry.get("resume", {})
-        return _failure(
-            _CMD_BEGIN_EVAL_ROUND,
-            resume.get("action")
-            or (
-                f"cannot enter evaluating from state "
-                f"{entry.get('current_state', '')!r}."
-            ),
-            current_state=entry.get("current_state", ""),
-        )
-
-    try:
-        _refresh_handoff(cycle_id, project_root, require_evaluating=True)
-    except ValueError as exc:
-        return _failure(
-            _CMD_BEGIN_EVAL_ROUND,
-            str(exc),
-            current_state=_EXPECTED_SESSION_STATE,
-        )
+    admitted = _admit_eval_round(cycle_id, project_root)
+    if admitted is not None:
+        return admitted
 
     state = _adapter().load_workflow_state(cycle_id, project_root)
-    mode = state["mode"]
     es_path = _evaluate_state_path(cycle_id, project_root)
-    if not es_path.exists() or entry.get("transitioned"):
-        initialized = init_round(cycle_id, project_root, mode=mode)
-        if not initialized.get("ok"):
-            return initialized
-
     try:
         eval_data = load_evaluate_state(es_path)
     except ValueError as exc:
@@ -1420,50 +1669,11 @@ def init_round(
     *,
     mode: str | None = None,
 ) -> dict[str, Any]:
-    """Initialize evaluate-state.md for the current active revision / L."""
-    if mode is None:
-        mode = _adapter().load_workflow_state(cycle_id, project_root)["mode"]
-    if _handoff_context() is None:
-        try:
-            _refresh_handoff(cycle_id, project_root, require_evaluating=False)
-        except ValueError as exc:
-            return _failure(_CMD_INIT_ROUND, str(exc))
-    es_path = _evaluate_state_path(cycle_id, project_root)
-    incompatible = _v5_incompatible_reason(es_path)
-    if incompatible:
-        return _failure(_CMD_INIT_ROUND, incompatible)
-    corpus = _load_corpus(cycle_id, project_root)
-    cycle_type = _adapter().detect_cycle_type(cycle_id)
-    context = _handoff_context() or {}
-    evaluate_round = None
-    session_key = ""
-    if context:
-        try:
-            evaluate_round = int(context.get("evaluate_round", 0)) or None
-        except (TypeError, ValueError):
-            evaluate_round = None
-        session_key = str(context.get("session_key", ""))
-    initial_state = build_initial_evaluate_state_for_corpus(
-        corpus,
-        eval_capability=_eval_capability(),
-        cycle_type=cycle_type,
-        evaluate_round=evaluate_round,
-        focus_l=session_key,
-    )
-    error = _commit_staged_evaluate_state(
-        cycle_id,
-        project_root,
-        state=initial_state,
-        set_phase_evaluating=True,
-    )
-    if error is not None:
-        return _failure(_CMD_INIT_ROUND, error)
-    return _success(
+    """Retired: admission now goes through begin-eval-round only."""
+    del cycle_id, project_root, mode
+    return _failure(
         _CMD_INIT_ROUND,
-        mode=mode,
-        path=es_path.resolve().as_posix(),
-        evaluate_round=evaluate_round,
-        session_key=session_key,
+        "init-round is retired; use begin-eval-round",
     )
 
 
@@ -1511,6 +1721,15 @@ def begin_dimension(
     corpus = _load_corpus(cycle_id, project_root)
     canonical_dim = _canonical_dim(cycle_id, project_root, dim)
     dimension_status = parse_dimension_status(eval_data["dimension_status"])
+    if dimension_status.get(canonical_dim) == "skipped":
+        reasons = parse_skip_reason(eval_data.get("skip_reason", "{}"))
+        return _success(
+            _CMD_BEGIN_DIMENSION,
+            dim=dim,
+            skip=True,
+            skip_reason=reasons.get(canonical_dim, ""),
+            current_state=state["current_state"],
+        )
     if dimension_status.get(canonical_dim) != "pending":
         return _failure(
             _CMD_BEGIN_DIMENSION,
@@ -2463,9 +2682,14 @@ def begin_remediation(cycle_id: str, project_root: Path) -> dict[str, Any]:
             f"eval_phase is {phase!r}, expected 'probe' or 'remediation'",
         )
     dimensions = parse_dimension_status(eval_data["dimension_status"])
+    active_dimensions = {
+        dim_id: status
+        for dim_id, status in dimensions.items()
+        if status != "skipped"
+    }
     if phase == "probe" and any(
         status not in {"probed", "complete"}
-        for status in dimensions.values()
+        for status in active_dimensions.values()
     ):
         return _failure(
             _CMD_BEGIN_REMEDIATION,
@@ -2487,7 +2711,7 @@ def begin_remediation(cycle_id: str, project_root: Path) -> dict[str, Any]:
         if record.get("operation_kind") == "probe"
         and record.get("phase") == "committed"
     }
-    if not set(dimensions) <= committed_probe_dimensions:
+    if not set(active_dimensions) <= committed_probe_dimensions:
         return _failure(
             _CMD_BEGIN_REMEDIATION,
             "missing committed probe operation for one or more dimensions",
@@ -2498,7 +2722,7 @@ def begin_remediation(cycle_id: str, project_root: Path) -> dict[str, Any]:
         if record.get("operation_kind") == "probe"
         and record.get("phase") == "committed"
     }
-    for dimension_id in dimensions:
+    for dimension_id in active_dimensions:
         review_path = _review_path_from_context(
             cycle_id,
             project_root,
@@ -3298,7 +3522,12 @@ def remediation_complete(
     state, eval_data, evaluate_round, active_doc, paths = loaded
     if eval_data.get("eval_phase") != "remediation":
         return _failure(_CMD_REMEDIATION_COMPLETE, "eval_phase must be remediation")
-    dimensions = _dispatch_canonical(cycle_id, project_root)
+    status_by_dim = parse_dimension_status(eval_data["dimension_status"])
+    dimensions = [
+        dimension_id
+        for dimension_id in _dispatch_canonical(cycle_id, project_root)
+        if status_by_dim.get(dimension_id) != "skipped"
+    ]
     operations = _operations_for_round(paths, eval_data["round_token"])
     probe_by_dimension = {
         str(record.get("dimension_id")): record
@@ -3402,13 +3631,18 @@ def complete_probe_only(
             "complete-probe-only requires probe-only capability",
         )
     dimensions = parse_dimension_status(eval_data["dimension_status"])
+    active_dimensions = {
+        dim_id: status
+        for dim_id, status in dimensions.items()
+        if status != "skipped"
+    }
     terminal_replay = (
         eval_data.get("eval_phase") == "done"
         and eval_data.get("eval_status") == "done"
     )
     if not terminal_replay and eval_data.get("eval_phase") != "probe":
         return _failure(_CMD_COMPLETE_PROBE_ONLY, "eval_phase must be probe or done")
-    if any(status not in {"probed", "complete"} for status in dimensions.values()):
+    if any(status not in {"probed", "complete"} for status in active_dimensions.values()):
         return _failure(
             _CMD_COMPLETE_PROBE_ONLY,
             "not all dimensions are probed",
@@ -3433,14 +3667,14 @@ def complete_probe_only(
         if record.get("operation_kind") == "probe"
         and record.get("phase") == "committed"
     }
-    if not set(dimensions) <= committed_probe_dimensions:
+    if not set(active_dimensions) <= committed_probe_dimensions:
         return _failure(
             _CMD_COMPLETE_PROBE_ONLY,
             "missing committed probe operation for one or more dimensions",
         )
     rows_by_dimension: dict[str, list[dict[str, str]]] = {}
     review_paths: list[str] = []
-    for dimension_id in dimensions:
+    for dimension_id in active_dimensions:
         review_path = _review_path_from_context(
             cycle_id,
             project_root,
@@ -3467,7 +3701,7 @@ def complete_probe_only(
         issues = canonical_probe_findings_from_reviews(
             rows_by_dimension,
             operations,
-            expected_dimensions=list(dimensions),
+            expected_dimensions=list(active_dimensions),
         )
     except ValueError as exc:
         return _failure(_CMD_COMPLETE_PROBE_ONLY, str(exc))
@@ -3484,7 +3718,7 @@ def complete_probe_only(
 
     def _finish(data: dict[str, str]) -> dict[str, str]:
         updated = dict(data)
-        for dimension_id in dimensions:
+        for dimension_id in active_dimensions:
             updated = merge_current_dimension(
                 updated,
                 dimension_id,

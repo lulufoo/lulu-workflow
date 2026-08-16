@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Compose passthrough entry: stage compose-profile.eval → Eval adapter config.
+"""Compose entry: stage compose-profile.eval → decorator adapter envelope.
 
-Does not invent a second config source. Loads the active stage profile's ``eval``
-object and invokes ``eval/scripts/eval_entry.py`` with ``--adapter-config-file``.
+Stage profile remains the Contributor SSOT. This control derives the runtime
+envelope Eval Loader consumes and invokes ``eval/scripts/eval_entry.py``.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ _CORE = Path(__file__).resolve().parent
 if str(_CORE) not in sys.path:
     sys.path.insert(0, str(_CORE))
 
+from compose_eval_envelope import build_compose_eval_envelope  # noqa: E402
 from workflow_paths import (  # noqa: E402
     WORKFLOW_ROOT,
     load_profile,
@@ -34,16 +35,8 @@ def _emit_error(message: str) -> int:
 
 
 def extract_eval_adapter_config(profile: dict[str, Any]) -> dict[str, Any]:
-    """Return the profile ``eval`` object for Eval (passthrough)."""
-    eval_block = profile.get("eval")
-    if not isinstance(eval_block, dict):
-        raise ValueError("compose-profile.json missing object field 'eval'")
-    if "adapter_module" not in eval_block or "adapter_class" not in eval_block:
-        raise ValueError(
-            "compose-profile.json eval must include adapter_module and adapter_class",
-        )
-    # Passthrough: keep workflow_id / enabled and any future keys.
-    return dict(eval_block)
+    """Return the derived decorator envelope for Eval."""
+    return build_compose_eval_envelope(profile)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -199,6 +199,75 @@ def test_enter_evaluating_from_freeedit_after_backtrack_shape(tmp_path: Path) ->
     assert result["eval_run_id"]
 
 
+def test_rollback_evaluating_restores_writing_and_clears_eval_run(
+    tmp_path: Path,
+) -> None:
+    ws = _seed(tmp_path)
+    rev = ws.parent
+    ledger = load_l_ledger(rev)
+    ledger["by_id"]["L1"]["state"] = "Evaluating"
+    save_l_ledger(rev, ledger)
+    slice_dir = rev / "L1"
+    slice_dir.mkdir(parents=True, exist_ok=True)
+    (slice_dir / "_eval_run.json").write_text("{}\n", encoding="utf-8")
+    staging = slice_dir / ".eval-staging" / "lease-1"
+    staging.mkdir(parents=True)
+    (staging / "x").write_text("tmp", encoding="utf-8")
+    l_step_control.rollback_evaluating_phase(
+        rev,
+        focus="L1",
+        previous_phase="Writing",
+    )
+    assert load_l_ledger(rev)["by_id"]["L1"]["state"] == "Writing"
+    assert not (slice_dir / "_eval_run.json").is_file()
+    assert not (slice_dir / ".eval-staging").exists()
+
+
+def test_rollback_evaluating_noop_when_previous_is_not_producer(
+    tmp_path: Path,
+) -> None:
+    ws = _seed(tmp_path)
+    rev = ws.parent
+    ledger = load_l_ledger(rev)
+    ledger["by_id"]["L1"]["state"] = "Evaluating"
+    save_l_ledger(rev, ledger)
+    slice_dir = rev / "L1"
+    slice_dir.mkdir(parents=True, exist_ok=True)
+    (slice_dir / "_eval_run.json").write_text("{}\n", encoding="utf-8")
+    staging = slice_dir / ".eval-staging" / "lease-1"
+    staging.mkdir(parents=True)
+    (staging / "x").write_text("tmp", encoding="utf-8")
+    l_step_control.rollback_evaluating_phase(
+        rev,
+        focus="L1",
+        previous_phase="Evaluating",
+    )
+    assert load_l_ledger(rev)["by_id"]["L1"]["state"] == "Evaluating"
+    assert (slice_dir / "_eval_run.json").is_file()
+    assert staging.is_dir()
+
+
+def test_writing_and_freeedit_next_actions_route_to_begin_eval_round() -> None:
+    assert l_step_control.derive_step_next_actions(
+        "Writing",
+        producer_ok=True,
+        writing_ok=True,
+        freeedit=False,
+    ) == ["begin-eval-round"]
+    assert l_step_control.derive_step_next_actions(
+        "Writing",
+        producer_ok=True,
+        writing_ok=True,
+        freeedit=True,
+    ) == ["enter-freeedit", "begin-eval-round"]
+    assert l_step_control.derive_step_next_actions(
+        "FreeEdit",
+        producer_ok=True,
+        writing_ok=True,
+        freeedit=True,
+    ) == ["begin-eval-round", "reverse-to-producer", "reverse-to-writing"]
+
+
 def test_status_pending_next_actions(tmp_path: Path) -> None:
     _seed(tmp_path)
     result = l_step_control.draft_status(_CYCLE, tmp_path, profile_id=_PROFILE)

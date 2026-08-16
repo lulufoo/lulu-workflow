@@ -12,6 +12,7 @@ from l_transition_kernel import (
     shell_advance,
     shell_backtrack,
     shell_unfreeze,
+    step_abort_evaluating,
     step_accept,
     step_enter_evaluating,
     step_enter_freeedit,
@@ -52,6 +53,17 @@ def test_happy_path_to_completed() -> None:
     ledger = step_accept(ledger)
     assert ledger["by_id"]["L1"]["state"] == "Completed"
     assert ledger["focus"] == "L1"
+
+
+def test_abort_evaluating_restores_previous_phase() -> None:
+    ledger = step_enter_producer(_chain(), {"inductive": False})
+    ledger = step_enter_writing(ledger)
+    ledger = step_enter_evaluating(ledger)
+    restored = step_abort_evaluating(ledger, previous="Writing")
+    assert restored["by_id"]["L1"]["state"] == "Writing"
+    ledger = step_enter_evaluating(restored)
+    with pytest.raises(IllegalTransition):
+        step_abort_evaluating(ledger, previous="Evaluating")
 
 
 def test_skip_freeedit_to_evaluating() -> None:

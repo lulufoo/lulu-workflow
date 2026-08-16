@@ -35,8 +35,8 @@
   "eval": {
     "enabled": true,
     "workflow_id": "lulu-spec",
-    "adapter_module": "lulu-spec/scripts/eval/product_spec_eval_adapter.py",
-    "adapter_class": "ProductSpecEvalAdapter",
+    "contributor_module": "lulu-spec/scripts/eval/product_spec_eval_contributor.py",
+    "contributor_class": "ProductSpecEvalContributor",
     "eval_capability": "full-remediation"
   },
   "delivery_index": {

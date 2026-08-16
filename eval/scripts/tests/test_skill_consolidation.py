@@ -73,6 +73,9 @@ def test_eval_orchestrator_is_probe_then_remediation_then_complete() -> None:
 
     assert "complete-probe-only" in begin_section
     assert "probe-only" in begin_section.lower()
+    assert "skip: true" in begin_section
+    assert "skip_reason" in begin_section
+    assert "Do not run `check-dimension` for a skipped dimension." in begin_section
     assert "dimension-probe-runner" in text
     assert "serially" in rem_section
     assert "begin-remediation" in rem_section
@@ -82,6 +85,8 @@ def test_eval_orchestrator_is_probe_then_remediation_then_complete() -> None:
     assert "remediation-runner" in rem_section
     assert "Do not dispatch remaining dimensions" in abandon_section
     assert "Leave the L in Evaluating" in abandon_section
+    assert "$L_STEP" not in text
+    assert "The caller owns the L transition." in text
 
     for marker in _LEGACY_SKILL_MARKERS:
         assert marker not in text

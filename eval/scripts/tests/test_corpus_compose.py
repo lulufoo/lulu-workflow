@@ -15,8 +15,9 @@ from corpus_compose import (  # noqa: E402
     load_dimension_def,
 )
 
-_LULU_PLAN_COMPOSED_CORPUS_REF = "lulu-plan-composed@2"
-_TECH_DESIGN_COMPOSED_CORPUS_REF = "lulu-design-composed@2"
+_LULU_PLAN_COMPOSED_CORPUS_REF = "lulu-plan-composed@3"
+_TECH_DESIGN_COMPOSED_CORPUS_REF = "lulu-design-composed@3"
+_COMMON_DEFS = Path(__file__).resolve().parents[3] / "compose" / "eval" / "dimension-defs"
 
 _TECH_PLAN_DIMENSION_DEFS = Path(__file__).resolve().parents[3] / "lulu-plan" / "dimension-defs"
 _TECH_DESIGN_DIMENSION_DEFS = Path(__file__).resolve().parents[3] / "lulu-design" / "dimension-defs"
@@ -25,12 +26,12 @@ _TECH_DESIGN_DIMENSION_DEFS = Path(__file__).resolve().parents[3] / "lulu-design
 class TestCorpusCompose:
     def test_fingerprint_stable(self):
         fp = corpus_fingerprint(
-            ["intent-alignment", "codebase-consistency", "solution-quality"],
+            ["intent-fidelity", "codebase-consistency", "solution-quality"],
             cycle_type="feature",
         )
         assert len(fp) == 16
         assert fp == corpus_fingerprint(
-            ["solution-quality", "intent-alignment", "codebase-consistency"],
+            ["solution-quality", "intent-fidelity", "codebase-consistency"],
             cycle_type="feature",
         )
 
@@ -53,7 +54,7 @@ class TestCorpusCompose:
         ]
         corpus = compose_corpus(
             corpus_id="lulu-plan-composed",
-            corpus_version="2",
+            corpus_version="3",
             scope="lulu-plan",
             dimensions=dims,
         )
@@ -67,7 +68,7 @@ class TestCorpusCompose:
         with pytest.raises(ValueError, match="non-empty"):
             compose_corpus(
                 corpus_id="lulu-plan-composed",
-                corpus_version="2",
+                corpus_version="3",
                 scope="lulu-plan",
                 dimensions=[],
             )
@@ -79,7 +80,7 @@ class TestCorpusCompose:
         ]
         corpus = compose_corpus(
             corpus_id="lulu-design-composed",
-            corpus_version="2",
+            corpus_version="3",
             scope="lulu-design",
             dimensions=dims,
             review_output_prefix="design-review",
@@ -87,23 +88,23 @@ class TestCorpusCompose:
         assert corpus["id"] == "lulu-design-composed"
         assert corpus["dimensions"][1]["review"]["output_path"] == "design-review-e{M}2.md"
 
-    def test_compose_tech_design_product_mode(self):
+    def test_compose_tech_design_with_common_intent(self):
         dims = [
+            load_dimension_def(_COMMON_DEFS / "intent-fidelity.json"),
             load_dimension_def(_TECH_DESIGN_DIMENSION_DEFS / "codebase-consistency.json"),
             load_dimension_def(_TECH_DESIGN_DIMENSION_DEFS / "solution-quality.json"),
-            load_dimension_def(_TECH_DESIGN_DIMENSION_DEFS / "intent-alignment.json"),
         ]
         corpus = compose_corpus(
             corpus_id="lulu-design-composed",
-            corpus_version="2",
+            corpus_version="3",
             scope="lulu-design",
             dimensions=dims,
             review_output_prefix="design-review",
         )
         assert len(corpus["dimensions"]) == 3
-        assert corpus["dimensions"][2]["id"] == "intent-alignment"
-        assert corpus["dimensions"][2]["review"]["output_path"] == "design-review-e{M}3.md"
-        assert corpus["dimensions"][2]["review"]["seq"] == 3
+        assert corpus["dimensions"][0]["id"] == "intent-fidelity"
+        assert corpus["dimensions"][0]["review"]["output_path"] == "design-review-e{M}1.md"
+        assert corpus["dimensions"][0]["review"]["seq"] == 1
 
     def test_is_composed_corpus_ref_matches_generic_pattern(self):
         assert is_composed_corpus_ref("lulu-arch-composed@1")

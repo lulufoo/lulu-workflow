@@ -234,6 +234,8 @@ def test_cli_edge_scan_requires_fact_intake_eval_gate(
             "e1-doc-coverage": "class-default",
             "e2-fact-provenance": "class-default",
         },
+        corpus_digest="abc",
+        corpus_snapshot_ref="corpus-snapshot/manifest.json",
     )
     data["eval_status"] = "done"
     data["eval_phase"] = "done"

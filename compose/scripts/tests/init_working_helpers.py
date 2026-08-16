@@ -144,6 +144,33 @@ def seed_frozen_delivered(ws_path: Path, refs: list[DeliveredRef]) -> None:
     freeze_delivered_copy(ws_path.parent, {"version": 1, "entries": entries})
 
 
+def seed_resolved_refs_for_eval(
+    ws_path: Path,
+    *,
+    cycle_id: str,
+    stage: str,
+    mode: str = "tech",
+    intent_baseline_refs: list[DeliveredRef] | None = None,
+    norm_constraint_refs: list[DeliveredRef] | None = None,
+    scope_path: Path | None = None,
+) -> Path:
+    """Write resolved-refs.json with a readable parent document for Common Eval."""
+    revision_dir = ws_path.parent
+    src = Path(scope_path) if scope_path is not None else revision_dir / "_scope-src.md"
+    if not src.is_file():
+        src.write_text("# scope\n", encoding="utf-8")
+    write_resolved_refs(
+        revision_dir,
+        cycle_id=cycle_id,
+        stage=stage,
+        run_mode=mode,
+        scope_ref=DeliveredRef(type="scope", path=str(src.resolve())),
+        intent_baseline_refs=intent_baseline_refs or [],
+        norm_constraint_refs=norm_constraint_refs or [],
+    )
+    return src
+
+
 def seed_provenance_artifacts(
     ws_path: Path,
     *,

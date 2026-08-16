@@ -62,9 +62,12 @@ def test_engine_and_inner_drop_retired_cli() -> None:
         assert token not in text, token
 
 
-def test_eval_skill_uses_l_step_exit() -> None:
+def test_eval_skill_returns_choice_caller_owns_l_step() -> None:
     text = _EVAL.read_text(encoding="utf-8")
     assert "$L_SLICE" not in text
     assert "abandon-evaluation" not in text
-    assert "$L_STEP accept --confirm" in text
-    assert "$L_STEP fix --confirm" in text
+    assert "$L_STEP" not in text
+    inner = _INNER.read_text(encoding="utf-8")
+    assert "$L_STEP accept --confirm" in inner
+    assert "$L_STEP fix --confirm" in inner
+    assert "Eval SKILL does not run `$L_STEP`" in inner

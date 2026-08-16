@@ -12,17 +12,19 @@ _SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW_ROOT = _SCRIPTS_ROOT.parents[1]
 _EVAL_SHELL = _SCRIPTS_ROOT / "eval"
 _EVAL_SCRIPTS = _WORKFLOW_ROOT / "eval" / "scripts"
+_KERNEL_CORE = _WORKFLOW_ROOT / "compose" / "scripts" / "core"
 _KERNEL_TESTS = _WORKFLOW_ROOT / "compose" / "scripts" / "tests"
-for p in (_EVAL_SHELL, _EVAL_SCRIPTS, _KERNEL_TESTS):
+for p in (_EVAL_SHELL, _EVAL_SCRIPTS, _KERNEL_CORE, _KERNEL_TESTS):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
 import bootstrap  # noqa: F401
+from compose_eval_adapter import ComposeEvalAdapter  # noqa: E402
 from corpus_compose import is_composed_corpus_ref  # noqa: E402
 from product_blueprint_eval_adapter import (  # noqa: E402
     LULU_BLUEPRINT_COMPOSED_CORPUS_REF,
-    ProductBlueprintEvalAdapter,
 )
+from product_blueprint_eval_contributor import ProductBlueprintEvalContributor  # noqa: E402
 from product_blueprint_eval_policy import select_dimension_ids  # noqa: E402
 import sys
 from pathlib import Path as _P
@@ -30,9 +32,19 @@ _COMPOSE_TESTS = _P(__file__).resolve().parents[3] / 'compose' / 'scripts' / 'te
 if str(_COMPOSE_TESTS) not in sys.path:
     sys.path.insert(0, str(_COMPOSE_TESTS))
 from init_working_helpers import init_working_ready  # noqa: E402
+from init_working_helpers import seed_resolved_refs_for_eval  # noqa: E402
+
+_COMMON_IDS = ["intent-fidelity", "parent-continuity", "norm-conformance"]
 
 _CYCLE = "topic-blueprint-adapter"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
+
+
+def _adapter() -> ComposeEvalAdapter:
+    return ComposeEvalAdapter(
+        workflow_id="lulu-blueprint",
+        contributor=ProductBlueprintEvalContributor(),
+    )
 
 
 def _seed_session(tmp_path: Path) -> Path:
@@ -53,16 +65,19 @@ def _seed_session(tmp_path: Path) -> Path:
 
 class TestProductBlueprintEvalAdapter:
     def test_registry_loads_lulu_blueprint(self) -> None:
-        adapter = ProductBlueprintEvalAdapter()
+        adapter = _adapter()
         assert adapter.corpus_ref_for_mode("product") == LULU_BLUEPRINT_COMPOSED_CORPUS_REF
         assert is_composed_corpus_ref(LULU_BLUEPRINT_COMPOSED_CORPUS_REF)
 
     def test_resolve_eval_corpus_topic_mode(self, tmp_path: Path) -> None:
         ws = _seed_session(tmp_path)
         init_working_ready(ws, mode="product")
-        adapter = ProductBlueprintEvalAdapter()
+        seed_resolved_refs_for_eval(
+            ws, cycle_id=_CYCLE, stage="lulu-blueprint", mode="product"
+        )
+        adapter = _adapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
-        ids = select_dimension_ids()
+        ids = _COMMON_IDS + select_dimension_ids()
         assert [d["id"] for d in corpus["dimensions"]] == ids
         assert corpus["scope"] == "lulu-blueprint"
         assert corpus["dimensions"][0]["review"]["output_path"] == "blueprint-review-e{M}1.md"
@@ -70,6 +85,6 @@ class TestProductBlueprintEvalAdapter:
     def test_resolve_eval_corpus_rejects_feature_cycle(self, tmp_path: Path) -> None:
         ws = _seed_session(tmp_path)
         init_working_ready(ws, mode="product")
-        adapter = ProductBlueprintEvalAdapter()
+        adapter = _adapter()
         with pytest.raises(ValueError, match="feature cycles do not evaluate"):
             adapter.resolve_eval_corpus("feat-blueprint-adapter", tmp_path)

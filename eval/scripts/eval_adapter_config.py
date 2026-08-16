@@ -19,8 +19,14 @@ _WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
 
 _REQUIRED_KEYS = ("adapter_module", "adapter_class", "eval_capability")
 _VALID_EVAL_CAPABILITY = frozenset({"full-remediation", "probe-only"})
+_VALID_CONSTRUCTION = frozenset({"flat", "decorator"})
 _READ_METHOD = "read_eval_target_digest"
 _MUTATION_METHODS = ("commit_eval_target", "restore_eval_target")
+_ADMISSION_METHODS = (
+    "eval_admission_context",
+    "prepare_eval_admission",
+    "abort_eval_admission",
+)
 
 
 @dataclass(frozen=True)
@@ -32,6 +38,7 @@ class AdapterConfig:
     workflow_id: str
     enabled: bool
     eval_capability: str
+    construction: str
     raw: dict[str, Any]
 
 
@@ -69,12 +76,27 @@ def validate_adapter_config(payload: Any) -> AdapterConfig:
             "adapter config.eval_capability must be "
             "'full-remediation' or 'probe-only'",
         )
+    construction = str(payload.get("construction") or "flat").strip() or "flat"
+    if construction not in _VALID_CONSTRUCTION:
+        raise ValueError("adapter config.construction must be 'flat' or 'decorator'")
+    options = payload.get("adapter_options")
+    delegate = options.get("delegate") if isinstance(options, dict) else None
+    if construction == "flat" and delegate is not None:
+        raise ValueError("flat adapter config must not include adapter_options.delegate")
+    if construction == "decorator":
+        if not isinstance(delegate, dict):
+            raise ValueError("decorator adapter config requires adapter_options.delegate")
+        module = str(delegate.get("module") or "").strip()
+        class_name = str(delegate.get("class") or "").strip()
+        if not module or not class_name:
+            raise ValueError("adapter_options.delegate requires module and class")
     return AdapterConfig(
         adapter_module=adapter_module,
         adapter_class=adapter_class,
         workflow_id=workflow_id,
         enabled=True,
         eval_capability=eval_capability,
+        construction=construction,
         raw=dict(payload),
     )
 
@@ -138,20 +160,52 @@ def load_eval_adapter_from_config(
         parsed = validate_adapter_config(config)
 
     root = _workflow_root(workflow_root)
-    adapter_path = resolve_adapter_module_path(
+    adapter_type = _load_component_type(
         parsed.adapter_module,
+        parsed.adapter_class,
         workflow_root=root,
+        role="adapter",
     )
-    module_name = "_eval_adapter_" + hashlib.sha256(
-        str(adapter_path).encode("utf-8"),
-    ).hexdigest()[:16]
-    spec = importlib.util.spec_from_file_location(module_name, adapter_path)
-    if spec is None or spec.loader is None:
-        raise ValueError(f"cannot load adapter_module: {adapter_path.as_posix()}")
+    if parsed.construction == "decorator":
+        delegate = parsed.raw["adapter_options"]["delegate"]
+        contributor = _load_component_type(
+            str(delegate["module"]),
+            str(delegate["class"]),
+            workflow_root=root,
+            role="delegate",
+        )()
+        if not callable(getattr(contributor, "contribute", None)):
+            raise ValueError("delegate missing required method contribute")
+        factory = getattr(adapter_type, "from_config", None)
+        if not callable(factory):
+            raise ValueError(
+                f"decorator adapter {parsed.adapter_class!r} missing from_config()",
+            )
+        return factory(parsed.raw, contributor=contributor)
+    return adapter_type()
 
-    adapter_dir = str(adapter_path.parent)
-    if adapter_dir not in sys.path:
-        sys.path.insert(0, adapter_dir)
+
+def _load_component_type(
+    module_ref: str,
+    class_name: str,
+    *,
+    workflow_root: Path,
+    role: str,
+) -> type:
+    component_path = resolve_adapter_module_path(
+        module_ref,
+        workflow_root=workflow_root,
+    )
+    module_name = f"_eval_{role}_" + hashlib.sha256(
+        str(component_path).encode("utf-8"),
+    ).hexdigest()[:16]
+    spec = importlib.util.spec_from_file_location(module_name, component_path)
+    if spec is None or spec.loader is None:
+        raise ValueError(f"cannot load {role}_module: {component_path.as_posix()}")
+
+    component_dir = str(component_path.parent)
+    if component_dir not in sys.path:
+        sys.path.insert(0, component_dir)
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     try:
@@ -160,18 +214,16 @@ def load_eval_adapter_from_config(
         sys.modules.pop(module_name, None)
         raise
 
-    adapter_type = getattr(module, parsed.adapter_class, None)
-    if adapter_type is None:
+    component_type = getattr(module, class_name, None)
+    if component_type is None:
         raise ValueError(
-            f"adapter class {parsed.adapter_class!r} not found in "
-            f"{adapter_path.as_posix()}",
+            f"{role} class {class_name!r} not found in {component_path.as_posix()}",
         )
-    if not isinstance(adapter_type, type):
+    if not isinstance(component_type, type):
         raise ValueError(
-            f"adapter class {parsed.adapter_class!r} is not a class in "
-            f"{adapter_path.as_posix()}",
+            f"{role} class {class_name!r} is not a class in {component_path.as_posix()}",
         )
-    return adapter_type()
+    return component_type
 
 
 def _handoff_capability(handoff: dict[str, Any]) -> str:
@@ -212,13 +264,8 @@ def _evaluate_state_capability(handoff: dict[str, Any]) -> str | None:
     return found
 
 
-def validate_adapter_protocol(
-    adapter: Any,
-    *,
-    eval_capability: str,
-    handoff: dict[str, Any],
-) -> None:
-    """Fail-closed if capability, methods, handoff, or evaluate-state disagree."""
+def validate_adapter_methods(adapter: Any, *, eval_capability: str) -> None:
+    """Fail-closed if the adapter is missing methods required by capability."""
     if eval_capability not in _VALID_EVAL_CAPABILITY:
         raise ValueError(f"invalid eval_capability: {eval_capability!r}")
     if not callable(getattr(adapter, _READ_METHOD, None)):
@@ -234,6 +281,25 @@ def validate_adapter_protocol(
                 "full-remediation adapter missing required methods: "
                 + ", ".join(missing),
             )
+    missing_admission = [
+        name
+        for name in _ADMISSION_METHODS
+        if not callable(getattr(adapter, name, None))
+    ]
+    if missing_admission:
+        raise ValueError(
+            "adapter missing admission protocol: " + ", ".join(missing_admission),
+        )
+
+
+def validate_adapter_protocol(
+    adapter: Any,
+    *,
+    eval_capability: str,
+    handoff: dict[str, Any],
+) -> None:
+    """Fail-closed if capability, methods, handoff, or evaluate-state disagree."""
+    validate_adapter_methods(adapter, eval_capability=eval_capability)
     handoff_capability = _handoff_capability(handoff)
     if handoff_capability != eval_capability:
         raise ValueError(

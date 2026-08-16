@@ -19,25 +19,28 @@ from compose_eval_control import extract_eval_adapter_config  # noqa: E402
 from workflow_paths import seed_profile_pointer_for_tests  # noqa: E402
 
 
-def test_extract_passthrough_eval_block() -> None:
+def test_extract_builds_decorator_envelope() -> None:
     profile = {
         "profile_id": "lulu-design",
         "eval": {
             "enabled": True,
             "workflow_id": "lulu-design",
-            "adapter_module": "lulu-design/scripts/eval/tech_design_eval_adapter.py",
-            "adapter_class": "TechDesignEvalAdapter",
+            "contributor_module": "lulu-design/scripts/eval/tech_design_eval_contributor.py",
+            "contributor_class": "TechDesignEvalContributor",
             "eval_capability": "full-remediation",
         },
     }
     config = extract_eval_adapter_config(profile)
-    assert config["adapter_class"] == "TechDesignEvalAdapter"
+    assert config["adapter_class"] == "ComposeEvalAdapter"
+    assert config["construction"] == "decorator"
+    assert config["adapter_options"]["delegate"]["class"] == "TechDesignEvalContributor"
     assert config["workflow_id"] == "lulu-design"
     assert config["enabled"] is True
+    assert config["profile_digest"]
 
 
-def test_extract_requires_adapter_fields() -> None:
-    with pytest.raises(ValueError, match="adapter_module"):
+def test_extract_requires_contributor_fields() -> None:
+    with pytest.raises(ValueError, match="contributor_module"):
         extract_eval_adapter_config({"eval": {"enabled": True}})
 
 
@@ -49,7 +52,8 @@ def test_real_design_profile_has_eval_block() -> None:
     )
     profile = json.loads(profile_path.read_text(encoding="utf-8"))
     config = extract_eval_adapter_config(profile)
-    assert "TechDesignEvalAdapter" == config["adapter_class"]
+    assert config["adapter_class"] == "ComposeEvalAdapter"
+    assert config["adapter_options"]["delegate"]["class"] == "TechDesignEvalContributor"
 
 
 def test_main_forwards_full_round_completion_to_eval_entry(

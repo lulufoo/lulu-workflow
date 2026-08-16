@@ -35,6 +35,7 @@ from fact_intake_eval_runtime_schema import (  # noqa: E402
     enter_evaluating_runtime,
     evaluate_dir,
     evaluate_state_path,
+    fact_intake_eval_root,
     hard_blocked,
     load_runtime,
     load_workflow_state_view,
@@ -51,7 +52,24 @@ from eval_handoff_schema import (  # noqa: E402
     validate_artifact_manifest_v2,
     validate_eval_handoff_v2,
 )
-from evaluate_state_ops import init_evaluate_state_for_corpus  # noqa: E402
+from corpus_schema import expand_corpus  # noqa: E402
+from corpus_snapshot import SNAPSHOT_REF  # noqa: E402
+from eval_admission import (  # noqa: E402
+    EvalAdmissionContext,
+    can_abort_admission,
+    delete_journal,
+    discard_lease_dir,
+    discard_published_snapshot,
+    discard_staging,
+    file_digest,
+    fingerprint_parts,
+    load_journal,
+    mark_prepared,
+    mark_transitioned,
+    prepare_snapshot,
+    reserve_journal,
+    stable_runtime_fingerprint,
+)
 from evaluate_state_schema import load_evaluate_state, save_evaluate_state  # noqa: E402
 from facts_schema import facts_path  # noqa: E402
 from resolved_refs_schema import has_resolved_refs, resolved_scope_ref  # noqa: E402
@@ -251,8 +269,109 @@ class FactIntakeEvalAdapter:
         del cycle_id
         return "feature"
 
-    def enter_evaluating(
+    def eval_admission_context(
         self, cycle_id: str, project_root: Path
+    ) -> EvalAdmissionContext:
+        slice_dir = _slice_dir(cycle_id, project_root)
+        runtime = self._runtime(cycle_id, project_root)
+        target = facts_path(slice_dir).resolve()
+        if not target.is_file():
+            raise ValueError(f"_facts.json missing: {target}")
+        current = int(runtime.get("evaluate_round") or 0)
+        already = runtime.get("focus_phase") == "evaluating"
+        return EvalAdmissionContext(
+            admission_root=fact_intake_eval_root(slice_dir),
+            session_key=str(slice_dir.name),
+            provider_state_fingerprint=self._provider_fingerprint(slice_dir),
+            previous_phase=str(runtime.get("focus_phase") or "pending"),
+            target_path=target,
+            target_digest=file_digest(target),
+            candidate_round=current if already and current >= 1 else current + 1,
+        )
+
+    def prepare_eval_admission(
+        self, cycle_id: str, project_root: Path
+    ) -> dict[str, Any]:
+        ctx = self.eval_admission_context(cycle_id, project_root)
+        journal = reserve_journal(ctx)
+        token = str(journal["token"])
+        try:
+            bind = self.corpus_bind_extensions(cycle_id, project_root)
+            bind["M"] = str(ctx.candidate_round)
+            corpus = expand_corpus(self.resolve_eval_corpus(cycle_id, project_root), bind)
+            manifest = prepare_snapshot(
+                ctx,
+                token=token,
+                corpus=corpus,
+                method_roots=[_WORKFLOW_ROOT, _WORKFLOW_ROOT.parent],
+                method_must_stay_under=_WORKFLOW_ROOT,
+                sot_roots=[project_root.resolve()],
+            )
+            mark_prepared(ctx, token=token, snapshot_digest=str(manifest["corpus_digest"]))
+        except Exception:
+            discard_staging(ctx.admission_root, token)
+            if str(journal.get("status")) == "preparing":
+                delete_journal(ctx.admission_root)
+            raise
+        slice_dir = _slice_dir(cycle_id, project_root)
+        return {
+            "ok": True,
+            "token": token,
+            "corpus": corpus,
+            "skip_reasons": {},
+            "snapshot_digest": str(manifest["corpus_digest"]),
+            "snapshot_ref": SNAPSHOT_REF,
+            "evaluate_dir": evaluate_dir(slice_dir, ctx.candidate_round)
+            .resolve()
+            .as_posix(),
+            "context": ctx,
+        }
+
+    def abort_eval_admission(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        token: str,
+    ) -> dict[str, Any]:
+        slice_dir = _slice_dir(cycle_id, project_root)
+        admission_root = fact_intake_eval_root(slice_dir)
+        journal = load_journal(admission_root)
+        if journal is None:
+            return {"ok": True, "aborted": False}
+        evaluate_round = int(journal.get("candidate_round") or 1)
+        if not can_abort_admission(
+            journal=journal,
+            token=token,
+            evaluate_state_path=evaluate_state_path(slice_dir),
+            operations_path=evaluate_dir(slice_dir, evaluate_round)
+            / "eval-operations.json",
+        ):
+            return {"ok": False, "error": "admission abort refused"}
+        discard_published_snapshot(evaluate_dir(slice_dir, evaluate_round))
+        runtime = self._runtime(cycle_id, project_root)
+        previous = str(journal.get("previous_phase") or "")
+        if (
+            str(journal.get("status")) == "transitioned"
+            and previous not in {"evaluating", "Evaluating"}
+        ):
+            runtime["focus_phase"] = previous or "pending"
+            runtime["evaluate_round"] = max(0, evaluate_round - 1)
+        lease_id = str(journal.get("lease_id") or runtime.get("active_lease_id") or "")
+        discard_lease_dir(admission_root / "staging", lease_id)
+        runtime["active_lease_id"] = ""
+        runtime["write_staging_dir"] = ""
+        self._save_runtime(cycle_id, project_root, runtime)
+        discard_staging(admission_root, token)
+        delete_journal(admission_root)
+        return {"ok": True, "aborted": True}
+
+    def enter_evaluating(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        admission_token: str | None = None,
     ) -> dict[str, Any]:
         """Enter Fact-intake-eval phase without compose StageGate / delivery Evaluating."""
         slice_dir = _slice_dir(cycle_id, project_root)
@@ -276,18 +395,14 @@ class FactIntakeEvalAdapter:
         already = runtime.get("focus_phase") == "evaluating"
         runtime = enter_evaluating_runtime(runtime)
         evaluate_round = int(runtime["evaluate_round"])
-        es_path = evaluate_state_path(slice_dir)
-        if not already:
-            init_evaluate_state_for_corpus(
-                es_path,
-                self.resolve_eval_corpus(cycle_id, project_root),
-                eval_capability=_EVAL_CAPABILITY,
-                cycle_type="feature",
-                evaluate_round=evaluate_round,
-                focus_l=str(slice_dir.name),
-            )
         evaluate_dir(slice_dir, evaluate_round).mkdir(parents=True, exist_ok=True)
         self._save_runtime(cycle_id, project_root, runtime)
+        if admission_token:
+            mark_transitioned(
+                fact_intake_eval_root(slice_dir),
+                token=admission_token,
+                provider_state_fingerprint=self._provider_fingerprint(slice_dir),
+            )
         return {
             "ok": True,
             "current_state": "Working",
@@ -295,6 +410,12 @@ class FactIntakeEvalAdapter:
             "evaluate_round": evaluate_round,
             "focus": str(slice_dir.name),
         }
+
+    def _provider_fingerprint(self, slice_dir: Path) -> str:
+        path = runtime_path(slice_dir)
+        if not path.is_file():
+            return fingerprint_parts(str(slice_dir))
+        return stable_runtime_fingerprint(load_runtime(path))
 
     def request_eval_handoff(
         self,

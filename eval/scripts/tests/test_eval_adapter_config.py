@@ -108,14 +108,17 @@ def test_entry_loads_config_before_handoff(monkeypatch, tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
     class FakeAdapter:
+        def eval_admission_context(self, *args, **kwargs):
+            raise NotImplementedError
+
+        def prepare_eval_admission(self, *args, **kwargs):
+            return {"ok": False, "error": "stub"}
+
+        def abort_eval_admission(self, *args, **kwargs):
+            return {"ok": True}
         def request_eval_handoff(self, **kwargs):
             captured["handoff_args"] = kwargs
-            return {
-                "version": 2,
-                "context": {
-                    "policy_context": {"eval_capability": "full-remediation"},
-                },
-            }
+            raise AssertionError("begin-eval-round must not request handoff at entry")
 
         def read_eval_target_digest(self, *args, **kwargs):
             return "digest"
@@ -166,11 +169,131 @@ def test_entry_loads_config_before_handoff(monkeypatch, tmp_path: Path) -> None:
     assert code == 23
     assert captured["workflow"] == "non-compose"
     assert captured["adapter"] is fake_adapter
-    assert captured["handoff_args"] == {
-        "cycle_id": "C1",
-        "project_root": tmp_path.resolve(),
-        "require_evaluating": False,
-    }
+    assert captured["handoff"] is None
+    assert "handoff_args" not in captured
+
+
+def test_loads_decorator_adapter_and_delegate(tmp_path: Path) -> None:
+    workflow_root = tmp_path / "lulu-dev-workflow"
+    adapter_dir = workflow_root / "compose" / "scripts" / "core"
+    adapter_dir.mkdir(parents=True)
+    (adapter_dir / "compose_eval_adapter.py").write_text(
+        (
+            "class ComposeEvalAdapter:\n"
+            "    def __init__(self, *, workflow_id, contributor, "
+            "eval_capability='full-remediation', profile_digest=''):\n"
+            "        self.workflow_id = workflow_id\n"
+            "        self.contributor = contributor\n"
+            "        self.eval_capability = eval_capability\n"
+            "        self.profile_digest = profile_digest\n"
+            "    @classmethod\n"
+            "    def from_config(cls, envelope, *, contributor):\n"
+            "        return cls(\n"
+            "            workflow_id=envelope['workflow_id'],\n"
+            "            contributor=contributor,\n"
+            "            eval_capability=envelope['eval_capability'],\n"
+            "            profile_digest=envelope.get('profile_digest', ''),\n"
+            "        )\n"
+        ),
+        encoding="utf-8",
+    )
+    delegate_dir = workflow_root / "lulu-design" / "scripts" / "eval"
+    delegate_dir.mkdir(parents=True)
+    (delegate_dir / "tech_design_eval_contributor.py").write_text(
+        "class TechDesignEvalContributor:\n"
+        "    marker = 'delegate-loaded'\n"
+        "    def contribute(self, *, context):\n"
+        "        return context\n",
+        encoding="utf-8",
+    )
+
+    adapter = eac.load_eval_adapter_from_config(
+        {
+            "adapter_module": "compose/scripts/core/compose_eval_adapter.py",
+            "adapter_class": "ComposeEvalAdapter",
+            "workflow_id": "lulu-design",
+            "eval_capability": "full-remediation",
+            "construction": "decorator",
+            "profile_digest": "abc",
+            "adapter_options": {
+                "delegate": {
+                    "module": "lulu-design/scripts/eval/tech_design_eval_contributor.py",
+                    "class": "TechDesignEvalContributor",
+                }
+            },
+        },
+        workflow_root=workflow_root,
+    )
+    assert adapter.workflow_id == "lulu-design"
+    assert adapter.contributor.marker == "delegate-loaded"
+    assert adapter.profile_digest == "abc"
+
+
+def test_decorator_rejects_delegate_traversal(tmp_path: Path) -> None:
+    workflow_root = tmp_path / "lulu-dev-workflow"
+    adapter_dir = workflow_root / "compose" / "scripts" / "core"
+    adapter_dir.mkdir(parents=True)
+    (adapter_dir / "compose_eval_adapter.py").write_text(
+        "class ComposeEvalAdapter:\n    @classmethod\n"
+        "    def from_config(cls, envelope, *, contributor):\n"
+        "        return cls()\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="path traversal"):
+        eac.load_eval_adapter_from_config(
+            {
+                "adapter_module": "compose/scripts/core/compose_eval_adapter.py",
+                "adapter_class": "ComposeEvalAdapter",
+                "eval_capability": "full-remediation",
+                "construction": "decorator",
+                "adapter_options": {
+                    "delegate": {
+                        "module": "../outside.py",
+                        "class": "Outside",
+                    }
+                },
+            },
+            workflow_root=workflow_root,
+        )
+
+
+def test_flat_rejects_delegate() -> None:
+    with pytest.raises(ValueError, match="must not include adapter_options.delegate"):
+        eac.validate_adapter_config(
+            {
+                "adapter_module": "x.py",
+                "adapter_class": "X",
+                "eval_capability": "full-remediation",
+                "adapter_options": {"delegate": {"module": "y.py", "class": "Y"}},
+            }
+        )
+
+
+def test_missing_construction_is_flat() -> None:
+    config = eac.validate_adapter_config(
+        {
+            "adapter_module": "x.py",
+            "adapter_class": "X",
+            "eval_capability": "full-remediation",
+        }
+    )
+    assert config.construction == "flat"
+
+
+def test_loads_real_design_decorator_envelope() -> None:
+    workflow_root = Path(__file__).resolve().parents[3]
+    profile = json.loads(
+        (workflow_root / "lulu-design" / "compose-profile.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    sys.path.insert(0, str(workflow_root / "compose" / "scripts" / "core"))
+    from compose_eval_envelope import build_compose_eval_envelope
+
+    envelope = build_compose_eval_envelope(profile)
+    adapter = eac.load_eval_adapter_from_config(envelope, workflow_root=workflow_root)
+    assert adapter.WORKFLOW_ID == "lulu-design"
+    assert callable(adapter._contributor.contribute)
 
 
 def test_entry_requires_adapter_config(tmp_path: Path) -> None:

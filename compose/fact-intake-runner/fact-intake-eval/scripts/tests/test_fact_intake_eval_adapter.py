@@ -86,7 +86,7 @@ def test_enter_evaluating_skips_stage_gate(tmp_path: Path, monkeypatch) -> None:
     assert result["ok"] is True
     assert result["transitioned"] is True
     slice_dir = active_slice_dir(rev)
-    assert (slice_dir / "fact-intake-eval" / "evaluate-state.md").is_file()
+    assert not (slice_dir / "fact-intake-eval" / "evaluate-state.md").is_file()
     runtime = load_runtime(runtime_path(slice_dir))
     assert runtime["focus_phase"] == "evaluating"
     # Delivery Evaluating state must not be created at slice root.
@@ -109,6 +109,8 @@ def test_initial_state_copies_policy_from_resolved_corpus(
         eval_capability="full-remediation",
         evaluate_round=1,
         focus_l="L1",
+        corpus_digest="abc",
+        corpus_snapshot_ref="corpus-snapshot/manifest.json",
     )
     state = load_evaluate_state(path)
     assert parse_handling_policy(state["handling_policy"]) == {
@@ -130,7 +132,7 @@ def test_handoff_binds_facts_json(tmp_path: Path, monkeypatch) -> None:
     assert handoff["context"]["policy_context"]["eval_capability"] == "full-remediation"
     assert Path(bindings["eval_target_path"]).is_file()
     assert "fact-intake-eval" in handoff["context"]["evaluate_state_path"]
-    assert evaluate_state_path(active_slice_dir(rev)).is_file()
+    assert not evaluate_state_path(active_slice_dir(rev)).is_file()
 
 
 def test_commit_remediation_writes_facts(tmp_path: Path, monkeypatch) -> None:

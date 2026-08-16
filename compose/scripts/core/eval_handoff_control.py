@@ -159,25 +159,22 @@ def _read_evaluate_round_field(path: Path) -> int | None:
 
 
 def _build_adapter_ref(profile: dict[str, Any]) -> dict[str, str]:
-    eval_cfg = profile.get("eval") or {}
-    if not eval_cfg.get("enabled", False):
-        raise ValueError("profile.eval.enabled is false")
-    workflow_id = str(eval_cfg.get("workflow_id", "")).strip()
-    adapter_module = str(eval_cfg.get("adapter_module", "")).strip()
-    adapter_class = str(eval_cfg.get("adapter_class", "")).strip()
-    if not workflow_id or not adapter_module or not adapter_class:
-        raise ValueError("profile.eval missing workflow_id/adapter_module/adapter_class")
-    module_path = Path(adapter_module)
-    if not module_path.is_absolute():
-        module_path = (WORKFLOW_ROOT / module_path).resolve()
+    from compose_eval_envelope import (  # noqa: WPS433
+        OUTER_ADAPTER_MODULE,
+        build_compose_eval_envelope,
+    )
+
+    envelope = build_compose_eval_envelope(profile)
+    module_path = (WORKFLOW_ROOT / OUTER_ADAPTER_MODULE).resolve()
     if not module_path.is_file():
         raise ValueError(f"eval.adapter_module not found: {module_path.as_posix()}")
     dim_dir = shell_path(profile, "dimension_defs_dir").resolve()
+    workflow_id = str(envelope["workflow_id"])
     framework_section = str(profile.get("framework_section", "")).strip() or workflow_id
     return {
         "workflow_id": workflow_id,
         "adapter_module": module_path.as_posix(),
-        "adapter_class": adapter_class,
+        "adapter_class": str(envelope["adapter_class"]),
         "dimension_defs_dir": dim_dir.as_posix(),
         "framework_section": framework_section,
     }
@@ -479,8 +476,8 @@ def commit_evaluate_state(
 ) -> dict[str, Any]:
     """Atomically publish a staged evaluate-state.md under the current focus.
 
-    When ``previous_done_required`` is true (next-round path), the formal state
-    must already exist with ``eval_status=done``; failure leaves it untouched.
+    When ``previous_done_required`` is true, the formal state must already
+    exist with ``eval_status=done``; failure leaves it untouched.
     When ``set_phase_evaluating`` is true (first enter), focus phase becomes
     ``evaluating`` only after the state file is published.
     """

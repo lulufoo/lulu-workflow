@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 import uuid
 from pathlib import Path
@@ -47,6 +48,7 @@ from l_ledger_schema import (  # noqa: E402
 from l_transition_kernel import (  # noqa: E402
     IllegalTransition,
     PRODUCER_STATES,
+    step_abort_evaluating,
     step_accept,
     step_enter_evaluating,
     step_enter_freeedit,
@@ -108,7 +110,12 @@ _PRODUCER_STAMP = "_producer.complete"
 _WRITING_STAMP = "_writing.complete"
 _EVAL_RUN_FILE = "_eval_run.json"
 _INDUCTIVE_GATE_STATE_FILE = "inductive-gate-state.json"
-_PROVENANCE_GATE_STATE_FILE = "provenance-gate-state.json"
+_G5_RESIDUE_FILES = (
+    "provenance-gate-state.json",
+    "provenance-trace-intent.json",
+    "provenance-trace-scope.json",
+    "provenance-trace-norm.json",
+)
 
 
 def _success(command: str, **extra: Any) -> dict[str, Any]:
@@ -237,6 +244,19 @@ def _ensure_inductive_imports() -> None:
             sys.path.insert(0, str(path))
 
 
+def _purge_g5_residue(*directories: Path) -> None:
+    seen: set[Path] = set()
+    for directory in directories:
+        resolved = Path(directory).resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        for name in _G5_RESIDUE_FILES:
+            path = resolved / name
+            if path.is_file():
+                path.unlink()
+
+
 def _init_inductive_slice(slice_dir: Path, cycle_id: str, profile_id: str) -> None:
     from compose_state_lock import compose_state_lock  # noqa: WPS433
 
@@ -247,6 +267,14 @@ def _init_inductive_slice(slice_dir: Path, cycle_id: str, profile_id: str) -> No
     gate_path = Path(slice_dir) / _INDUCTIVE_GATE_STATE_FILE
     with compose_state_lock(slice_dir):
         ensure_idle_bundle(slice_dir)
+        _purge_g5_residue(slice_dir)
+        if gate_path.is_file():
+            try:
+                raw = json.loads(gate_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                raw = {}
+            if isinstance(raw, dict) and str(raw.get("active_gate", "")).strip() == "G5":
+                gate_path.unlink()
         if not gate_path.is_file():
             save_gate_state(
                 gate_path,
@@ -284,17 +312,17 @@ def _opaque_producer_closed(
     if inductive:
         out = _inductive_out(cycle_id, project_root, profile_id)
         g4 = out / _INDUCTIVE_GATE_STATE_FILE
-        g5 = out / _PROVENANCE_GATE_STATE_FILE
-        if not g4.is_file() or not g5.is_file():
+        if not g4.is_file():
             return False
         try:
             g4_data = json.loads(g4.read_text(encoding="utf-8"))
-            g5_data = json.loads(g5.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             return False
+        if str(g4_data.get("active_gate", "")).strip() == "G5":
+            return False
         g4_ok = str(g4_data.get("gates", {}).get("G4", {}).get("status", "")).lower() == "closed"
-        g5_ok = str(g5_data.get("status", "")).lower() == "closed"
-        return g4_ok and g5_ok
+        complete_ok = str(g4_data.get("active_gate", "")).strip() == "complete"
+        return g4_ok and complete_ok
     return evaluate_deductive_gate(revision_dir) is None
 
 
@@ -331,14 +359,18 @@ def _reset_producer_complete(
     project_root: Path,
     profile_id: str,
     slice_dir: Path,
+    *,
+    inductive: bool = False,
 ) -> None:
     _clear_stamp(slice_dir, _PRODUCER_STAMP)
     _clear_stamp(slice_dir, _WRITING_STAMP)
     out = _inductive_out(cycle_id, project_root, profile_id)
-    for name in (_INDUCTIVE_GATE_STATE_FILE, _PROVENANCE_GATE_STATE_FILE):
-        path = out / name
-        if path.is_file():
-            path.unlink()
+    gate = out / _INDUCTIVE_GATE_STATE_FILE
+    if gate.is_file():
+        gate.unlink()
+    _purge_g5_residue(out, slice_dir)
+    if inductive:
+        _init_inductive_slice(slice_dir, cycle_id, profile_id)
 
 
 def _scope_doc(revision_dir: Path, cycle_id: str, project_root: Path, profile_id: str) -> Path:
@@ -449,10 +481,10 @@ def derive_step_next_actions(
         if not writing_ok:
             return ["run-writing"]
         if freeedit:
-            return ["enter-freeedit", "enter-evaluating"]
-        return ["enter-evaluating"]
+            return ["enter-freeedit", "begin-eval-round"]
+        return ["begin-eval-round"]
     if state == "FreeEdit":
-        return ["enter-evaluating", "reverse-to-producer", "reverse-to-writing"]
+        return ["begin-eval-round", "reverse-to-producer", "reverse-to-writing"]
     if state == "Evaluating":
         return ["accept", "fix", "re-evaluate"]
     if state == "Completed":
@@ -805,7 +837,13 @@ def reverse_to_producer(
     def apply(ledger: dict[str, Any]) -> dict[str, Any]:
         new = step_reverse_to_producer(ledger, {"inductive": inductive})
         slice_dir = (revision_dir / str(new["focus"])).resolve()
-        _reset_producer_complete(cycle_id, project_root, profile_id, slice_dir)
+        _reset_producer_complete(
+            cycle_id,
+            project_root,
+            profile_id,
+            slice_dir,
+            inductive=inductive,
+        )
         return new
 
     payload = _with_revision_lock(_CMD_REVERSE_PRODUCER, revision_dir, apply)
@@ -1191,15 +1229,36 @@ def enter_evaluating_state(
     }
 
 
-def rollback_evaluating_phase(revision_dir: Path, *, focus: str) -> None:
-    """Undo Evaluating after a failed evaluate-state init (first enter)."""
+def rollback_evaluating_phase(
+    revision_dir: Path,
+    *,
+    focus: str,
+    previous_phase: str = "",
+) -> None:
+    """Restore a producer phase after a failed first-enter admission.
+
+    ``previous_phase`` is provider-opaque. Compose can only restore Writing or
+    FreeEdit; any other token leaves Evaluating and its eval run untouched.
+    """
+    if previous_phase not in {"Writing", "FreeEdit"}:
+        return
     ledger = load_l_ledger(revision_dir)
     if str(ledger["focus"]) != focus:
         return
     try:
-        save_l_ledger(revision_dir, step_fix(ledger))
+        save_l_ledger(
+            revision_dir,
+            step_abort_evaluating(ledger, previous=previous_phase),
+        )
     except IllegalTransition:
         return
+    slice_dir = revision_dir / focus
+    eval_run = slice_dir / _EVAL_RUN_FILE
+    if eval_run.is_file():
+        eval_run.unlink()
+    staging = slice_dir / ".eval-staging"
+    if staging.is_dir():
+        shutil.rmtree(staging, ignore_errors=True)
 
 
 if __name__ == "__main__":

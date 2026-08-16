@@ -64,4 +64,5 @@ When the recorded report has no findings and `buildable`, `reversible`, and
 `verifiable` are all true, call
 `$INDUCTIVE_GATE_CTL gate-close --gate G4`. Closure is report-driven.
 
-On success, resolve a fresh `$CTX` and load the gate it names.
+On success, resolve a fresh `$CTX`. When `active_gate=complete`, return to
+the parent. Do not load another gate.

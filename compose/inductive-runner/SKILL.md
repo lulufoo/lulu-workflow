@@ -2,13 +2,14 @@
 name: inductive-runner
 description: >-
   Coordinates pre-writing induction across shape perception, topic convergence,
-  open-point resolution, internal audit, and provenance audit.
+  open-point resolution, and internal audit.
 ---
 
 # inductive-runner
 
-Run the G1→G5 control spine for one active Compose slice. Complete when G5 is
-closed and the settled facts are ready for Compose Writing.
+Run the G1→G4 control spine for one active Compose slice. Complete when G4 is
+closed, `active_gate=complete`, and the settled facts are ready for Compose
+Writing. Delivery Eval owns provenance audit of the written document.
 
 ## Dispatch Inputs
 
@@ -42,7 +43,7 @@ Use the control's `--help` as the command and stdout contract.
 2. Resolve `$CTX` through `$INDUCTIVE_GATE_CTL resolve-context`.
 3. Load only the gate named by `$CTX.active_gate`.
 4. After a gate transition, resolve a fresh `$CTX` before routing again.
-5. Return to the parent only after G5 closes.
+5. Return to the parent only after G4 closes and `$CTX.active_gate` is `complete`.
 
 ### Fact Intake
 
@@ -70,7 +71,7 @@ Route only from control stdout or `$CTX`; never route from a state-file path.
 | `G2` | `gates/g2-topic-loop.md` |
 | `G3` | `gates/g3-open-point-loop.md` |
 | `G4` | `gates/g4-recompose.md` |
-| `G5` | `gates/g5-provenance.md` |
+| `complete` | Return to the parent. Do not load another gate. |
 
 Before executing a gate, read its file. A readable next gate does not authorize
 execution.
@@ -88,6 +89,7 @@ execution.
 
 ## Handoff
 
-After G5 closes, report completion and return control to the parent Compose
-stage. Compose Writing consumes the settled facts; provenance receipts remain
-available to the parent delivery flow.
+After G4 closes and `$CTX.active_gate` is `complete`, report completion and
+return control to the parent Compose stage. Compose Writing consumes the
+settled facts. Delivery Eval audits the written document against the
+intent / parent / norm triangle.

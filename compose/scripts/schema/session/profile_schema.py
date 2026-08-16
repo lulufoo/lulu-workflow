@@ -41,7 +41,15 @@ _COMPOSE_SHELL_PATH_KEYS = frozenset(
 _COMPOSE_SCHEME_PATH = KERNEL_SCHEMES / "compose-template-scheme.json"
 _PIPELINE_REQUIRED = frozenset({"inductive", "freeedit", "code_grounding", "post_writing_options"})
 _POST_WRITING_OPTIONS = frozenset({"freeedit", "evaluate"})
-_EVAL_REQUIRED = frozenset({"adapter_module", "adapter_class", "eval_capability"})
+_EVAL_REQUIRED = frozenset(
+    {
+        "workflow_id",
+        "contributor_module",
+        "contributor_class",
+        "eval_capability",
+    }
+)
+_EVAL_RETIRED = frozenset({"adapter_module", "adapter_class"})
 
 
 def _load_scheme() -> dict:
@@ -136,6 +144,10 @@ def _validate_active_compose_profile(path: Path, data: dict) -> list[str]:
                 errors.append(f"{path.name}: missing eval.{key}")
             elif not isinstance(eval_block[key], str) or not eval_block[key].strip():
                 errors.append(f"{path.name}: eval.{key} must be a non-empty string")
+        for key in sorted(_EVAL_RETIRED & set(eval_block)):
+            errors.append(
+                f"{path.name}: eval.{key} retired; declare contributor_module/class"
+            )
     return errors
 
 

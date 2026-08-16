@@ -36,7 +36,6 @@ class TestTechDesignEvalPolicy:
         assert select_dimension_ids(mode="product", upstream_baseline_ref="/p.md") == [
             "codebase-consistency",
             "solution-quality",
-            "intent-alignment",
         ]
 
     def test_require_feature_eval_topic_blocks(self):
@@ -64,9 +63,7 @@ class TestTechDesignEvalPolicy:
         assert [d["id"] for d in defs] == [
             "codebase-consistency",
             "solution-quality",
-            "intent-alignment",
         ]
-        assert defs[2]["legacy_alias"] == "d3"
 
     def test_select_dimension_defs_topic_blocks(self):
         with pytest.raises(ValueError, match="topic cycles do not evaluate in lulu-design"):

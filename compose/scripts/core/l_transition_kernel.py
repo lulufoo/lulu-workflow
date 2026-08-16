@@ -293,6 +293,23 @@ def step_fix(ledger: dict[str, Any]) -> dict[str, Any]:
     return _finish(new)
 
 
+def step_abort_evaluating(ledger: dict[str, Any], *, previous: str) -> dict[str, Any]:
+    focus = _require_unfrozen_focus(ledger)
+    if _cell(ledger, focus)["state"] != "Evaluating":
+        raise IllegalTransition(
+            "illegal_transition",
+            "abort-evaluating requires Evaluating",
+        )
+    if previous not in {"Writing", "FreeEdit"}:
+        raise IllegalTransition(
+            "illegal_transition",
+            "abort-evaluating previous must be Writing or FreeEdit",
+        )
+    new = _clone(ledger)
+    new["by_id"][focus]["state"] = previous
+    return _finish(new)
+
+
 def step_reopen(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "Completed":

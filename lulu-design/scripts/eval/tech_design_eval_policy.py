@@ -11,7 +11,6 @@ from typing import Any
 _DIMENSION_DEF_FILES = {
     "codebase-consistency": "codebase-consistency.json",
     "solution-quality": "solution-quality.json",
-    "intent-alignment": "intent-alignment.json",
 }
 
 _TOPIC_EVAL_BLOCKED = (
@@ -24,15 +23,13 @@ def select_dimension_ids(
     mode: str = "tech",
     upstream_baseline_ref: str = "",
 ) -> list[str]:
-    """Return ordered dimension ids for lulu-design Evaluating.
+    """Return ordered Stage dimension ids for lulu-design Evaluating.
 
-    When mode='product' and upstream_baseline_ref is non-empty, intent-alignment (d3)
-    is appended. Otherwise d3 is silently skipped.
+    Intent fidelity is a Compose common dimension; this policy no longer
+    appends a stage-owned intent-alignment dim.
     """
-    ids = ["codebase-consistency", "solution-quality"]
-    if mode == "product" and upstream_baseline_ref:
-        ids.append("intent-alignment")
-    return ids
+    del mode, upstream_baseline_ref
+    return ["codebase-consistency", "solution-quality"]
 
 
 def require_feature_eval(cycle_type: str) -> None:
@@ -77,8 +74,7 @@ def select_dimension_defs(
 ) -> list[dict[str, Any]]:
     """Return ordered dimension definitions for compose_corpus.
 
-    Passes mode and upstream_baseline_ref to select_dimension_ids to determine whether
-    intent-alignment (d3) is included.
+    Stage-owned dims only. Common intent-fidelity is composed by the outer adapter.
     """
     require_feature_eval(cycle_type)
     ids = select_dimension_ids(mode=mode, upstream_baseline_ref=upstream_baseline_ref)

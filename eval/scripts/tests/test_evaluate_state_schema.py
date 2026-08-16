@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for the evaluate-state v7 data contract."""
+"""Tests for the evaluate-state v8 data contract."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from evaluate_state_schema import (  # noqa: E402
     all_dims_at_least,
     build_initial_evaluate_state,
     get_schema,
-    is_v7_state,
+    is_v8_state,
     load_evaluate_state,
     parse_dimension_status,
     parse_handling_policy,
@@ -38,6 +38,8 @@ def _state(
         dimension_ids=["a", "b"],
         corpus_ref="synthetic@2",
         corpus_fingerprint="abc123",
+        corpus_digest="abc123",
+        corpus_snapshot_ref="corpus-snapshot/manifest.json",
         eval_capability=capability,
         handling_policy=policies or {"a": "class-default", "b": "human-first"},
     )
@@ -88,13 +90,16 @@ def _set_counts(
 
 
 class TestSchemaAndBuild:
-    def test_schema_is_v7_without_removed_routing_fields(self):
+    def test_schema_is_v8_without_removed_routing_fields(self):
         fields = {item["field"] for item in get_schema()}
         assert {
             "eval_phase",
             "eval_capability",
             "handling_policy",
             "dimension_status",
+            "skip_reason",
+            "corpus_digest",
+            "corpus_snapshot_ref",
         } <= fields
         assert {
             "fix_phase",
@@ -105,7 +110,7 @@ class TestSchemaAndBuild:
     @pytest.mark.parametrize("capability", ["full-remediation", "probe-only"])
     def test_initial_state_requires_explicit_capability(self, capability: str):
         state = _state(capability=capability)
-        assert state["version"] == "7"
+        assert state["version"] == "8"
         assert state["eval_phase"] == "probe"
         assert state["eval_capability"] == capability
         assert parse_dimension_status(state["dimension_status"]) == {
@@ -116,7 +121,21 @@ class TestSchemaAndBuild:
             "a": "class-default",
             "b": "human-first",
         }
-        assert is_v7_state(state)
+        assert is_v8_state(state)
+
+    def test_empty_corpus_snapshot_fields_are_rejected(self):
+        state = _state()
+        state["corpus_digest"] = ""
+        assert any(
+            "corpus_digest must be a non-empty string" in error
+            for error in validate_evaluate_state(state)
+        )
+        state = _state()
+        state["corpus_snapshot_ref"] = ""
+        assert any(
+            "corpus_snapshot_ref must be a non-empty string" in error
+            for error in validate_evaluate_state(state)
+        )
 
     def test_capability_and_policy_are_required(self):
         with pytest.raises(TypeError, match="eval_capability"):
@@ -149,6 +168,8 @@ class TestValidation:
             ("probe", "active", '{"a":"probing","b":"probed"}'),
             ("remediation", "active", '{"a":"remediating","b":"complete"}'),
             ("done", "done", '{"a":"complete","b":"complete"}'),
+            ("done", "done", '{"a":"complete","b":"skipped"}'),
+            ("probe", "active", '{"a":"pending","b":"skipped"}'),
         ],
     )
     def test_valid_full_remediation_cross_field_combinations(
@@ -161,6 +182,8 @@ class TestValidation:
         state["eval_phase"] = eval_phase
         state["eval_status"] = eval_status
         state["dimension_status"] = dimension_status
+        if "skipped" in dimension_status:
+            state["skip_reason"] = '{"b":"empty_refs"}'
         assert validate_evaluate_state(state) == []
 
     @pytest.mark.parametrize(
@@ -205,7 +228,7 @@ class TestValidation:
         state[field] = value
         assert any(f"unsupported field: {field!r}" in error for error in validate_evaluate_state(state))
 
-    @pytest.mark.parametrize("version", ["5", "6", "8", None])
+    @pytest.mark.parametrize("version", ["5", "6", "7", None])
     def test_old_or_unknown_versions_are_stably_rejected(self, version: str | None):
         state = _state()
         if version is None:
@@ -220,7 +243,7 @@ class TestValidation:
             "dimension_status": "not-json",
         }) == [
             "incompatible_round: evaluate-state version '6' is not supported "
-            "(expected '7')",
+            "(expected '8')",
         ]
 
     def test_policy_keys_and_values_match_dimensions(self):
@@ -302,12 +325,12 @@ class TestValidation:
 
 
 class TestIoAndOrdering:
-    def test_save_and_load_v7(self, tmp_path: Path):
+    def test_save_and_load_v8(self, tmp_path: Path):
         path = tmp_path / "evaluate-state.md"
         save_evaluate_state(path, _state(), merge=False)
         loaded = load_evaluate_state(path)
-        assert loaded["version"] == "7"
-        assert is_v7_state(loaded)
+        assert loaded["version"] == "8"
+        assert is_v8_state(loaded)
 
     @pytest.mark.parametrize("merge", [True, False])
     @pytest.mark.parametrize(
@@ -315,11 +338,11 @@ class TestIoAndOrdering:
         [
             "---\nversion: 5\neval_status: done\n---\n",
             "---\nversion: 6\neval_status: abandoned\n---\n",
-            "---\nversion: 8\n---\n",
+            "---\nversion: 9\n---\n",
             "legacy state without frontmatter\n",
         ],
     )
-    def test_save_never_merges_or_overwrites_existing_non_v7_state(
+    def test_save_never_merges_or_overwrites_existing_non_v8_state(
         self,
         tmp_path: Path,
         merge: bool,
@@ -359,13 +382,15 @@ class TestInitializeStorage:
             state_path,
             _corpus(),
             eval_capability="probe-only",
+            corpus_digest="abc",
+            corpus_snapshot_ref="corpus-snapshot/manifest.json",
         )
-        assert load_evaluate_state(state_path)["version"] == "7"
+        assert load_evaluate_state(state_path)["version"] == "8"
 
-    def test_existing_v7_state_is_never_overwritten(self, tmp_path: Path):
+    def test_existing_v8_state_is_never_overwritten(self, tmp_path: Path):
         state_path = tmp_path / "eval" / "evaluate-state.md"
         state_path.parent.mkdir()
-        original = "---\nversion: 7\nsentinel: keep\n---\n"
+        original = "---\nversion: 8\nsentinel: keep\n---\n"
         state_path.write_text(original, encoding="utf-8")
         with pytest.raises(ValueError, match="incompatible_storage"):
             init_evaluate_state_for_corpus(
@@ -419,6 +444,19 @@ class TestInitializeStorage:
             )
         assert residue_path.read_text(encoding="utf-8") == "orphan"
 
+    def test_sibling_delivery_doc_does_not_block_init(self, tmp_path: Path):
+        storage = tmp_path / "L1"
+        storage.mkdir()
+        (storage / "design-doc.md").write_text("# design\n", encoding="utf-8")
+        init_evaluate_state_for_corpus(
+            storage / "evaluate-state.md",
+            _corpus(),
+            eval_capability="probe-only",
+            corpus_digest="abc",
+            corpus_snapshot_ref="corpus-snapshot/manifest.json",
+        )
+        assert load_evaluate_state(storage / "evaluate-state.md")["version"] == "8"
+
 
 class TestLockedPatch:
     def test_v6_is_rejected_before_callback_or_business_field_parse(
@@ -455,7 +493,7 @@ class TestLockedPatch:
         assert not callback_called
         assert path.read_text(encoding="utf-8") == original
 
-    def test_v7_is_parsed_then_patched(self, tmp_path: Path):
+    def test_v8_is_parsed_then_patched(self, tmp_path: Path):
         path = tmp_path / "evaluate-state.md"
         save_evaluate_state(path, _state(), merge=False)
         callback_called = False

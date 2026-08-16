@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
+from eval_admission import EvalAdmissionContext
+
 
 @dataclass(frozen=True)
 class SessionContext:
@@ -75,8 +77,28 @@ class WorkflowAdapter(Protocol):
 
     def detect_cycle_type(self, cycle_id: str) -> str: ...
 
-    def enter_evaluating(
+    def eval_admission_context(
         self, cycle_id: str, project_root: Path
+    ) -> EvalAdmissionContext: ...
+
+    def prepare_eval_admission(
+        self, cycle_id: str, project_root: Path
+    ) -> dict[str, Any]: ...
+
+    def abort_eval_admission(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        token: str,
+    ) -> dict[str, Any]: ...
+
+    def enter_evaluating(
+        self,
+        cycle_id: str,
+        project_root: Path,
+        *,
+        admission_token: str | None = None,
     ) -> dict[str, Any]: ...
 
     def request_eval_handoff(

@@ -59,7 +59,7 @@ def test_request_handoff_per_l_paths(tmp_path: Path) -> None:
     assert context["evaluate_state_path"].endswith("/L1/evaluate-state.md")
     assert context["evaluate_dir"].endswith("/L1/evaluate1")
     assert Path(context["write_staging_dir"]).is_dir()
-    assert handoff["adapter"]["adapter_class"] == "TechDesignEvalAdapter"
+    assert handoff["adapter"]["adapter_class"] == "ComposeEvalAdapter"
     assert eval_layout_for_revision(ws.parent) == "per-l"
 
 

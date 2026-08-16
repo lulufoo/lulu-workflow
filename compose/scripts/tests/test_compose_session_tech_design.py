@@ -17,7 +17,8 @@ _TECH_DESIGN_EVAL = (
 )
 if str(_TECH_DESIGN_EVAL) not in sys.path:
     sys.path.insert(0, str(_TECH_DESIGN_EVAL))
-from tech_design_eval_adapter import TechDesignEvalAdapter  # noqa: E402
+from compose_eval_adapter import ComposeEvalAdapter  # noqa: E402
+from tech_design_eval_contributor import TechDesignEvalContributor  # noqa: E402
 from compose_session import (  # noqa: E402
     eval_workflow_id,
     load_active_doc_for_profile,
@@ -111,11 +112,16 @@ class TestComposeSessionTechDesign:
         assert payload["profile_id"] == "lulu-design"
         assert payload["next_stages"] == ["lulu-plan"]
 
-    def test_adapter_enter_evaluating_creates_evaluate_state(self, tmp_path: Path):
+    def test_adapter_enter_evaluating_does_not_write_evaluate_state(
+        self, tmp_path: Path
+    ):
         _seed_design_session(tmp_path)
         rev = tmp_path / _CACHE / _CYCLE / "lulu-design" / "revision1"
         mark_focus_intake_done(rev)
-        adapter = TechDesignEvalAdapter()
+        adapter = ComposeEvalAdapter(
+            workflow_id="lulu-design",
+            contributor=TechDesignEvalContributor(),
+        )
         result = adapter.enter_evaluating(_CYCLE, tmp_path)
         assert result["ok"] is True
         assert result["current_state"] == "Working"
@@ -129,7 +135,7 @@ class TestComposeSessionTechDesign:
             / "L1"
             / "evaluate-state.md"
         )
-        assert es.exists()
+        assert not es.exists()
 
     def test_load_document_presentation(self, tmp_path: Path):
         _seed_design_session(tmp_path)

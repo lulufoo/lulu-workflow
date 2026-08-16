@@ -1,0 +1,18 @@
+{
+  "id": "intent-fidelity",
+  "label": "Intent Fidelity",
+  "handling_policy": "human-first",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [],
+  "method": {
+    "ref": "lulu-dev-workflow/compose/eval/methods/intent-fidelity.md",
+    "focus": "Intent fidelity — does the delivery document stay inside, cover, and stay consistent with the intent baseline?"
+  },
+  "review": {
+    "seq": 1,
+    "output_path": "compose-review-e{M}1.md",
+    "template": "eval/review.template.md"
+  }
+}

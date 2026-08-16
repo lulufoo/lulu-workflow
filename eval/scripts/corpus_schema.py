@@ -145,22 +145,22 @@ def validate_corpus(data: dict[str, Any]) -> list[str]:
     if not isinstance(dimensions, list) or not dimensions:
         errors.append("dimensions must be a non-empty array")
     else:
-        seen_ids: set[str] = set()
-        seen_aliases: set[str] = set()
+        seen_symbols: set[str] = set()
         seen_seq: set[int] = set()
         for idx, dim in enumerate(dimensions):
             ctx = f"dimensions[{idx}]"
             _validate_dimension(dim, errors, ctx=ctx)
             if isinstance(dim, dict):
-                dim_id = dim.get("id", "")
-                if dim_id in seen_ids:
-                    errors.append(f"duplicate dimension id: {dim_id!r}")
-                seen_ids.add(str(dim_id))
-                alias = dim.get("legacy_alias")
+                dim_id = str(dim.get("id") or "").strip()
+                if dim_id:
+                    if dim_id in seen_symbols:
+                        errors.append(f"duplicate dimension symbol: {dim_id!r}")
+                    seen_symbols.add(dim_id)
+                alias = str(dim.get("legacy_alias") or "").strip()
                 if alias:
-                    if alias in seen_aliases:
-                        errors.append(f"duplicate legacy_alias: {alias!r}")
-                    seen_aliases.add(str(alias))
+                    if alias in seen_symbols:
+                        errors.append(f"duplicate dimension symbol: {alias!r}")
+                    seen_symbols.add(alias)
                 review = dim.get("review")
                 if isinstance(review, dict):
                     seq = review.get("seq")

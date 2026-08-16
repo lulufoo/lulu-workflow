@@ -28,24 +28,27 @@ adapter configuration.
 ## Begin Eval
 
 1. Run `$EVAL_CONTROL begin-eval-round`. Pin the result.
-2. For each returned dimension, run **Single dimension (launch)** and pin its handle.
-3. Await every pinned handle. Do not check a dimension before every handle completes.
-4. For each returned dimension, run `$EVAL_CONTROL check-dimension --dim {dim}`.
+2. For each returned dimension, run **Single dimension (launch)** and pin any probe handle.
+3. Await every pinned probe handle. Do not check a dimension before every handle completes.
+4. For each dimension that launched a probe, run `$EVAL_CONTROL check-dimension --dim {dim}`.
    - If the result reports abandonment, run **Abandon Handler** and stop.
    - On a non-zero result, apply Blocking and stop.
+   - Do not run `check-dimension` for a skipped dimension.
 5. A probe-only caller runs `$EVAL_CONTROL complete-probe-only` and stops.
 6. A full-round caller continues to **Remediation**.
 
 ## Single dimension (launch)
 
-1. Run `$EVAL_CONTROL begin-dimension --dim {dim}` and pin its returned operation context.
-2. Dispatch `dimension-probe-runner` asynchronously with the pinned operation context and this instruction:
+1. Run `$EVAL_CONTROL begin-dimension --dim {dim}` and pin the result.
+2. If the result reports `skip: true`, record `skip_reason` and return. Do not pin an operation context, do not dispatch a probe runner, and do not later check this dimension.
+3. Pin the returned operation context.
+4. Dispatch `dimension-probe-runner` asynchronously with the pinned operation context and this instruction:
 
    ```text
    Load dimension-probe-runner/SKILL.md and follow its instructions.
    ```
 
-3. Pin the returned handle and return immediately to **Begin Eval**.
+5. Pin the returned handle and return immediately to **Begin Eval**.
 
 ## Remediation
 
@@ -71,10 +74,8 @@ adapter configuration.
    `return_to_caller` (e.g. Compose Atomize Eval), **stop here** and return the
    `remediation-complete` payload to the caller. Do **not** present Accept L / Fix L /
    Re-evaluate / Deliver package.
-3. Otherwise ask the user to choose:
-   - **Accept L** — run `$L_STEP accept --confirm`; exit Eval.
-   - **Fix L** — run `$L_STEP fix --confirm`; exit Eval.
-   - **Re-evaluate** — run `$L_STEP re-evaluate --confirm`, then return to **Begin Eval**.
+3. Otherwise ask the user to choose Accept L, Fix L, or Re-evaluate; then exit
+   Eval and return that choice. The caller owns the L transition.
 
 ## Abandon Handler
 

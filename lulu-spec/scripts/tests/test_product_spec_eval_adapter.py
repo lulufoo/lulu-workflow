@@ -10,24 +10,35 @@ _SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW_ROOT = _SCRIPTS_ROOT.parents[1]
 _EVAL_SHELL = _SCRIPTS_ROOT / "eval"
 _EVAL_SCRIPTS = _WORKFLOW_ROOT / "eval" / "scripts"
+_KERNEL_CORE = _WORKFLOW_ROOT / "compose" / "scripts" / "core"
 _KERNEL_TESTS = _WORKFLOW_ROOT / "compose" / "scripts" / "tests"
-for p in (_EVAL_SHELL, _EVAL_SCRIPTS, _KERNEL_TESTS):
+for p in (_EVAL_SHELL, _EVAL_SCRIPTS, _KERNEL_CORE, _KERNEL_TESTS):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
 import bootstrap  # noqa: F401
+from compose_eval_adapter import ComposeEvalAdapter  # noqa: E402
 from product_spec_eval_adapter import (  # noqa: E402
     PRODUCT_SPEC_COMPOSED_CORPUS_REF,
-    ProductSpecEvalAdapter,
 )
+from product_spec_eval_contributor import ProductSpecEvalContributor  # noqa: E402
 from corpus_compose import corpus_fingerprint  # noqa: E402
 from delivered_refs_schema import DeliveredRef  # noqa: E402
 from product_spec_eval_policy import select_dimension_ids  # noqa: E402
 from workflow_state_schema import init_compose_session  # noqa: E402
 from init_working_helpers import seed_delivered_refs_file, seed_provenance_artifacts  # noqa: E402
 
+_COMMON_IDS = ["intent-fidelity", "parent-continuity", "norm-conformance"]
+
 _CYCLE = "feat-lulu-spec-adapter"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
+
+
+def _adapter() -> ComposeEvalAdapter:
+    return ComposeEvalAdapter(
+        workflow_id="lulu-spec",
+        contributor=ProductSpecEvalContributor(),
+    )
 
 
 def _seed_session(tmp_path: Path) -> Path:
@@ -63,14 +74,14 @@ def _seed_session(tmp_path: Path) -> Path:
 
 class TestProductSpecEvalAdapter:
     def test_registry_loads_product_spec(self):
-        adapter = ProductSpecEvalAdapter()
+        adapter = _adapter()
         assert adapter.corpus_ref_for_mode("product") == PRODUCT_SPEC_COMPOSED_CORPUS_REF
 
     def test_resolve_eval_corpus(self, tmp_path: Path):
         _seed_session(tmp_path)
-        adapter = ProductSpecEvalAdapter()
+        adapter = _adapter()
         corpus = adapter.resolve_eval_corpus(_CYCLE, tmp_path)
-        ids = select_dimension_ids()
+        ids = _COMMON_IDS + select_dimension_ids()
         assert [d["id"] for d in corpus["dimensions"]] == ids
         assert corpus["scope"] == "lulu-spec"
         assert corpus["dimensions"][0]["review"]["output_path"] == "product-review-e{M}1.md"
@@ -78,7 +89,7 @@ class TestProductSpecEvalAdapter:
 
     def test_eval_paths_compose_doc(self, tmp_path: Path):
         _seed_session(tmp_path)
-        adapter = ProductSpecEvalAdapter()
+        adapter = _adapter()
         es_path = adapter.resolve_evaluate_state_path(_CYCLE, tmp_path)
         paths = adapter.eval_paths(
             _CYCLE,
@@ -91,14 +102,14 @@ class TestProductSpecEvalAdapter:
 
     def test_corpus_bind_extensions_has_no_decision_ref(self, tmp_path: Path):
         _seed_session(tmp_path)
-        adapter = ProductSpecEvalAdapter()
+        adapter = _adapter()
         bind = adapter.corpus_bind_extensions(_CYCLE, tmp_path)
         assert bind == {}
         assert "decision_ref" not in bind
 
     def test_resolve_evaluate_state_path(self, tmp_path: Path):
         _seed_session(tmp_path)
-        adapter = ProductSpecEvalAdapter()
+        adapter = _adapter()
         es_path = adapter.resolve_evaluate_state_path(_CYCLE, tmp_path)
         assert es_path.name == "evaluate-state.md"
         assert "lulu-spec/revision1" in es_path.as_posix()
@@ -114,6 +125,6 @@ class TestProductSpecEvalAdapter:
         ws = base / "revision1" / "workflow-state.md"
         ws.parent.mkdir(parents=True, exist_ok=True)
         init_compose_session(ws, mode="product")
-        adapter = ProductSpecEvalAdapter()
+        adapter = _adapter()
         with pytest.raises(ValueError, match="topic cycles do not evaluate in lulu-spec"):
             adapter.resolve_eval_corpus(cycle, tmp_path)

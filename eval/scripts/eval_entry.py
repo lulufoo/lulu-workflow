@@ -21,8 +21,11 @@ from eval_adapter_config import (  # noqa: E402
     load_adapter_config_file,
     load_adapter_config_json,
     load_eval_adapter_from_config,
+    validate_adapter_methods,
     validate_adapter_protocol,
 )
+
+_DEFER_HANDOFF_COMMANDS = frozenset({"init-round", "begin-eval-round"})
 from eval_control import build_parser, run_eval  # noqa: E402
 
 
@@ -64,25 +67,23 @@ def main(argv: list[str] | None = None) -> int:
     cycle_id = args.cycle_id.strip()
     project_root = args.project_root.resolve()
 
-    # init-round / begin-eval-round may run while preparing evaluating
-    require_evaluating = args.command not in {
-        "init-round",
-        "begin-eval-round",
-    }
     try:
         config = _load_config(args)
         args.workflow = config.workflow_id
         adapter = load_eval_adapter_from_config(config)
-        handoff = adapter.request_eval_handoff(
-            cycle_id=cycle_id,
-            project_root=project_root,
-            require_evaluating=require_evaluating,
-        )
-        validate_adapter_protocol(
-            adapter,
-            eval_capability=config.eval_capability,
-            handoff=handoff,
-        )
+        validate_adapter_methods(adapter, eval_capability=config.eval_capability)
+        handoff = None
+        if args.command not in _DEFER_HANDOFF_COMMANDS:
+            handoff = adapter.request_eval_handoff(
+                cycle_id=cycle_id,
+                project_root=project_root,
+                require_evaluating=True,
+            )
+            validate_adapter_protocol(
+                adapter,
+                eval_capability=config.eval_capability,
+                handoff=handoff,
+            )
     except (ValueError, FileNotFoundError, OSError) as exc:
         print(f"错误：{exc}", file=sys.stderr)
         return 1

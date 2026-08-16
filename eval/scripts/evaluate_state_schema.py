@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Authoritative schema and I/O helpers for evaluate-state.md (v7).
+"""Authoritative schema and I/O helpers for evaluate-state.md (v8).
 
 CLI:
     python3 evaluate_state_schema.py --schema
@@ -18,7 +18,7 @@ from typing import Any
 
 _SCHEMA: list[dict[str, Any]] = [
     {"field": "version", "type": "string", "required": True,
-     "description": "Schema version (currently 7)"},
+     "description": "Schema version (currently 8)"},
     {"field": "phase", "type": "string", "required": True,
      "description": "Fixed value: evaluate"},
     {"field": "eval_status", "type": "string", "required": True,
@@ -31,6 +31,10 @@ _SCHEMA: list[dict[str, Any]] = [
      "description": "EvalCorpus id@version (optional)"},
     {"field": "corpus_fingerprint", "type": "string", "required": False,
      "description": "Hash of composed dimension id set (dynamic corpus)"},
+    {"field": "corpus_digest", "type": "string", "required": True,
+     "description": "SHA256 of canonical snapshot manifest without corpus_digest"},
+    {"field": "corpus_snapshot_ref", "type": "string", "required": True,
+     "description": "Round-relative path to corpus-snapshot/manifest.json"},
     {"field": "handling_policy", "type": "string", "required": True,
      "description": "JSON map dim_id -> class-default|human-first"},
     {"field": "dimension_dispatch", "type": "string", "required": True,
@@ -38,7 +42,9 @@ _SCHEMA: list[dict[str, Any]] = [
     {"field": "round_token", "type": "string", "required": True,
      "description": "Opaque token for this Eval round"},
     {"field": "dimension_status", "type": "string", "required": True,
-     "description": "JSON map dim_id -> pending|probing|probed|remediating|complete"},
+     "description": "JSON map dim_id -> pending|probing|probed|remediating|complete|skipped"},
+    {"field": "skip_reason", "type": "string", "required": True,
+     "description": "JSON map dim_id -> reason for skipped dimensions"},
     {"field": "issue_counts", "type": "string", "required": True,
      "description": "JSON map dim_id -> {total, resolved}"},
     {"field": "total_issues", "type": "string", "required": True,
@@ -65,10 +71,13 @@ _KEY_ORDER = [
     "eval_capability",
     "corpus_ref",
     "corpus_fingerprint",
+    "corpus_digest",
+    "corpus_snapshot_ref",
     "handling_policy",
     "dimension_dispatch",
     "round_token",
     "dimension_status",
+    "skip_reason",
     "issue_counts",
     "total_issues",
     "resolved_issues",
@@ -86,6 +95,7 @@ _VALID_DIM_STATUS = frozenset({
     "probed",
     "remediating",
     "complete",
+    "skipped",
 })
 _VALID_DISPATCH = frozenset({"parallel", "serial"})
 _DIM_STATUS_ORDER = {
@@ -100,10 +110,11 @@ _REMOVED_FIELDS = frozenset({
     "force_human_resolution",
     "dimension_tokens",
 })
+_EVALUATE_STATE_VERSION = "8"
 
 
 def get_schema() -> list[dict[str, Any]]:
-    """Return field definitions for evaluate-state.md v7."""
+    """Return field definitions for evaluate-state.md v8."""
     return list(_SCHEMA)
 
 
@@ -147,6 +158,18 @@ def parse_dimension_status(raw: str) -> dict[str, str]:
         if status not in _VALID_DIM_STATUS:
             raise ValueError(f"invalid dimension status for {key!r}: {status!r}")
         result[str(key)] = status
+    return result
+
+
+def parse_skip_reason(raw: str) -> dict[str, str]:
+    """Parse skip_reason JSON string."""
+    parsed = parse_json_map(raw, field_name="skip_reason")
+    result: dict[str, str] = {}
+    for key, value in parsed.items():
+        reason = str(value).strip()
+        if not reason:
+            raise ValueError(f"skip_reason[{key!r}] must be a non-empty string")
+        result[str(key)] = reason
     return result
 
 
@@ -203,14 +226,18 @@ def build_initial_evaluate_state(
     dimension_ids: list[str],
     corpus_ref: str = "",
     corpus_fingerprint: str = "",
+    corpus_digest: str = "",
+    corpus_snapshot_ref: str = "",
     dimension_dispatch: str = "parallel",
     evaluate_round: int | None = None,
     focus_l: str = "",
     round_token: str | None = None,
     eval_capability: str,
     handling_policy: dict[str, str],
+    skipped_ids: list[str] | None = None,
+    skip_reasons: dict[str, str] | None = None,
 ) -> dict[str, str]:
-    """Return frontmatter fields for a new evaluate-state.md v7."""
+    """Return frontmatter fields for a new evaluate-state.md v8."""
     if not dimension_ids:
         raise ValueError("dimension_ids must be non-empty")
     if dimension_dispatch not in _VALID_DISPATCH:
@@ -220,7 +247,22 @@ def build_initial_evaluate_state(
     if eval_capability not in _VALID_EVAL_CAPABILITY:
         raise ValueError(f"invalid eval_capability: {eval_capability!r}")
 
-    dim_status = {dim_id: "pending" for dim_id in dimension_ids}
+    skipped = {str(dim_id) for dim_id in (skipped_ids or [])}
+    unknown_skipped = skipped - set(dimension_ids)
+    if unknown_skipped:
+        raise ValueError(
+            f"skipped_ids not in dimension_ids: {sorted(unknown_skipped)}",
+        )
+    reasons = {str(key): str(value) for key, value in (skip_reasons or {}).items()}
+    if set(reasons) != skipped:
+        raise ValueError("skip_reasons keys must match skipped_ids")
+    if any(not value.strip() for value in reasons.values()):
+        raise ValueError("skip_reasons values must be non-empty")
+
+    dim_status = {
+        dim_id: "skipped" if dim_id in skipped else "pending"
+        for dim_id in dimension_ids
+    }
     issue_counts = {
         dim_id: {"total": 0, "resolved": 0} for dim_id in dimension_ids
     }
@@ -232,15 +274,18 @@ def build_initial_evaluate_state(
     if any(value not in _VALID_HANDLING_POLICY for value in policy.values()):
         raise ValueError("handling_policy values must be class-default or human-first")
     data: dict[str, str] = {
-        "version": "7",
+        "version": _EVALUATE_STATE_VERSION,
         "phase": "evaluate",
         "eval_status": "active",
         "eval_phase": "probe",
         "eval_capability": eval_capability,
+        "corpus_digest": str(corpus_digest),
+        "corpus_snapshot_ref": str(corpus_snapshot_ref),
         "dimension_dispatch": dimension_dispatch,
         "handling_policy": serialize_json_map(policy),
         "round_token": round_token or uuid.uuid4().hex,
         "dimension_status": serialize_json_map(dim_status),
+        "skip_reason": serialize_json_map(reasons),
         "issue_counts": serialize_json_map(issue_counts),
         "total_issues": "0",
         "resolved_issues": "0",
@@ -258,22 +303,32 @@ def build_initial_evaluate_state(
     return data
 
 
-def is_v7_state(data: dict[str, str]) -> bool:
-    """Return True only for a structurally recognizable v7 state."""
+def is_v8_state(data: dict[str, str]) -> bool:
+    """Return True only for a structurally recognizable v8 state."""
     return (
-        data.get("version") == "7"
+        data.get("version") == _EVALUATE_STATE_VERSION
         and "dimension_status" in data
         and "handling_policy" in data
         and "eval_capability" in data
+        and "skip_reason" in data
+        and "corpus_digest" in data
+        and "corpus_snapshot_ref" in data
     )
+
+
+def is_v7_state(data: dict[str, str]) -> bool:
+    """Hard-cut: v7 is no longer a supported evaluate-state."""
+    del data
+    return False
 
 
 def validate_evaluate_state(data: dict[str, Any]) -> list[str]:
     """Return validation errors; empty list means valid."""
-    if data.get("version") != "7":
+    if data.get("version") != _EVALUATE_STATE_VERSION:
         return [
             "incompatible_round: evaluate-state version "
-            f"{data.get('version')!r} is not supported (expected '7')",
+            f"{data.get('version')!r} is not supported "
+            f"(expected {_EVALUATE_STATE_VERSION!r})",
         ]
     errors: list[str] = []
     for field in _REQUIRED_FIELDS:
@@ -297,6 +352,10 @@ def validate_evaluate_state(data: dict[str, Any]) -> list[str]:
         errors.append(f"invalid dimension_dispatch: {dispatch!r}")
     if data.get("round_token") == "":
         errors.append("round_token must be a non-empty string")
+    if not str(data.get("corpus_digest") or "").strip():
+        errors.append("corpus_digest must be a non-empty string")
+    if not str(data.get("corpus_snapshot_ref") or "").strip():
+        errors.append("corpus_snapshot_ref must be a non-empty string")
     dimensions: dict[str, str] = {}
     raw_dim = data.get("dimension_status", "")
     try:
@@ -319,6 +378,19 @@ def validate_evaluate_state(data: dict[str, Any]) -> list[str]:
         counts = parse_issue_counts(raw_counts)
         if set(counts) != set(dimensions):
             errors.append("issue_counts keys must match dimension_status keys")
+    except ValueError as exc:
+        errors.append(str(exc))
+    reasons: dict[str, str] = {}
+    try:
+        reasons = parse_skip_reason(data.get("skip_reason", ""))
+        skipped = {key for key, status in dimensions.items() if status == "skipped"}
+        if set(reasons) != skipped:
+            errors.append("skip_reason keys must match skipped dimensions")
+        for dim_id in skipped:
+            if dim_id in counts and counts[dim_id] != {"total": 0, "resolved": 0}:
+                errors.append(
+                    f"skipped dimension {dim_id!r} must keep issue_counts at zero",
+                )
     except ValueError as exc:
         errors.append(str(exc))
 
@@ -365,22 +437,26 @@ def validate_evaluate_state(data: dict[str, Any]) -> list[str]:
         "probing",
         "probed",
         "complete",
+        "skipped",
     }:
         errors.append("inconsistent dimension_status for probe phase")
     if eval_phase == "remediation" and not dimension_values <= {
         "probed",
         "remediating",
         "complete",
+        "skipped",
     }:
         errors.append("inconsistent dimension_status for remediation phase")
-    if eval_phase == "done" and eval_status == "done" and dimension_values != {
+    if eval_phase == "done" and eval_status == "done" and not dimension_values <= {
         "complete",
+        "skipped",
     }:
-        errors.append("inconsistent done round requires all dimensions complete")
+        errors.append("inconsistent done round requires all dimensions complete or skipped")
     if eval_phase == "done" and eval_status == "abandoned" and not dimension_values <= {
         "probed",
         "remediating",
         "complete",
+        "skipped",
     }:
         errors.append("inconsistent abandoned dimension_status")
     if (
@@ -410,10 +486,11 @@ def save_evaluate_state(path: Path, data: dict[str, str], *, merge: bool = True)
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         existing = parse_frontmatter_fields(path.read_text(encoding="utf-8"))
-        if existing.get("version") != "7":
+        if existing.get("version") != _EVALUATE_STATE_VERSION:
             raise ValueError(
                 "incompatible_round: existing evaluate-state version "
-                f"{existing.get('version')!r} is not supported (expected '7')",
+                f"{existing.get('version')!r} is not supported "
+                f"(expected {_EVALUATE_STATE_VERSION!r})",
             )
         if merge:
             merged = dict(existing)
@@ -450,6 +527,8 @@ def merge_dimension_status(
     if status not in _VALID_DIM_STATUS:
         raise ValueError(f"invalid dimension status: {status!r}")
     dim_map = parse_dimension_status(data.get("dimension_status", "{}"))
+    if dim_map.get(dim_id) == "skipped" and status != "skipped":
+        raise ValueError(f"cannot change skipped dimension {dim_id!r} to {status!r}")
     dim_map[dim_id] = status
     merged = dict(data)
     merged["dimension_status"] = serialize_json_map(dim_map)
@@ -465,6 +544,8 @@ def patch_issue_count(
 ) -> dict[str, str]:
     """Update issue_counts entry for one dimension."""
     counts = parse_issue_counts(data.get("issue_counts", "{}"))
+    if parse_dimension_status(data.get("dimension_status", "{}")).get(dim_id) == "skipped":
+        raise ValueError(f"cannot patch issue_counts for skipped dimension {dim_id!r}")
     entry = dict(counts.get(dim_id, {"total": 0, "resolved": 0}))
     if total is not None:
         entry["total"] = int(total)
@@ -487,20 +568,28 @@ def all_dims_at_least(
     dispatch: list[str],
     min_status: str,
 ) -> bool:
-    """Return True when every dispatch dim is at or past min_status."""
-    if min_status not in _VALID_DIM_STATUS:
+    """Return True when every non-skipped dispatch dim is at or past min_status."""
+    if min_status not in _DIM_STATUS_ORDER:
         raise ValueError(f"invalid min_status: {min_status!r}")
     min_rank = _DIM_STATUS_ORDER[min_status]
     dim_map = parse_dimension_status(data.get("dimension_status", "{}"))
     for dim in dispatch:
         status = dim_map.get(dim, "pending")
+        if status == "skipped":
+            continue
         if _DIM_STATUS_ORDER.get(status, -1) < min_rank:
             return False
     return True
 
 
+def skipped_dimension_ids(data: dict[str, str]) -> list[str]:
+    """Return dimension ids whose status is skipped."""
+    dim_map = parse_dimension_status(data.get("dimension_status", "{}"))
+    return [dim_id for dim_id, status in dim_map.items() if status == "skipped"]
+
+
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="evaluate-state v7 schema I/O")
+    parser = argparse.ArgumentParser(description="evaluate-state v8 schema I/O")
     parser.add_argument("--schema", action="store_true", help="Print field schema JSON")
     parser.add_argument("--validate", action="store_true", help="Validate file")
     parser.add_argument("--path", type=Path, help="Path to evaluate-state.md")

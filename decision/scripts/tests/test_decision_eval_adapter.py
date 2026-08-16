@@ -163,6 +163,8 @@ def test_initial_state_copies_policy_from_resolved_corpus(tmp_path: Path) -> Non
         eval_capability="probe-only",
         evaluate_round=1,
         focus_l="decision",
+        corpus_digest="abc",
+        corpus_snapshot_ref="corpus-snapshot/manifest.json",
     )
     state = load_evaluate_state(path)
     assert parse_handling_policy(state["handling_policy"]) == {
