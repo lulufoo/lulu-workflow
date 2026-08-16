@@ -2,6 +2,15 @@
 
 # Gate 2 — Topic Loop
 
+## Script Macros
+
+| Macro | Command |
+|---|---|
+| `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR" --project-root "$PROJECT_ROOT"` |
+| `$TOPIC_CURRENT_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/topic_current_control.py" --revision-dir "$INDUCTIVE_OUT_DIR"` |
+
+Use each control's `--help` as the command and stdout contract.
+
 **Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate` is `G2` (G1 closed).
 
 ## Goal
@@ -43,13 +52,13 @@ human-adopted Topics **in dialogue**.
   - **Dispatch:** `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_ASYNC`; do not block or auto-run.
   - **Runner Input** (pin while Viewer HTML still client-guards Formal basename):
 
-```text
-REVISION_DIR: <inductive out dir>
-PROJECT_ROOT: <abs project root>
-CYCLE_ID: <cycle id>
-OUTPUT_PATH: _narrative-arc.collab.json
-MOUNT: true
-```
+    ```text
+    REVISION_DIR: <inductive out dir>
+    PROJECT_ROOT: <abs project root>
+    CYCLE_ID: <cycle id>
+    OUTPUT_PATH: _narrative-arc.collab.json
+    MOUNT: true
+    ```
 
   - **G2:** dispatch and report its Summary (`wrote` / `write_ready` / `mounted`).
     Protocol lives in `narrative-arc-runner/SKILL.md` + `contracts/delivery.md`.
@@ -121,9 +130,5 @@ convergent close.
 
 ## Hard cuts
 
-- Do **not** call `$NARRATIVE_ARC_DRAFT_CTL` / draft-as-topic-tree / `$TOPIC_FOCUS_CTL` (retired).
-- Do **not** invoke `$NARRATIVE_ARC_BUILD_CTL` / `$NARRATIVE_ARC_CTL` /
-  `$COMPOSE_VIEWER_CTL` from this gate — only dispatch `narrative-arc-runner`.
-- Do **not** paste `topic-landscape` / `topic-portrait` /
-  `topic-question-driver` product checklists into this gate — invoke the tool
-  names; protocols stay in their references.
+- Dispatch `narrative-arc-runner` only. Do not paste landscape, portrait, or
+  question-driver checklists into this gate.

@@ -1,44 +1,50 @@
-> Part of inductive-runner · gate execution entry · loaded from `../SKILL.md`
+> Part of inductive-runner · loaded only when `$CTX.active_gate` is `G5`
 
-# Gate 5 — External audit (soft)
+# Gate 5 — External Audit
 
-**Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` / `$PROVENANCE_GATE_CTL resolve-context` reports `active_gate` is `G5` (G4 closed).
+Name deviations between the current facts and Opens and their upstream
+references. Record a soft provenance receipt without fixing decisions or
+collecting sign-off.
 
-**Goal:** on the G4-coherent **facts + opens**, **name every deviation** of this stage's output from its upstream references, and drop them into three trace files (external provenance audit). Like Gate 4, Gate 5 **only finds and names — it never fixes a decision and never collects sign-off.** All deltas are written `pending-signoff`; sign-off and delivery blocking are a later phase. **Soft:** does not hard-block gate-close.
+## Script Macros
 
-**Read discipline (context guard):** runs in `g5-provenance-runner` subagent only — **do not** inline-read `_facts.json`, opens, `$SCOPE_REF`, or upstream refs during G5.
+| Macro | Command |
+|---|---|
+| `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR" --project-root "$PROJECT_ROOT"` |
+| `$PROVENANCE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/provenance_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 
-1. Call `$PROVENANCE_GATE_CTL init-session --cycle-id "$CYCLE_ID"` (once, on entry after G4) — seeds gate state + three empty traces. Resume: `$PROVENANCE_GATE_CTL resolve-context`.
-2. **Provenance scan (subagent):** dispatch `g5-provenance-runner` via `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`:
+Use each control's `--help` as the command and stdout contract.
 
-```text
-Load {actual $SKILL_ROOT}/compose/inductive-runner/g5-provenance-runner/SKILL.md and follow its instructions.
+## Boundaries
 
-## Input
-INDUCTIVE_OUT_DIR: {actual $INDUCTIVE_OUT_DIR}
-SCOPE_REF: {actual $SCOPE_REF}
-INTENT_BASELINE_REFS: {actual $INTENT_BASELINE_REFS}
-NORM_CONSTRAINT_REFS: {actual $NORM_CONSTRAINT_REFS}
-CYCLE_ID: {actual $CYCLE_ID}
-PROJECT_ROOT: {actual $PROJECT_ROOT}
-```
+- `$PROVENANCE_GATE_CTL` owns provenance context, validation, recording,
+  presentation, and closure.
+- `../g5-provenance-runner/SKILL.md` owns stateless A/B/C analysis.
+- The Parent Agent owns dispatch and report handoff.
+- G5 remains soft; detected deltas do not block closure.
 
-Do **not** paste fact/open or upstream-ref contents in the Task prompt — the subagent reads `_facts.json` / `inductive-opens.json` (and `$SCOPE_REF` / refs) from disk. **Ignore** the Task return beyond confirming completion — read the actual deltas only via `$PROVENANCE_GATE_CTL present` next.
+## Audit
 
-Role/algorithm/file mapping, axis semantics, and bucket vocabulary are the subagent's own SSOT (its Pipeline + [`../../references/provenance-algorithm-semantics.md`](../../references/provenance-algorithm-semantics.md) + `provenance_trace_schema.py`) — not repeated here.
+Run only when `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate=G5`.
 
-3. Call `$PROVENANCE_GATE_CTL present` (read-only) and show the user the full delta list — a receipt, **not** a sign-off.
+1. Initialize or resume G5 through `$PROVENANCE_GATE_CTL`.
+2. Obtain a fresh, digest-bound context through `$PROVENANCE_GATE_CTL`. It
+   contains current facts and Opens plus resolved scope, intent-baseline, and
+   norm-constraint content.
+3. Dispatch `../g5-provenance-runner/SKILL.md` through `$SUBAGENT_TOOL` with
+   `$SUBAGENT_AWAIT_SYNC`, supplying that complete context.
+4. Pass the structured return unchanged to `$PROVENANCE_GATE_CTL` for
+   validation and recording.
+5. Call `$PROVENANCE_GATE_CTL present` and show the complete delta receipt.
 
-**Close criterion:** call `$PROVENANCE_GATE_CTL gate-close` — it re-presents the full delta list (read-only receipt) and marks G5 closed. A clean stage simply closes with zero deltas.
+On runner failure or invalid output, record nothing. Report the failure or
+retry from fresh context.
+
+## Close
+
+Call `$PROVENANCE_GATE_CTL gate-close`. It presents the receipt and closes G5,
+including when the receipt has no deltas.
 
 ## Return
 
-```
-inductive-runner complete.
-maturity + opens + facts → <INDUCTIVE_OUT_DIR>/ (maturity under inductive-scope/; opens; _facts.json)
-inductive-dqi.json → <path> (resume aid only; not SoT)
-provenance deltas → intent <A> / scope <B> / norm <C> (all pending-signoff)
-Deferred opens: <N> (from inductive-opens.json status=deferred; will appear in design-doc OQ)
-Returning to parent compose stage for compose Writing.
-```
-Control returns to the parent compose stage.
+Report delta counts by upstream role, then return control to Compose Writing.

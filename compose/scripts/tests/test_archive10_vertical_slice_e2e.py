@@ -1,27 +1,19 @@
 #!/usr/bin/env python3
-"""Archive-1.0 critical gates: vertical-slice E2E + M11 anti-whole-package Seed.
+"""Archive-1.0 critical gates: vertical-slice E2E.
 
-C5: no-split decision-package → project scope-package → convert → Seed L1 =
-    main fact; design-package omits ``order``.
-
-C6: M11-style synthetic corpus — multi-L scope with a fat upstream fact must
-    never Seed-absorb the whole package / sibling L facts.
+C5: no-split decision-package → project scope-package → convert → L1
+    source_path; design-package omits ``order``.
 """
 
 from __future__ import annotations
 
 import importlib.util
 import json
-import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 _SCRIPTS = Path(__file__).resolve().parents[1]
 _WORKFLOW_ROOT = _SCRIPTS.parents[1]
-_INDUCTIVE = _SCRIPTS / "inductive"
-_SECTION_CTL = _INDUCTIVE / "inductive_g3_section_control.py"
 _DESIGN_START = _WORKFLOW_ROOT / "lulu-design" / "scripts" / "start"
 
 for _p in (
@@ -101,28 +93,6 @@ def _seed_no_split_approach(tmp_path: Path) -> Path:
     return root
 
 
-def _run_seed(out_dir: Path, *args: str) -> tuple[int, dict]:
-    res = subprocess.run(
-        [sys.executable, str(_SECTION_CTL), "--out-dir", str(out_dir), *args],
-        capture_output=True,
-        text=True,
-    )
-    try:
-        payload = json.loads(res.stdout)
-    except json.JSONDecodeError:
-        payload = {"ok": False, "raw": res.stdout, "stderr": res.stderr}
-    return res.returncode, payload
-
-
-def _init_pointer(out_dir: Path) -> None:
-    code, payload = _run_seed(
-        out_dir, "init-pointer", "--sections", "I,ST", "--mandatory", ""
-    )
-    assert code == 0, payload
-    code, payload = _run_seed(out_dir, "activate-section", "--section", "I")
-    assert code == 0, payload
-
-
 def test_vertical_slice_no_split_e2e(tmp_path: Path) -> None:
     """C5: package → scope-package → convert → L1 Seed = main fact; no order."""
     approach = _seed_no_split_approach(tmp_path)
@@ -158,25 +128,6 @@ def test_vertical_slice_no_split_e2e(tmp_path: Path) -> None:
     assert resolve_l_seed_source_path(rev, "L1") == str(main_doc)
 
     l1 = rev / "L1"
-    _init_pointer(l1)
-    code, payload = _run_seed(
-        l1,
-        "seed-decision",
-        "--section",
-        "I",
-        "--lens-tags",
-        "I",
-        "--text",
-        "main pick-1",
-    )
-    assert code == 0, payload
-    facts = json.loads((l1 / "_facts.json").read_text(encoding="utf-8"))
-    refs = facts[0]["origin"]["ref"]
-    assert str(main_doc) in refs
-    assert "scope-package" not in "".join(refs)
-    assert "decision-package" not in "".join(refs)
-
-    # design-package / compose package: slices SSOT, no order field.
     (l1 / "design-doc.md").write_text("# L1 design\n", encoding="utf-8")
     design_pkg = build_compose_package(
         profile_id="lulu-design",
@@ -188,77 +139,3 @@ def test_vertical_slice_no_split_e2e(tmp_path: Path) -> None:
     saved = json.loads(out.read_text(encoding="utf-8"))
     assert "order" not in saved
     assert [s["id"] for s in saved["slices"]] == ["L1"]
-
-
-def test_m11_seed_does_not_absorb_whole_package(tmp_path: Path) -> None:
-    """C6: fat upstream fact + sibling L — Seed L1 only sees L1 fact_path.
-
-    Synthetic stand-in for corpus feature-20260724105005-345eefe1 (M11):
-    a many-unit approach fact must not be absorbed wholesale when Seed runs
-    under a multi-L scope-package.
-    """
-    approach = tmp_path / "approach"
-    # Poison: 40-unit "whole package" fact that must never be Seed origin.
-    whole = _unit_doc(approach / "whole" / "decision-doc.md", "WHOLE", n_units=40)
-    f1 = _unit_doc(approach / "D1" / "decision-doc.md", "auth", n_units=2)
-    f2 = _unit_doc(approach / "D2" / "decision-doc.md", "billing", n_units=3)
-
-    rev = tmp_path / "design" / "revision1"
-    rev.mkdir(parents=True)
-    # Project via adapter path would need a real decision-package; here we
-    # write the scope-package that StartAdapter would emit after projection.
-    from scope_package_schema import build_scope_package, save_scope_package
-
-    pkg = build_scope_package(
-        slices=[
-            {
-                "id": "L1",
-                "title": "Auth",
-                "source_path": str(f1.resolve()),
-                "source_id": "D1",
-            },
-            {
-                "id": "L2",
-                "title": "Billing",
-                "source_path": str(f2.resolve()),
-                "source_id": "D2",
-            },
-        ]
-    )
-    scope_path = save_scope_package(rev, pkg)
-    # Place the poison whole-fact path into revision resolved index temptation.
-    convert_scope_package(rev, scope_package_path=scope_path)
-
-    assert resolve_l_seed_source_path(rev, "L1") == str(f1.resolve())
-    assert resolve_l_seed_source_path(rev, "L2") == str(f2.resolve())
-
-    l1 = rev / "L1"
-    _init_pointer(l1)
-    index_path = l1 / "inductive-scope" / "_index.json"
-    index = json.loads(index_path.read_text(encoding="utf-8"))
-    # Tempt Seed with whole-package + scope-package paths in index.
-    index["scope_ref"] = str(whole.resolve())
-    index_path.write_text(json.dumps(index), encoding="utf-8")
-
-    code, payload = _run_seed(
-        l1,
-        "seed-decision",
-        "--section",
-        "I",
-        "--lens-tags",
-        "I",
-        "--text",
-        "auth-1",
-    )
-    assert code == 0, payload
-    facts = json.loads((l1 / "_facts.json").read_text(encoding="utf-8"))
-    refs = "".join(facts[0]["origin"]["ref"])
-    assert str(f1.resolve()) in refs
-    assert str(whole.resolve()) not in refs
-    assert str(f2.resolve()) not in refs
-    assert scope_path.name not in refs
-    # Unit-count gate: L1 fact has 2 units — Seed must not pull 40-unit whole.
-    whole_units = json.loads(whole.read_text(encoding="utf-8"))["gates"]["D"]
-    assert len(whole_units) == 40
-    seeded_text = json.dumps(facts)
-    assert "WHOLE-" not in seeded_text

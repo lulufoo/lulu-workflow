@@ -107,7 +107,6 @@ _MUTATIONS = frozenset(
 _PRODUCER_STAMP = "_producer.complete"
 _WRITING_STAMP = "_writing.complete"
 _EVAL_RUN_FILE = "_eval_run.json"
-_INDUCTIVE_SUBDIR = "inductive-scope"
 _INDUCTIVE_GATE_STATE_FILE = "inductive-gate-state.json"
 _PROVENANCE_GATE_STATE_FILE = "provenance-gate-state.json"
 
@@ -230,6 +229,50 @@ def _inductive_out(cycle_id: str, project_root: Path, profile_id: str) -> Path:
     return (project_root / inductive_out_dir(cycle_id, profile_id, project_root)).resolve()
 
 
+def _ensure_inductive_imports() -> None:
+    inductive = _SCRIPTS / "inductive"
+    schema = inductive / "schema"
+    for path in (inductive, schema):
+        if str(path) not in sys.path:
+            sys.path.insert(0, str(path))
+
+
+def _init_inductive_slice(slice_dir: Path, cycle_id: str, profile_id: str) -> None:
+    from compose_state_lock import compose_state_lock  # noqa: WPS433
+
+    _ensure_inductive_imports()
+    from inductive_gate_state_schema import init_gate_state, save_gate_state  # noqa: WPS433
+    from open_point_store import ensure_idle_bundle  # noqa: WPS433
+
+    gate_path = Path(slice_dir) / _INDUCTIVE_GATE_STATE_FILE
+    with compose_state_lock(slice_dir):
+        ensure_idle_bundle(slice_dir)
+        if not gate_path.is_file():
+            save_gate_state(
+                gate_path,
+                init_gate_state(cycle_id=cycle_id, stage=profile_id),
+            )
+
+
+def _open_point_txn_block(slice_dir: Path) -> str | None:
+    txn_path = Path(slice_dir) / "_open-point-txn.json"
+    if not txn_path.is_file():
+        return None
+    from compose_state_lock import compose_state_lock  # noqa: WPS433
+
+    _ensure_inductive_imports()
+    from open_point_store import RepairRequired, reconcile  # noqa: WPS433
+
+    try:
+        with compose_state_lock(slice_dir):
+            reconcile(slice_dir)
+            if txn_path.is_file():
+                return "pending open-point transaction"
+    except RepairRequired:
+        return "open-point transaction repair_required"
+    return None
+
+
 def _opaque_producer_closed(
     cycle_id: str,
     project_root: Path,
@@ -268,6 +311,10 @@ def _producer_complete_error(
         return "producer complete check failed: facts missing"
     if _has_stamp(slice_dir, _PRODUCER_STAMP):
         return None
+    if inductive:
+        txn_err = _open_point_txn_block(slice_dir)
+        if txn_err:
+            return f"producer complete check failed: {txn_err}"
     if not _opaque_producer_closed(
         cycle_id,
         project_root,
@@ -565,6 +612,13 @@ def enter_producer(
     payload = _with_revision_lock(_CMD_ENTER_PRODUCER, revision_dir, apply)
     if payload.get("ok"):
         payload["dispatch_input"] = dispatch_input
+        if inductive:
+            focus = str(payload.get("focus") or "")
+            slice_dir = (revision_dir / focus).resolve()
+            try:
+                _init_inductive_slice(slice_dir, cycle_id, profile_id)
+            except (OSError, ValueError) as exc:
+                return _failure(_CMD_ENTER_PRODUCER, "illegal_transition", str(exc))
     return payload
 
 

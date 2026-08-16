@@ -61,7 +61,6 @@ _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
     "/scripts/cycle_control.py",
     "/compose/scripts/core/start.py",
     "/compose/scripts/inductive/inductive_gate_control.py",
-    "/compose/scripts/inductive/inductive_g3_grounding_control.py",
     "/compose/scripts/inductive/inductive_g4_control.py",
     # Stage scripts: short form so "$SKILL_DIR/scripts/..." also matches.
     "/scripts/tc_start.py",
@@ -78,7 +77,6 @@ _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
 # Inductive grounding controls: always bind to the hook conversation id (override agent typos).
 _INDUCTIVE_CONV_OVERRIDE_SUFFIXES = (
     "/compose/scripts/inductive/inductive_gate_control.py",
-    "/compose/scripts/inductive/inductive_g3_grounding_control.py",
     "/compose/scripts/inductive/inductive_g4_control.py",
 )
 
@@ -235,8 +233,7 @@ def _apply_conversation_id(command: str, conv_id: str) -> Optional[str]:
     Operates per newline-separated statement, not on the whole command blob:
     a multi-line Shell call may mix an injectable script (e.g.
     inductive_gate_control.py) with a non-injectable one (e.g.
-    inductive_g3_section_control.py, which has no --conversation-id flag and
-    needs none — see inductive_subagent_guard). Matching on the full string
+    l_step_control.py, which has no --conversation-id flag). Matching on the full string
     would append the flag once at the very end, landing on whichever
     statement happens to be last (wrong target, and on a trailing empty line
     when the command ends with "\\n" it becomes a bare, invalid statement).

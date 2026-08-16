@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for inductive-opens.json schema (K4 Phase 1a)."""
+"""Tests for rewritten inductive-opens.json schema (open-point contract)."""
 
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ from pathlib import Path
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 sys.path.insert(0, str(_INDUCTIVE_DIR))
 
+from compose_state_lock import canonical_digest  # noqa: E402
 from opens_schema import (  # noqa: E402
     blocking_open_items,
     load_opens,
-    migrate_means,
     mint_open_id,
     next_open_seq,
     normalize_open,
@@ -26,40 +26,76 @@ def _minimal_open(**overrides):
     base = {
         "id": "O-1",
         "status": "open",
-        "source": {"trigger": "human", "means": "human_direct"},
-        "kw": 1,
+        "source": {"actor": "human", "means": "direct"},
+        "question": "What is the failure mode?",
+        "basis": "Collision between intent and current facts",
         "blocking": True,
-        "problem": "gap",
-        "detected_under": None,
     }
     base.update(overrides)
     return base
 
 
-def test_mint_and_next_seq():
+def test_mint_and_next_seq_allows_gaps():
     assert mint_open_id(1) == "O-1"
     assert next_open_seq([]) == 1
     assert next_open_seq([_minimal_open()]) == 2
+    assert next_open_seq([_minimal_open(), _minimal_open(id="O-3")]) == 4
 
 
-def test_validate_accepts_empty_and_minimal():
+def test_validate_accepts_empty_and_gap_ids():
     assert validate_opens([]) == []
     assert validate_opens([_minimal_open()]) == []
+    assert (
+        validate_opens(
+            [
+                _minimal_open(id="O-1"),
+                _minimal_open(id="O-3", question="second"),
+            ]
+        )
+        == []
+    )
 
 
-def test_validate_rejects_facet_id_field():
-    errs = validate_opens([_minimal_open(facet_id="runtime_degradation")])
-    assert any("unexpected fields" in e and "facet_id" in e for e in errs)
+def test_validate_rejects_missing_required_fields():
+    for field in ("id", "status", "source", "question", "basis", "blocking"):
+        raw = _minimal_open()
+        del raw[field]
+        errs = validate_opens([raw])
+        assert any(field in e for e in errs), field
 
 
-def test_validate_rejects_non_contiguous_ids():
+def test_validate_rejects_old_fields():
+    for field, value in (
+        ("problem", "gap"),
+        ("kw", 1),
+        ("trigger", "human"),
+        ("facet_id", "runtime_degradation"),
+    ):
+        errs = validate_opens([_minimal_open(**{field: value})])
+        assert any("unexpected" in e and field in e for e in errs), field
+
+
+def test_validate_rejects_invalid_actor_and_means():
+    errs = validate_opens(
+        [_minimal_open(source={"actor": "seed", "means": "direct"})]
+    )
+    assert any("actor" in e for e in errs)
+
+    errs = validate_opens(
+        [_minimal_open(source={"actor": "human", "means": "human_direct"})]
+    )
+    assert any("means" in e for e in errs)
+
+
+def test_validate_rejects_unexpected_source_fields():
     errs = validate_opens(
         [
-            _minimal_open(id="O-1"),
-            _minimal_open(id="O-3", problem="second"),
+            _minimal_open(
+                source={"actor": "human", "means": "direct", "trigger": "human"}
+            )
         ]
     )
-    assert any("O-2" in e for e in errs)
+    assert any("source" in e and "unexpected" in e for e in errs)
 
 
 def test_validate_settled_requires_resolved_by():
@@ -82,13 +118,6 @@ def test_validate_deferred_requires_note():
     assert ok == []
 
 
-def test_validate_rejects_resolved_by_when_not_settled():
-    errs = validate_opens(
-        [_minimal_open(status="open", resolved_by=["F-1"])]
-    )
-    assert any("resolved_by" in e and "settled" in e for e in errs)
-
-
 def test_validate_rejected_requires_reason():
     errs = validate_opens([_minimal_open(status="rejected")])
     assert any("reason" in e for e in errs)
@@ -99,43 +128,31 @@ def test_validate_rejected_requires_reason():
     assert ok == []
 
 
-def test_validate_rejects_seed_trigger_on_open():
-    """Seed bypasses opens; opens are discovered-only."""
-    errs = validate_opens(
-        [
-            _minimal_open(
-                source={"trigger": "seed", "means": "scope"},
-            )
-        ]
-    )
-    assert any("trigger" in e for e in errs)
-
-
-def test_normalize_uppercases_detected_under():
-    n = normalize_open(_minimal_open(detected_under="rn"))
-    assert n["detected_under"] == "RN"
+def test_validate_rejects_resolved_by_when_not_settled():
+    errs = validate_opens([_minimal_open(status="open", resolved_by=["F-1"])])
+    assert any("resolved_by" in e for e in errs)
 
 
 def test_save_load_round_trip(tmp_path: Path):
     opens = [
         _minimal_open(),
         _minimal_open(
-            id="O-2",
+            id="O-3",
             status="settled",
             blocking=False,
-            problem="resolved gap",
-            detected_under="FL",
+            question="resolved gap",
             resolved_by=["F-7", "F-8"],
-            leaning="prefer A",
+            code_refs=["src/a.py:10"],
         ),
     ]
     path = opens_path(tmp_path)
     save_opens(path, opens)
     loaded = load_opens(path)
-    assert loaded[0]["id"] == "O-1"
-    assert loaded[0]["detected_under"] is None
+    assert [item["id"] for item in loaded] == ["O-1", "O-3"]
     assert loaded[1]["resolved_by"] == ["F-7", "F-8"]
-    assert loaded[1]["detected_under"] == "FL"
+    assert loaded[1]["code_refs"] == ["src/a.py:10"]
+    assert "problem" not in loaded[0]
+    assert "kw" not in loaded[0]
 
 
 def test_load_missing_file_returns_empty(tmp_path: Path):
@@ -151,71 +168,26 @@ def test_blocking_open_items_filters():
                 status="settled",
                 blocking=True,
                 resolved_by=["F-1"],
-                problem="done",
+                question="done",
             )
         ),
-        normalize_open(_minimal_open(id="O-3", blocking=False, problem="soft")),
+        normalize_open(_minimal_open(id="O-3", blocking=False, question="soft")),
     ]
     blocked = blocking_open_items(opens)
-    assert [o["id"] for o in blocked] == ["O-1"]
+    assert [item["id"] for item in blocked] == ["O-1"]
 
 
-def test_migrate_means_stock_map():
-    assert migrate_means("human", "probe") == "human_probe"
-    assert migrate_means("ai", "probe") == "ai_probe"
-    assert migrate_means("human", "direct") == "human_direct"
-    assert migrate_means("human", "view") == "human_view"
-    assert migrate_means("ai", "intent_baseline") == "ai_intent_baseline"
-    assert migrate_means("ai", "ai_scan") == "ai_scan"
-    assert migrate_means("ai", "ai_scope_scan") == "ai_scan"
+def test_no_migrate_helpers_exported():
+    import opens_schema
+
+    assert not hasattr(opens_schema, "migrate_means")
+    assert not hasattr(opens_schema, "migrate_open_source")
+    assert not hasattr(opens_schema, "TRIGGERS")
 
 
-def test_normalize_migrates_legacy_means():
-    n = normalize_open(
-        _minimal_open(source={"trigger": "ai", "means": "probe"})
+def test_versioned_array_digest_changes_with_payload():
+    first = canonical_digest([normalize_open(_minimal_open())])
+    second = canonical_digest(
+        [normalize_open(_minimal_open(question="changed"))]
     )
-    assert n["source"] == {"trigger": "ai", "means": "ai_probe"}
-
-
-def test_validate_rejects_prefix_trigger_mismatch():
-    errs = validate_opens(
-        [
-            _minimal_open(
-                source={"trigger": "human", "means": "ai_scan"},
-            )
-        ]
-    )
-    assert any("prefix" in e and "trigger" in e for e in errs)
-
-
-def test_save_load_rewrites_legacy_means(tmp_path: Path):
-    path = opens_path(tmp_path)
-    save_opens(
-        path,
-        [_minimal_open(source={"trigger": "human", "means": "direct"})],
-    )
-    loaded = load_opens(path)
-    assert loaded[0]["source"]["means"] == "human_direct"
-    # Disk rewritten with new means.
-    assert '"human_direct"' in path.read_text(encoding="utf-8")
-
-
-def test_ai_scope_scan_migrates_to_ai_scan():
-    n = normalize_open(
-        _minimal_open(
-            source={"trigger": "ai", "means": "ai_scope_scan"},
-            intent_ref="D-1",
-        )
-    )
-    assert n["source"]["means"] == "ai_scan"
-    assert (
-        validate_opens(
-            [
-                _minimal_open(
-                    source={"trigger": "ai", "means": "ai_scope_scan"},
-                    intent_ref="D-1",
-                )
-            ]
-        )
-        == []
-    )
+    assert first != second

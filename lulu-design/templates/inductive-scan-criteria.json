@@ -1,7 +1,7 @@
 {
   "version": "1",
   "profile_id": "lulu-design",
-  "_note": "Gate 3 (Refine) configuration. Two axes: (1) cross-section COVERAGE/BREADTH axis = expose_axis.coverage_sections (ordered default + coverage checklist; NOT a granularity ladder — crossing sections changes design dimension, not resolution; independent of compose section_order); (2) within-section GRANULARITY gradient = KW (section-kw-criteria), the only coarse->fine axis, used as a ruler/stop-gate, not a per-level loop. Gate 3 traverses by FRONTIER SWEEP: each sweep surfaces every unsettled section's coarsest open point at its current frontier_kw and advances all sections' maturity together — not one section drilled to KW3 before the next. methods are the discovery ACTION (generate candidate gaps); KW is the declarative acceptance predicate — an open point = a method-found gap that leaves a KW criterion false. Iteration unit = one open point, never section*KW. Sections also are the output storage axis (per-section files). Domain variation is a post-MVP extension point (see deferred).",
+  "_note": "Gate 3 Open-point Loop coverage hints. coverage_sections are lenses for one complete Detect pass, not a maturity ladder or frontier sweep. methods generate candidate gaps (question + basis + blocking). Detect does not write opens; the parent registers the human-adjusted set.",
   "shape_extraction": {
     "_note": "Gate 1 only. A coarse architecture view (not prose, not sections). Carrier artifact refined by later gates. Confirmed load-bearing claims become shape constraints that Gate 3 discovery subtracts. Field set and per-field render rules live here — do not hardcode them in the runner SKILL.",
     "artifact_label": "architecture view",
@@ -67,7 +67,7 @@
     }
   },
   "expose_axis": {
-    "_note": "coverage_sections = the ordered Gate 3 coverage/breadth axis + default sweep order (NOT a granularity ladder; crossing sections changes dimension, not resolution). Gate 3 walks by frontier sweep: each sweep surfaces every unsettled section's coarsest open point at its current frontier_kw, advancing all sections' maturity together — coarse->fine lives in the within-section KW gradient, not the cross-section order. Within a section, methods (action) generate candidate gaps; KW (ruler) qualifies which are real open points and decides when the section is clear enough to leave (default KW3). Figures use the section's carrier from section-form-registry. Sections not listed (CTX/GOAL/SCOPE) are peeled — no Gate 3 discovery (covered by Gate 1 shape or the deferred bucket). (removed compatibility-arc-leaf) and DEP are in coverage_sections with weight optional (skip-section when out of scope).",
+    "_note": "coverage_sections = lenses Detect must cover in one pass. methods emit candidate gaps. Do not treat this list as a frontier, maturity, or per-lens completion gate.",
     "coverage_sections": [
       "I",
       "ST",
@@ -127,7 +127,7 @@
         "finds": "degradation path, rollback strategy, observability gaps for this change"
       },
       "intent_coverage": {
-        "_note": "Intent_baseline generative source as a method: manifest-fed, not code-scan. INERT until a demand manifest exists — no manifest and no fallback demands → no candidates (degrade invariant). Runner execution logic (manifest load, close-time recompute, intent_ref dedup) lives in inductive-runner g3-refine + SKILL; register-ep accepts source=intent_baseline + optional intent_ref. Design SSOT: lulu-dev-skills docs/biz/inductive-intent-baseline-source.md §5.2/§5.3/§5.4/§5.8.",
+        "_note": "Intent-baseline method: manifest-fed, not code-scan. Inert when no demand manifest exists.",
         "weight": "recommended",
         "source": "intent_baseline",
         "sections": [
@@ -140,11 +140,11 @@
           "VERIFY",
           "RISK"
         ],
-        "finds": "product-intent demands (from the delivered demand manifest) not yet fulfilled by their mapped section's figure at its current frontier_kw; each unmet demand → an open point worded at that KW altitude, carrying intent_ref",
+        "finds": "product-intent demands from the delivered demand manifest that current facts and opens do not yet fulfill",
         "input": "demand manifest (spec-demands.json) delivered by the producer (lulu-spec); each demand carries its target section + summary + SPEC-n id",
         "fallback": "no manifest → enumerate demands from the upstream product-doc per profile rule and cache once for id stability (consumer fallback); no product-doc either → no demands",
         "inert_when": "empty INTENT_BASELINE_REFS, or no manifest and no fallback demands → zero candidates, no-op",
-        "dedup": "attach intent_ref to an existing open with the same (section, KW row); else register a new open with source=intent_baseline. Facet seeds on the lens are non-exhaustive prompt reminders only — not a dedup key."
+        "dedup": "Do not re-register a demand already covered by a current fact or open. Facet seeds are non-exhaustive prompt reminders only."
       }
     },
     "mandatory_coverage_prompt": [

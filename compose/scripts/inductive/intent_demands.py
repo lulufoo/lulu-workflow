@@ -88,20 +88,10 @@ def is_generation_guaranteed(
 
 
 def deferred_intent_refs(out_dir: str | Path) -> set[str]:
-    """``intent_ref`` ids on deferred opens (K4; S1 silence for G5).
+    """Deferred-open silence set for G5.
 
-    A demand whose only trace is a deferred open was explicitly skipped by the
-    user, so its absence downstream is expected and must not be flagged.
-
-    Reads ``inductive-opens.json`` entries with ``status=deferred``. Missing
-    file → empty set. Invalid opens JSON → raises (no silent empty).
+    Opens no longer store ``intent_ref``. Load the file so invalid JSON still
+    fails; return empty until a live deferred-intent field exists.
     """
-    opens = load_opens(opens_path(Path(out_dir)))
-    refs: set[str] = set()
-    for item in opens:
-        if item.get("status") != "deferred":
-            continue
-        ref = item.get("intent_ref")
-        if isinstance(ref, str) and ref.strip():
-            refs.add(ref.strip())
-    return refs
+    load_opens(opens_path(Path(out_dir)))
+    return set()

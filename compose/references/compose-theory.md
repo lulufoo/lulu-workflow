@@ -25,7 +25,7 @@ The theory below is governed by three ontological layers — substance, lens, an
 | Layer | Contains | Answers | Where it lives |
 |-------|----------|---------|----------------|
 | Substance (§1) | Content (facts) + anchors (§1.5) | what is true (stage-local) | `_facts.json` — producer-written (inductive discovery / deductive materialize + Derive); Writing validate-only (origins §1.2) |
-| Lens / envelope (§2) | lens / intent / optional facet seeds (§2.4) | whose viewpoint owns it (N:M); seed reminders for detect | `lens_tags` + section-registry `intent` + optional `facets` string[] |
+| Lens / envelope (§2) | lens / intent / optional facet seeds (§2.3) | whose viewpoint owns it (N:M); seed reminders for detect | `lens_tags` + section-registry `intent` + optional `facets` string[] |
 | Presentation (§3) | Writing cognition (What) + Assemble (arc titles / chapter anchors) | which reading / presentation / expression constraints apply under this lens; how the doc is labeled | per-lens `section-form-registry`; titles from `_narrative-arc` + `assemble-arc` |
 
 **Invariant — substance carries no presentation.** One fact may be tagged to several lenses and is rebuilt differently under each. Writing cognition is not an attribute of the fact. Lens membership is *stored* (`lens_tags`); presentation is *applied on Write*, never persisted onto the fact.
@@ -47,30 +47,30 @@ Every fact has exactly one `origin.type`:
 | origin | born when | provenance |
 |--------|-----------|------------|
 | `seed` | declared directly into the fact set (no open) | scope path + excerpt |
-| `discovered` | a matured open expands 1:N into facts | open id |
+| `discovered` | a settled Open expands 1:N into facts | Open id |
 | `derived` | deductive Derive after materialize | upstream fact ids |
 
 Writing does not rewrite inductive SoT (validate-only — §1.1).
 
 ### 1.3 Inductive generation (`Induce`)
 
-`Induce` is inductive (unknown substance → discover, ground, decide, fold): shared
-**FactIntake** seeds `_facts.json`, then discovery expands via opens (K4; no
-projection). `Write` (§3) only weaves already-produced facts into prose — it does
-**not** produce facts.
+`Induce` is inductive (unknown substance → detect, decide, settle): shared
+**FactIntake** seeds `_facts.json`, then detection creates Opens and settlement
+expands the fact set. `Write` (§3) only weaves already-produced facts into prose.
 
 ```text
 FactIntake(source document) → _facts.json (seed + disposition)
-_facts.json  ⊕=  Expand( open_point )   # via settle → 1:N facts
-open_point = Expose(trigger × means)  # kept iff ( frontier_KW row false  ∧  ¬Settled )
+candidate Opens = Detect(all lenses; settled facts, existing Opens)
+                  − SettledBy(facts) − RepresentedBy(existing Opens)
+_facts.json ⊕= Settle(Open)             # 1:N facts
 ```
 
 - `FactIntake` — shared cut → fidelity eval → disposition + Confirm (`origin.type=seed`).
-- `Expand` — ground → propose → **user decides** → settle / defer / reject into the fact set.
-- `⊕=` — append with `lens_tags`; deepen by KW; never overwrite another lens in place.
-- Intake seed is not Expose: it writes `origin.type=seed` facts directly (no open).
-
-`Expose` finds open points as **trigger × means** (ai or human), gated by `frontier_kw`, minus `¬Settled` (`lens_tags` coverage). Means names and probes live in the inductive runner.
+- `Detect` — inspect every lens and subtract questions already settled by facts or represented by existing Opens.
+- Optional lens facets are non-exhaustive detection reminders.
+- `Settle` — ground → propose → **user decides** → append discovered facts; defer and reject leave the fact set unchanged.
+- `⊕=` — append tagged facts; never overwrite another lens in place.
+- Intake seeds write `origin.type=seed` facts directly and create no Open.
 
 ### 1.4 Deductive materialization (`Deduce`)
 
@@ -109,19 +109,14 @@ Membership is stored; presentation is applied per lens — the two must not be c
 
 ### 2.2 Membership: `lens_tags`
 
-`lens_tags` (on each fact) — N:M membership: one fact may belong to several lenses, each rebuilt under that lens's writing cognition. `lens_tags` are written at fact birth; `⊕=` never overwrites another lens in place. `Expose`'s `¬Settled` predicate (defined §1.3) tests exactly this `lens_tags` coverage.
+`lens_tags` (on each fact) — N:M membership: one fact may belong to several lenses, each rebuilt under that lens's writing cognition. `lens_tags` are written at fact birth; `⊕=` never overwrites another lens in place.
 
-### 2.3 Lens maturity: `frontier_kw`
-
-`frontier_kw` (inductive maturity ledger) — per-lens completeness altitude. Inductive generation (§1.3) reads it via `Expose` to decide whether a lens still needs facts (the `kept iff` predicate lives in §1.3).
-
-### 2.4 Facet seeds
+### 2.3 Facet seeds
 
 Optional **facet seeds** are short string labels on a section-registry lens (`facets: string[]`, roughly 3–5 English words each). They are **inductive detect reminders**.
 
 ```text
-breadth: lens ∈ coverage_sections
-depth:   frontier_kw              # altitude, per-lens only
+breadth: every registered lens
 seeds:   facets string[]          # optional; prompt input only
 ```
 

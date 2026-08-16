@@ -43,7 +43,7 @@ def _seed_master_conversation(out_dir: Path, *, master_conv: str = _PARENT_CONV)
     res = subprocess.run(
         [
             sys.executable, str(_INDUCTIVE_GATE_CTL), "--out-dir", str(out_dir),
-            "init-session", "--sections", "I,ST", "--mandatory", "",
+            "init-session",
             "--cycle-id", "c1", "--conversation-id", master_conv,
         ],
         capture_output=True,

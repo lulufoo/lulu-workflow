@@ -138,8 +138,8 @@ class TestShouldInjectConversationId:
             "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-tasks/scripts/tt_start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-code/scripts/tc_start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-code/scripts/tc_task_control.py resolve-context --task-id t1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/inductive_gate_control.py init-session --out-dir /tmp/r1 --sections I",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/inductive_g3_grounding_control.py record-grounding --out-dir /tmp/r1 --json '{}'",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/inductive_gate_control.py init-session --out-dir /tmp/r1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/inductive_g4_control.py record-recompose-report --out-dir /tmp/r1 --json '{}'",
         ],
     )
     def test_start_py_invocation(self, command):
@@ -171,7 +171,7 @@ class TestShouldInjectConversationId:
     def test_inductive_override_replaces_agent_conv_id(self):
         cmd = (
             "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/"
-            "inductive_gate_control.py init-session --out-dir /tmp/r1 --sections I "
+            "inductive_gate_control.py init-session --out-dir /tmp/r1 "
             '--conversation-id "feature-20260703084622-3b3a7fdd-lulu-design"'
         )
         updated = hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d")
@@ -182,7 +182,7 @@ class TestShouldInjectConversationId:
     def test_inductive_injects_when_flag_absent(self):
         cmd = (
             "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/"
-            "inductive_g3_grounding_control.py record-grounding --out-dir /tmp/r1 --json '{}'"
+            "inductive_g4_control.py record-recompose-report --out-dir /tmp/r1 --json '{}'"
         )
         updated = hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d")
         assert updated is not None
@@ -190,18 +190,17 @@ class TestShouldInjectConversationId:
 
     def test_multiline_command_injects_only_matching_line(self):
         """Regression: a multi-line Shell call mixing inductive_gate_control.py
-        (injectable) with inductive_g3_section_control.py (not injectable — no
-        --conversation-id flag, no subagent-required command) must not append
-        the flag to the whole blob's tail. Previously this produced a bare
-        trailing "--conversation-id <id>" line that zsh ran as its own
-        (failing) command.
+        (injectable) with l_step_control.py (not injectable — no
+        --conversation-id flag) must not append the flag to the whole blob's
+        tail. Previously this produced a bare trailing "--conversation-id <id>"
+        line that zsh ran as its own (failing) command.
         """
         cmd = (
             'OUT="/tmp/r1"\n'
             'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/'
             'inductive_gate_control.py --out-dir "$OUT" gate-close --gate G3\n'
-            'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/'
-            'inductive_g3_section_control.py --out-dir "$OUT" recompose-check 2>&1\n'
+            'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/section/'
+            'l_step_control.py --cycle-id fid1 enter-producer 2>&1\n'
         )
         updated = hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d")
         assert updated is not None
@@ -210,9 +209,8 @@ class TestShouldInjectConversationId:
         assert lines[1].endswith(
             "gate-close --gate G3 --conversation-id 9001dc22-85f1-404b-869c-2e471433da4d"
         )
-        # The section-control line has no flag registered and no
-        # subagent-required command — must be left untouched.
-        assert lines[2].endswith("recompose-check 2>&1")
+        # The l_step_control line has no flag registered — must be left untouched.
+        assert lines[2].endswith("enter-producer 2>&1")
         assert "--conversation-id" not in lines[2]
         # No stray trailing statement — never a bare "--conversation-id ..." line.
         assert lines[3] == ""
@@ -220,8 +218,8 @@ class TestShouldInjectConversationId:
     def test_multiline_command_no_injectable_line_returns_none(self):
         cmd = (
             'OUT="/tmp/r1"\n'
-            'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/'
-            'inductive_g3_section_control.py --out-dir "$OUT" recompose-check 2>&1\n'
+            'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/section/'
+            'l_step_control.py --cycle-id fid1 enter-producer 2>&1\n'
         )
         assert hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d") is None
 
@@ -292,7 +290,7 @@ class TestShouldInjectConversationId:
     def test_skill_root_inductive_override(self):
         cmd = (
             'python3 "$SKILL_ROOT/compose/scripts/inductive/'
-            'inductive_gate_control.py" init-session --out-dir /tmp/r1 --sections I '
+            'inductive_gate_control.py" init-session --out-dir /tmp/r1 '
             '--conversation-id "wrong-id"'
         )
         updated = hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d")

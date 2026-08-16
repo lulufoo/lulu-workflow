@@ -29,7 +29,8 @@ _RUNNER_SCRIPTS = Path(__file__).resolve().parent
 _COMPOSE = _RUNNER_SCRIPTS.parents[1]
 _SCRIPTS = _COMPOSE / "scripts"
 _INDUCTIVE = _SCRIPTS / "inductive"
-for _p in (_SCRIPTS, _INDUCTIVE, _RUNNER_SCRIPTS):
+_INDUCTIVE_SCHEMA = _INDUCTIVE / "schema"
+for _p in (_SCRIPTS, _INDUCTIVE, _INDUCTIVE_SCHEMA, _RUNNER_SCRIPTS):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 import kernel_bootstrap  # noqa: E402
@@ -43,8 +44,21 @@ from facts_schema import (  # noqa: E402
     save_facts,
     validate_facts,
 )
-from g3_section_pointer_schema import load_section_pointer  # noqa: E402
 from opens_schema import load_opens, opens_path, save_opens, validate_opens  # noqa: E402
+from open_point_store import (  # noqa: E402
+    apply_loop_after,
+    assert_slice_writable,
+    load_bundle,
+    preview_settle,
+)
+from open_point_batch_schema import (  # noqa: E402
+    load_open_point_batches,
+    open_point_batches_path,
+)
+from open_point_state_schema import (  # noqa: E402
+    load_open_point_state,
+    open_point_state_path,
+)
 from compose_state_lock import (  # noqa: E402
     canonical_digest,
     compose_state_lock,
@@ -99,11 +113,22 @@ def _load_entries(args: argparse.Namespace) -> list[dict[str, Any]]:
 
 
 def _allowed_lenses(slice_dir: Path) -> list[str]:
-    ptr_path = slice_dir / "inductive-section-pointer.json"
-    if not ptr_path.is_file():
+    path = slice_dir / "section-registry.json"
+    if not path.is_file():
         return []
-    ptr = load_section_pointer(ptr_path)
-    return [str(k).strip().upper() for k in ptr.get("coverage_order") or []]
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if not isinstance(raw, dict):
+        return []
+    order = raw.get("section_order")
+    if isinstance(order, list) and order:
+        return [str(key).strip().upper() for key in order if str(key).strip()]
+    sections = raw.get("sections")
+    if isinstance(sections, dict):
+        return [str(key).strip().upper() for key in sections if str(key).strip()]
+    return []
 
 
 def _find_open(
@@ -492,6 +517,16 @@ def _load_opens_optional(slice_dir: Path) -> tuple[list[dict[str, Any]], bool]:
     return (load_opens(path), True) if path.is_file() else ([], False)
 
 
+def _load_state_optional(slice_dir: Path) -> tuple[dict[str, Any], bool]:
+    path = open_point_state_path(slice_dir)
+    return load_open_point_state(path), path.is_file()
+
+
+def _load_batches_optional(slice_dir: Path) -> tuple[dict[str, Any], bool]:
+    path = open_point_batches_path(slice_dir)
+    return load_open_point_batches(path), path.is_file()
+
+
 def _entry_facts(
     entries: list[dict[str, Any]],
     *,
@@ -601,7 +636,18 @@ def _build_proposal(
         open_id = str(args.open_id or "").strip()
         if not open_id:
             raise ValueError("settle_open proposal requires --open-id")
-        opens_before, opens_before_exists = _load_opens_optional(slice_dir)
+        bundle = load_bundle(slice_dir)
+        opens_before = bundle["opens"]
+        opens_before_exists = opens_path(slice_dir).is_file()
+        state_before = bundle["state"]
+        state_before_exists = open_point_state_path(slice_dir).is_file()
+        batches_before = bundle["batches"]
+        batches_before_exists = open_point_batches_path(slice_dir).is_file()
+        if (
+            state_before.get("phase") != "processing"
+            or state_before.get("active_open_id") != open_id
+        ):
+            raise ValueError(f"open {open_id!r} is not the active open")
         open_before = _find_open(opens_before, open_id)
         if open_before is None:
             raise ValueError(f"open not found: {open_id!r}")
@@ -618,20 +664,24 @@ def _build_proposal(
             undeclared,
             [str(ref).strip() for ref in (open_before.get("code_refs") or []) if str(ref).strip()],
         )
-        opens_after = copy.deepcopy(opens_before)
-        open_after = _find_open(opens_after, open_id)
-        assert open_after is not None
-        open_after["status"] = "settled"
-        open_after["resolved_by"] = fact_ids
+        previewed = preview_settle(slice_dir, open_id, fact_ids)
+        opens_after = previewed["opens"]
+        state_after = previewed["state"]
+        batches_after = previewed["batches"]
         errors = validate_opens(opens_after)
         if errors:
             raise ValueError("; ".join(errors))
+        open_after = _find_open(opens_after, open_id)
         payload = {
             "kind": kind,
             "facts_after": facts_after,
             "facts_file_exists_after": True,
             "opens_after": opens_after,
             "opens_file_exists_after": True,
+            "state_after": state_after,
+            "state_file_exists_after": True,
+            "batches_after": batches_after,
+            "batches_file_exists_after": True,
             "settled": open_id,
             "fact_ids": fact_ids,
         }
@@ -657,6 +707,23 @@ def _build_proposal(
         "opens_before": opens_before,
         "opens_file_exists_before": opens_before_exists,
     }
+    if kind == "settle_open":
+        precondition.update(
+            {
+                "state_digest": canonical_digest(state_before),
+                "state_file_exists": state_before_exists,
+                "batches_digest": canonical_digest(batches_before),
+                "batches_file_exists": batches_before_exists,
+            }
+        )
+        snapshot.update(
+            {
+                "state_before": state_before,
+                "state_file_exists_before": state_before_exists,
+                "batches_before": batches_before,
+                "batches_file_exists_before": batches_before_exists,
+            }
+        )
     return payload, precondition, {"snapshot": snapshot, "preview": preview}
 
 
@@ -682,6 +749,10 @@ def _matches_snapshot(
     facts_exists: bool,
     opens: list[dict[str, Any]] | None,
     opens_exists: bool | None,
+    state: dict[str, Any] | None = None,
+    state_exists: bool | None = None,
+    batches: dict[str, Any] | None = None,
+    batches_exists: bool | None = None,
 ) -> bool:
     current_facts, current_facts_exists = _load_facts_optional(slice_dir)
     if current_facts_exists != facts_exists or current_facts != facts:
@@ -689,7 +760,19 @@ def _matches_snapshot(
     if opens is None:
         return True
     current_opens, current_opens_exists = _load_opens_optional(slice_dir)
-    return current_opens_exists == opens_exists and current_opens == opens
+    if current_opens_exists != opens_exists or current_opens != opens:
+        return False
+    if state is None and batches is None:
+        return True
+    if state is not None:
+        current_state, current_state_exists = _load_state_optional(slice_dir)
+        if current_state_exists != bool(state_exists) or current_state != state:
+            return False
+    if batches is not None:
+        current_batches, current_batches_exists = _load_batches_optional(slice_dir)
+        if current_batches_exists != bool(batches_exists) or current_batches != batches:
+            return False
+    return True
 
 
 def _write_facts_exact(
@@ -716,6 +799,10 @@ def _reconcile_permit(slice_dir: Path, store: dict[str, Any], permit: dict[str, 
         facts_exists=bool(snapshot["facts_file_exists_before"]),
         opens=snapshot["opens_before"],
         opens_exists=snapshot["opens_file_exists_before"],
+        state=snapshot.get("state_before"),
+        state_exists=snapshot.get("state_file_exists_before"),
+        batches=snapshot.get("batches_before"),
+        batches_exists=snapshot.get("batches_file_exists_before"),
     )
     after_matches = _matches_snapshot(
         slice_dir,
@@ -723,6 +810,10 @@ def _reconcile_permit(slice_dir: Path, store: dict[str, Any], permit: dict[str, 
         facts_exists=bool(payload["facts_file_exists_after"]),
         opens=payload["opens_after"],
         opens_exists=payload.get("opens_file_exists_after"),
+        state=payload.get("state_after"),
+        state_exists=payload.get("state_file_exists_after"),
+        batches=payload.get("batches_after"),
+        batches_exists=payload.get("batches_file_exists_after"),
     )
     if after_matches:
         permit["state"] = "consumed"
@@ -732,29 +823,6 @@ def _reconcile_permit(slice_dir: Path, store: dict[str, Any], permit: dict[str, 
         permit["state"] = "acknowledged"
         save_permit_store(slice_dir, store)
         return "acknowledged"
-
-    if payload["opens_after"] is not None and _matches_snapshot(
-        slice_dir,
-        facts=payload["facts_after"],
-        facts_exists=bool(payload["facts_file_exists_after"]),
-        opens=snapshot["opens_before"],
-        opens_exists=snapshot["opens_file_exists_before"],
-    ):
-        _write_facts_exact(
-            slice_dir,
-            snapshot["facts_before"],
-            exists_after=bool(snapshot["facts_file_exists_before"]),
-        )
-        if _matches_snapshot(
-            slice_dir,
-            facts=snapshot["facts_before"],
-            facts_exists=bool(snapshot["facts_file_exists_before"]),
-            opens=snapshot["opens_before"],
-            opens_exists=snapshot["opens_file_exists_before"],
-        ):
-            permit["state"] = "acknowledged"
-            save_permit_store(slice_dir, store)
-            return "acknowledged"
 
     permit["state"] = "repair_required"
     save_permit_store(slice_dir, store)
@@ -855,17 +923,44 @@ def cmd_consume(args: argparse.Namespace) -> int:
                         or canonical_digest(current_opens) != precondition["opens_digest"]
                     ):
                         return _fail("opens baseline changed; propose again")
+                if precondition.get("state_digest") is not None:
+                    current_state, current_state_exists = _load_state_optional(slice_dir)
+                    if (
+                        current_state_exists != precondition["state_file_exists"]
+                        or canonical_digest(current_state) != precondition["state_digest"]
+                    ):
+                        return _fail("state baseline changed; propose again")
+                if precondition.get("batches_digest") is not None:
+                    current_batches, current_batches_exists = _load_batches_optional(
+                        slice_dir
+                    )
+                    if (
+                        current_batches_exists != precondition["batches_file_exists"]
+                        or canonical_digest(current_batches)
+                        != precondition["batches_digest"]
+                    ):
+                        return _fail("batches baseline changed; propose again")
 
                 permit["state"] = "consuming"
                 save_permit_store(slice_dir, store)
                 payload = permit["payload"]
                 try:
+                    if payload["kind"] == "settle_open":
+                        assert_slice_writable(slice_dir)
                     _write_facts_exact(
                         slice_dir,
                         payload["facts_after"],
                         exists_after=bool(payload["facts_file_exists_after"]),
                     )
-                    if payload["opens_after"] is not None:
+                    if payload["kind"] == "settle_open":
+                        apply_loop_after(
+                            slice_dir,
+                            opens=payload["opens_after"],
+                            state=payload["state_after"],
+                            batches=payload["batches_after"],
+                            operation="settle-open",
+                        )
+                    elif payload["opens_after"] is not None:
                         save_opens(opens_path(slice_dir), payload["opens_after"])
                     permit["state"] = "consumed"
                     permit["receipt"] = {
@@ -874,6 +969,18 @@ def cmd_consume(args: argparse.Namespace) -> int:
                     }
                     save_permit_store(slice_dir, store)
                 except (OSError, ValueError) as exc:
+                    if payload.get("kind") == "settle_open":
+                        snapshot = permit["snapshot"]
+                        try:
+                            _write_facts_exact(
+                                slice_dir,
+                                snapshot["facts_before"],
+                                exists_after=bool(
+                                    snapshot["facts_file_exists_before"]
+                                ),
+                            )
+                        except (OSError, ValueError):
+                            pass
                     state = _reconcile_permit(slice_dir, store, permit)
                     return _fail(f"consume interrupted ({exc}); reconciled as {state!r}")
     except (OSError, ValueError) as exc:
@@ -953,6 +1060,14 @@ def cmd_recover(args: argparse.Namespace) -> int:
                         snapshot["opens_before"],
                         snapshot["opens_file_exists_before"],
                     )
+                    state, state_exists = (
+                        snapshot.get("state_before"),
+                        snapshot.get("state_file_exists_before"),
+                    )
+                    batches, batches_exists = (
+                        snapshot.get("batches_before"),
+                        snapshot.get("batches_file_exists_before"),
+                    )
                 else:
                     facts, facts_exists = (
                         payload["facts_after"],
@@ -962,8 +1077,24 @@ def cmd_recover(args: argparse.Namespace) -> int:
                         payload["opens_after"],
                         payload.get("opens_file_exists_after"),
                     )
+                    state, state_exists = (
+                        payload.get("state_after"),
+                        payload.get("state_file_exists_after"),
+                    )
+                    batches, batches_exists = (
+                        payload.get("batches_after"),
+                        payload.get("batches_file_exists_after"),
+                    )
                 _write_facts_exact(slice_dir, facts, exists_after=facts_exists)
-                if opens is not None:
+                if payload.get("kind") == "settle_open":
+                    apply_loop_after(
+                        slice_dir,
+                        opens=opens,
+                        state=state,
+                        batches=batches,
+                        operation="recover",
+                    )
+                elif opens is not None:
                     if opens_exists:
                         save_opens(opens_path(slice_dir), opens)
                     elif opens_path(slice_dir).is_file():
@@ -974,6 +1105,10 @@ def cmd_recover(args: argparse.Namespace) -> int:
                     facts_exists=facts_exists,
                     opens=opens,
                     opens_exists=opens_exists,
+                    state=state,
+                    state_exists=state_exists,
+                    batches=batches,
+                    batches_exists=batches_exists,
                 ):
                     return _fail("recover did not reach the requested exact state")
                 permit["state"] = (

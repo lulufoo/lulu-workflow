@@ -115,8 +115,8 @@ On `Completed`, stop this reference. Do not advance, unfreeze, or deliver.
 | `{SKILL_ROOT}/compose/fact-intake-runner/SKILL.md` | Producer fact intake |
 | `{SKILL_ROOT}/compose/narrative-arc-runner/SKILL.md` | Inductive topic loop / Writing |
 | `{SKILL_ROOT}/compose/chapter-write-runner/SKILL.md` | Writing assemble |
-| `{SKILL_ROOT}/compose/inductive-runner/g3-shallow-grounding-runner/SKILL.md` | Optional inductive grounding |
-| `{SKILL_ROOT}/compose/inductive-runner/g3-deep-grounding-runner/SKILL.md` | Optional inductive grounding |
+| `{SKILL_ROOT}/compose/inductive-runner/open-point-detect-runner/SKILL.md` | Inductive Open detection |
+| `{SKILL_ROOT}/compose/inductive-runner/open-point-process-runner/SKILL.md` | Inductive Open processing |
 | `{SKILL_ROOT}/compose/inductive-runner/g4-recompose-runner/SKILL.md` | Inductive runner internal |
 | `{SKILL_ROOT}/compose/inductive-runner/g5-provenance-runner/SKILL.md` | Inductive runner internal |
 | `{SKILL_ROOT}/compose/writing-runner/SKILL.md` | Writing |

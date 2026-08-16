@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """Schema and I/O for inductive-gate-state.json.
 
-Tracks the four-gate spine for the inductive runner:
-  G1 Shape -> G2 Topic Loop -> G3 Refine -> G4 Recompose
+Tracks the G1–G4 lock machine plus a G5 routing token:
+
+  G1 Shape Perception -> G2 Topic Loop -> G3 Open-point Loop
+  -> G4 Internal Audit -> G5 External Audit (provenance)
+
+G5 is not in GATE_ORDER. After G4 closes, active_gate becomes G5 so
+resolve-context can load g5-provenance.md. G5 close is owned by
+provenance_gate_control.
 
 Gate statuses: pending | active | closed | reopened
-active_gate is always the gate currently in progress.
 """
 
 from __future__ import annotations
@@ -16,13 +21,14 @@ from pathlib import Path
 from typing import Any
 
 GATE_ORDER: tuple[str, ...] = ("G1", "G2", "G3", "G4")
+ROUTING_GATES: tuple[str, ...] = GATE_ORDER + ("G5",)
 GATE_STATUSES = frozenset({"pending", "active", "closed", "reopened"})
 
 _GATE_LABELS: dict[str, str] = {
-    "G1": "Shape",
+    "G1": "Shape Perception",
     "G2": "Topic Loop",
-    "G3": "Refine",
-    "G4": "Recompose",
+    "G3": "Open-point Loop",
+    "G4": "Internal Audit",
 }
 
 
@@ -65,7 +71,7 @@ def validate_gate_state(data: dict[str, Any]) -> list[str]:
         errors.append(f"invalid version: {data.get('version')!r}")
 
     active = str(data.get("active_gate", ""))
-    if active not in GATE_ORDER:
+    if active not in ROUTING_GATES:
         errors.append(f"invalid active_gate: {active!r}")
 
     gates = data.get("gates")
@@ -82,13 +88,15 @@ def validate_gate_state(data: dict[str, Any]) -> list[str]:
         if status not in GATE_STATUSES:
             errors.append(f"gates.{gate}.status invalid: {status!r}")
 
-    if active and isinstance(gates, dict):
+    if active == "G5":
+        g4 = gates.get("G4") if isinstance(gates, dict) else None
+        if not isinstance(g4, dict) or str(g4.get("status", "")).lower() != "closed":
+            errors.append("active_gate G5 requires gates.G4.status=closed")
+    elif active and isinstance(gates, dict):
         active_entry = gates.get(active)
         if isinstance(active_entry, dict):
             active_status = str(active_entry.get("status", "")).lower()
-            # G4 closed is terminal; active_gate stays at G4
-            terminal = active == "G4" and active_status == "closed"
-            if active_status not in {"active", "reopened"} and not terminal:
+            if active_status not in {"active", "reopened"}:
                 errors.append(
                     f"active_gate {active!r} must have status active or reopened, "
                     f"got {active_status!r}"
@@ -113,7 +121,7 @@ def normalize_gate_state(data: dict[str, Any]) -> dict[str, Any]:
         }
 
     active = str(data.get("active_gate", "G1"))
-    if active not in GATE_ORDER:
+    if active not in ROUTING_GATES:
         active = "G1"
 
     normalized: dict[str, Any] = {
@@ -158,6 +166,15 @@ def gate_index(gate: str) -> int:
     return GATE_ORDER.index(gate)
 
 
+def routing_index(active: str) -> int:
+    """Index of the current routing position. G5 sits after G4."""
+    if active == "G5":
+        return len(GATE_ORDER)
+    if active in GATE_ORDER:
+        return GATE_ORDER.index(active)
+    return -1
+
+
 def is_gate_closed(state: dict[str, Any], gate: str) -> bool:
     entry = state["gates"].get(gate, {})
     return str(entry.get("status", "")).lower() == "closed"
@@ -180,7 +197,7 @@ def close_gate(
         gates[next_gate]["status"] = "active"
         updated["active_gate"] = next_gate
     else:
-        updated["active_gate"] = gate  # G4 terminal
+        updated["active_gate"] = "G5"
 
     updated["updated_at"] = _now_iso()
     return updated

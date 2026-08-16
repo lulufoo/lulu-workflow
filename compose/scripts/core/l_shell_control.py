@@ -223,6 +223,29 @@ def _mutate(
         return _failure(command, "invalid_ledger", str(exc))
 
 
+def _open_point_txn_block(slice_dir: Path) -> str | None:
+    txn_path = Path(slice_dir) / "_open-point-txn.json"
+    if not txn_path.is_file():
+        return None
+    from compose_state_lock import compose_state_lock  # noqa: WPS433
+
+    inductive = _SCRIPTS / "inductive"
+    schema = inductive / "schema"
+    for path in (inductive, schema):
+        if str(path) not in sys.path:
+            sys.path.insert(0, str(path))
+    from open_point_store import RepairRequired, reconcile  # noqa: WPS433
+
+    try:
+        with compose_state_lock(slice_dir):
+            reconcile(slice_dir)
+            if txn_path.is_file():
+                return "pending open-point transaction"
+    except RepairRequired:
+        return "open-point transaction repair_required"
+    return None
+
+
 def cmd_advance(revision_dir: Path, session_state: str) -> dict[str, Any]:
     if session_state != "Working":
         return _failure(
@@ -241,6 +264,11 @@ def cmd_advance(revision_dir: Path, session_state: str) -> dict[str, Any]:
     try:
         with revision_lock(revision_dir, exclusive=True):
             ledger = load_l_ledger(revision_dir)
+            txn_err = _open_point_txn_block(
+                (Path(revision_dir) / str(ledger["focus"])).resolve()
+            )
+            if txn_err:
+                return _failure(_CMD_ADVANCE, "open_point_txn_pending", txn_err)
             result = shell_advance(ledger)
             if result.changed:
                 save_l_ledger(revision_dir, result.ledger)
