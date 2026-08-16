@@ -63,7 +63,7 @@ from workflow_adapter import SessionContext  # noqa: E402
 
 _WORKFLOW_ID = "lulu-decision"
 _CORPUS_ID = "lulu-decision-composed"
-_CORPUS_VERSION = "1"
+_CORPUS_VERSION = "2"
 _CORPUS_REF = f"{_CORPUS_ID}@{_CORPUS_VERSION}"
 _DIMENSION_ORDER = ("decision-consistency",)
 
@@ -90,6 +90,10 @@ def _init_evaluate_state(
             dimension_dispatch=str(corpus.get("dimension_dispatch", "parallel")),
             evaluate_round=evaluate_round,
             focus_l=focus_l,
+            force_human_resolution={
+                str(dimension["id"]): dimension["force_human_resolution"]
+                for dimension in corpus["dimensions"]
+            },
         ),
         merge=False,
     )

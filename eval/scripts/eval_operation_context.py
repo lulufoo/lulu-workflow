@@ -97,6 +97,10 @@ def issue_remediation_context(
     lease_id: str,
     method: dict[str, Any],
     sots: list[dict[str, Any]],
+    review_path: Path | None = None,
+    force_human_resolution: bool | None = None,
+    required_issue_ids: list[str] | None = None,
+    allowed_resolution_kinds: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
     """Snapshot B and persist an open, token-scoped remediation operation."""
     if operation_kind not in {"artifact-remediation", "human-resolution"}:
@@ -108,13 +112,30 @@ def issue_remediation_context(
         if operation_kind == "artifact-remediation"
         else "resolution"
     )
+    human_fields: dict[str, Any] = {}
+    if operation_kind == "human-resolution":
+        if review_path is None or not review_path.is_file():
+            raise ValueError("human-resolution requires an existing review_path")
+        if not isinstance(force_human_resolution, bool):
+            raise ValueError("human-resolution requires pinned policy")
+        required = list(required_issue_ids or [])
+        allowed = dict(allowed_resolution_kinds or {})
+        if not required or set(allowed) != set(required):
+            raise ValueError(
+                "human-resolution requires matching required issues and permissions",
+            )
+        human_fields = {
+            "review_base_digest": hashlib.sha256(review_path.read_bytes()).hexdigest(),
+            "force_human_resolution": force_human_resolution,
+            "required_issue_ids": required,
+            "allowed_resolution_kinds": allowed,
+        }
     target_bytes = target_path.read_bytes()
     target_digest = hashlib.sha256(target_bytes).hexdigest()
     dimension_token = uuid.uuid4().hex
     staging_scope, snapshot_path = _snapshot_path(write_staging_dir, dimension_token)
     snapshot_path.parent.mkdir(parents=True, exist_ok=False)
     snapshot_path.write_bytes(target_bytes)
-
     try:
         public_sots = _public_sots(sots)
         add_operation_record(
@@ -133,6 +154,7 @@ def issue_remediation_context(
                 "evidence_snapshots": {},
                 "allowed_submission": allowed_submission,
                 "status": "open",
+                **human_fields,
             },
         )
     except Exception:
@@ -152,6 +174,7 @@ def issue_remediation_context(
         },
         "resolved_sots": public_sots,
         "allowed_submission": allowed_submission,
+        **human_fields,
     }
 
 

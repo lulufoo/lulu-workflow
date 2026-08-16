@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 
-OPERATION_RECORDS_VERSION = "2"
+OPERATION_RECORDS_VERSION = "3"
 _OPERATION_KINDS = frozenset({
     "probe",
     "artifact-remediation",
@@ -18,6 +18,13 @@ _OPERATION_KINDS = frozenset({
 })
 _OPERATION_STATUS = frozenset({"open", "closed"})
 _SUBMISSION_KINDS = frozenset({"finding", "unified_diff", "resolution"})
+_RESOLUTION_KINDS = frozenset({
+    "fix",
+    "accept-divergence",
+    "select",
+    "allow-multiple",
+    "escalate",
+})
 _SHA256_HEX = frozenset("0123456789abcdef")
 _REQUIRED_RECORD_FIELDS = frozenset(
     {
@@ -69,6 +76,36 @@ def validate_operation_record(record: Any) -> list[str]:
         lease_id = record.get("lease_id")
         if not isinstance(lease_id, str) or not lease_id:
             errors.append("remediation operation requires a non-empty lease_id")
+    if record.get("operation_kind") == "human-resolution":
+        review_digest = record.get("review_base_digest")
+        if (
+            not isinstance(review_digest, str)
+            or len(review_digest) != 64
+            or any(character not in _SHA256_HEX for character in review_digest)
+        ):
+            errors.append("human-resolution requires review_base_digest")
+        if not isinstance(record.get("force_human_resolution"), bool):
+            errors.append("human-resolution requires boolean force_human_resolution")
+        required_ids = record.get("required_issue_ids")
+        if (
+            not isinstance(required_ids, list)
+            or not required_ids
+            or any(not isinstance(issue_id, str) or not issue_id for issue_id in required_ids)
+            or len(set(required_ids)) != len(required_ids)
+        ):
+            errors.append("human-resolution requires unique required_issue_ids")
+        allowed = record.get("allowed_resolution_kinds")
+        if not isinstance(allowed, dict):
+            errors.append("human-resolution requires allowed_resolution_kinds")
+        elif isinstance(required_ids, list) and set(allowed) != set(required_ids):
+            errors.append("allowed_resolution_kinds keys must match required_issue_ids")
+        elif any(
+            not isinstance(kinds, list)
+            or not kinds
+            or any(kind not in _RESOLUTION_KINDS for kind in kinds)
+            for kinds in allowed.values()
+        ):
+            errors.append("allowed_resolution_kinds contains invalid values")
     if record.get("allowed_submission") not in _SUBMISSION_KINDS:
         errors.append(
             f"invalid allowed_submission: {record.get('allowed_submission')!r}",
@@ -131,6 +168,13 @@ def validate_operation_record(record: Any) -> list[str]:
                 "resolution_records must be an array of objects on a closed "
                 "human-resolution operation",
             )
+        elif isinstance(resolution_records, list):
+            for resolution in resolution_records:
+                if set(resolution) != {"issue_ids", "resolution_kind", "resolution"}:
+                    errors.append("resolution record has invalid fields")
+                    continue
+                if resolution.get("resolution_kind") not in _RESOLUTION_KINDS:
+                    errors.append("resolution record has invalid resolution_kind")
         for field in ("submission_digest", "review_digest"):
             value = record.get(field)
             if (

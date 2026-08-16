@@ -8,10 +8,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import review_io  # noqa: E402
 from review_io import (  # noqa: E402
     has_pending_human,
+    count_resolved,
     issues_by_root_cause,
     parse_review_file,
     pending_artifact_rows,
     pending_human_rows,
+    pending_resolution_rows,
 )
 
 _REVIEW_HEADER = (
@@ -62,7 +64,10 @@ class TestFilterRows:
             "two valid readings | human choice required | pending | — | |\n",
         )
         rows = parse_review_file(path)
-        assert len(pending_artifact_rows(rows)) == 1
+        assert len(pending_artifact_rows(
+            rows,
+            force_human_resolution=False,
+        )) == 1
         assert len(pending_human_rows(rows)) == 2
         assert has_pending_human(rows)
 
@@ -79,3 +84,29 @@ class TestFilterRows:
         rows = parse_review_file(path)
         filtered = issues_by_root_cause(rows, frozenset({"WO-ERROR"}))
         assert len(filtered) == 1
+
+    def test_forced_policy_routes_all_pending_rows_to_human(self, tmp_path: Path):
+        path = _write_review(
+            tmp_path,
+            "| e2-1 | WO-ERROR | — | loc | medium | ev | desc | pending | — | |\n"
+            "| e2-2 | SOT-DEFECT | sot | loc | critical | ev | desc | pending | — | |\n",
+        )
+        rows = parse_review_file(path)
+        assert [row["id"] for row in pending_resolution_rows(
+            rows,
+            force_human_resolution=True,
+        )] == ["e2-1", "e2-2"]
+        assert [row["id"] for row in pending_resolution_rows(
+            rows,
+            force_human_resolution=False,
+        )] == ["e2-2"]
+
+    def test_count_resolved_uses_terminal_dispositions_only(self, tmp_path: Path):
+        path = _write_review(
+            tmp_path,
+            "| e2-1 | WO-ERROR | — | loc | medium | ev | desc | approved | fix | why |\n"
+            "| e2-2 | WO-MISS | sot | loc | medium | ev | desc | "
+            "accepted-divergence | accept-divergence | intentional |\n"
+            "| e2-3 | WO-ERROR | — | loc | medium | ev | desc | ignored | ignore | why |\n",
+        )
+        assert count_resolved(parse_review_file(path)) == 1

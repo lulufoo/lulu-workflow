@@ -16,7 +16,7 @@ for p in (_SCRIPTS, _EVAL_ADAPTER, _EVAL_SCRIPTS):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-from decision_eval_adapter import DecisionEvalAdapter  # noqa: E402
+from decision_eval_adapter import DecisionEvalAdapter, _init_evaluate_state  # noqa: E402
 import io
 from contextlib import redirect_stdout
 
@@ -35,6 +35,10 @@ from dec_session_state_schema import write_session_state  # noqa: E402
 from dec_workflow_common import CACHE_DIR  # noqa: E402
 from eval_adapter_config import load_eval_adapter_from_config  # noqa: E402
 from eval_handoff_schema import validate_eval_handoff_v2  # noqa: E402
+from evaluate_state_schema import (  # noqa: E402
+    load_evaluate_state,
+    parse_force_human_resolution,
+)
 
 
 def _run_json(fn, *args, **kwargs) -> dict:
@@ -140,13 +144,25 @@ def test_enter_evaluating_binds_target_and_handoff(tmp_path: Path) -> None:
     assert entered["ok"] is True
     assert (session / EVAL_TARGET_FILENAME).is_file()
     assert "choose A" in (session / EVAL_TARGET_FILENAME).read_text(encoding="utf-8")
-
     handoff = adapter.request_eval_handoff(cycle_id, tmp_path, require_evaluating=True)
     errors = validate_eval_handoff_v2(handoff)
     assert errors == []
     assert handoff["context"]["workflow_id"] == "lulu-decision"
     assert handoff["context"]["session_key"] == "DC"
     assert EVAL_TARGET_FILENAME in handoff["context"]["bindings"]["eval_target_path"]
+
+
+def test_initial_state_copies_policy_from_resolved_corpus(tmp_path: Path) -> None:
+    cycle_id = "feature-dec-eval-policy"
+    _seed_dc_session(tmp_path, cycle_id)
+    corpus = DecisionEvalAdapter().resolve_eval_corpus(cycle_id, tmp_path)
+    corpus["dimensions"][0]["force_human_resolution"] = True
+    path = tmp_path / "evaluate-state.md"
+    _init_evaluate_state(path, corpus, evaluate_round=1, focus_l="decision")
+    state = load_evaluate_state(path)
+    assert parse_force_human_resolution(state["force_human_resolution"]) == {
+        "decision-consistency": True,
+    }
 
 
 def test_fail_exit_sets_realign_and_allows_retry(tmp_path: Path) -> None:

@@ -2,6 +2,7 @@
   "id": "codebase-consistency",
   "legacy_alias": "d1",
   "label": "Codebase Consistency",
+  "force_human_resolution": false,
   "eval_target": {
     "path": "{eval_target_path}"
   },

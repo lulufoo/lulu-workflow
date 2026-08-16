@@ -229,6 +229,10 @@ def test_cli_edge_scan_requires_fact_intake_eval_gate(
         dimension_ids=["e1-doc-coverage", "e2-fact-provenance"],
         evaluate_round=1,
         focus_l="revision1",
+        force_human_resolution={
+            "e1-doc-coverage": False,
+            "e2-fact-provenance": False,
+        },
     )
     data["eval_status"] = "done"
     data["fix_phase"] = "done"

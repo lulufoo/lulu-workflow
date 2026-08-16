@@ -40,8 +40,12 @@ def build_initial_evaluate_state_for_corpus(
     evaluate_round: int | None = None,
     focus_l: str = "",
 ) -> dict[str, str]:
-    """Return v3 frontmatter for a new evaluate-state from an EvalCorpus."""
+    """Return frontmatter for a new evaluate-state from an EvalCorpus."""
     ids = dispatch_ids(corpus)
+    policy = {
+        str(dimension["id"]): bool(dimension["force_human_resolution"])
+        for dimension in corpus["dimensions"]
+    }
     ref = corpus_ref(corpus)
     fingerprint = ""
     if is_composed_corpus_ref(ref):
@@ -53,6 +57,7 @@ def build_initial_evaluate_state_for_corpus(
         dimension_dispatch=str(corpus.get("dimension_dispatch", "parallel")),
         evaluate_round=evaluate_round,
         focus_l=focus_l,
+        force_human_resolution=policy,
     )
 
 
@@ -64,7 +69,7 @@ def init_evaluate_state_for_corpus(
     evaluate_round: int | None = None,
     focus_l: str = "",
 ) -> None:
-    """Initialize evaluate-state.md v3 from a resolved EvalCorpus."""
+    """Initialize evaluate-state.md from a resolved EvalCorpus."""
     save_evaluate_state(
         path,
         build_initial_evaluate_state_for_corpus(

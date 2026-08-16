@@ -25,12 +25,20 @@ from bootstrap import CORE  # noqa: E402
 
 sys.path.insert(0, str(CORE))
 
-from fact_intake_eval_adapter import FactIntakeEvalAdapter, _PROFILE_ENV  # noqa: E402
+from fact_intake_eval_adapter import (  # noqa: E402
+    FactIntakeEvalAdapter,
+    _PROFILE_ENV,
+    _init_evaluate_state,
+)
 from fact_intake_eval_runtime_schema import evaluate_state_path, load_runtime, runtime_path  # noqa: E402
 from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import FACTS_BASENAME  # noqa: E402
 from init_working_helpers import init_working_ready  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
+from evaluate_state_schema import (  # noqa: E402
+    load_evaluate_state,
+    parse_force_human_resolution,
+)
 
 _CYCLE = "feat-fact-intake-eval"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
@@ -87,6 +95,23 @@ def test_enter_evaluating_skips_stage_gate(tmp_path: Path, monkeypatch) -> None:
     # Delivery Evaluating state must not be created at slice root.
     assert not (slice_dir / "evaluate-state.md").is_file()
     assert not (rev / "evaluate-state.md").is_file()
+
+
+def test_initial_state_copies_policy_from_resolved_corpus(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _seed(tmp_path)
+    monkeypatch.setenv(_PROFILE_ENV, "lulu-plan")
+    corpus = FactIntakeEvalAdapter().resolve_eval_corpus(_CYCLE, tmp_path)
+    corpus["dimensions"][0]["force_human_resolution"] = True
+    path = tmp_path / "evaluate-state.md"
+    _init_evaluate_state(path, corpus, evaluate_round=1, focus_l="L1")
+    state = load_evaluate_state(path)
+    assert parse_force_human_resolution(state["force_human_resolution"]) == {
+        "e1-doc-coverage": True,
+        "e2-fact-provenance": False,
+    }
 
 
 def test_handoff_binds_facts_json(tmp_path: Path, monkeypatch) -> None:

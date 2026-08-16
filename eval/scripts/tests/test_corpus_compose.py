@@ -15,8 +15,8 @@ from corpus_compose import (  # noqa: E402
     load_dimension_def,
 )
 
-_LULU_PLAN_COMPOSED_CORPUS_REF = "lulu-plan-composed@1"
-_TECH_DESIGN_COMPOSED_CORPUS_REF = "lulu-design-composed@1"
+_LULU_PLAN_COMPOSED_CORPUS_REF = "lulu-plan-composed@2"
+_TECH_DESIGN_COMPOSED_CORPUS_REF = "lulu-design-composed@2"
 
 _TECH_PLAN_DIMENSION_DEFS = Path(__file__).resolve().parents[3] / "lulu-plan" / "dimension-defs"
 _TECH_DESIGN_DIMENSION_DEFS = Path(__file__).resolve().parents[3] / "lulu-design" / "dimension-defs"
@@ -53,7 +53,7 @@ class TestCorpusCompose:
         ]
         corpus = compose_corpus(
             corpus_id="lulu-plan-composed",
-            corpus_version="1",
+            corpus_version="2",
             scope="lulu-plan",
             dimensions=dims,
         )
@@ -67,7 +67,7 @@ class TestCorpusCompose:
         with pytest.raises(ValueError, match="non-empty"):
             compose_corpus(
                 corpus_id="lulu-plan-composed",
-                corpus_version="1",
+                corpus_version="2",
                 scope="lulu-plan",
                 dimensions=[],
             )
@@ -79,7 +79,7 @@ class TestCorpusCompose:
         ]
         corpus = compose_corpus(
             corpus_id="lulu-design-composed",
-            corpus_version="1",
+            corpus_version="2",
             scope="lulu-design",
             dimensions=dims,
             review_output_prefix="design-review",
@@ -95,7 +95,7 @@ class TestCorpusCompose:
         ]
         corpus = compose_corpus(
             corpus_id="lulu-design-composed",
-            corpus_version="1",
+            corpus_version="2",
             scope="lulu-design",
             dimensions=dims,
             review_output_prefix="design-review",

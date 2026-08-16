@@ -114,6 +114,46 @@ class TestValidateIssueRow:
         errors = validate_issue_row(row, phase="probe")
         assert any("sot_ref" in e for e in errors)
 
+    @pytest.mark.parametrize(
+        ("status", "decision"),
+        [
+            ("approved", "fix"),
+            ("accepted-divergence", "accept-divergence"),
+        ],
+    )
+    def test_forced_artifact_dispositions_are_valid(self, status: str, decision: str):
+        row = {
+            "id": "e2-1",
+            "root_cause": "WO-ERROR",
+            "sot_ref": "—",
+            "location": "loc",
+            "severity": "medium",
+            "evidence": "ev",
+            "description": "desc",
+            "status": status,
+            "decision": decision,
+            "resolution": "human rationale",
+        }
+        assert validate_issue_row(row, phase="remediation") == []
+
+    def test_accept_divergence_is_artifact_only(self):
+        row = {
+            "id": "e2-1",
+            "root_cause": "SOT-DEFECT",
+            "sot_ref": "sot",
+            "location": "loc",
+            "severity": "medium",
+            "evidence": "ev",
+            "description": "desc",
+            "status": "accepted-divergence",
+            "decision": "accept-divergence",
+            "resolution": "human rationale",
+        }
+        assert any(
+            "Artifact-class" in error
+            for error in validate_issue_row(row, phase="remediation")
+        )
+
     def test_invalid_root_cause(self):
         row = {
             "id": "e2-1",
@@ -158,4 +198,4 @@ class TestValidateReviewFile:
         )
         assert proc.returncode == 0
         data = json.loads(proc.stdout)
-        assert data["version"] == "1"
+        assert data["version"] == "2"

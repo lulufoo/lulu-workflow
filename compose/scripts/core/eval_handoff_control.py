@@ -491,7 +491,9 @@ def commit_evaluate_state(
         return _failure(_CMD_COMMIT_STATE, "workflow-state.md not found")
     revision_dir = ws_path.parent.resolve()
     bound = _bind_focus(
-        revision_dir, command=_CMD_COMMIT_STATE, require_evaluating=True
+        revision_dir,
+        command=_CMD_COMMIT_STATE,
+        require_evaluating=not set_phase_evaluating,
     )
     if isinstance(bound, dict):
         return bound
@@ -517,13 +519,34 @@ def commit_evaluate_state(
             )
 
     backup = formal.with_suffix(formal.suffix + ".bak") if formal.is_file() else None
+    published = False
     try:
         if backup is not None:
             shutil.copy2(formal, backup)
         _atomic_replace(staged, formal)
+        published = True
+        if set_phase_evaluating:
+            from l_step_control import enter_evaluating_state  # noqa: WPS433
+
+            transition = enter_evaluating_state(
+                cycle_id,
+                root,
+                profile_id=profile_id,
+            )
+            if not transition.get("ok"):
+                raise ValueError(
+                    str(
+                        transition.get("error")
+                        or transition.get("resume", {}).get("action")
+                        or "failed to enter Evaluating",
+                    ),
+                )
     except (OSError, ValueError) as exc:
-        if backup is not None and backup.is_file() and not formal.is_file():
-            shutil.copy2(backup, formal)
+        if published:
+            if backup is not None and backup.is_file():
+                shutil.copy2(backup, formal)
+            else:
+                formal.unlink(missing_ok=True)
         return _failure(_CMD_COMMIT_STATE, str(exc))
     finally:
         if backup is not None and backup.is_file():

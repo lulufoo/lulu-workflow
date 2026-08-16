@@ -20,7 +20,7 @@ from corpus_schema import (  # noqa: E402
 )
 
 _DIMENSION_DEFS = Path(__file__).resolve().parents[3] / "lulu-plan" / "dimension-defs"
-_LULU_PLAN_COMPOSED_CORPUS_REF = "lulu-plan-composed@1"
+_LULU_PLAN_COMPOSED_CORPUS_REF = "lulu-plan-composed@2"
 
 
 def _feature_tech_upstream_corpus() -> dict:
@@ -31,7 +31,7 @@ def _feature_tech_upstream_corpus() -> dict:
     ]
     return compose_corpus(
         corpus_id="lulu-plan-composed",
-        corpus_version="1",
+        corpus_version="2",
         scope="lulu-plan",
         dimensions=dims,
     )
@@ -44,7 +44,7 @@ def _feature_base_corpus() -> dict:
     ]
     return compose_corpus(
         corpus_id="lulu-plan-composed",
-        corpus_version="1",
+        corpus_version="2",
         scope="lulu-plan",
         dimensions=dims,
     )
@@ -60,7 +60,7 @@ class TestGetSchema:
             "cycle_type",
             "M",
         ]
-        assert schema["version"] == "4"
+        assert schema["version"] == "5"
         assert "sot_kind" not in schema["enums"]
         assert "method_kind" not in schema["enums"]
 
@@ -80,6 +80,7 @@ class TestValidateCorpus:
         dim = {
             "id": "a",
             "label": "A",
+            "force_human_resolution": False,
             "eval_target": {"path": "{eval_target_path}"},
             "remediation_target": {"path": "{eval_target_path}"},
             "sots": [],
@@ -100,6 +101,20 @@ class TestValidateCorpus:
             },
         )
         assert any("duplicate dimension id" in err for err in errors)
+
+    def test_force_human_resolution_is_required_boolean(self):
+        corpus = _feature_base_corpus()
+        del corpus["dimensions"][0]["force_human_resolution"]
+        assert any(
+            "force_human_resolution must be a boolean" in error
+            for error in validate_corpus(corpus)
+        )
+
+        corpus["dimensions"][0]["force_human_resolution"] = "false"
+        assert any(
+            "force_human_resolution must be a boolean" in error
+            for error in validate_corpus(corpus)
+        )
 
 
 class TestExpandCorpus:
@@ -145,6 +160,7 @@ class TestExpandCorpus:
         dim = {
             "id": "a",
             "label": "A",
+            "force_human_resolution": False,
             "eval_target": {"path": "{eval_target_path}"},
             "remediation_target": {"path": "{eval_target_path}"},
             "sots": [

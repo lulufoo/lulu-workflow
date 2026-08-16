@@ -2,6 +2,7 @@
   "id": "solution-quality",
   "legacy_alias": "e3",
   "label": "Solution Quality (Intent Probes)",
+  "force_human_resolution": false,
   "eval_target": {
     "path": "{eval_target_path}"
   },

@@ -22,8 +22,10 @@ the operation context supplied by Eval orchestration.
 ## Workflow
 
 1. Run `$READ_B_SNAPSHOT`.
-2. Use the authorized pending artifact defects from the operation context. If
+2. Use the authorized artifact findings from the operation context. If
    none are present, stop.
+   For a forced dimension these are Human-approved `fix` findings; never
+   remediate an `accepted-divergence` finding.
 3. Treat any supplied human resolution as a required constraint. Do not choose
    an alternative that the resolution did not authorize.
 4. Prepare a targeted unified diff against the returned B snapshot. Retain exact

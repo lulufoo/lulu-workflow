@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 _SCHEMA: dict[str, Any] = {
-    "version": "4",
+    "version": "5",
     "required_top_level": [
         "id",
         "version",
@@ -88,6 +88,8 @@ def _validate_dimension(dim: Any, errors: list[str], *, ctx: str) -> None:
         return
     _require_str(dim, "id", errors, ctx=ctx)
     _require_str(dim, "label", errors, ctx=ctx)
+    if not isinstance(dim.get("force_human_resolution"), bool):
+        errors.append(f"{ctx}: force_human_resolution must be a boolean")
     for target_key in ("eval_target", "remediation_target"):
         target = dim.get(target_key)
         if not isinstance(target, dict):

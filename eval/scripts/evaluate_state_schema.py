@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Authoritative schema and I/O helpers for evaluate-state.md (v5).
+"""Authoritative schema and I/O helpers for evaluate-state.md (v6).
 
 CLI:
     python3 evaluate_state_schema.py --schema
@@ -18,7 +18,7 @@ from typing import Any
 
 _SCHEMA: list[dict[str, Any]] = [
     {"field": "version", "type": "string", "required": True,
-     "description": "Schema version (currently 5)"},
+     "description": "Schema version (currently 6)"},
     {"field": "phase", "type": "string", "required": True,
      "description": "Fixed value: evaluate"},
     {"field": "eval_status", "type": "string", "required": True,
@@ -29,6 +29,8 @@ _SCHEMA: list[dict[str, Any]] = [
      "description": "EvalCorpus id@version (optional)"},
     {"field": "corpus_fingerprint", "type": "string", "required": False,
      "description": "Hash of composed dimension id set (dynamic corpus)"},
+    {"field": "force_human_resolution", "type": "string", "required": True,
+     "description": "JSON map dim_id -> boolean pinned for this Eval round"},
     {"field": "dimension_dispatch", "type": "string", "required": True,
      "description": "parallel | serial"},
     {"field": "round_token", "type": "string", "required": True,
@@ -62,6 +64,7 @@ _KEY_ORDER = [
     "fix_phase",
     "corpus_ref",
     "corpus_fingerprint",
+    "force_human_resolution",
     "dimension_dispatch",
     "round_token",
     "dimension_status",
@@ -91,7 +94,7 @@ _DIM_STATUS_ORDER = {
 
 
 def get_schema() -> list[dict[str, Any]]:
-    """Return field definitions for evaluate-state.md v5."""
+    """Return field definitions for evaluate-state.md v6."""
     return list(_SCHEMA)
 
 
@@ -149,6 +152,19 @@ def parse_dimension_tokens(raw: str) -> dict[str, str]:
     return result
 
 
+def parse_force_human_resolution(raw: str) -> dict[str, bool]:
+    """Parse the pinned per-dimension Human Resolution policy map."""
+    parsed = parse_json_map(raw, field_name="force_human_resolution")
+    result: dict[str, bool] = {}
+    for key, value in parsed.items():
+        if not isinstance(value, bool):
+            raise ValueError(
+                f"invalid force_human_resolution value for {key!r}: {value!r}",
+            )
+        result[str(key)] = value
+    return result
+
+
 def parse_issue_counts(raw: str) -> dict[str, dict[str, str]]:
     """Parse issue_counts JSON string."""
     parsed = parse_json_map(raw, field_name="issue_counts")
@@ -176,8 +192,9 @@ def build_initial_evaluate_state(
     evaluate_round: int | None = None,
     focus_l: str = "",
     round_token: str | None = None,
+    force_human_resolution: dict[str, bool],
 ) -> dict[str, str]:
-    """Return frontmatter fields for a new evaluate-state.md v5."""
+    """Return frontmatter fields for a new evaluate-state.md v6."""
     if not dimension_ids:
         raise ValueError("dimension_ids must be non-empty")
     if dimension_dispatch not in _VALID_DISPATCH:
@@ -189,12 +206,20 @@ def build_initial_evaluate_state(
     issue_counts = {
         dim_id: {"total": "0", "resolved": "0"} for dim_id in dimension_ids
     }
+    policy = dict(force_human_resolution)
+    if set(policy) != set(dimension_ids):
+        raise ValueError(
+            "force_human_resolution keys must match dimension_ids",
+        )
+    if any(not isinstance(value, bool) for value in policy.values()):
+        raise ValueError("force_human_resolution values must be boolean")
     data: dict[str, str] = {
-        "version": "5",
+        "version": "6",
         "phase": "evaluate",
         "eval_status": "active",
         "fix_phase": "probe",
         "dimension_dispatch": dimension_dispatch,
+        "force_human_resolution": serialize_json_map(policy),
         "round_token": round_token or uuid.uuid4().hex,
         "dimension_status": serialize_json_map(dim_status),
         "dimension_tokens": serialize_json_map({}),
@@ -216,8 +241,17 @@ def build_initial_evaluate_state(
 
 
 def is_v5_state(data: dict[str, str]) -> bool:
-    """Return True when evaluate-state uses the current v5 schema."""
+    """Return True when evaluate-state uses the legacy v5 schema."""
     return data.get("version") == "5" and "dimension_status" in data
+
+
+def is_v6_state(data: dict[str, str]) -> bool:
+    """Return True when evaluate-state uses the current v6 schema."""
+    return (
+        data.get("version") == "6"
+        and "dimension_status" in data
+        and "force_human_resolution" in data
+    )
 
 
 def validate_evaluate_state(data: dict[str, Any]) -> list[str]:
@@ -226,8 +260,8 @@ def validate_evaluate_state(data: dict[str, Any]) -> list[str]:
     for field in _REQUIRED_FIELDS:
         if field not in data:
             errors.append(f"missing required field: '{field}'")
-    if data.get("version") not in (None, "5"):
-        errors.append(f"invalid version: {data.get('version')!r} (expected '5')")
+    if data.get("version") not in (None, "6"):
+        errors.append(f"invalid version: {data.get('version')!r} (expected '6')")
     if data.get("phase") not in (None, "evaluate"):
         errors.append(f"invalid phase: {data.get('phase')!r} (expected 'evaluate')")
     eval_status = data.get("eval_status", "")
@@ -253,6 +287,16 @@ def validate_evaluate_state(data: dict[str, Any]) -> list[str]:
             parse_dimension_tokens(raw_tokens)
         except ValueError as exc:
             errors.append(str(exc))
+    raw_policy = data.get("force_human_resolution", "")
+    try:
+        policy = parse_force_human_resolution(raw_policy)
+        dimensions = parse_dimension_status(data.get("dimension_status", "{}"))
+        if set(policy) != set(dimensions):
+            errors.append(
+                "force_human_resolution keys must match dimension_status keys",
+            )
+    except ValueError as exc:
+        errors.append(str(exc))
     raw_counts = data.get("issue_counts", "")
     if raw_counts:
         try:
@@ -364,7 +408,7 @@ def all_dims_at_least(
 
 
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="evaluate-state v5 schema I/O")
+    parser = argparse.ArgumentParser(description="evaluate-state v6 schema I/O")
     parser.add_argument("--schema", action="store_true", help="Print field schema JSON")
     parser.add_argument("--validate", action="store_true", help="Validate file")
     parser.add_argument("--path", type=Path, help="Path to evaluate-state.md")

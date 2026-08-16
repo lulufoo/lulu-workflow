@@ -2,6 +2,7 @@
   "id": "intent-alignment",
   "legacy_alias": "d3",
   "label": "Product Intent Alignment",
+  "force_human_resolution": true,
   "eval_target": {
     "path": "{eval_target_path}"
   },

@@ -19,7 +19,7 @@ from review_io import split_table_row
 Phase = Literal["probe", "remediation"]
 
 _SCHEMA: dict = {
-    "version": "1",
+    "version": "2",
     "columns": [
         "id",
         "root_cause",
@@ -42,9 +42,22 @@ _SCHEMA: dict = {
         ],
         "severity": ["critical", "medium", "minor"],
         "status_probe": ["pending"],
-        "status_remediation": ["fixed", "ignored", "escalated", "reclassified"],
+        "status_remediation": [
+            "approved",
+            "accepted-divergence",
+            "fixed",
+            "ignored",
+            "escalated",
+            "reclassified",
+        ],
         "decision_probe": ["—"],
-        "decision_remediation": ["fix", "ignore", "escalate", "reclassify"],
+        "decision_remediation": [
+            "fix",
+            "accept-divergence",
+            "ignore",
+            "escalate",
+            "reclassify",
+        ],
     },
     "required_at_probe": [
         "id",
@@ -149,6 +162,30 @@ def validate_issue_row(row: dict[str, str], *, phase: Phase) -> list[str]:
     if phase == "probe" and resolution and root_cause != "WO-ERROR":
         errors.append(
             f"{issue_id}: probe resolution must be empty except for WO-ERROR",
+        )
+
+    artifact_causes = {"WO-MISS", "WO-ERROR"}
+    if status == "approved":
+        if root_cause not in artifact_causes:
+            errors.append(f"{issue_id}: approved requires an Artifact-class root_cause")
+        if decision.lower() != "fix":
+            errors.append(f"{issue_id}: approved requires decision 'fix'")
+        if not resolution:
+            errors.append(f"{issue_id}: approved requires resolution")
+    if status == "accepted-divergence":
+        if root_cause not in artifact_causes:
+            errors.append(
+                f"{issue_id}: accepted-divergence requires an Artifact-class root_cause",
+            )
+        if decision.lower() != "accept-divergence":
+            errors.append(
+                f"{issue_id}: accepted-divergence requires matching decision",
+            )
+        if not resolution:
+            errors.append(f"{issue_id}: accepted-divergence requires resolution")
+    if decision.lower() == "accept-divergence" and status != "accepted-divergence":
+        errors.append(
+            f"{issue_id}: decision accept-divergence requires matching status",
         )
 
     sot_ref = row.get("sot_ref", "")

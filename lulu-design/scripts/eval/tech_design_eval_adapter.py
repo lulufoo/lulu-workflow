@@ -52,7 +52,7 @@ from corpus_compose import compose_corpus  # noqa: E402
 from tech_design_eval_policy import select_dimension_defs  # noqa: E402
 
 TECH_DESIGN_COMPOSED_CORPUS_ID = "lulu-design-composed"
-TECH_DESIGN_COMPOSED_CORPUS_VERSION = "1"
+TECH_DESIGN_COMPOSED_CORPUS_VERSION = "2"
 TECH_DESIGN_COMPOSED_CORPUS_REF = (
     f"{TECH_DESIGN_COMPOSED_CORPUS_ID}@{TECH_DESIGN_COMPOSED_CORPUS_VERSION}"
 )

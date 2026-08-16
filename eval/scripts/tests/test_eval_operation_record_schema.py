@@ -29,6 +29,12 @@ def _human_resolution_record(*, status: str = "open") -> dict:
         "resolved_sots": [],
         "evidence_snapshots": {},
         "allowed_submission": "resolution",
+        "review_base_digest": _DIGEST,
+        "force_human_resolution": True,
+        "required_issue_ids": ["e2-1"],
+        "allowed_resolution_kinds": {
+            "e2-1": ["fix", "accept-divergence", "escalate"],
+        },
         "status": status,
         "lease_id": "lease-1",
     }
@@ -36,8 +42,8 @@ def _human_resolution_record(*, status: str = "open") -> dict:
 
 class TestOperationRecordSchema:
     def test_empty_records_uses_current_version(self):
-        assert OPERATION_RECORDS_VERSION == "2"
-        assert empty_operation_records()["version"] == "2"
+        assert OPERATION_RECORDS_VERSION == "3"
+        assert empty_operation_records()["version"] == "3"
 
     def test_human_resolution_requires_lease(self):
         record = _human_resolution_record()
@@ -57,7 +63,11 @@ class TestOperationRecordSchema:
             "submission_digest": _DIGEST,
             "review_path": "/tmp/review.md",
             "review_digest": _DIGEST,
-            "resolution_records": [{"issue_id": "e2-1", "resolution": "choose A"}],
+            "resolution_records": [{
+                "issue_ids": ["e2-1"],
+                "resolution_kind": "accept-divergence",
+                "resolution": "intentional divergence",
+            }],
         })
         assert validate_operation_record(record) == []
 
@@ -78,8 +88,16 @@ class TestOperationRecordSchema:
             submission_digest=_DIGEST,
             review_path=tmp_path / "review.md",
             review_digest=_DIGEST,
-            resolution_records=[{"issue_id": "e2-1", "resolution": "choose A"}],
+            resolution_records=[{
+                "issue_ids": ["e2-1"],
+                "resolution_kind": "accept-divergence",
+                "resolution": "intentional divergence",
+            }],
         )
         assert closed["resolution_records"] == [
-            {"issue_id": "e2-1", "resolution": "choose A"},
+            {
+                "issue_ids": ["e2-1"],
+                "resolution_kind": "accept-divergence",
+                "resolution": "intentional divergence",
+            },
         ]

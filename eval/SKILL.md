@@ -24,6 +24,8 @@ adapter configuration.
 - A defective SoT is escalated, never silently repaired. A valid SoT that the artifact fails to reflect is remediated.
 - Any non-zero control result is Blocking: stop, report it, and wait for user direction.
 - Human Resolution and Artifact Remediation process one dimension at a time.
+- `force_human_resolution` is pinned per dimension when the round starts. It
+  changes routing only; Probe keeps the same five root-cause classifications.
 
 ## Begin Eval
 
@@ -50,7 +52,9 @@ adapter configuration.
 ## Human Resolution
 
 1. Run `$EVAL_CONTROL begin-human-resolution` and pin the result.
-2. Unless the result skips resolution, process each returned dimension serially:
+2. Unless the result skips resolution, process each returned dimension serially.
+   A forced dimension sends every pending finding to this phase; other
+   dimensions send only Human-class findings:
    1. Run `$EVAL_CONTROL begin-dimension-human-resolution --dim {dim}` and pin its operation context.
    2. Dispatch `human-resolution-runner` synchronously with that context and this instruction:
 
@@ -60,13 +64,17 @@ adapter configuration.
 
    3. Run `$EVAL_CONTROL check-dimension-human-resolution --dim {dim}`.
    4. If the result reports abandonment, run **Abandon Handler** and stop.
-3. Run `$EVAL_CONTROL human-resolution-complete`.
-4. Continue to **Artifact Remediation**.
+3. Each dimension submits one complete disposition batch. Partial issue
+   coverage is Blocking.
+4. Run `$EVAL_CONTROL human-resolution-complete`.
+5. Continue to **Artifact Remediation**.
 
 ## Artifact Remediation
 
 1. Run `$EVAL_CONTROL begin-artifact-remediation` and pin the result.
-2. Unless the result skips remediation, process each returned dimension serially:
+2. Unless the result skips remediation, process each returned dimension serially.
+   Forced dimensions expose only Human-approved `fix` findings; accepted
+   divergences are terminal and are not dispatched:
    1. Run `$EVAL_CONTROL begin-dimension-artifact-remediation --dim {dim}` and pin its operation context.
    2. Dispatch `artifact-remediation-runner` synchronously with that context and this instruction:
 

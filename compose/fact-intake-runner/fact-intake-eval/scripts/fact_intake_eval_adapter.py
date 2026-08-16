@@ -74,7 +74,7 @@ from workflow_common import parse_frontmatter_fields  # noqa: E402
 
 _WORKFLOW_ID = "compose-fact-intake-eval"
 _CORPUS_ID = "compose-fact-intake-eval-composed"
-_CORPUS_VERSION = "1"
+_CORPUS_VERSION = "2"
 _CORPUS_REF = f"{_CORPUS_ID}@{_CORPUS_VERSION}"
 _DIMENSION_ORDER = ("e1-doc-coverage", "e2-fact-provenance")
 _PROFILE_ENV = "COMPOSE_FACT_INTAKE_PROFILE_ID"
@@ -133,6 +133,10 @@ def _init_evaluate_state(
             dimension_dispatch=str(corpus.get("dimension_dispatch", "parallel")),
             evaluate_round=evaluate_round,
             focus_l=focus_l,
+            force_human_resolution={
+                str(dimension["id"]): dimension["force_human_resolution"]
+                for dimension in corpus["dimensions"]
+            },
         ),
         merge=False,
     )

@@ -50,7 +50,7 @@ from corpus_compose import compose_corpus  # noqa: E402
 from product_spec_eval_policy import select_dimension_defs  # noqa: E402
 
 PRODUCT_SPEC_COMPOSED_CORPUS_ID = "lulu-spec-composed"
-PRODUCT_SPEC_COMPOSED_CORPUS_VERSION = "1"
+PRODUCT_SPEC_COMPOSED_CORPUS_VERSION = "2"
 PRODUCT_SPEC_COMPOSED_CORPUS_REF = (
     f"{PRODUCT_SPEC_COMPOSED_CORPUS_ID}@{PRODUCT_SPEC_COMPOSED_CORPUS_VERSION}"
 )

@@ -11,6 +11,12 @@ _HUMAN_LABELS = frozenset({
     "UNRESOLVABLE",
     "DECISION-REQUIRED",
 })
+_TERMINAL_STATUSES = frozenset({
+    "fixed",
+    "ignored",
+    "reclassified",
+    "accepted-divergence",
+})
 
 
 def split_table_row(line: str) -> list[str]:
@@ -24,10 +30,14 @@ def parse_review_file(path: Path) -> list[dict[str, str]]:
     """Parse all issue rows from a review markdown file."""
     if not path.exists():
         return []
+    return parse_review_content(path.read_text(encoding="utf-8"))
 
+
+def parse_review_content(content: str) -> list[dict[str, str]]:
+    """Parse all issue rows from review markdown content."""
     issues: list[dict[str, str]] = []
     header: list[str] = []
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
+    for raw_line in content.splitlines():
         line = raw_line.strip()
         if not line.startswith("|") or line.startswith("|---"):
             continue
@@ -83,22 +93,58 @@ def pending_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     return [row for row in rows if row.get("status", "").lower() == "pending"]
 
 
-def pending_artifact_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
-    return pending_rows(issues_by_root_cause(rows, _ARTIFACT_LABELS))
+def is_artifact_row(row: dict[str, str]) -> bool:
+    """Return whether a row belongs to the Artifact handling class."""
+    return row.get("root_cause", "").upper() in _ARTIFACT_LABELS
+
+
+def pending_artifact_rows(
+    rows: list[dict[str, str]],
+    *,
+    force_human_resolution: bool,
+) -> list[dict[str, str]]:
+    artifact_rows = issues_by_root_cause(rows, _ARTIFACT_LABELS)
+    required_status = "approved" if force_human_resolution else "pending"
+    return [
+        row for row in artifact_rows
+        if row.get("status", "").lower() == required_status
+    ]
 
 
 def pending_human_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     return pending_rows(issues_by_root_cause(rows, _HUMAN_LABELS))
 
 
+def pending_resolution_rows(
+    rows: list[dict[str, str]],
+    *,
+    force_human_resolution: bool,
+) -> list[dict[str, str]]:
+    """Return rows that still require a Human Resolution disposition."""
+    if force_human_resolution:
+        return pending_rows(rows)
+    return pending_human_rows(rows)
+
+
 def count_resolved(rows: list[dict[str, str]]) -> int:
-    """Count rows resolved via fix or reclassify."""
-    resolved_statuses = frozenset({"fixed", "reclassified"})
+    """Count rows with terminal resolved dispositions."""
+    resolved_statuses = frozenset({
+        "fixed",
+        "reclassified",
+        "accepted-divergence",
+    })
     return sum(
         1 for row in rows
         if row.get("status", "").lower() in resolved_statuses
-        or row.get("decision", "").lower() in {"fix", "reclassify"}
     )
+
+
+def nonterminal_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Return findings that have not reached a legal completion disposition."""
+    return [
+        row for row in rows
+        if row.get("status", "").lower() not in _TERMINAL_STATUSES
+    ]
 
 
 def has_pending_human(rows: list[dict[str, str]]) -> bool:

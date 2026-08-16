@@ -87,7 +87,7 @@ def _setup(tmp_path: Path, review_rows: str) -> tuple[Path, Path]:
     target = workflow_state.parent / "L1" / "tech-doc.md"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("# Tech Doc\noriginal\n", encoding="utf-8")
-    state_path = workflow_state.parent / "evaluate-state.md"
+    state_path = workflow_state.parent / "L1" / "evaluate-state.md"
     init_evaluate_state_for_corpus(
         state_path,
         _corpus(tmp_path),
@@ -102,7 +102,7 @@ def _setup(tmp_path: Path, review_rows: str) -> tuple[Path, Path]:
     )
     state["fix_phase"] = "human-resolution"
     save_evaluate_state(state_path, state, merge=False)
-    review_path = workflow_state.parent / "evaluate1" / "tech-review-e11.md"
+    review_path = workflow_state.parent / "L1" / "evaluate1" / "tech-review-e11.md"
     review_path.parent.mkdir(parents=True, exist_ok=True)
     review_path.write_text(_HEADER + review_rows, encoding="utf-8")
     return workflow_state, review_path
@@ -113,6 +113,7 @@ def _payload(
     *,
     token: str,
     digest: str,
+    review_digest: str,
     issue_ids: list[str],
     kind: str,
     resolution: str,
@@ -122,9 +123,12 @@ def _payload(
         json.dumps({
             "dimension_token": token,
             "base_digest": digest,
-            "issue_ids": issue_ids,
-            "resolution_kind": kind,
-            "resolution": resolution,
+            "review_base_digest": review_digest,
+            "resolutions": [{
+                "issue_ids": issue_ids,
+                "resolution_kind": kind,
+                "resolution": resolution,
+            }],
         }),
         encoding="utf-8",
     )
@@ -167,6 +171,7 @@ def test_select_reclassifies_decision_for_artifact_without_mutating_b(tmp_path: 
                 tmp_path,
                 token=human["operation_ctx"]["dimension_token"],
                 digest=snapshot["target_digest"],
+                review_digest=human["operation_ctx"]["review_base_digest"],
                 issue_ids=["e2-1"],
                 kind="select",
                 resolution="adopt option A",
@@ -177,7 +182,7 @@ def test_select_reclassifies_decision_for_artifact_without_mutating_b(tmp_path: 
         assert "| e2-1 | WO-ERROR |" in review.read_text(encoding="utf-8")
         assert "| pending | — | adopt option A |" in review.read_text(encoding="utf-8")
         record = get_operation_record(
-            workflow_state.parent / "evaluate1" / "eval-operations.json",
+            workflow_state.parent / "L1" / "evaluate1" / "eval-operations.json",
             human["operation_ctx"]["dimension_token"],
         )
         assert record["resolution_records"][0]["resolution_kind"] == "select"
@@ -253,6 +258,7 @@ def test_escalation_abandons_round_and_diff_is_rejected(tmp_path: Path):
                 tmp_path,
                 token=human["operation_ctx"]["dimension_token"],
                 digest=snapshot["target_digest"],
+                review_digest=human["operation_ctx"]["review_base_digest"],
                 issue_ids=["e2-1"],
                 kind="escalate",
                 resolution="requires product owner decision",
@@ -266,7 +272,7 @@ def test_escalation_abandons_round_and_diff_is_rejected(tmp_path: Path):
         )["abandoned"] is True
         assert human_resolution_complete(_CYCLE, tmp_path)["abandoned"] is True
         assert load_evaluate_state(
-            workflow_state.parent / "evaluate-state.md",
+            workflow_state.parent / "L1" / "evaluate-state.md",
         )["eval_status"] == "abandoned"
     finally:
         _reset_context(tokens)
