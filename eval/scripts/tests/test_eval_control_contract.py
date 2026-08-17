@@ -15,6 +15,7 @@ from eval_control import (  # noqa: E402
     _render_probe_review,
     build_parser,
     canonical_probe_findings_from_reviews,
+    check_dimension,
     complete_probe_only,
     validate_live_target_digest,
     validate_review_against_probe_record,
@@ -284,3 +285,93 @@ def test_complete_probe_only_validates_before_write_and_replays_idempotently(
     assert second["idempotent"] is True
     assert commits == 1
     assert second["issues"] == [{**finding, "dimension": "quality"}]
+
+
+def _patch_check_dimension_context(
+    monkeypatch,
+    tmp_path: Path,
+    *,
+    dim_status: str,
+    review_path: Path,
+) -> None:
+    eval_data = {
+        "eval_status": "active",
+        "dimension_status": f'{{"quality":"{dim_status}"}}',
+        "issue_counts": '{"quality":{"total":0,"resolved":0}}',
+    }
+    monkeypatch.setattr(
+        eval_control,
+        "_load_evaluating_context",
+        lambda *_: (
+            {"current_state": "Working"},
+            tmp_path / "workflow.md",
+            eval_data,
+            1,
+            1,
+            "tech",
+        ),
+    )
+    monkeypatch.setattr(eval_control, "_dispatch_dim_allowed", lambda *_: True)
+    monkeypatch.setattr(eval_control, "_load_corpus", lambda *_: None)
+    monkeypatch.setattr(eval_control, "_canonical_dim", lambda *_: "quality")
+    monkeypatch.setattr(
+        eval_control,
+        "_review_path_from_context",
+        lambda *_, **__: review_path,
+    )
+
+
+def _empty_probe_review(path: Path) -> Path:
+    path.write_text(
+        _render_probe_review(
+            dimension_label="Quality",
+            dimension_id="quality",
+            round_token="round-1",
+            active_doc=1,
+            evaluate_round=1,
+            method_focus="quality",
+            handling_policy="class-default",
+            findings=[],
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_check_dimension_accepts_complete_when_review_exists(
+    tmp_path: Path,
+    monkeypatch,
+):
+    review_path = _empty_probe_review(tmp_path / "quality.md")
+    _patch_check_dimension_context(
+        monkeypatch,
+        tmp_path,
+        dim_status="complete",
+        review_path=review_path,
+    )
+
+    result = check_dimension("cycle", tmp_path, dim="quality")
+
+    assert result["ok"] is True
+    assert result["outcome"] == "probed"
+    assert result["dim_status"] == "complete"
+    assert result["issues"] == []
+
+
+def test_check_dimension_rejects_remediating_when_review_exists(
+    tmp_path: Path,
+    monkeypatch,
+):
+    review_path = _empty_probe_review(tmp_path / "quality.md")
+    _patch_check_dimension_context(
+        monkeypatch,
+        tmp_path,
+        dim_status="remediating",
+        review_path=review_path,
+    )
+
+    result = check_dimension("cycle", tmp_path, dim="quality")
+
+    assert result["ok"] is False
+    assert "expected 'probed' or 'complete'" in result["reason"]
+    assert "did not complete" not in result["reason"]

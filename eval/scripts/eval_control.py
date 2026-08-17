@@ -16,7 +16,7 @@ Subcommands:
     read-b-snapshot             Read token-authorized EvalTarget B content
     read-evidence-snapshot      Read token-authorized dynamic SoT evidence
     submit-probe-findings       Validate and publish token-scoped probe findings
-    check-dimension             Read-only verify dimension probed after eval-runner
+    check-dimension             Read-only verify dimension probed or complete after eval-runner
     begin-remediation           Enter remediation and return dispatch or skip
     begin-dimension-remediation Create/resume one unified remediation context
     cancel-remediation          Cancel context-open operation and release target lease
@@ -2383,12 +2383,12 @@ def check_dimension(
         dim=dim,
     )
 
-    if review_path.exists() and dim_status != "probed":
+    if review_path.exists() and dim_status not in {"probed", "complete"}:
         return _failure(
             _CMD_CHECK_DIMENSION,
             (
                 f"review exists but {dim} status is {dim_status!r}, "
-                "expected 'probed' (submit-probe-findings did not complete?)."
+                "expected 'probed' or 'complete'."
             ),
             current_state=state["current_state"],
             dim=dim,
@@ -2398,10 +2398,10 @@ def check_dimension(
             review_path=review_path.resolve().as_posix(),
         )
 
-    if dim_status != "probed":
+    if dim_status not in {"probed", "complete"}:
         return _failure(
             _CMD_CHECK_DIMENSION,
-            f"{dim} status is {dim_status!r}, expected 'probed'.",
+            f"{dim} status is {dim_status!r}, expected 'probed' or 'complete'.",
             current_state=state["current_state"],
             dim=dim,
             outcome="incomplete",

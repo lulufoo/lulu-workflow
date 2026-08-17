@@ -339,6 +339,13 @@ def test_probe_handoff_routes_eval_result_through_decision_realign(
             payload_file=payload_path,
         )
         assert submitted["ok"] is True
+        checked = eval_control.check_dimension(
+            cycle_id,
+            tmp_path,
+            dim="decision-consistency",
+        )
+        assert checked["ok"] is True
+        assert checked["dim_status"] == "probed"
 
         probe_result = eval_control.complete_probe_only(cycle_id, tmp_path)
         assert probe_result["ok"] is True
@@ -359,6 +366,64 @@ def test_probe_handoff_routes_eval_result_through_decision_realign(
     assert routed["outcome"] == "fail"
     assert routed["realign_gate"] == "D"
     assert routed["disposition"] == "rs"
+
+
+def test_zero_finding_probe_check_dimension_then_routes_pass(tmp_path: Path) -> None:
+    cycle_id = "feature-dec-eval-probe-zero"
+    _seed_dc_session(tmp_path, cycle_id)
+    adapter = DecisionEvalAdapter()
+    adapter_token = eval_control._ADAPTER_CTX.set(adapter)
+    workflow_token = eval_control._WORKFLOW_ID_CTX.set("lulu-decision")
+    handoff_token = eval_control._HANDOFF_CTX.set(None)
+    try:
+        started = eval_control.begin_eval_round(cycle_id, tmp_path)
+        assert started["ok"] is True
+        launched = eval_control.begin_dimension(
+            cycle_id,
+            tmp_path,
+            dim="decision-consistency",
+        )
+        token = launched["operation_ctx"]["dimension_token"]
+        payload_path = tmp_path / "decision-probe-findings.json"
+        payload_path.write_text(
+            json.dumps({"dimension_token": token, "findings": []}),
+            encoding="utf-8",
+        )
+        submitted = eval_control.submit_probe_findings(
+            cycle_id,
+            tmp_path,
+            payload_file=payload_path,
+        )
+        assert submitted["ok"] is True
+        assert submitted["total_issues"] == "0"
+
+        checked = eval_control.check_dimension(
+            cycle_id,
+            tmp_path,
+            dim="decision-consistency",
+        )
+        assert checked["ok"] is True
+        assert checked["outcome"] == "probed"
+        assert checked["dim_status"] == "complete"
+        assert checked["issues"] == []
+
+        probe_result = eval_control.complete_probe_only(cycle_id, tmp_path)
+        assert probe_result["ok"] is True
+        assert probe_result["issues"] == []
+
+        routed = _run_json(
+            cmd_route_probe_result,
+            tmp_path,
+            cycle_id,
+            "decision",
+            probe_result=probe_result,
+        )
+    finally:
+        eval_control._ADAPTER_CTX.reset(adapter_token)
+        eval_control._WORKFLOW_ID_CTX.reset(workflow_token)
+        eval_control._HANDOFF_CTX.reset(handoff_token)
+
+    assert routed["outcome"] == "pass"
 
 
 def test_probe_result_without_issues_routes_decision_pass(tmp_path: Path) -> None:
