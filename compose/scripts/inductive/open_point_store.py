@@ -7,7 +7,7 @@ This module never takes the lock. Extra txn targets may include
 ``None`` deletes a target after recording before/after digests.
 
 Design rationale:
-docs/domain/archive/compose/archive-34.0/compose-g3-open-point-loop-refactor-design.md
+docs/domain/archive/compose/archive-37.0/compose-g3-detect-execution-closure-design.md
 """
 
 from __future__ import annotations
@@ -243,6 +243,53 @@ def load_published_kw_raw(
         )
     except (OSError, ValueError, FileNotFoundError, FetchComposeFrameworkError):
         return None
+
+
+def load_detect_materials(
+    slice_dir: Path, project_root: Path | str | None
+) -> tuple[list[dict[str, Any]], bool]:
+    """Load intent refs and code_grounding. Missing project_root is true inert."""
+    if not project_root:
+        return [], False
+    try:
+        from resolved_refs_schema import intent_baseline_from_workflow  # noqa: WPS433
+        from workflow_paths import resolve_revision_runtime_profile  # noqa: WPS433
+
+        runtime = resolve_revision_runtime_profile(Path(slice_dir), Path(project_root))
+        cycle_id = runtime.session_base.parent.name
+        refs = intent_baseline_from_workflow(
+            cycle_id, Path(project_root), runtime.profile_id
+        )
+        pipeline = runtime.profile_data.get("pipeline") or {}
+        return [item.to_dict() for item in refs], bool(pipeline.get("code_grounding"))
+    except (OSError, ValueError, FileNotFoundError, ImportError, KeyError) as exc:
+        raise ValueError(f"detect session resolve failed: {exc}") from exc
+
+
+def compute_inert_means(
+    intent_refs: list[Any], code_grounding: bool
+) -> list[str]:
+    inert: list[str] = []
+    if not intent_refs:
+        inert.append("intent")
+    if not code_grounding:
+        inert.append("scan")
+    return inert
+
+
+def require_detect_ruler(
+    slice_dir: Path, project_root: Path | str | None = None
+) -> tuple[list[str], str]:
+    """Return registry keys and KW raw text, or raise if the ruler is missing."""
+    keys = registry_lens_keys(lens_snapshot(slice_dir))
+    if not keys:
+        raise ValueError("section-registry missing")
+    if not lens_frontier_path(slice_dir).is_file():
+        raise ValueError("lens-frontier missing")
+    kw_raw = load_published_kw_raw(slice_dir, project_root)
+    if not kw_raw:
+        raise ValueError("KW criteria missing")
+    return keys, kw_raw
 
 
 def ensure_frontier(slice_dir: Path) -> dict[str, Any]:
@@ -565,17 +612,19 @@ def prepare_add_opens(
     *,
     opens: list[Any],
     detect: dict[str, Any] | None = None,
+    project_root: Path | str | None = None,
 ) -> dict[str, Any]:
     """Compute add-opens after-state without writing."""
     bundle = load_bundle(slice_dir)
     current_facts = facts_digest(slice_dir)
     current_lens = lens_digest(slice_dir)
     current_opens = canonical_digest(bundle["opens"])
-    ensure_frontier(slice_dir)
-    current_frontier = frontier_digest(slice_dir)
     allowed = registry_lens_keys(lens_snapshot(slice_dir))
 
     if detect is not None:
+        if not lens_frontier_path(slice_dir).is_file():
+            raise ValueError("lens-frontier missing")
+        current_frontier = frontier_digest(slice_dir)
         if bundle["state"]["phase"] != "idle":
             raise ValueError("detect is only legal from idle")
         if _active_batch(bundle) is not None:
@@ -593,6 +642,14 @@ def prepare_add_opens(
         checked = detect.get("checked_lenses")
         if not isinstance(checked, list) or not checked:
             raise ValueError("detect.checked_lenses must be a non-empty list")
+        intent_refs, code_grounding = load_detect_materials(slice_dir, project_root)
+        current_inert = compute_inert_means(intent_refs, code_grounding)
+        echoed = detect.get("inert_means")
+        if not isinstance(echoed, list):
+            raise ValueError("detect.inert_means must be a list")
+        echoed_norm = [str(item).strip().lower() for item in echoed]
+        if sorted(echoed_norm) != sorted(current_inert):
+            raise ValueError("inert_means mismatch")
         for raw in opens:
             if not isinstance(raw, dict):
                 raise ValueError("open must be an object")
@@ -604,6 +661,8 @@ def prepare_add_opens(
                 raise ValueError(
                     "detect open source.means must be scan, intent, or probe"
                 )
+            if means in current_inert:
+                raise ValueError(f"detect open source.means {means} is inert")
         registered = _mint_opens(
             bundle["opens"],
             opens,
@@ -709,8 +768,11 @@ def add_opens(
     *,
     opens: list[Any],
     detect: dict[str, Any] | None = None,
+    project_root: Path | str | None = None,
 ) -> dict[str, Any]:
-    prepared = prepare_add_opens(slice_dir, opens=opens, detect=detect)
+    prepared = prepare_add_opens(
+        slice_dir, opens=opens, detect=detect, project_root=project_root
+    )
     _commit(slice_dir, "add-opens", prepared["files"])
     return {
         "opens": prepared["opens"],
@@ -977,26 +1039,28 @@ def check_close(
         if any(item.get("status") == "open" for item in bundle["opens"]):
             reasons.append("open items remain")
         snapshot = lens_snapshot(slice_dir)
+        keys = registry_lens_keys(snapshot)
+        if not keys:
+            reasons.append("section-registry missing")
+        kw_raw = load_published_kw_raw(slice_dir, project_root)
+        if not kw_raw:
+            reasons.append("KW criteria missing")
         payable = payable_lenses(snapshot, frontier)
-        if payable:
-            kw_raw = load_published_kw_raw(slice_dir, project_root)
-            if not kw_raw:
-                reasons.append("KW criteria missing")
-            else:
-                for lens in payable:
-                    kw_slice = slice_kw_criteria(kw_raw, lens)
-                    if kw_slice is None:
-                        reasons.append(f"KW criteria missing for {lens}")
-                        continue
-                    try:
-                        target = target_kw_for_slice(kw_slice)
-                    except ValueError:
-                        reasons.append(f"KW criteria missing for {lens}")
-                        continue
-                    entry = (frontier.get("lenses") or {}).get(lens) or {}
-                    current_kw = int(entry.get("frontier_kw") or 0)
-                    if current_kw < target:
-                        reasons.append(f"lens {lens} below target KW{target}")
+        if payable and kw_raw:
+            for lens in payable:
+                kw_slice = slice_kw_criteria(kw_raw, lens)
+                if kw_slice is None:
+                    reasons.append(f"KW criteria missing for {lens}")
+                    continue
+                try:
+                    target = target_kw_for_slice(kw_slice)
+                except ValueError:
+                    reasons.append(f"KW criteria missing for {lens}")
+                    continue
+                entry = (frontier.get("lenses") or {}).get(lens) or {}
+                current_kw = int(entry.get("frontier_kw") or 0)
+                if current_kw < target:
+                    reasons.append(f"lens {lens} below target KW{target}")
     elif mode == "hard-skip":
         if blocking_open_items(bundle["opens"]):
             reasons.append("blocking open remains")

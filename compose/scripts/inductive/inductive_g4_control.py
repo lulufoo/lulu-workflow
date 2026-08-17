@@ -18,7 +18,7 @@ All subcommands print JSON to stdout; exit 0 on success, exit 1 on failure.
 Global flags: --out-dir PATH (required). Platform session identity is hook-managed.
 
 Design rationale:
-docs/domain/archive/compose/archive-34.0/compose-g3-open-point-loop-refactor-design.md
+docs/domain/archive/compose/archive-37.0/compose-g3-detect-execution-closure-design.md
 """
 
 from __future__ import annotations
@@ -51,6 +51,7 @@ from g4_recompose_report_schema import (  # noqa: E402
     g4_report_path,
     load_report,
     save_report,
+    validate_finding_lens_sources,
 )
 from l_ledger_schema import working_slice_dir  # noqa: E402
 from open_point_store import facts_snapshot  # noqa: E402
@@ -134,12 +135,17 @@ def cmd_record_recompose_report(out_dir: Path, args: argparse.Namespace) -> None
     report = _report_from_payload(payload)
     slice_dir = _slice_dir(out_dir)
     with compose_state_lock(slice_dir):
-        _facts, _opens, facts_digest, opens_digest = _current_digests(slice_dir)
+        facts, opens, facts_digest, opens_digest = _current_digests(slice_dir)
         if (
             report.get("facts_digest") != facts_digest
             or report.get("opens_digest") != opens_digest
         ):
             _fail("stale facts/opens digest")
+        source_errors = validate_finding_lens_sources(
+            report.get("findings"), facts, opens
+        )
+        if source_errors:
+            _fail("; ".join(source_errors))
         try:
             saved = save_report(g4_report_path(slice_dir), report)
         except ValueError as exc:

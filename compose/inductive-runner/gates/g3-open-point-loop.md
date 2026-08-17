@@ -36,7 +36,7 @@ human's disposition.
 
 - Read `../references/open-point-model.md` before entering the loop.
 - Resolve position through `$OPEN_POINT_CTL resolve-context`.
-- Detect context is `$OPEN_POINT_CTL detect-context`.
+- Detect runner fetches `$OPEN_POINT_CTL detect-context`. Parent does not.
 - Process context is `$OPEN_POINT_CTL process-context`.
 - Initial position is `idle`; entry never starts detection.
 - `processing` has one active batch and at most one active open.
@@ -60,19 +60,20 @@ human's disposition.
 
 Run only from `idle` after an explicit human request.
 
-1. Resolve fresh detection context through `$OPEN_POINT_CTL detect-context`.
-   The context includes KW slices, frontiers, intent refs, and
-   `code_grounding`. Missing KW or frontier context is a failure.
-2. Dispatch `../open-point-detect-runner/SKILL.md`.
+1. Run `$OPEN_POINT_CTL ensure-frontier`. This is the only Detect-path
+   frontier init write.
+2. Dispatch `../open-point-detect-runner/SKILL.md` with `--out-dir` and
+   `--project-root` only. Do not pass snapshot fields.
 3. Require one complete lens pass at each lens's current `frontier_kw`.
    Let the analysis form a coherent, processable candidate batch. Each
    registered Detect Open needs `lens` and `source.means` in
-   `scan|intent|probe`.
+   `scan|intent|probe`, and that means must not be inert.
 4. Present the candidate batch without adding solutions.
 5. Let the human adjust the candidates; the Parent Agent may refine them.
 6. Register the final set through `$OPEN_POINT_CTL add-opens --opens-json`
-   `--detect-json`. Detect must pass `--detect-json`. Empty `--opens-json` is
-   legal only with detect metadata.
+   `--detect-json`. Detect must pass `--detect-json` with the echoed
+   digests and `inert_means`. Empty `--opens-json` is legal only with
+   detect metadata.
 7. Route from the control result: process a registered batch or return to
    `idle`.
 
@@ -122,9 +123,11 @@ control returns to `idle`, offer:
 - request G3 closure.
 
 After facts change on a lens, or after a Detect pass finds no current-
-altitude gap on that lens, the Parent Agent may run
-`$OPEN_POINT_CTL set-frontier`. After a climb or `frontier-skip`, the
-previous receipt is stale; Detect again before `cleared`.
+altitude gap on that lens, take one required fork:
+`$OPEN_POINT_CTL set-frontier`, `$OPEN_POINT_CTL frontier-skip`, or an
+explicit no-climb. After an explicit no-climb, only `hard-skip` remains.
+After a climb or `frontier-skip`, the previous receipt is stale; Detect
+again before `cleared`.
 
 Do not start another detection automatically.
 

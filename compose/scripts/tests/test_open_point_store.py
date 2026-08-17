@@ -21,36 +21,17 @@ from open_point_store import (  # noqa: E402
     add_opens,
     check_close,
     defer_open,
-    lens_snapshot,
+    ensure_frontier,
+    frontier_digest,
     load_bundle,
     reconcile,
-    registry_lens_keys,
     reject_open,
     set_frontier,
     settle_open,
     skip_open,
 )
 from open_point_transaction_schema import open_point_txn_path  # noqa: E402
-from lens_frontier_schema import (  # noqa: E402
-    empty_lens_frontier,
-    init_frontier_from_keys,
-    lens_frontier_path,
-    load_lens_frontier,
-    merge_missing_keys,
-)
 from opens_schema import opens_path  # noqa: E402
-
-
-def _frontier_digest(slice_dir: Path) -> str:
-    keys = registry_lens_keys(lens_snapshot(slice_dir))
-    path = lens_frontier_path(slice_dir)
-    if path.is_file():
-        data = merge_missing_keys(load_lens_frontier(path), keys)
-    elif keys:
-        data = init_frontier_from_keys(keys)
-    else:
-        data = empty_lens_frontier()
-    return canonical_digest(data)
 
 
 def _candidate(**overrides):
@@ -76,21 +57,23 @@ def _detect_meta(slice_dir: Path, raw_candidates, **overrides):
     facts = _json_or_empty(slice_dir / "_facts.json")
     lenses = _json_or_empty(slice_dir / "section-registry.json")
     opens = _json_or_empty(slice_dir / "inductive-opens.json")
-    facts_digest = canonical_digest(facts)
-    lens_digest = canonical_digest(lenses)
-    opens_digest = canonical_digest(opens)
-    frontier_digest = _frontier_digest(slice_dir)
+    facts_d = canonical_digest(facts)
+    lens_d = canonical_digest(lenses)
+    opens_d = canonical_digest(opens)
+    ensure_frontier(slice_dir)
+    frontier_d = frontier_digest(slice_dir)
     meta = {
         "checked_lenses": ["I", "FL"],
-        "facts_digest": facts_digest,
-        "lens_digest": lens_digest,
-        "opens_digest": opens_digest,
-        "frontier_digest": frontier_digest,
+        "facts_digest": facts_d,
+        "lens_digest": lens_d,
+        "opens_digest": opens_d,
+        "frontier_digest": frontier_d,
         "raw_candidates": list(raw_candidates),
-        "expected_facts_digest": facts_digest,
-        "expected_lens_digest": lens_digest,
-        "expected_opens_digest": opens_digest,
-        "expected_frontier_digest": frontier_digest,
+        "expected_facts_digest": facts_d,
+        "expected_lens_digest": lens_d,
+        "expected_opens_digest": opens_d,
+        "expected_frontier_digest": frontier_d,
+        "inert_means": ["intent", "scan"],
     }
     meta.update(overrides)
     return meta
@@ -276,6 +259,9 @@ def test_stale_expected_digest_rejected(tmp_path: Path):
 
 
 def test_cleared_and_hard_skip_predicates(tmp_path: Path):
+    _write_registry_and_kw(tmp_path)
+    ensure_frontier(tmp_path)
+    set_frontier(tmp_path, "I", 3)
     add_opens(tmp_path, opens=[], detect=_detect_meta(tmp_path, []))
     cleared = check_close(tmp_path, mode="cleared")
     assert cleared["ok"] is True
@@ -476,3 +462,31 @@ def test_detect_rejects_unknown_registry_lens(tmp_path: Path):
             opens=[_candidate(lens="NOPE")],
             detect=_detect_meta(tmp_path, [_candidate(lens="NOPE")]),
         )
+
+
+def test_detect_rejects_inert_means(tmp_path: Path):
+    _write_registry_and_kw(tmp_path)
+    with pytest.raises(ValueError, match="inert"):
+        add_opens(
+            tmp_path,
+            opens=[_candidate(source={"actor": "ai", "means": "intent"})],
+            detect=_detect_meta(
+                tmp_path,
+                [_candidate(source={"actor": "ai", "means": "intent"})],
+            ),
+        )
+
+
+def test_add_opens_detect_requires_frontier_file(tmp_path: Path):
+    meta = _detect_meta(tmp_path, [])
+    (tmp_path / "lens-frontier.json").unlink()
+    with pytest.raises(ValueError, match="lens-frontier"):
+        add_opens(tmp_path, opens=[], detect=meta)
+
+
+def test_cleared_fails_without_registry(tmp_path: Path):
+    add_opens(tmp_path, opens=[], detect=_detect_meta(tmp_path, []))
+    cleared = check_close(tmp_path, mode="cleared")
+    assert cleared["ok"] is False
+    assert any("section-registry" in item for item in cleared["reasons"])
+    assert any("KW criteria missing" in item for item in cleared["reasons"])

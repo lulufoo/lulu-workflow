@@ -12,6 +12,7 @@ sys.path.insert(0, str(_INDUCTIVE_DIR))
 from g4_recompose_report_schema import (  # noqa: E402
     check_report_readable,
     normalize_report,
+    validate_finding_lens_sources,
     validate_report,
 )
 
@@ -150,3 +151,27 @@ def test_check_not_closable_when_findings_remain() -> None:
     assert result["schema_ok"] is True
     assert result["closable"] is False
     assert len(result["findings"]) == 1
+
+
+def test_finding_lens_must_come_from_open_or_fact_tags() -> None:
+    findings = [
+        {
+            "question": "Who owns retry?",
+            "basis": "Two facts disagree",
+            "blocking": True,
+            "lens": "I",
+        }
+    ]
+    assert validate_finding_lens_sources(findings, [], []) != []
+    assert (
+        validate_finding_lens_sources(
+            findings, [{"id": "F-1", "lens_tags": ["I"]}], []
+        )
+        == []
+    )
+    assert (
+        validate_finding_lens_sources(
+            findings, [], [{"id": "O-1", "lens": "I"}]
+        )
+        == []
+    )

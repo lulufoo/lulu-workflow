@@ -63,6 +63,7 @@ from g4_recompose_report_schema import (  # noqa: E402
     delete_report,
     g4_report_path,
     load_report,
+    validate_finding_lens_sources,
 )
 from l_ledger_schema import working_slice_dir  # noqa: E402
 from open_point_state_schema import (  # noqa: E402
@@ -77,6 +78,7 @@ from open_point_store import (  # noqa: E402
     assert_slice_writable,
     check_close,
     facts_digest,
+    facts_snapshot,
     prepare_add_opens,
 )
 from opens_schema import load_opens, opens_path  # noqa: E402
@@ -579,6 +581,11 @@ def _reopen_g3_from_report(out_dir: Path, args: argparse.Namespace, state: dict[
         findings = report.get("findings") or []
         if not findings:
             _fail("G3 reopen rejected: report has no findings")
+        source_errors = validate_finding_lens_sources(
+            findings, facts_snapshot(slice_dir), load_opens(opens_path(slice_dir))
+        )
+        if source_errors:
+            _fail("; ".join(source_errors))
         incoming = []
         for item in findings:
             if not isinstance(item, dict):

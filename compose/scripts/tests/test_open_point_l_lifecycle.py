@@ -83,7 +83,11 @@ def _g4_closed_state(out_dir: Path) -> dict:
 
 
 def _finding_report(out_dir: Path) -> tuple[dict, str]:
-    facts_d = canonical_digest([])
+    facts = [{"id": "F-seed", "text": "g4 lens source", "lens_tags": ["I"]}]
+    (out_dir / "_facts.json").write_text(
+        json.dumps(facts) + "\n", encoding="utf-8"
+    )
+    facts_d = canonical_digest(facts)
     opens_d = canonical_digest(load_opens(opens_path(out_dir)))
     report = {
         "version": 1,

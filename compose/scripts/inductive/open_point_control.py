@@ -8,7 +8,7 @@ Subcommands print JSON to stdout. Exit 0 on success, exit 1 on
 validation / stale / invariant errors.
 
 Design rationale:
-docs/domain/archive/compose/archive-34.0/compose-g3-open-point-loop-refactor-design.md
+docs/domain/archive/compose/archive-37.0/compose-g3-detect-execution-closure-design.md
 """
 
 from __future__ import annotations
@@ -50,8 +50,9 @@ from open_point_store import (  # noqa: E402
     lens_digest,
     lens_snapshot,
     load_bundle,
-    load_published_kw_raw,
-    registry_lens_keys,
+    load_detect_materials,
+    compute_inert_means,
+    require_detect_ruler,
     reject_open,
     set_frontier,
     settle_open,
@@ -129,25 +130,12 @@ def cmd_resolve_context(slice_dir: Path, _args: argparse.Namespace) -> None:
     )
 
 
-def _session_detect_materials(
-    slice_dir: Path, project_root: Path | None
-) -> tuple[list[dict[str, Any]], bool]:
-    if project_root is None:
-        return [], False
-    try:
-        from resolved_refs_schema import intent_baseline_from_workflow  # noqa: WPS433
-        from workflow_paths import resolve_revision_runtime_profile  # noqa: WPS433
-
-        runtime = resolve_revision_runtime_profile(slice_dir, project_root)
-        cycle_id = runtime.session_base.parent.name
-        refs = intent_baseline_from_workflow(
-            cycle_id, project_root, runtime.profile_id
-        )
-        pipeline = runtime.profile_data.get("pipeline") or {}
-        code_grounding = bool(pipeline.get("code_grounding"))
-        return [item.to_dict() for item in refs], code_grounding
-    except (OSError, ValueError, FileNotFoundError, ImportError, KeyError):
-        return [], False
+def cmd_ensure_frontier(slice_dir: Path, _args: argparse.Namespace) -> None:
+    bundle = load_bundle(slice_dir)
+    if bundle["state"]["phase"] != "idle":
+        raise ValueError("ensure-frontier requires idle (currently processing)")
+    frontiers = ensure_frontier(slice_dir)
+    _ok({"frontiers": frontiers, "frontier_digest": frontier_digest(slice_dir)})
 
 
 def cmd_detect_context(slice_dir: Path, args: argparse.Namespace) -> None:
@@ -155,35 +143,30 @@ def cmd_detect_context(slice_dir: Path, args: argparse.Namespace) -> None:
     if bundle["state"]["phase"] != "idle":
         raise ValueError("detect-context requires idle (currently processing)")
     project_root = Path(args.project_root).resolve() if args.project_root else None
+    keys, kw_raw = require_detect_ruler(slice_dir, project_root)
     facts = facts_snapshot(slice_dir)
     lenses = lens_snapshot(slice_dir)
-    keys = registry_lens_keys(lenses)
-    ensure_frontier(slice_dir)
     frontiers = frontier_snapshot(slice_dir)
-    kw_raw = load_published_kw_raw(slice_dir, project_root)
-    if keys and not kw_raw:
-        raise ValueError("KW criteria missing")
     kw_criteria: dict[str, str] = {}
     for lens in keys:
-        if not kw_raw:
-            break
         sliced = slice_kw_criteria(kw_raw, lens)
         if sliced is None:
             raise ValueError(f"KW criteria missing for {lens}")
         kw_criteria[lens] = sliced
-    intent_refs, code_grounding = _session_detect_materials(slice_dir, project_root)
+    intent_refs, code_grounding = load_detect_materials(slice_dir, project_root)
     payload: dict[str, Any] = {
-        "facts": facts,
+        "facts_snapshot": facts,
         "facts_digest": canonical_digest(facts),
-        "lenses": lenses,
+        "lens_registry": lenses,
         "lens_digest": canonical_digest(lenses),
-        "opens": bundle["opens"],
+        "opens_snapshot": bundle["opens"],
         "opens_digest": canonical_digest(bundle["opens"]),
         "frontiers": frontiers,
         "frontier_digest": frontier_digest(slice_dir),
         "kw_criteria": kw_criteria,
         "intent_baseline_refs": intent_refs,
         "code_grounding": code_grounding,
+        "inert_means": compute_inert_means(intent_refs, code_grounding),
     }
     if code_grounding and project_root is not None:
         payload["project_evidence_scope"] = {"project_root": str(project_root)}
@@ -217,7 +200,12 @@ def cmd_add_opens(slice_dir: Path, args: argparse.Namespace) -> None:
         detect = _parse_json(args.detect_json, "--detect-json")
         if not isinstance(detect, dict):
             raise ValueError("--detect-json must be a JSON object")
-    result = add_opens(slice_dir, opens=opens, detect=detect)
+    result = add_opens(
+        slice_dir,
+        opens=opens,
+        detect=detect,
+        project_root=args.project_root or None,
+    )
     _ok(result)
 
 
@@ -305,8 +293,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("resolve-context", help="Opens + state + active batch + close summary")
     sub.add_parser(
+        "ensure-frontier",
+        help="Initialize or merge lens-frontier.json from section-registry",
+    )
+    sub.add_parser(
         "detect-context",
-        help="Facts/lens/opens/frontier snapshots, KW slices, and means materials",
+        help="Read-only facts/lens/opens/frontier snapshots, KW slices, and means materials",
     )
     sub.add_parser("process-context", help="Active open + facts + freshness digests")
 
@@ -317,7 +309,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "(checked_lenses, facts/lens/opens/frontier digests or expected_*, "
             "raw_candidates). Empty --opens-json is legal only with detect "
             "metadata. zero_result is raw_candidates length == 0. "
-            "AI Detect means must be scan|intent|probe."
+            "AI Detect means must be scan|intent|probe and not inert."
         ),
     )
     add.add_argument("--opens-json", required=True)
@@ -381,6 +373,7 @@ def main(argv: list[str] | None = None) -> int:
     slice_dir = working_slice_dir(Path(args.out_dir))
     dispatch = {
         "resolve-context": cmd_resolve_context,
+        "ensure-frontier": cmd_ensure_frontier,
         "detect-context": cmd_detect_context,
         "process-context": cmd_process_context,
         "add-opens": cmd_add_opens,

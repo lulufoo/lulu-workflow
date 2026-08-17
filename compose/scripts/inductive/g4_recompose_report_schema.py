@@ -6,7 +6,7 @@ Empty findings are valid only when buildable, reversible, and verifiable
 are all true.
 
 Design rationale:
-docs/domain/archive/compose/archive-34.0/compose-g3-open-point-loop-refactor-design.md
+docs/domain/archive/compose/archive-37.0/compose-g3-detect-execution-closure-design.md
 """
 
 from __future__ import annotations
@@ -222,6 +222,51 @@ def delete_report(out_dir: Path) -> bool:
         path.unlink()
         return True
     return False
+
+
+def allowed_finding_lenses(facts: Any, opens: Any) -> set[str]:
+    """Lenses stamped on current Opens or fact lens_tags."""
+    allowed: set[str] = set()
+    if isinstance(opens, list):
+        for item in opens:
+            if not isinstance(item, dict):
+                continue
+            lens = str(item.get("lens") or "").strip().upper()
+            if lens:
+                allowed.add(lens)
+    if isinstance(facts, list):
+        for fact in facts:
+            if not isinstance(fact, dict):
+                continue
+            tags = fact.get("lens_tags")
+            if not isinstance(tags, list):
+                continue
+            for tag in tags:
+                lens = str(tag).strip().upper()
+                if lens:
+                    allowed.add(lens)
+    return allowed
+
+
+def validate_finding_lens_sources(
+    findings: Any, facts: Any, opens: Any
+) -> list[str]:
+    """Fail findings whose lens is not on an Open or a fact lens_tag."""
+    if not isinstance(findings, list):
+        return []
+    allowed = allowed_finding_lenses(facts, opens)
+    errors: list[str] = []
+    for index, item in enumerate(findings):
+        if not isinstance(item, dict):
+            continue
+        lens = str(item.get("lens") or "").strip().upper()
+        if not lens:
+            continue
+        if lens not in allowed:
+            errors.append(
+                f"findings[{index}].lens has no Open.lens or fact lens_tags source"
+            )
+    return errors
 
 
 def check_report_readable(report: dict[str, Any]) -> dict[str, Any]:

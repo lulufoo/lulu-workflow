@@ -20,7 +20,7 @@ sys.path.insert(0, str(_SECTION))
 
 from compose_state_lock import canonical_digest  # noqa: E402
 from g4_recompose_report_schema import g4_report_path  # noqa: E402
-from open_point_store import add_opens  # noqa: E402
+from open_point_store import add_opens, ensure_frontier, frontier_digest, set_frontier  # noqa: E402
 
 _PARENT_CONV = "11111111-1111-4111-8111-111111111111"
 _SUBAGENT_CONV = "22222222-2222-4222-8222-222222222222"
@@ -92,42 +92,61 @@ def _current_digests(slice_dir: Path) -> tuple[str, str]:
     )
 
 
+def _ready_cleared(slice_dir: Path) -> None:
+    (slice_dir / "section-registry.json").write_text(
+        json.dumps(
+            {
+                "version": "1",
+                "document_preamble": "test",
+                "section_order": ["I"],
+                "sections": {
+                    "I": {
+                        "heading": "Intent",
+                        "intent": "constraints",
+                        "presence": "required",
+                    }
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (slice_dir / "section-kw-criteria.md").write_text(
+        "## I\n\n| KW | x |\n|----|---|\n| KW0 | n |\n| KW1 | r |\n| KW3 | b |\n",
+        encoding="utf-8",
+    )
+    ensure_frontier(slice_dir)
+    set_frontier(slice_dir, "I", 3)
+    (slice_dir / "_facts.json").write_text(
+        json.dumps(
+            [{"id": "F-seed", "text": "g4 lens source", "lens_tags": ["I"]}]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def _detect_meta(slice_dir: Path, raw_candidates):
     facts = _json_or_empty(slice_dir / "_facts.json")
     lenses = _json_or_empty(slice_dir / "section-registry.json")
     opens = _json_or_empty(slice_dir / "inductive-opens.json")
-    facts_digest = canonical_digest(facts)
-    lens_digest = canonical_digest(lenses)
-    opens_digest = canonical_digest(opens)
-    from lens_frontier_schema import (  # noqa: WPS433
-        empty_lens_frontier,
-        init_frontier_from_keys,
-        lens_frontier_path,
-        load_lens_frontier,
-        merge_missing_keys,
-    )
-    from open_point_store import registry_lens_keys  # noqa: WPS433
-
-    keys = registry_lens_keys(lenses)
-    path = lens_frontier_path(slice_dir)
-    if path.is_file():
-        frontier = merge_missing_keys(load_lens_frontier(path), keys)
-    elif keys:
-        frontier = init_frontier_from_keys(keys)
-    else:
-        frontier = empty_lens_frontier()
-    frontier_digest = canonical_digest(frontier)
+    facts_d = canonical_digest(facts)
+    lens_d = canonical_digest(lenses)
+    opens_d = canonical_digest(opens)
+    ensure_frontier(slice_dir)
+    frontier_d = frontier_digest(slice_dir)
     return {
         "checked_lenses": ["I"],
-        "facts_digest": facts_digest,
-        "lens_digest": lens_digest,
-        "opens_digest": opens_digest,
-        "frontier_digest": frontier_digest,
+        "facts_digest": facts_d,
+        "lens_digest": lens_d,
+        "opens_digest": opens_d,
+        "frontier_digest": frontier_d,
         "raw_candidates": list(raw_candidates),
-        "expected_facts_digest": facts_digest,
-        "expected_lens_digest": lens_digest,
-        "expected_opens_digest": opens_digest,
-        "expected_frontier_digest": frontier_digest,
+        "expected_facts_digest": facts_d,
+        "expected_lens_digest": lens_d,
+        "expected_opens_digest": opens_d,
+        "expected_frontier_digest": frontier_d,
+        "inert_means": ["intent", "scan"],
     }
 
 
@@ -176,6 +195,7 @@ def _drive_to_g4(tmp_path: Path) -> None:
         tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload()
     )
     assert code == 0, result
+    _ready_cleared(tmp_path)
     add_opens(tmp_path, opens=[], detect=_detect_meta(tmp_path, []))
     code, result = _run_gate(
         tmp_path, "gate-close", "--gate", "G3", "--mode", "cleared", "--confirm"
@@ -374,3 +394,21 @@ def test_gate_close_g4_ignores_caller_supplied_payload(tmp_path: Path):
     code, result = _run_gate(tmp_path, "gate-close", "--gate", "G4", "--payload", forged)
     assert code == 1
     assert "report" in result.get("error", "").lower() or "recompose" in result.get("error", "").lower()
+
+
+def test_record_recompose_report_rejects_unsourced_finding_lens(tmp_path: Path):
+    _drive_to_g4(tmp_path)
+    code, result = _record_ok_recompose_report(
+        tmp_path,
+        findings=[
+            {
+                "question": "Who owns retry?",
+                "basis": "Two facts disagree",
+                "blocking": True,
+                "lens": "NOPE",
+            }
+        ],
+        buildable=False,
+    )
+    assert code == 1
+    assert "lens_tags" in result.get("error", "") or "source" in result.get("error", "")

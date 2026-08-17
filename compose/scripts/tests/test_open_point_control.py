@@ -15,20 +15,43 @@ sys.path.insert(0, str(_INDUCTIVE_DIR))
 sys.path.insert(0, str(_SCHEMA_DIR))
 
 from compose_state_lock import canonical_digest  # noqa: E402
-from open_point_store import add_opens  # noqa: E402
+from open_point_store import add_opens, ensure_frontier, set_frontier  # noqa: E402
+
+_REGISTRY = {
+    "version": "1",
+    "document_preamble": "test",
+    "section_order": ["I"],
+    "sections": {
+        "I": {"heading": "Intent", "intent": "constraints", "presence": "required"}
+    },
+}
+_KW = "## I\n\n| KW | x |\n|----|---|\n| KW0 | n |\n| KW1 | r |\n| KW3 | b |\n"
 
 
-def _run(out_dir: Path, *args: str) -> tuple[int, dict]:
+def _write_registry(out_dir: Path) -> None:
+    (out_dir / "section-registry.json").write_text(
+        json.dumps(_REGISTRY) + "\n", encoding="utf-8"
+    )
+
+
+def _write_kw(out_dir: Path) -> None:
+    (out_dir / "section-kw-criteria.md").write_text(_KW, encoding="utf-8")
+
+
+def _ready_cleared(out_dir: Path) -> None:
+    _write_registry(out_dir)
+    _write_kw(out_dir)
+    ensure_frontier(out_dir)
+    set_frontier(out_dir, "I", 3)
+
+
+def _run(out_dir: Path, *args: str, project_root: str | None = None) -> tuple[int, dict]:
+    cmd = [sys.executable, str(_CTL), "--out-dir", str(out_dir)]
+    if project_root is not None:
+        cmd.extend(["--project-root", project_root])
+    cmd.extend(args)
     res = subprocess.run(
-        [
-            sys.executable,
-            str(_CTL),
-            "--out-dir",
-            str(out_dir),
-            "--project-root",
-            str(out_dir),
-            *args,
-        ],
+        cmd,
         capture_output=True,
         text=True,
     )
@@ -52,6 +75,8 @@ def _human_open(**overrides):
 
 
 def _detect_json(out_dir: Path, raw_candidates):
+    from open_point_store import frontier_digest  # noqa: WPS433
+
     facts = []
     if (out_dir / "_facts.json").is_file():
         facts = json.loads((out_dir / "_facts.json").read_text(encoding="utf-8"))
@@ -64,36 +89,21 @@ def _detect_json(out_dir: Path, raw_candidates):
     facts_digest = canonical_digest(facts)
     lens_digest = canonical_digest(lenses)
     opens_digest = canonical_digest(opens)
-    from lens_frontier_schema import (  # noqa: WPS433
-        empty_lens_frontier,
-        init_frontier_from_keys,
-        lens_frontier_path,
-        load_lens_frontier,
-        merge_missing_keys,
-    )
-    from open_point_store import lens_snapshot, registry_lens_keys  # noqa: WPS433
-
-    keys = registry_lens_keys(lens_snapshot(out_dir))
-    path = lens_frontier_path(out_dir)
-    if path.is_file():
-        frontier = merge_missing_keys(load_lens_frontier(path), keys)
-    elif keys:
-        frontier = init_frontier_from_keys(keys)
-    else:
-        frontier = empty_lens_frontier()
-    frontier_digest = canonical_digest(frontier)
+    ensure_frontier(out_dir)
+    frontier_d = frontier_digest(out_dir)
     return json.dumps(
         {
             "checked_lenses": ["I"],
             "facts_digest": facts_digest,
             "lens_digest": lens_digest,
             "opens_digest": opens_digest,
-            "frontier_digest": frontier_digest,
+            "frontier_digest": frontier_d,
             "raw_candidates": raw_candidates,
             "expected_facts_digest": facts_digest,
             "expected_lens_digest": lens_digest,
             "expected_opens_digest": opens_digest,
-            "expected_frontier_digest": frontier_digest,
+            "expected_frontier_digest": frontier_d,
+            "inert_means": ["intent", "scan"],
         }
     )
 
@@ -144,6 +154,7 @@ def test_disposition_stale_digest_rejected(tmp_path: Path):
 
 
 def test_check_close_is_predicate_only(tmp_path: Path):
+    _ready_cleared(tmp_path)
     add_opens(tmp_path, opens=[], detect=json.loads(_detect_json(tmp_path, [])))
     code, payload = _run(tmp_path, "check-close", "--mode", "cleared")
     assert code == 0, payload
@@ -170,6 +181,7 @@ def test_check_close_is_predicate_only(tmp_path: Path):
 
 
 def test_check_close_cleared_confirm_requires_fresh_zero_result(tmp_path: Path):
+    _ready_cleared(tmp_path)
     code, payload = _run(
         tmp_path,
         "add-opens",
@@ -197,86 +209,97 @@ def test_check_close_cleared_confirm_requires_fresh_zero_result(tmp_path: Path):
 
 
 def test_detect_context_requires_kw_when_registry_present(tmp_path: Path):
-    (tmp_path / "section-registry.json").write_text(
-        json.dumps(
-            {
-                "version": "1",
-                "document_preamble": "test",
-                "section_order": ["I"],
-                "sections": {
-                    "I": {
-                        "heading": "Intent",
-                        "intent": "constraints",
-                        "presence": "required",
-                    }
-                },
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    _write_registry(tmp_path)
+    code, payload = _run(tmp_path, "ensure-frontier")
+    assert code == 0, payload
     code, payload = _run(tmp_path, "detect-context")
     assert code == 1
     assert payload["ok"] is False
     assert "KW" in payload["error"]
 
 
+def test_detect_context_fails_without_frontier_and_does_not_write(tmp_path: Path):
+    _write_registry(tmp_path)
+    _write_kw(tmp_path)
+    code, payload = _run(tmp_path, "detect-context")
+    assert code == 1
+    assert payload["ok"] is False
+    assert "frontier" in payload["error"]
+    assert not (tmp_path / "lens-frontier.json").is_file()
+
+
+def test_detect_context_fails_without_registry(tmp_path: Path):
+    _write_kw(tmp_path)
+    code, payload = _run(tmp_path, "ensure-frontier")
+    assert code == 0, payload
+    code, payload = _run(tmp_path, "detect-context")
+    assert code == 1
+    assert "section-registry" in payload["error"]
+
+
+def test_detect_context_fails_when_project_root_cannot_resolve(tmp_path: Path):
+    _write_registry(tmp_path)
+    _write_kw(tmp_path)
+    code, payload = _run(tmp_path, "ensure-frontier")
+    assert code == 0, payload
+    code, payload = _run(tmp_path, "detect-context", project_root=str(tmp_path))
+    assert code == 1
+    assert payload["ok"] is False
+    assert "session" in payload["error"] or "resolve" in payload["error"]
+
+
 def test_detect_context_emits_frontier_and_inert_means(tmp_path: Path):
-    (tmp_path / "section-registry.json").write_text(
-        json.dumps(
-            {
-                "version": "1",
-                "document_preamble": "test",
-                "section_order": ["I"],
-                "sections": {
-                    "I": {
-                        "heading": "Intent",
-                        "intent": "constraints",
-                        "presence": "required",
-                    }
-                },
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    (tmp_path / "section-kw-criteria.md").write_text(
-        "## I\n\n| KW | x |\n|----|---|\n| KW0 | n |\n| KW1 | r |\n| KW3 | b |\n",
-        encoding="utf-8",
-    )
+    _write_registry(tmp_path)
+    _write_kw(tmp_path)
+    code, payload = _run(tmp_path, "ensure-frontier")
+    assert code == 0, payload
+    before = (tmp_path / "lens-frontier.json").read_text(encoding="utf-8")
     code, payload = _run(tmp_path, "detect-context")
     assert code == 0, payload
+    assert payload["facts_snapshot"] == []
+    assert "lens_registry" in payload
+    assert payload["opens_snapshot"] == []
+    assert "facts" not in payload
+    assert "lenses" not in payload
+    assert "opens" not in payload
     assert "frontiers" in payload
     assert payload["frontier_digest"]
     assert "I" in payload["kw_criteria"]
     assert payload["intent_baseline_refs"] == []
     assert payload["code_grounding"] is False
+    assert payload["inert_means"] == ["intent", "scan"]
     assert "project_evidence_scope" not in payload
+    assert (tmp_path / "lens-frontier.json").read_text(encoding="utf-8") == before
+
+
+def test_add_opens_rejects_inert_intent_means(tmp_path: Path):
+    _write_registry(tmp_path)
+    _write_kw(tmp_path)
+    detect = json.loads(_detect_json(tmp_path, []))
+    detect["raw_candidates"] = [
+        {
+            "question": "q",
+            "basis": "b",
+            "blocking": True,
+            "lens": "I",
+            "source": {"actor": "ai", "means": "intent"},
+        }
+    ]
+    code, payload = _run(
+        tmp_path,
+        "add-opens",
+        "--opens-json",
+        json.dumps(detect["raw_candidates"]),
+        "--detect-json",
+        json.dumps(detect),
+    )
+    assert code == 1
+    assert "inert" in payload["error"]
 
 
 def test_set_frontier_then_cleared_needs_fresh_detect(tmp_path: Path):
-    (tmp_path / "section-registry.json").write_text(
-        json.dumps(
-            {
-                "version": "1",
-                "document_preamble": "test",
-                "section_order": ["I"],
-                "sections": {
-                    "I": {
-                        "heading": "Intent",
-                        "intent": "constraints",
-                        "presence": "required",
-                    }
-                },
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    (tmp_path / "section-kw-criteria.md").write_text(
-        "## I\n\n| KW | x |\n|----|---|\n| KW0 | n |\n| KW1 | r |\n| KW3 | b |\n",
-        encoding="utf-8",
-    )
+    _write_registry(tmp_path)
+    _write_kw(tmp_path)
     code, payload = _run(
         tmp_path,
         "add-opens",
