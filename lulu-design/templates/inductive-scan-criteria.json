@@ -89,7 +89,7 @@
       "DEP": "optional"
     },
     "level_clear_semantics": "KW ruler lives on G3 Detect (open-point-detect-runner + lens-frontier.json), not in this template. This file is not a live Detect scan order or leave-gate.",
-    "carrier_source": "Each section's figure is drawn in its carrier from section-form-registry (fetch via $FETCH_COMPOSE --role section-form-registry): pick a carrier from sections.{key}.presentation.allowed by relationship type, obey presentation.forbidden (no file:line / code-edit prose). Reference SSOT; do not copy carriers here.",
+    "carrier_source": "Each section's figure is drawn in its carrier from section-form-registry: pick a carrier from sections.{key}.presentation.allowed by relationship type, obey presentation.forbidden (no file:line / code-edit prose). Reference SSOT; do not copy carriers here.",
     "methods": {
       "_note": "Historical method catalog. Live Detect means are scan / intent / probe in open-point-detect-runner/references/detect-means.md. This template is not a Detect input.",
       "impl_gap": {

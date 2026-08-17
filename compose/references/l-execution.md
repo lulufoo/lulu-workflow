@@ -8,13 +8,10 @@ Macro expansion: `{SKILL_ROOT}/_runtime.md` § Script Macros → Macro expansion
 
 Outer macros (`$SESSION_INFO`, `$L_SHELL`) remain as defined in the compose SKILL.
 
-Fetch compose framework templates on demand. Scheme roles: `schemes/compose-template-scheme.json` (mapped per profile in `compose-profile.json` → `framework_templates`).
-
 | Macro | Command |
 |-------|---------|
 | `$L_STEP` | `python3 "$SKILL_ROOT/compose/scripts/section/l_step_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$INDUCTIVE_FACTS_PROJ` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_facts_projection.py"` |
-| `$FETCH_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/io/fetch_compose_framework.py" --role <role> --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/core/compose_eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` |
 | `$FACT_INTAKE_EVAL_CTL` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` |
 | `$ATOMIZE_EVAL_CONTROL` | Same command as `$FACT_INTAKE_EVAL_CTL` (retired name; prefer `$FACT_INTAKE_EVAL_CTL`) |

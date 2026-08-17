@@ -100,7 +100,7 @@
       "NG": "required",
       "AC": "required"
     },
-    "level_clear_semantics": "KW SSOT: fetch pst_section_kw_criteria_url via $FETCH_COMPOSE --role section-kw-criteria before Gate 3. Each ## {section_key} block defines KW0–KW4 for that section only. Default leave at KW3. Iteration unit = one open point.",
+    "level_clear_semantics": "KW SSOT: section-kw-criteria (pst_section_kw_criteria_url). Each ## {section_key} block defines KW0–KW4 for that section only. Default leave at KW3. Iteration unit = one open point.",
     "carrier_source": "section-form-registry (pst_section_form_registry_url): sections.{key}.presentation.allowed carriers; obey presentation.forbidden.",
     "methods": {
       "_note": "Discovery ACTION for the 6 coverage sections only. subtract shape_constraints (from G1) before registering EPs.",
