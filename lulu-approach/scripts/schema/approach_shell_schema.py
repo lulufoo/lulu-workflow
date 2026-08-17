@@ -11,8 +11,13 @@ On-disk ``discussion-pointer.json`` at the approach root::
         "D1": {"phase": "pending"|"in_progress", "delivered": bool, "frozen": bool},
         ...
       },
-      "split_delivered": bool
+      "split_delivered": bool,
+      "path_choice": null|"A"|"B"
     }
+
+``path_choice`` is the human Path A/B mark after Main is Completed (null =
+unconfirmed). Missing key loads as null. Design:
+``docs/domain/archive/approach/archive-1.1/approach-main-complete-path-choice-gate-design.md``.
 
 ``split_delivered`` stubs Split-phase completion until P2.split owns the cut.
 Ready sets are computed, not persisted.
@@ -32,8 +37,9 @@ MACRO_STATES = frozenset(
 )
 NODE_PHASES = frozenset({"pending", "in_progress"})
 _ON_DISK_KEYS = frozenset(
-    {"version", "macro_state", "focus", "by_id", "split_delivered"}
+    {"version", "macro_state", "focus", "by_id", "split_delivered", "path_choice"}
 )
+PATH_CHOICES = frozenset({"A", "B"})
 _CELL_KEYS = frozenset({"phase", "delivered", "frozen"})
 _DX_ID_RE = re.compile(r"^D\d+$")
 _FOCUS_RE = re.compile(r"^(main|D\d+)$")
@@ -55,6 +61,7 @@ def build_shell(
     focus: str | None = None,
     by_id: dict[str, dict[str, Any]] | None = None,
     split_delivered: bool = False,
+    path_choice: str | None = None,
     version: int = SHELL_VERSION,
 ) -> dict[str, Any]:
     return {
@@ -63,6 +70,7 @@ def build_shell(
         "focus": None if focus is None else str(focus).strip(),
         "by_id": {k: dict(v) for k, v in (by_id or {}).items()},
         "split_delivered": bool(split_delivered),
+        "path_choice": None if path_choice is None else str(path_choice).strip(),
     }
 
 
@@ -105,6 +113,11 @@ def validate_shell(data: dict[str, Any]) -> list[str]:
 
     if not isinstance(data.get("split_delivered"), bool):
         errors.append("split_delivered must be a boolean")
+
+    if "path_choice" in data:
+        choice = data.get("path_choice")
+        if choice is not None and str(choice).strip() not in PATH_CHOICES:
+            errors.append("path_choice must be null, A, or B")
 
     by_id = data.get("by_id")
     if not isinstance(by_id, dict):
@@ -157,6 +170,11 @@ def save_shell(approach_root: Path, shell: dict[str, Any]) -> Path:
         "focus": None if shell.get("focus") is None else str(shell["focus"]).strip(),
         "by_id": shell.get("by_id") or {},
         "split_delivered": bool(shell.get("split_delivered", False)),
+        "path_choice": (
+            None
+            if shell.get("path_choice") is None
+            else str(shell["path_choice"]).strip()
+        ),
     }
     path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
@@ -179,4 +197,9 @@ def load_shell(approach_root: Path) -> dict[str, Any]:
         "focus": None if data.get("focus") is None else str(data["focus"]).strip(),
         "by_id": dict(data.get("by_id") or {}),
         "split_delivered": bool(data.get("split_delivered", False)),
+        "path_choice": (
+            None
+            if "path_choice" not in data or data.get("path_choice") is None
+            else str(data["path_choice"]).strip()
+        ),
     }

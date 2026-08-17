@@ -64,12 +64,14 @@ Subcommand and stdout contracts remain in script module docstrings or `--help`.
 ## Outer spine
 
 ```text
-Path A: Main (node Completed) → PackageReady → stage Delivered
-Path B: Main → Split → Working (D1…Dn, single focus) → PackageReady → stage Delivered
+Path A: Main (node Completed) → record-path-choice A → PackageReady → stage Delivered
+Path B: Main → record-path-choice B → Split → Working (D1…Dn, single focus) → PackageReady → stage Delivered
 ```
 
 Node/session **Completed** (`$GATE_CONTROL complete`) is not approach-stage
-**Delivered** (`$APPROACH_DELIVER`).
+**Delivered** (`$APPROACH_DELIVER`). After Main Completes, ask whether to
+split; do not enter PackageReady or Split until
+`$APPROACH_SHELL record-path-choice` succeeds.
 
 ## Load Context (before Main enter)
 
@@ -151,18 +153,26 @@ session is declared to the user.
    `$GATE_CONTROL complete`.
 
 **Done:** `main` is **Completed** (node/session). Tell the user this is not
-approach-stage **Delivered**.
+approach-stage **Delivered**. Stop. Ask only whether to split.
 
-**Exit:** For Path A, continue with
-[PackageReady → stage Deliver](#packageready--stage-deliver).
-For Path B, continue with [Split (optional)](#split-optional).
+**Exit:** After the user answers split / no-split:
+
+1. No split — run `$APPROACH_SHELL record-path-choice --path A --confirm`, then
+   continue with
+   [PackageReady → stage Deliver](#packageready--stage-deliver).
+2. Split — run `$APPROACH_SHELL record-path-choice --path B --confirm`, then
+   continue with [Split](#split).
+
+Do not call `$APPROACH_SHELL enter-package-ready` or
+`$APPROACH_SHELL enter-split` before that command succeeds. Decision-session
+"deliver" / "continue" / DC close is not a path choice.
 
 **Stop:** On non-zero output, stop and report stderr. If `$DEC_START` reports a
 blocked prior stage, report that stage and do not retry.
 
-## Split (optional)
+## Split
 
-**Entry:** `main` is Completed and Path B is selected.
+**Entry:** `main` is Completed and `$APPROACH_SHELL record-path-choice --path B --confirm` succeeded.
 
 **Act:**
 
@@ -245,15 +255,16 @@ switch, or invent a decision-only Active switch.
 
 ## PackageReady → stage Deliver
 
-**Entry:** `main` is Completed on Path A, or all Working nodes are Completed and
-none are Frozen.
+**Entry:** `main` is Completed and `$APPROACH_SHELL record-path-choice --path A --confirm` succeeded, or all Working nodes are Completed and none are Frozen.
 
 **Act:**
 
 1. Run `$APPROACH_SHELL enter-package-ready`.
 2. Run `$APPROACH_DELIVER --confirm`:
-   - **Path A:** selecting Path A is the human confirm — do **not** ask a second
-     deliver question; pass `--confirm` and stage-deliver immediately.
+   - **Path A:** successful `record-path-choice --path A` is the human confirm —
+     do **not** ask a second deliver question; pass `--confirm` and
+     stage-deliver immediately. Decision-session "deliver" / "continue" / DC
+     close is not Path A.
    - **Path B:** after Working is fully Completed, obtain explicit human
      confirmation, then pass `--confirm`.
 

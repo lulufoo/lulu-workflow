@@ -6,6 +6,11 @@ Macro transitions::
     Main → Split → Working → PackageReady
     Main → PackageReady          (no-split shortcut)
 
+Path A/B after Main Completed requires ``record-path-choice`` (human
+``--confirm``). ``enter-package-ready`` / ``enter-split`` read ``path_choice``;
+they do not take a path CLI flag. Design:
+``docs/domain/archive/approach/archive-1.1/approach-main-complete-path-choice-gate-design.md``.
+
 Working: single focus; reject mid-switch until current focus is Completed.
 PackageReady: human ``--confirm`` required before stage ``deliver`` (Path A:
 selection may authorize confirm without a second ask).
@@ -17,9 +22,9 @@ CLI (stdout JSON ``{"ok": true, ...}``; errors on stderr, exit 1)::
 
     python3 approach_shell_control.py --approach-root <path> <subcommand> ...
 
-    Subcommands: init-shell, enter-split, enter-working, enter-node,
-enter-package-ready, deliver (alias confirm-seal), freeze-cascade, reopen-node,
-complete-reopen, recover-binding, bind-check-frozen, clear-frozen.
+    Subcommands: init-shell, record-path-choice, enter-split, enter-working,
+enter-node, enter-package-ready, deliver (alias confirm-seal), freeze-cascade,
+reopen-node, complete-reopen, recover-binding, bind-check-frozen, clear-frozen.
 """
 
 from __future__ import annotations
@@ -64,6 +69,7 @@ from approach_mainline_reopen_schema import (  # noqa: E402
     save_mainline_reopen,
 )
 from approach_shell_schema import (  # noqa: E402
+    PATH_CHOICES,
     empty_cell,
     initial_shell,
     load_shell,
@@ -188,6 +194,50 @@ def mark_split_delivered(approach_root: Path) -> dict[str, Any]:
     return shell
 
 
+def _effective_path_choice(shell: dict[str, Any]) -> str | None:
+    choice = shell.get("path_choice")
+    if choice in PATH_CHOICES:
+        return str(choice)
+    if (
+        shell.get("macro_state") == "Working"
+        and shell.get("split_delivered") is True
+        and choice is None
+    ):
+        return "B"
+    return None
+
+
+def _require_path_choice(
+    shell: dict[str, Any], expected: str, command: str
+) -> None:
+    got = _effective_path_choice(shell)
+    if got != expected:
+        raise ValueError(
+            f"{command} blocked: path_choice must be {expected!r}, got {got!r}"
+        )
+
+
+def record_path_choice(
+    approach_root: Path, *, path: str, confirm: bool
+) -> dict[str, Any]:
+    """Persist Path A/B after Main is Completed. Requires human ``--confirm``."""
+    if not confirm:
+        raise ValueError("record_path_choice blocked: human --confirm required")
+    choice = str(path).strip()
+    if choice not in PATH_CHOICES:
+        raise ValueError(f"record_path_choice requires --path A|B, got {path!r}")
+    shell = load_shell(approach_root)
+    if shell["macro_state"] != "Main":
+        raise ValueError(
+            f"record_path_choice requires macro_state=Main, got {shell['macro_state']!r}"
+        )
+    if not is_node_delivered(approach_root, "main", shell):
+        raise ValueError("record_path_choice blocked: main is not Completed")
+    shell["path_choice"] = choice
+    save_shell(approach_root, shell)
+    return shell
+
+
 def enter_split(approach_root: Path) -> dict[str, Any]:
     """Main → Split. Requires parent (main) Delivered. Never auto from start."""
     shell = load_shell(approach_root)
@@ -197,6 +247,7 @@ def enter_split(approach_root: Path) -> dict[str, Any]:
         )
     if not is_node_delivered(approach_root, "main", shell):
         raise ValueError("enter_split blocked: main is not Completed")
+    _require_path_choice(shell, "B", "enter_split")
     shell["macro_state"] = "Split"
     shell["focus"] = "main"
     shell["split_delivered"] = False
@@ -1194,6 +1245,7 @@ def complete_main_reopen(
         )
     shell["macro_state"] = "Main"
     shell["focus"] = "main"
+    shell["path_choice"] = None
     save_shell(root, shell)
     binding["state"] = "bound"
     binding["permit_state"] = "consumed"
@@ -1443,6 +1495,7 @@ def enter_package_ready(approach_root: Path) -> dict[str, Any]:
     if macro == "Main":
         if not is_node_delivered(approach_root, "main", shell):
             raise ValueError("enter_package_ready blocked: main is not Completed")
+        _require_path_choice(shell, "A", "enter_package_ready")
         shell["macro_state"] = "PackageReady"
         shell["focus"] = "main"
         save_shell(approach_root, shell)
@@ -1470,6 +1523,7 @@ def enter_package_ready(approach_root: Path) -> dict[str, Any]:
                 "enter_package_ready blocked: not all children Completed "
                 f"(pending/frozen: {', '.join(incomplete)})"
             )
+        _require_path_choice(shell, "B", "enter_package_ready")
         shell["macro_state"] = "PackageReady"
         save_shell(approach_root, shell)
         return shell
@@ -1589,6 +1643,13 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("init-shell", help="Create layout + Main shell pointer")
 
+    p_rpc = sub.add_parser(
+        "record-path-choice",
+        help="Main Completed: persist Path A (no-split) or B (split)",
+    )
+    p_rpc.add_argument("--path", required=True, choices=sorted(PATH_CHOICES))
+    p_rpc.add_argument("--confirm", action="store_true")
+
     sub.add_parser("enter-split", help="Main → Split (main must be Delivered)")
 
     p_ew = sub.add_parser("enter-working", help="Split → Working")
@@ -1697,6 +1758,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "init-shell":
             return _emit_ok({"shell": init_shell(root)})
+        if args.command == "record-path-choice":
+            return _emit_ok(
+                {
+                    "shell": record_path_choice(
+                        root, path=args.path, confirm=bool(args.confirm)
+                    )
+                }
+            )
         if args.command == "enter-split":
             return _emit_ok({"shell": enter_split(root)})
         if args.command == "enter-working":

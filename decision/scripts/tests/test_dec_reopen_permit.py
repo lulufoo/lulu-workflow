@@ -60,6 +60,7 @@ def _prepared(project_root: Path, cycle_id: str) -> Path:
     _ctrl.init_shell(root)
     (root / "main" / "decision-doc.md").write_text("# Main\n", encoding="utf-8")
     write_session_state(root / "main" / "session-state.md", "Delivered")
+    _ctrl.record_path_choice(root, path="B", confirm=True)
     _ctrl.enter_split(root)
     _ctrl.mark_split_delivered(root)
     _ctrl.enter_working(root, ["D1", "D2"], focus="D1")

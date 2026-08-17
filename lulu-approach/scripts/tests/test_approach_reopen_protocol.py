@@ -81,6 +81,7 @@ def _prepared_chain(project_root: Path, cycle_id: str) -> Path:
     _ctrl.init_shell(root)
     (root / "main" / "decision-doc.md").write_text("# Main\n", encoding="utf-8")
     write_session_state(root / "main" / "session-state.md", "Delivered")
+    _ctrl.record_path_choice(root, path="B", confirm=True)
     _ctrl.enter_split(root)
     _ctrl.mark_split_delivered(root)
     _ctrl.enter_working(root, ["D1", "D2"], focus="D1")
@@ -231,6 +232,7 @@ def test_complete_main_reopen_keeps_working_nodes_frozen(
     shell = _schema.load_shell(root)
     assert shell["macro_state"] == "Main"
     assert shell["focus"] == "main"
+    assert shell["path_choice"] is None
     assert all(cell["frozen"] is True for cell in shell["by_id"].values())
 
 

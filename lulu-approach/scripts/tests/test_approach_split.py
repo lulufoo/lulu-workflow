@@ -31,6 +31,7 @@ _split = _load("approach_split_control", _SCRIPTS / "approach_split_control.py")
 
 init_shell = _shell.init_shell
 enter_split = _shell.enter_split
+record_path_choice = _shell.record_path_choice
 enter_working = _shell.enter_working
 commit_focus = _shell.commit_focus
 mark_node_delivered = _shell.mark_node_delivered
@@ -101,6 +102,7 @@ def _sample_rulers() -> dict:
 def _enter_split_ready(root: Path) -> None:
     init_shell(root)
     _write_delivered(main_session_dir(root))
+    record_path_choice(root, path="B", confirm=True)
     enter_split(root)
 
 

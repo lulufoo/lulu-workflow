@@ -38,6 +38,7 @@ init_shell = _ctrl.init_shell
 enter_split = _ctrl.enter_split
 enter_working = _ctrl.enter_working
 enter_package_ready = _ctrl.enter_package_ready
+record_path_choice = _ctrl.record_path_choice
 commit_focus = _ctrl.commit_focus
 mark_node_delivered = _ctrl.mark_node_delivered
 mark_split_delivered = _ctrl.mark_split_delivered
@@ -81,6 +82,7 @@ def _working_chain(tmp_path: Path) -> Path:
     root = tmp_path / "lulu-approach"
     init_shell(root)
     _write_delivered(main_session_dir(root))
+    record_path_choice(root, path="B", confirm=True)
     enter_split(root)
     mark_split_delivered(root)
     enter_working(root, ["D1", "D2", "D3"], focus="D1")
@@ -125,6 +127,7 @@ def test_freeze_cascade_requires_locked_tree(tmp_path: Path) -> None:
     root = tmp_path / "lulu-approach"
     init_shell(root)
     _write_delivered(main_session_dir(root))
+    record_path_choice(root, path="B", confirm=True)
     enter_split(root)
     mark_split_delivered(root)
     enter_working(root, ["D1"], focus="D1")
