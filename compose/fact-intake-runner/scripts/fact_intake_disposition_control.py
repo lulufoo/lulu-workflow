@@ -101,10 +101,10 @@ def _consume_rule_ids(
         raise ValueError("role-instance must be a JSON object")
     policy = role.get("consume_policy")
     if not isinstance(policy, dict):
-        raise ValueError("role-instance missing consume_policy")
+        return []
     rules = policy.get("rules") or []
     if not isinstance(rules, list) or not rules:
-        raise ValueError("role-instance consume_policy.rules must be non-empty")
+        return []
     return [
         str(r.get("id", "")).strip()
         for r in rules

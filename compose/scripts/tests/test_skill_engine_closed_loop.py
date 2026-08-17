@@ -49,7 +49,9 @@ def test_engine_skill_contains_full_orchestration() -> None:
 
     for heading in (
         "## Script Macros",
-        "## Producer",
+        "## Fact Intake",
+        "## Inductive",
+        "## Deductive",
         "## Writing",
         "## FreeEdit",
         "## Evaluating",

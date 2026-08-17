@@ -2,13 +2,13 @@
 name: fact-intake-runner
 description: >-
   Compose fact-intake orchestrator: doc → cut → intake eval → disposition
-  classify → confirm → usable _facts.json for inductive and deductive callers.
+  classify → confirm → usable _facts.json.
 ---
 
 # fact-intake-runner
 
 Turn `$SOURCE_PATH` into a validated, disposition-classified focus-slice
-`_facts.json` shared by inductive and deductive producers.
+`_facts.json`.
 
 **Must:** bind Parent Inputs; dispatch L1 cut → structural validate → L1 intake
 eval → L1 disposition → inline Confirm; return only when DONE.  
@@ -23,11 +23,9 @@ fetch registry/role in parent Load (L1 self-`context`).
 | `$PROJECT_ROOT` | Project root; default `$(pwd)` |
 | `$CYCLE_ID` | Active cycle id |
 | `$SOURCE_PATH` | Absolute intake SoT doc (Eval SoT) |
-| `$REQUIRE_SEED_ORIGIN` | Optional; `true` for inductive — structure validate adds `--require-seed-origin` |
+| `$REQUIRE_SEED_ORIGIN` | Optional; `true` adds `--require-seed-origin` on structure validate |
 
-Caller binds `$SOURCE_PATH`: deductive = former `$ATOMIZE_SOURCE_PATH`; inductive =
-L mirror `source_path` (not scope-package whole). Inductive sets
-`$REQUIRE_SEED_ORIGIN=true`.
+Parent binds `$SOURCE_PATH` and `$REQUIRE_SEED_ORIGIN`.
 
 ## Script Macros
 

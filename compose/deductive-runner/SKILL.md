@@ -6,17 +6,17 @@ description: >-
 
 # deductive-runner
 
-Orchestrate deductive fact production from source intake through human
-confirmation. Done when facts validate, all pending obligations are settled,
-and the parent can enter Writing.
+Orchestrate deductive fact production from already-intaken facts through
+human confirmation. Done when facts validate, all pending obligations are
+settled, and the parent can enter Writing.
 
 ## Responsibility
 
 | Area | Boundary |
 |------|----------|
-| Invocation | Run only from a compose stage `start` on the deductive path. |
-| Owns | Fact Intake → Derive → Pending Confirm → Complete. |
-| Delegates | `fact-intake-runner` owns cut / eval / disposition / intake Confirm; `derive-runner` owns Floor / Ceiling / Cascade. |
+| Invocation | Run only from compose L-execution on the deductive path. |
+| Owns | pending-init → Derive → Pending Confirm → Complete. |
+| Delegates | `derive-runner` owns Floor / Ceiling / Cascade. |
 | Downstream | Writing, delivery Eval, and FreeEdit remain with the parent. |
 
 ## Cognitive Map
@@ -30,8 +30,7 @@ and the parent can enter Writing.
 
 ## Invariants
 
-1. After Fact Intake, Steps 2–4 use this stage's facts only; the intake source
-   remains unchanged.
+1. Steps use this stage's facts only; the intake source remains unchanged.
 2. Produce facts in the active revision; never import upstream `_facts.json` as
    delivery.
 3. Apply facts, pending, and disposition mutations through control commands;
@@ -51,10 +50,10 @@ and the parent can enter Writing.
 | `$INTENT_BASELINE_REFS` | JSON array of classified, read-only intent baseline refs; not intake input |
 | `$NORM_CONSTRAINT_REFS` | JSON array of classified, read-only norm constraint refs; not intake input |
 | `$DEDUCTIVE_OUT_DIR` | Active revision dir (`revision{active_doc}/`) |
-| `$CODE_GROUNDING` | Boolean from `enter-producer` stdout |
+| `$CODE_GROUNDING` | Boolean from `enter-deductive` stdout |
 
 Bind `$SOURCE_PATH` from `$ATOMIZE_SOURCE_PATH` when only the alias is set.
-`$REVISION_DIR` for intake = `$DEDUCTIVE_OUT_DIR`. `$PROJECT_ROOT` = `$(pwd)`.
+`$PROJECT_ROOT` = `$(pwd)`. Parent has already completed Fact Intake.
 
 ## Script Macros
 
@@ -69,32 +68,15 @@ invent derived work-item text.
 
 ## Execution
 
-**Step 1 Fact Intake → Step 2 Derive → Step 3 Pending Confirm → Step 4 Complete**
+**Step 1 Preflight → Step 2 Derive → Step 3 Pending Confirm → Step 4 Complete**
 
-### Step 1 — Fact Intake
-
-```bash
-$DEDUCTIVE_CTL consume-policy-check
-```
-
-Load and follow fact-intake **inline** (interactive Confirm — not a subagent):
-
-```text
-Load {SKILL_ROOT}/compose/fact-intake-runner/SKILL.md and follow it.
-
-## Input
-REVISION_DIR: <$DEDUCTIVE_OUT_DIR>
-PROJECT_ROOT: <$PROJECT_ROOT>
-CYCLE_ID: <$CYCLE_ID>
-SOURCE_PATH: <$SOURCE_PATH>
-```
+### Step 1 — Preflight
 
 ```bash
 $DEDUCTIVE_CTL pending-init
 ```
 
-**Done:** fact-intake Return Summary `Status: ok`; pending store exists. Proceed to
-Step 2.
+**Done:** command exits 0; pending store exists. Proceed to Step 2.
 
 ### Step 2 — Derive
 
@@ -132,7 +114,7 @@ $DEDUCTIVE_CTL gate-check
 ```
 
 Return control to the parent compose stage. Parent runs
-`$L_STEP complete-producer`, then `$L_STEP enter-writing`.
+`$L_STEP complete-deductive`, then `$L_STEP enter-writing`.
 
 **Done:** both commands exit 0; `_facts.json` ready for Writing validate-only.
 

@@ -16,7 +16,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from l_ledger_schema import load_l_ledger  # noqa: E402
+from l_ledger_schema import load_l_ledger, save_l_ledger  # noqa: E402
 from scope_package_convert import (  # noqa: E402
     ScopePackageAntiseepError,
     convert_scope_package,
@@ -77,8 +77,8 @@ def test_seed_source_path_for_out_dir_none_without_contract(tmp_path: Path) -> N
     assert seed_source_path_for_out_dir(out) is None
 
 
-def test_begin_producer_scope_ref_is_l_mirror_fact_path(tmp_path: Path) -> None:
-    """enter-producer SCOPE_REF and SOURCE_PATH = L mirror source_path, not package."""
+def test_begin_inductive_scope_ref_is_l_mirror_fact_path(tmp_path: Path) -> None:
+    """enter-inductive SCOPE_REF and SOURCE_PATH = L mirror source_path, not package."""
     import bootstrap  # noqa: F401
     import l_step_control  # noqa: E402
     from delivered_refs_schema import DeliveredRef  # noqa: E402
@@ -125,7 +125,14 @@ def test_begin_producer_scope_ref_is_l_mirror_fact_path(tmp_path: Path) -> None:
         norm_constraint_refs=[],
     )
 
-    result = l_step_control.enter_producer(cycle, tmp_path, profile_id=profile)
+    ledger = load_l_ledger(rev)
+    ledger["by_id"][str(ledger["focus"])]["state"] = "FactIntake"
+    save_l_ledger(rev, ledger)
+    focus = str(ledger["focus"])
+    stamp = rev / focus / "_fact_intake.complete"
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    stamp.write_text("ok\n", encoding="utf-8")
+    result = l_step_control.enter_inductive(cycle, tmp_path, profile_id=profile)
     assert result["ok"] is True, result
     dispatch = result["dispatch_input"]
     mirror = Path(f1).as_posix()
@@ -139,7 +146,7 @@ def test_begin_producer_scope_ref_is_l_mirror_fact_path(tmp_path: Path) -> None:
     assert f2 not in source_line
 
 
-def test_enter_producer_fails_when_l_mirror_missing(tmp_path: Path) -> None:
+def test_enter_fact_intake_fails_when_l_mirror_missing(tmp_path: Path) -> None:
     import bootstrap  # noqa: F401
     import l_step_control  # noqa: E402
     from delivered_refs_schema import DeliveredRef  # noqa: E402
@@ -176,7 +183,7 @@ def test_enter_producer_fails_when_l_mirror_missing(tmp_path: Path) -> None:
         norm_constraint_refs=[],
     )
 
-    result = l_step_control.enter_producer(cycle, tmp_path, profile_id=profile)
+    result = l_step_control.enter_fact_intake(cycle, tmp_path, profile_id=profile)
     assert result["ok"] is False
     assert "missing L source_path mirror" in str(result.get("error") or result.get("reason") or "")
 

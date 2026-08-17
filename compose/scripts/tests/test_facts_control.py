@@ -16,11 +16,13 @@ sys.path.insert(0, str(_SECTION))
 from workflow_paths import seed_revision_profile_pointer  # noqa: E402
 from facts_schema import (  # noqa: E402
     filter_by_lens,
+    is_derived_fact,
     lenses_present,
     load_facts,
     normalize_fact,
     pd_material_facts,
     save_facts,
+    strip_derived_facts,
     unlensed_fact_ids,
     validate_facts,
 )
@@ -1175,3 +1177,112 @@ def test_control_write_intake_structure_cut_omits_disposition(tmp_path: Path):
         text=True,
     )
     assert tight_validate.returncode == 0, tight_validate.stderr
+
+
+def test_strip_derived_facts_keeps_seed_order():
+    facts = [
+        {"id": "F-1", "text": "seed", "lens_tags": [], "origin": {"type": "seed", "ref": ["doc"]}},
+        {"id": "F-2", "text": "old", "lens_tags": ["CTX"], "origin": {"type": "derived", "ref": ["F-1"]}},
+        {"id": "F-3", "text": "local", "lens_tags": [], "origin": {"type": "seed", "ref": ["human"]}},
+    ]
+    assert is_derived_fact(facts[1]) is True
+    kept = strip_derived_facts(facts)
+    assert [f["id"] for f in kept] == ["F-1", "F-3"]
+
+
+def test_control_strip_derived_empty_is_noop(tmp_path: Path):
+    rev = _revision(tmp_path)
+    (_l1(rev) / "_facts.json").write_text("[]\n", encoding="utf-8")
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(_CTL),
+            "strip-derived",
+            "--revision-dir",
+            str(rev),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads(proc.stdout)
+    assert payload["removed"] == 0
+    assert payload["facts_total"] == 0
+
+
+def test_control_strip_derived(tmp_path: Path):
+    rev = _revision(tmp_path)
+    (_l1(rev) / "_facts.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "F-1",
+                    "text": "seed",
+                    "lens_tags": [],
+                    "origin": {"type": "seed", "ref": ["doc"]},
+                },
+                {
+                    "id": "F-2",
+                    "text": "old",
+                    "lens_tags": ["CTX"],
+                    "origin": {"type": "derived", "ref": ["F-1"]},
+                },
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(_CTL),
+            "strip-derived",
+            "--revision-dir",
+            str(rev),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads(proc.stdout)
+    assert payload["removed"] == 1
+    assert payload["facts_total"] == 1
+    kept = json.loads((_l1(rev) / "_facts.json").read_text(encoding="utf-8"))
+    assert [f["id"] for f in kept] == ["F-1"]
+
+
+def test_validate_without_rules_rejects_not_needed_allows_carried():
+    carried = validate_facts(
+        [
+            {
+                "id": "F-1",
+                "text": "keep",
+                "lens_tags": ["CTX"],
+                "derivation": {
+                    "disposition": "carried",
+                    "upstream_ref": ["doc#a"],
+                },
+            }
+        ],
+        allowed_lenses=["CTX"],
+        allowed_rule_ids=[],
+    )
+    assert carried == []
+    blocked = validate_facts(
+        [
+            {
+                "id": "F-1",
+                "text": "drop",
+                "lens_tags": [],
+                "derivation": {
+                    "disposition": "not_needed",
+                    "upstream_ref": ["doc#a"],
+                    "rule_id": "D-DEC",
+                },
+            }
+        ],
+        allowed_rule_ids=[],
+    )
+    assert any("rule_id" in e or "D-DEC" in e for e in blocked)

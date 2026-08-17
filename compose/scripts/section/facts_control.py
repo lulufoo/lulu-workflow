@@ -2,9 +2,10 @@
 """Control for compose Facts (``_facts.json``).
 
 Subcommands:
-    write     Persist facts JSON (AI-produced) after schema validation
-    validate  Validate existing ``_facts.json``
-    status    Print fact counts by lens tag (+ unlensed count)
+    write          Persist facts JSON (AI-produced) after schema validation
+    validate       Validate existing ``_facts.json``
+    status         Print fact counts by lens tag (+ unlensed count)
+    strip-derived  Remove ``origin.type=derived`` facts; no-op if none or missing file
 
     CLI details: ``python3 facts_control.py --help``
 
@@ -43,6 +44,7 @@ from facts_schema import (  # noqa: E402
     load_facts,
     normalize_fact,
     save_facts,
+    strip_derived_facts,
     unlensed_fact_ids,
     validate_facts,
 )
@@ -172,10 +174,12 @@ def _consume_rule_ids(
     if policy is None:
         if required:
             raise ValueError("role-instance missing consume_policy")
-        return None
+        return []
     rules = policy.get("rules") if isinstance(policy, dict) else None
     if not isinstance(rules, list) or not rules:
-        raise ValueError("role-instance consume_policy.rules must be non-empty")
+        if required:
+            raise ValueError("role-instance consume_policy.rules must be non-empty")
+        return []
     return [str(r["id"]).strip() for r in rules if isinstance(r, dict)]
 
 
@@ -371,6 +375,52 @@ def cmd_validate(args: argparse.Namespace) -> int:
     )
 
 
+def cmd_strip_derived(args: argparse.Namespace) -> int:
+    path = facts_path(_slice_dir(args.revision_dir))
+    if not path.is_file():
+        return _ok(
+            {
+                "ok": True,
+                "command": "strip-derived",
+                "path": str(path),
+                "exists": False,
+                "removed": 0,
+                "facts_total": 0,
+            }
+        )
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return _fail(str(exc))
+    if not isinstance(raw, list) or not raw:
+        return _ok(
+            {
+                "ok": True,
+                "command": "strip-derived",
+                "path": str(path),
+                "exists": True,
+                "removed": 0,
+                "facts_total": 0 if not isinstance(raw, list) else len(raw),
+            }
+        )
+    try:
+        kept = strip_derived_facts(raw)
+        if len(kept) != len(raw):
+            save_facts(path, kept)
+        return _ok(
+            {
+                "ok": True,
+                "command": "strip-derived",
+                "path": str(path),
+                "exists": True,
+                "removed": len(raw) - len(kept),
+                "facts_total": len(kept),
+            }
+        )
+    except ValueError as exc:
+        return _fail(str(exc))
+
+
 def cmd_status(args: argparse.Namespace) -> int:
     path = facts_path(_slice_dir(args.revision_dir))
     if not path.is_file():
@@ -468,9 +518,17 @@ def main() -> int:
     status_p.add_argument("--revision-dir", type=Path, required=True)
     status_p.set_defaults(func=cmd_status)
 
+    strip_p = sub.add_parser(
+        "strip-derived",
+        help="Remove origin.type=derived facts; no-op if none",
+    )
+    strip_p.add_argument("--revision-dir", type=Path, required=True)
+    strip_p.set_defaults(func=cmd_strip_derived)
+
     args = parser.parse_args()
-    if args.command == "write":
-        with compose_state_lock(_slice_dir(args.revision_dir, target_l=args.target_l or None)):
+    if args.command in {"write", "strip-derived"}:
+        target = args.target_l if args.command == "write" else ""
+        with compose_state_lock(_slice_dir(args.revision_dir, target_l=target or None)):
             return args.func(args)
     return args.func(args)
 

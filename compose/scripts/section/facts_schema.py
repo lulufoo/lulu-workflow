@@ -568,6 +568,18 @@ def fact_disposition(fact: dict[str, Any]) -> str | None:
     return disposition.strip().lower()
 
 
+def is_derived_fact(fact: dict[str, Any]) -> bool:
+    origin = fact.get("origin")
+    if not isinstance(origin, dict):
+        return False
+    return str(origin.get("type", "")).strip() == "derived"
+
+
+def strip_derived_facts(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop ``origin.type=derived``; keep base facts in order."""
+    return [fact for fact in facts if not is_derived_fact(fact)]
+
+
 def pd_material_facts(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Default Pd material pool: carried, or legacy facts without disposition.
 

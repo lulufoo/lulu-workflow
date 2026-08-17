@@ -200,7 +200,7 @@ class TestShouldInjectConversationId:
             'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/'
             'inductive_gate_control.py --out-dir "$OUT" gate-close --gate G3\n'
             'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/section/'
-            'l_step_control.py --cycle-id fid1 enter-producer 2>&1\n'
+            'l_step_control.py --cycle-id fid1 enter-deductive 2>&1\n'
         )
         updated = hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d")
         assert updated is not None
@@ -210,7 +210,7 @@ class TestShouldInjectConversationId:
             "gate-close --gate G3 --conversation-id 9001dc22-85f1-404b-869c-2e471433da4d"
         )
         # The l_step_control line has no flag registered — must be left untouched.
-        assert lines[2].endswith("enter-producer 2>&1")
+        assert lines[2].endswith("enter-deductive 2>&1")
         assert "--conversation-id" not in lines[2]
         # No stray trailing statement — never a bare "--conversation-id ..." line.
         assert lines[3] == ""
@@ -219,7 +219,7 @@ class TestShouldInjectConversationId:
         cmd = (
             'OUT="/tmp/r1"\n'
             'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/section/'
-            'l_step_control.py --cycle-id fid1 enter-producer 2>&1\n'
+            'l_step_control.py --cycle-id fid1 enter-deductive 2>&1\n'
         )
         assert hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d") is None
 

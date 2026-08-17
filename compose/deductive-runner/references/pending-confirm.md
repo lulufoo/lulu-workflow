@@ -16,7 +16,8 @@ For each returned id, ask the user to choose one exit:
 - **Use the fact** (either path removes it from the unreferenced list):
   - **Cite:** another fact references this id.
   - **Promote:** apply `$DEDUCTIVE_CTL disposition-patch-*` with allowed
-    `lens_tags` so it becomes `carried`.
+    `lens_tags` so it becomes `carried`. Then `$FACTS_CTL strip-derived
+    --revision-dir "$DEDUCTIVE_OUT_DIR"` and rerun Derive (parent Step 2).
 - **Leave it quarantined:** add a pending item with `kind=quarantine_unref` and
   `upstream_ref=<fact-id>`, then resolve it as `resolved`, `escalated`, or
   `out_of_scope`.
@@ -28,7 +29,8 @@ item, offer only options traceable to decided material, plus `insufficient`.
 
 - **Local seed (default):** append a fact with `origin.type=seed` and a Confirm
   ref via `$DERIVE_CTL append`, or use `$FACTS_CTL write` with the full array per
-  `--help`; then run `$DEDUCTIVE_CTL pending-resolve`.
+  `--help`; then `$FACTS_CTL strip-derived --revision-dir "$DEDUCTIVE_OUT_DIR"`
+  and rerun Derive (parent Step 2) before `$DEDUCTIVE_CTL pending-resolve`.
 - **Escalate upstream:** resolve the item as deferred or escalated without
   inventing local substance.
 - **Accept `kw_shortfall` (soft gate):** show the lens's KW table gap and ask the

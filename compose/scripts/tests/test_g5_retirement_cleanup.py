@@ -101,7 +101,7 @@ def _seed_g5_residue(slice_dir: Path) -> None:
     _write_json(slice_dir / "inductive-gate-state.json", _g5_gate_payload())
 
 
-def test_reverse_to_producer_purges_g5_and_inits_current_schema(tmp_path: Path) -> None:
+def test_reverse_to_inductive_purges_g5_and_inits_current_schema(tmp_path: Path) -> None:
     ws = _seed_inductive_session(tmp_path)
     rev = ws.parent
     l1 = rev / "L1"
@@ -109,15 +109,17 @@ def test_reverse_to_producer_purges_g5_and_inits_current_schema(tmp_path: Path) 
     _set_state(rev, "FreeEdit")
     _seed_kept_artifacts(ws, l1)
     _seed_g5_residue(l1)
-    (l1 / "_producer.complete").write_text("ok\n", encoding="utf-8")
+    (l1 / "_inductive.complete").write_text("ok\n", encoding="utf-8")
+    (l1 / "_deductive.complete").write_text("ok\n", encoding="utf-8")
     (l1 / "_writing.complete").write_text("ok\n", encoding="utf-8")
 
-    result = l_step_control.reverse_to_producer(_CYCLE, tmp_path, profile_id=_PROFILE)
+    result = l_step_control.reverse_to_inductive(_CYCLE, tmp_path, profile_id=_PROFILE)
     assert result["ok"] is True, result
     assert result["state"] == "Inductive"
     for name in _G5_RESIDUE:
         assert not (l1 / name).is_file()
-    assert not (l1 / "_producer.complete").is_file()
+    assert not (l1 / "_inductive.complete").is_file()
+    assert not (l1 / "_deductive.complete").is_file()
     assert (l1 / "_facts.json").is_file()
     assert opens_path(l1).is_file()
     assert (rev / "resolved-refs.json").is_file()
@@ -127,7 +129,7 @@ def test_reverse_to_producer_purges_g5_and_inits_current_schema(tmp_path: Path) 
     assert gate["gates"]["G1"]["status"] == "active"
 
 
-def test_enter_producer_restart_replaces_raw_g5_with_current_schema(
+def test_enter_inductive_restart_replaces_raw_g5_with_current_schema(
     tmp_path: Path,
 ) -> None:
     ws = _seed_inductive_session(tmp_path)
@@ -136,7 +138,9 @@ def test_enter_producer_restart_replaces_raw_g5_with_current_schema(
     l1.mkdir(parents=True, exist_ok=True)
     _seed_g5_residue(l1)
 
-    result = l_step_control.enter_producer(_CYCLE, tmp_path, profile_id=_PROFILE)
+    _set_state(rev, "FactIntake")
+    (l1 / "_fact_intake.complete").write_text("ok\n", encoding="utf-8")
+    result = l_step_control.enter_inductive(_CYCLE, tmp_path, profile_id=_PROFILE)
     assert result["ok"] is True, result
     for name in _G5_RESIDUE:
         assert not (l1 / name).is_file()
@@ -160,7 +164,7 @@ def test_l_execution_defers_eval_admission_to_begin_eval_round() -> None:
     assert "do not run it as `$L_STEP`" in bind
 
 
-def test_complete_producer_stays_incomplete_on_raw_g5(tmp_path: Path) -> None:
+def test_complete_inductive_stays_incomplete_on_raw_g5(tmp_path: Path) -> None:
     ws = _seed_inductive_session(tmp_path)
     rev = ws.parent
     l1 = rev / "L1"
@@ -169,9 +173,9 @@ def test_complete_producer_stays_incomplete_on_raw_g5(tmp_path: Path) -> None:
     (l1 / "_facts.json").write_text("[]\n", encoding="utf-8")
     _write_json(l1 / "inductive-gate-state.json", _g5_gate_payload())
 
-    result = l_step_control.complete_producer(_CYCLE, tmp_path, profile_id=_PROFILE)
+    result = l_step_control.complete_inductive(_CYCLE, tmp_path, profile_id=_PROFILE)
     assert result["ok"] is False
-    assert result["code"] == "producer_incomplete"
+    assert result["code"] == "inductive_incomplete"
     raw = json.loads((l1 / "inductive-gate-state.json").read_text(encoding="utf-8"))
     assert raw["active_gate"] == "G5"
 

@@ -8,8 +8,8 @@ description: >-
 # inductive-runner
 
 Run the G1→G4 control spine for one active Compose slice. Complete when G4 is
-closed, `active_gate=complete`, and the settled facts are ready for Compose
-Writing. Delivery Eval owns provenance audit of the written document.
+closed, `active_gate=complete`, and the settled facts are ready for Deductive.
+Delivery Eval owns provenance audit of the written document.
 
 ## Dispatch Inputs
 
@@ -19,13 +19,13 @@ The parent Compose stage supplies:
 |---|---|
 | `$CYCLE_ID` | Active cycle identifier |
 | `$SCOPE_REF` | Current slice source |
-| `$SOURCE_PATH` | Fact Intake source; equal to `$SCOPE_REF` |
+| `$SOURCE_PATH` | Slice source; equal to `$SCOPE_REF` |
 | `$INTENT_BASELINE_REFS` | JSON array of intent references |
 | `$NORM_CONSTRAINT_REFS` | JSON array of normative references |
 | `$INDUCTIVE_OUT_DIR` | Active slice output directory |
 
-Bind `$PROJECT_ROOT` to the current project root. Bind Fact Intake's
-`$REVISION_DIR` to `$INDUCTIVE_OUT_DIR`.
+Bind `$PROJECT_ROOT` to the current project root. Parent has already completed
+Fact Intake into this slice.
 
 Read `../../_subagent.md` before any sub-agent dispatch.
 
@@ -39,27 +39,10 @@ Use the control's `--help` as the command and stdout contract.
 
 ## Control Spine
 
-1. Run Fact Intake.
-2. Resolve `$CTX` through `$INDUCTIVE_GATE_CTL resolve-context`.
-3. Load only the gate named by `$CTX.active_gate`.
-4. After a gate transition, resolve a fresh `$CTX` before routing again.
-5. Return to the parent only after G4 closes and `$CTX.active_gate` is `complete`.
-
-### Fact Intake
-
-Load and follow `../fact-intake-runner/SKILL.md` with:
-
-```text
-## Input
-REVISION_DIR: <$INDUCTIVE_OUT_DIR>
-PROJECT_ROOT: <$PROJECT_ROOT>
-CYCLE_ID: <$CYCLE_ID>
-SOURCE_PATH: <$SOURCE_PATH>
-REQUIRE_SEED_ORIGIN: true
-```
-
-Fact Intake owns cut, evaluation, disposition, and confirmation. Do not
-reimplement them here.
+1. Resolve `$CTX` through `$INDUCTIVE_GATE_CTL resolve-context`.
+2. Load only the gate named by `$CTX.active_gate`.
+3. After a gate transition, resolve a fresh `$CTX` before routing again.
+4. Return to the parent only after G4 closes and `$CTX.active_gate` is `complete`.
 
 ## Gate Routing
 
@@ -90,6 +73,5 @@ execution.
 ## Handoff
 
 After G4 closes and `$CTX.active_gate` is `complete`, report completion and
-return control to the parent Compose stage. Compose Writing consumes the
-settled facts. Delivery Eval audits the written document against the
-intent / parent / norm triangle.
+return control to the parent Compose stage. Parent enters Deductive. Delivery
+Eval audits the written document against the intent / parent / norm triangle.

@@ -7,6 +7,8 @@ Control layers call these functions, then validate + atomic-save via
 Design rationale:
 docs/domain/archive/compose/archive-33.0/compose-outer-shell-management-subdesign.md
 docs/domain/archive/compose/archive-33.0/compose-l-execution-subdesign.md
+docs/domain/archive/compose/archive-35.0/compose-fact-intake-extract-subdesign.md
+docs/domain/archive/compose/archive-35.0/compose-producer-serial-subdesign.md
 """
 
 from __future__ import annotations
@@ -180,33 +182,48 @@ def shell_unfreeze(ledger: dict[str, Any]) -> dict[str, Any]:
 # --- $L_STEP ---
 
 
-def _producer_state(profile: dict[str, Any]) -> str:
-    if profile.get("inductive") is True:
-        return "Inductive"
-    return "Deductive"
-
-
-def step_enter_producer(
-    ledger: dict[str, Any],
-    profile: dict[str, Any],
-) -> dict[str, Any]:
+def step_enter_fact_intake(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "Pending":
         raise IllegalTransition(
             "illegal_transition",
-            "enter-producer requires Pending focus",
+            "enter-fact-intake requires Pending focus",
         )
     new = _clone(ledger)
-    new["by_id"][focus]["state"] = _producer_state(profile)
+    new["by_id"][focus]["state"] = "FactIntake"
+    return _finish(new)
+
+
+def step_enter_inductive(ledger: dict[str, Any]) -> dict[str, Any]:
+    focus = _require_unfrozen_focus(ledger)
+    if _cell(ledger, focus)["state"] != "FactIntake":
+        raise IllegalTransition(
+            "illegal_transition",
+            "enter-inductive requires FactIntake focus",
+        )
+    new = _clone(ledger)
+    new["by_id"][focus]["state"] = "Inductive"
+    return _finish(new)
+
+
+def step_enter_deductive(ledger: dict[str, Any]) -> dict[str, Any]:
+    focus = _require_unfrozen_focus(ledger)
+    if _cell(ledger, focus)["state"] not in {"FactIntake", "Inductive"}:
+        raise IllegalTransition(
+            "illegal_transition",
+            "enter-deductive requires FactIntake or Inductive focus",
+        )
+    new = _clone(ledger)
+    new["by_id"][focus]["state"] = "Deductive"
     return _finish(new)
 
 
 def step_enter_writing(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
-    if _cell(ledger, focus)["state"] not in PRODUCER_STATES:
+    if _cell(ledger, focus)["state"] != "Deductive":
         raise IllegalTransition(
             "illegal_transition",
-            "enter-writing requires Inductive or Deductive focus",
+            "enter-writing requires Deductive focus",
         )
     new = _clone(ledger)
     new["by_id"][focus]["state"] = "Writing"
@@ -245,18 +262,27 @@ def step_enter_evaluating(ledger: dict[str, Any]) -> dict[str, Any]:
     return _finish(new)
 
 
-def step_reverse_to_producer(
-    ledger: dict[str, Any],
-    profile: dict[str, Any],
-) -> dict[str, Any]:
+def step_reverse_to_inductive(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "FreeEdit":
         raise IllegalTransition(
             "illegal_transition",
-            "reverse-to-producer requires FreeEdit",
+            "reverse-to-inductive requires FreeEdit",
         )
     new = _clone(ledger)
-    new["by_id"][focus]["state"] = _producer_state(profile)
+    new["by_id"][focus]["state"] = "Inductive"
+    return _finish(new)
+
+
+def step_reverse_to_deductive(ledger: dict[str, Any]) -> dict[str, Any]:
+    focus = _require_unfrozen_focus(ledger)
+    if _cell(ledger, focus)["state"] != "FreeEdit":
+        raise IllegalTransition(
+            "illegal_transition",
+            "reverse-to-deductive requires FreeEdit",
+        )
+    new = _clone(ledger)
+    new["by_id"][focus]["state"] = "Deductive"
     return _finish(new)
 
 

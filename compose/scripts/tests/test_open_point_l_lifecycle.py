@@ -288,7 +288,7 @@ def test_add_opens_refused_when_slice_is_not_focus(tmp_path: Path):
         add_opens(rev / "L1", opens=[_human_open()])
 
 
-def test_enter_producer_l2_does_not_copy_l1_open_point(tmp_path: Path):
+def test_enter_inductive_l2_does_not_copy_l1_open_point(tmp_path: Path):
     ws = _seed_inductive_session(tmp_path, order=["L1", "L2"])
     rev = ws.parent
     l1 = rev / "L1"
@@ -323,7 +323,11 @@ def test_enter_producer_l2_does_not_copy_l1_open_point(tmp_path: Path):
 
     _set_cell(rev, "L1", state="Completed")
     _set_focus(rev, "L2")
-    result = l_step_control.enter_producer(_CYCLE, tmp_path, profile_id=_PROFILE)
+    _set_cell(rev, "L2", state="FactIntake")
+    l2_dir = rev / "L2"
+    l2_dir.mkdir(parents=True, exist_ok=True)
+    (l2_dir / "_fact_intake.complete").write_text("ok\n", encoding="utf-8")
+    result = l_step_control.enter_inductive(_CYCLE, tmp_path, profile_id=_PROFILE)
     assert result["ok"] is True, result
     l2 = rev / "L2"
     bundle = load_bundle(l2)
@@ -343,7 +347,7 @@ def test_enter_producer_l2_does_not_copy_l1_open_point(tmp_path: Path):
     assert load_gate_state(l1 / "inductive-gate-state.json")["active_gate"] == l1_gate["active_gate"]
 
 
-def test_complete_producer_fails_while_txn_repair_required(tmp_path: Path):
+def test_complete_inductive_fails_while_txn_repair_required(tmp_path: Path):
     ws = _seed_inductive_session(tmp_path, order=["L1"])
     rev = ws.parent
     _set_cell(rev, "L1", state="Inductive")
@@ -351,7 +355,7 @@ def test_complete_producer_fails_while_txn_repair_required(tmp_path: Path):
     (l1 / "_facts.json").write_text("[]\n", encoding="utf-8")
     _close_producer_gates(l1)
     _repair_required_txn(l1)
-    result = l_step_control.complete_producer(_CYCLE, tmp_path, profile_id=_PROFILE)
+    result = l_step_control.complete_inductive(_CYCLE, tmp_path, profile_id=_PROFILE)
     assert result["ok"] is False
     blob = str(result).lower()
     assert "repair" in blob or "txn" in blob or "transaction" in blob
@@ -373,12 +377,12 @@ def test_advance_fails_while_txn_repair_required(tmp_path: Path):
     assert open_point_txn_path(l1).is_file()
 
 
-def test_complete_producer_still_requires_g4_complete(tmp_path: Path):
+def test_complete_inductive_still_requires_g4_complete(tmp_path: Path):
     ws = _seed_inductive_session(tmp_path, order=["L1"])
     rev = ws.parent
     _set_cell(rev, "L1", state="Inductive")
     l1 = rev / "L1"
     (l1 / "_facts.json").write_text("[]\n", encoding="utf-8")
-    result = l_step_control.complete_producer(_CYCLE, tmp_path, profile_id=_PROFILE)
+    result = l_step_control.complete_inductive(_CYCLE, tmp_path, profile_id=_PROFILE)
     assert result["ok"] is False
-    assert result["code"] == "producer_incomplete"
+    assert result["code"] == "inductive_incomplete"

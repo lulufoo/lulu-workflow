@@ -15,18 +15,28 @@ from l_transition_kernel import (
     step_abort_evaluating,
     step_accept,
     step_enter_evaluating,
+    step_enter_deductive,
+    step_enter_fact_intake,
     step_enter_freeedit,
-    step_enter_producer,
+    step_enter_inductive,
     step_enter_writing,
     step_fix,
     step_reopen,
-    step_reverse_to_producer,
+    step_reverse_to_deductive,
+    step_reverse_to_inductive,
     step_reverse_to_writing,
 )
 
 
 def _chain() -> dict:
     return build_ledger(["L1", "L2", "L3"])
+
+
+def _produce(profile: dict, ledger: dict | None = None) -> dict:
+    ledger = step_enter_fact_intake(ledger or _chain())
+    if profile.get("inductive") is True:
+        ledger = step_enter_inductive(ledger)
+    return step_enter_deductive(ledger)
 
 
 def _completed_prefix_writing() -> dict:
@@ -37,16 +47,35 @@ def _completed_prefix_writing() -> dict:
     return ledger
 
 
-def test_enter_producer_follows_profile() -> None:
-    inductive = step_enter_producer(_chain(), {"inductive": True})
+def test_enter_fact_intake_from_pending() -> None:
+    ledger = step_enter_fact_intake(_chain())
+    assert ledger["by_id"]["L1"]["state"] == "FactIntake"
+
+
+def test_enter_deductive_requires_fact_intake() -> None:
+    with pytest.raises(IllegalTransition) as exc:
+        step_enter_deductive(_chain())
+    assert exc.value.code == "illegal_transition"
+
+
+def test_enter_follows_serial_profile() -> None:
+    inductive = step_enter_inductive(step_enter_fact_intake(_chain()))
     assert inductive["by_id"]["L1"]["state"] == "Inductive"
-    deductive = step_enter_producer(_chain(), {"inductive": False})
-    assert deductive["by_id"]["L1"]["state"] == "Deductive"
+    serial = step_enter_deductive(inductive)
+    assert serial["by_id"]["L1"]["state"] == "Deductive"
+    projection = step_enter_deductive(step_enter_fact_intake(_chain()))
+    assert projection["by_id"]["L1"]["state"] == "Deductive"
+
+
+def test_enter_writing_rejects_inductive() -> None:
+    ledger = step_enter_inductive(step_enter_fact_intake(_chain()))
+    with pytest.raises(IllegalTransition):
+        step_enter_writing(ledger)
 
 
 def test_happy_path_to_completed() -> None:
     profile = {"inductive": False, "freeedit": True}
-    ledger = step_enter_producer(_chain(), profile)
+    ledger = _produce(profile)
     ledger = step_enter_writing(ledger)
     ledger = step_enter_freeedit(ledger, profile)
     ledger = step_enter_evaluating(ledger)
@@ -56,7 +85,7 @@ def test_happy_path_to_completed() -> None:
 
 
 def test_abort_evaluating_restores_previous_phase() -> None:
-    ledger = step_enter_producer(_chain(), {"inductive": False})
+    ledger = _produce({"inductive": False})
     ledger = step_enter_writing(ledger)
     ledger = step_enter_evaluating(ledger)
     restored = step_abort_evaluating(ledger, previous="Writing")
@@ -67,34 +96,35 @@ def test_abort_evaluating_restores_previous_phase() -> None:
 
 
 def test_skip_freeedit_to_evaluating() -> None:
-    ledger = step_enter_producer(_chain(), {"inductive": False})
+    ledger = _produce({"inductive": False})
     ledger = step_enter_writing(ledger)
     ledger = step_enter_evaluating(ledger)
     assert ledger["by_id"]["L1"]["state"] == "Evaluating"
 
 
 def test_enter_freeedit_rejected_when_disabled() -> None:
-    ledger = step_enter_producer(_chain(), {"inductive": False})
+    ledger = _produce({"inductive": False})
     ledger = step_enter_writing(ledger)
     with pytest.raises(IllegalTransition) as exc:
         step_enter_freeedit(ledger, {"freeedit": False})
     assert exc.value.code == "illegal_transition"
 
 
-def test_writing_cannot_reverse_to_producer() -> None:
-    ledger = step_enter_producer(_chain(), {"inductive": True})
+def test_writing_cannot_reverse_to_deductive() -> None:
+    ledger = _produce({"inductive": True})
     ledger = step_enter_writing(ledger)
     with pytest.raises(IllegalTransition):
-        step_reverse_to_producer(ledger, {"inductive": True})
+        step_reverse_to_deductive(ledger)
 
 
 def test_freeedit_reverse_and_fix_reopen() -> None:
     profile = {"inductive": True, "freeedit": True}
-    ledger = step_enter_producer(_chain(), profile)
+    ledger = _produce(profile)
     ledger = step_enter_writing(ledger)
     ledger = step_enter_freeedit(ledger, profile)
-    ledger = step_reverse_to_producer(ledger, profile)
+    ledger = step_reverse_to_inductive(ledger)
     assert ledger["by_id"]["L1"]["state"] == "Inductive"
+    ledger = step_enter_deductive(ledger)
     ledger = step_enter_writing(ledger)
     ledger = step_enter_freeedit(ledger, profile)
     ledger = step_reverse_to_writing(ledger)
@@ -111,7 +141,7 @@ def test_freeedit_reverse_and_fix_reopen() -> None:
 def test_advance_and_backtrack_and_unfreeze() -> None:
     profile = {"inductive": False, "freeedit": True}
     ledger = _chain()
-    ledger = step_enter_producer(ledger, profile)
+    ledger = _produce(profile, ledger)
     ledger = step_enter_writing(ledger)
     ledger = step_enter_evaluating(ledger)
     ledger = step_accept(ledger)

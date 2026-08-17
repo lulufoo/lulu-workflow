@@ -36,6 +36,7 @@ LEDGER_VERSION = 1
 STATES = frozenset(
     {
         "Pending",
+        "FactIntake",
         "Inductive",
         "Deductive",
         "Writing",
@@ -48,7 +49,14 @@ _ON_DISK_KEYS = frozenset({"version", "order", "focus", "by_id"})
 _CELL_KEYS = frozenset({"state", "frozen"})
 _L_ID = re.compile(r"^L([1-9][0-9]*)$")
 _IN_PROGRESS = frozenset(
-    {"Inductive", "Deductive", "Writing", "FreeEdit", "Evaluating"}
+    {
+        "FactIntake",
+        "Inductive",
+        "Deductive",
+        "Writing",
+        "FreeEdit",
+        "Evaluating",
+    }
 )
 
 

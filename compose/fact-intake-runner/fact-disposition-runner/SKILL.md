@@ -39,7 +39,7 @@ Facts: `--help` · `write` · `validate`.
 2. `$FACT_DISPOSITION_BUILD_CTL context …` (section-registry + role consume_policy).  
 3. don't-list → `not_needed`; Intent → `carried`/`quarantined`; repair don't-list false kills.  
 4. Persist via `$FACTS_CTL write`.  
-5. `$FACTS_CTL validate … --require-derivation --require-consume-policy`.
+5. `$FACTS_CTL validate … --require-derivation`.
 
 **Done:** validate exit 0.
 

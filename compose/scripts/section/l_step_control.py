@@ -3,10 +3,12 @@
 
 Subcommands:
     status
-    enter-producer / complete-producer
+    enter-fact-intake / complete-fact-intake
+    enter-inductive / complete-inductive
+    enter-deductive / complete-deductive
     enter-writing / complete-writing
     enter-freeedit
-    reverse-to-producer / reverse-to-writing
+    reverse-to-inductive / reverse-to-deductive / reverse-to-writing
     enter-evaluating
     accept --confirm / fix --confirm / re-evaluate --confirm / reopen --confirm
 
@@ -14,6 +16,8 @@ Writes ``by_id[focus].state`` only. Does not change order, focus, or frozen.
 
 Design rationale:
 docs/domain/archive/compose/archive-33.0/compose-l-execution-subdesign.md
+docs/domain/archive/compose/archive-35.0/compose-fact-intake-extract-subdesign.md
+docs/domain/archive/compose/archive-35.0/compose-producer-serial-subdesign.md
 """
 
 from __future__ import annotations
@@ -36,7 +40,12 @@ kernel_bootstrap.ensure_kernel_paths()
 
 from compose_session import document_file_path, load_active_doc_for_profile  # noqa: E402
 from delivered_refs_schema import serialize_delivered_refs  # noqa: E402
-from facts_schema import facts_path  # noqa: E402
+from facts_schema import (  # noqa: E402
+    facts_path,
+    save_facts,
+    strip_derived_facts,
+    validate_facts,
+)
 from deductive_gate import evaluate_deductive_gate  # noqa: E402
 from l_ledger_schema import (  # noqa: E402
     active_slice_dir,
@@ -47,16 +56,18 @@ from l_ledger_schema import (  # noqa: E402
 )
 from l_transition_kernel import (  # noqa: E402
     IllegalTransition,
-    PRODUCER_STATES,
     step_abort_evaluating,
     step_accept,
+    step_enter_deductive,
     step_enter_evaluating,
+    step_enter_fact_intake,
     step_enter_freeedit,
-    step_enter_producer,
+    step_enter_inductive,
     step_enter_writing,
     step_fix,
     step_reopen,
-    step_reverse_to_producer,
+    step_reverse_to_deductive,
+    step_reverse_to_inductive,
     step_reverse_to_writing,
 )
 from revision_lock import LockTimeout, revision_lock, session_lock  # noqa: E402
@@ -79,12 +90,17 @@ from workflow_state_schema import (  # noqa: E402
 from writing_compose_validation import validate_writing_artifacts  # noqa: E402
 
 _CMD_STATUS = "status"
-_CMD_ENTER_PRODUCER = "enter-producer"
-_CMD_COMPLETE_PRODUCER = "complete-producer"
+_CMD_ENTER_FACT_INTAKE = "enter-fact-intake"
+_CMD_COMPLETE_FACT_INTAKE = "complete-fact-intake"
+_CMD_ENTER_INDUCTIVE = "enter-inductive"
+_CMD_COMPLETE_INDUCTIVE = "complete-inductive"
+_CMD_ENTER_DEDUCTIVE = "enter-deductive"
+_CMD_COMPLETE_DEDUCTIVE = "complete-deductive"
 _CMD_ENTER_WRITING = "enter-writing"
 _CMD_COMPLETE_WRITING = "complete-writing"
 _CMD_ENTER_FREEEDIT = "enter-freeedit"
-_CMD_REVERSE_PRODUCER = "reverse-to-producer"
+_CMD_REVERSE_INDUCTIVE = "reverse-to-inductive"
+_CMD_REVERSE_DEDUCTIVE = "reverse-to-deductive"
 _CMD_REVERSE_WRITING = "reverse-to-writing"
 _CMD_ENTER_EVALUATING = "enter-evaluating"
 _CMD_ACCEPT = "accept"
@@ -94,10 +110,13 @@ _CMD_REOPEN = "reopen"
 _CONFIRM_CMDS = frozenset({_CMD_ACCEPT, _CMD_FIX, _CMD_RE_EVALUATE, _CMD_REOPEN})
 _MUTATIONS = frozenset(
     {
-        _CMD_ENTER_PRODUCER,
+        _CMD_ENTER_FACT_INTAKE,
+        _CMD_ENTER_INDUCTIVE,
+        _CMD_ENTER_DEDUCTIVE,
         _CMD_ENTER_WRITING,
         _CMD_ENTER_FREEEDIT,
-        _CMD_REVERSE_PRODUCER,
+        _CMD_REVERSE_INDUCTIVE,
+        _CMD_REVERSE_DEDUCTIVE,
         _CMD_REVERSE_WRITING,
         _CMD_ENTER_EVALUATING,
         _CMD_ACCEPT,
@@ -106,7 +125,9 @@ _MUTATIONS = frozenset(
         _CMD_REOPEN,
     }
 )
-_PRODUCER_STAMP = "_producer.complete"
+_FACT_INTAKE_STAMP = "_fact_intake.complete"
+_INDUCTIVE_STAMP = "_inductive.complete"
+_DEDUCTIVE_STAMP = "_deductive.complete"
 _WRITING_STAMP = "_writing.complete"
 _EVAL_RUN_FILE = "_eval_run.json"
 _INDUCTIVE_GATE_STATE_FILE = "inductive-gate-state.json"
@@ -301,75 +322,90 @@ def _open_point_txn_block(slice_dir: Path) -> str | None:
     return None
 
 
-def _opaque_producer_closed(
+def _opaque_inductive_closed(
     cycle_id: str,
     project_root: Path,
     profile_id: str,
-    *,
-    inductive: bool,
-    revision_dir: Path,
 ) -> bool:
-    if inductive:
-        out = _inductive_out(cycle_id, project_root, profile_id)
-        g4 = out / _INDUCTIVE_GATE_STATE_FILE
-        if not g4.is_file():
-            return False
-        try:
-            g4_data = json.loads(g4.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return False
-        if str(g4_data.get("active_gate", "")).strip() == "G5":
-            return False
-        g4_ok = str(g4_data.get("gates", {}).get("G4", {}).get("status", "")).lower() == "closed"
-        complete_ok = str(g4_data.get("active_gate", "")).strip() == "complete"
-        return g4_ok and complete_ok
+    out = _inductive_out(cycle_id, project_root, profile_id)
+    g4 = out / _INDUCTIVE_GATE_STATE_FILE
+    if not g4.is_file():
+        return False
+    try:
+        g4_data = json.loads(g4.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if str(g4_data.get("active_gate", "")).strip() == "G5":
+        return False
+    g4_ok = str(g4_data.get("gates", {}).get("G4", {}).get("status", "")).lower() == "closed"
+    complete_ok = str(g4_data.get("active_gate", "")).strip() == "complete"
+    return g4_ok and complete_ok
+
+
+def _opaque_deductive_closed(revision_dir: Path) -> bool:
     return evaluate_deductive_gate(revision_dir) is None
 
 
-def _producer_complete_error(
+def _inductive_complete_error(
     cycle_id: str,
     project_root: Path,
     profile_id: str,
-    *,
-    inductive: bool,
-    revision_dir: Path,
     slice_dir: Path,
 ) -> str | None:
     if not facts_path(slice_dir).is_file():
-        return "producer complete check failed: facts missing"
-    if _has_stamp(slice_dir, _PRODUCER_STAMP):
+        return "inductive complete check failed: facts missing"
+    if _has_stamp(slice_dir, _INDUCTIVE_STAMP):
         return None
-    if inductive:
-        txn_err = _open_point_txn_block(slice_dir)
-        if txn_err:
-            return f"producer complete check failed: {txn_err}"
-    if not _opaque_producer_closed(
-        cycle_id,
-        project_root,
-        profile_id,
-        inductive=inductive,
-        revision_dir=revision_dir,
-    ):
-        return "producer complete check failed"
+    txn_err = _open_point_txn_block(slice_dir)
+    if txn_err:
+        return f"inductive complete check failed: {txn_err}"
+    if not _opaque_inductive_closed(cycle_id, project_root, profile_id):
+        return "inductive complete check failed"
     return None
 
 
-def _reset_producer_complete(
+def _deductive_complete_error(revision_dir: Path, slice_dir: Path) -> str | None:
+    if not facts_path(slice_dir).is_file():
+        return "deductive complete check failed: facts missing"
+    if _has_stamp(slice_dir, _DEDUCTIVE_STAMP):
+        return None
+    if not _opaque_deductive_closed(revision_dir):
+        return "deductive complete check failed"
+    return None
+
+
+def _strip_derived(slice_dir: Path) -> None:
+    path = facts_path(slice_dir)
+    if not path.is_file():
+        return
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(raw, list) or not raw:
+        return
+    kept = strip_derived_facts(raw)
+    if len(kept) != len(raw):
+        save_facts(path, kept)
+
+
+def _reset_stage_complete(
     cycle_id: str,
     project_root: Path,
     profile_id: str,
     slice_dir: Path,
     *,
-    inductive: bool = False,
+    init_inductive: bool = False,
 ) -> None:
-    _clear_stamp(slice_dir, _PRODUCER_STAMP)
+    _clear_stamp(slice_dir, _INDUCTIVE_STAMP)
+    _clear_stamp(slice_dir, _DEDUCTIVE_STAMP)
     _clear_stamp(slice_dir, _WRITING_STAMP)
     out = _inductive_out(cycle_id, project_root, profile_id)
     gate = out / _INDUCTIVE_GATE_STATE_FILE
     if gate.is_file():
         gate.unlink()
     _purge_g5_residue(out, slice_dir)
-    if inductive:
+    if init_inductive:
         _init_inductive_slice(slice_dir, cycle_id, profile_id)
 
 
@@ -444,6 +480,46 @@ def _format_producer_dispatch(
     return "\n".join(lines)
 
 
+def _format_fact_intake_dispatch(
+    cycle_id: str,
+    project_root: Path,
+    profile_id: str,
+    *,
+    inductive: bool,
+    revision_dir: Path,
+) -> str:
+    scope_path = _scope_doc(revision_dir, cycle_id, project_root, profile_id)
+    source = _focus_source_path(revision_dir, scope_path).as_posix()
+    revision = (
+        _inductive_out(cycle_id, project_root, profile_id).as_posix()
+        if inductive
+        else revision_dir.as_posix()
+    )
+    return "\n".join(
+        [
+            f"REVISION_DIR:         {revision}",
+            f"PROJECT_ROOT:         {project_root.as_posix()}",
+            f"CYCLE_ID:             {cycle_id}",
+            f"SOURCE_PATH:          {source}",
+            f"REQUIRE_SEED_ORIGIN:  {str(inductive).lower()}",
+        ]
+    )
+
+
+def _fact_intake_complete_error(slice_dir: Path, *, inductive: bool) -> str | None:
+    path = facts_path(slice_dir)
+    if not path.is_file():
+        return "fact-intake complete check failed: facts missing"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return f"fact-intake complete check failed: {exc}"
+    errors = validate_facts(data, require_seed_origin=inductive)
+    if errors:
+        return "fact-intake complete check failed: " + "; ".join(errors)
+    return None
+
+
 def _format_writing_dispatch(
     cycle_id: str,
     project_root: Path,
@@ -469,14 +545,25 @@ def _format_writing_dispatch(
 def derive_step_next_actions(
     state: str,
     *,
-    producer_ok: bool,
     writing_ok: bool,
     freeedit: bool,
+    fact_intake_ok: bool = False,
+    inductive: bool = False,
+    inductive_ok: bool = False,
+    deductive_ok: bool = False,
+    producer_ok: bool = False,
 ) -> list[str]:
+    del producer_ok
     if state == "Pending":
-        return ["enter-producer"]
-    if state in PRODUCER_STATES:
-        return ["enter-writing"] if producer_ok else ["run-producer"]
+        return ["enter-fact-intake"]
+    if state == "FactIntake":
+        if not fact_intake_ok:
+            return ["run-fact-intake"]
+        return ["enter-inductive"] if inductive else ["enter-deductive"]
+    if state == "Inductive":
+        return ["enter-deductive"] if inductive_ok else ["run-inductive"]
+    if state == "Deductive":
+        return ["enter-writing"] if deductive_ok else ["run-deductive"]
     if state == "Writing":
         if not writing_ok:
             return ["run-writing"]
@@ -484,7 +571,11 @@ def derive_step_next_actions(
             return ["enter-freeedit", "begin-eval-round"]
         return ["begin-eval-round"]
     if state == "FreeEdit":
-        return ["begin-eval-round", "reverse-to-producer", "reverse-to-writing"]
+        actions = ["begin-eval-round"]
+        if inductive:
+            actions.append("reverse-to-inductive")
+        actions.extend(["reverse-to-deductive", "reverse-to-writing"])
+        return actions
     if state == "Evaluating":
         return ["accept", "fix", "re-evaluate"]
     if state == "Completed":
@@ -506,46 +597,31 @@ def _status_payload(
     slice_dir = (revision_dir / focus).resolve()
     pipeline = _pipeline_config(cycle_id, project_root, profile_id)
     inductive = pipeline.get("inductive") is True
-    producer_ok = _producer_complete_error(
-        cycle_id,
-        project_root,
-        profile_id,
-        inductive=inductive,
-        revision_dir=revision_dir,
-        slice_dir=slice_dir,
-    ) is None and (
-        _has_stamp(slice_dir, _PRODUCER_STAMP)
-        or cell["state"] not in PRODUCER_STATES | {"Pending"}
-    )
-    if cell["state"] in PRODUCER_STATES:
-        producer_ok = _producer_complete_error(
-            cycle_id,
-            project_root,
-            profile_id,
-            inductive=inductive,
-            revision_dir=revision_dir,
-            slice_dir=slice_dir,
-        ) is None
-        if producer_ok and not _has_stamp(slice_dir, _PRODUCER_STAMP):
-            producer_ok = _opaque_producer_closed(
-                cycle_id,
-                project_root,
-                profile_id,
-                inductive=inductive,
-                revision_dir=revision_dir,
-            )
+    inductive_ok = _inductive_complete_error(
+        cycle_id, project_root, profile_id, slice_dir
+    ) is None
+    if inductive_ok and not _has_stamp(slice_dir, _INDUCTIVE_STAMP):
+        inductive_ok = _opaque_inductive_closed(cycle_id, project_root, profile_id)
+    deductive_ok = _deductive_complete_error(revision_dir, slice_dir) is None
+    if deductive_ok and not _has_stamp(slice_dir, _DEDUCTIVE_STAMP):
+        deductive_ok = _opaque_deductive_closed(revision_dir)
     writing_ok = _has_stamp(slice_dir, _WRITING_STAMP)
+    fact_intake_ok = _has_stamp(slice_dir, _FACT_INTAKE_STAMP)
     eval_run = _load_eval_run(slice_dir)
     actions = derive_step_next_actions(
         str(cell["state"]),
-        producer_ok=bool(producer_ok),
         writing_ok=writing_ok,
         freeedit=pipeline.get("freeedit") is True,
+        fact_intake_ok=fact_intake_ok,
+        inductive=inductive,
+        inductive_ok=inductive_ok,
+        deductive_ok=deductive_ok,
     )
     payload = _success(
         command,
         state=cell["state"],
-        producer_complete=bool(producer_ok),
+        inductive_complete=bool(inductive_ok),
+        deductive_complete=bool(deductive_ok),
         writing_complete=writing_ok,
         next_actions=actions,
     )
@@ -615,20 +691,22 @@ def draft_status(
         return _failure(_CMD_STATUS, "invalid_ledger", str(exc))
 
 
-def enter_producer(
+def enter_fact_intake(
     cycle_id: str,
     project_root: Path,
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    blocked = _require_working(_CMD_ENTER_PRODUCER, cycle_id, project_root, profile_id)
+    blocked = _require_working(
+        _CMD_ENTER_FACT_INTAKE, cycle_id, project_root, profile_id
+    )
     if blocked:
         return blocked
     pipeline = _pipeline_config(cycle_id, project_root, profile_id)
     revision_dir = _revision_dir(cycle_id, project_root, profile_id)
     inductive = pipeline.get("inductive") is True
     try:
-        dispatch_input = _format_producer_dispatch(
+        dispatch_input = _format_fact_intake_dispatch(
             cycle_id,
             project_root,
             profile_id,
@@ -636,70 +714,229 @@ def enter_producer(
             revision_dir=revision_dir,
         )
     except (OSError, ValueError) as exc:
-        return _failure(_CMD_ENTER_PRODUCER, "illegal_transition", str(exc))
+        return _failure(_CMD_ENTER_FACT_INTAKE, "illegal_transition", str(exc))
 
-    def apply(ledger: dict[str, Any]) -> dict[str, Any]:
-        return step_enter_producer(ledger, {"inductive": inductive})
-
-    payload = _with_revision_lock(_CMD_ENTER_PRODUCER, revision_dir, apply)
+    payload = _with_revision_lock(
+        _CMD_ENTER_FACT_INTAKE, revision_dir, step_enter_fact_intake
+    )
     if payload.get("ok"):
         payload["dispatch_input"] = dispatch_input
-        if inductive:
-            focus = str(payload.get("focus") or "")
-            slice_dir = (revision_dir / focus).resolve()
-            try:
-                _init_inductive_slice(slice_dir, cycle_id, profile_id)
-            except (OSError, ValueError) as exc:
-                return _failure(_CMD_ENTER_PRODUCER, "illegal_transition", str(exc))
     return payload
 
 
-def complete_producer(
+def complete_fact_intake(
     cycle_id: str,
     project_root: Path,
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    blocked = _require_working(_CMD_COMPLETE_PRODUCER, cycle_id, project_root, profile_id)
+    blocked = _require_working(
+        _CMD_COMPLETE_FACT_INTAKE, cycle_id, project_root, profile_id
+    )
     if blocked:
         return blocked
     revision_dir = _revision_dir(cycle_id, project_root, profile_id)
     try:
         ledger = load_l_ledger(revision_dir)
     except (OSError, ValueError, FileNotFoundError) as exc:
-        return _failure(_CMD_COMPLETE_PRODUCER, "unsupported_revision", str(exc))
+        return _failure(_CMD_COMPLETE_FACT_INTAKE, "unsupported_revision", str(exc))
     focus = str(ledger["focus"])
     state = ledger["by_id"][focus]["state"]
-    if state not in PRODUCER_STATES:
+    if state != "FactIntake":
         return _failure(
-            _CMD_COMPLETE_PRODUCER,
+            _CMD_COMPLETE_FACT_INTAKE,
             "illegal_transition",
-            "complete-producer requires Inductive or Deductive focus",
+            "complete-fact-intake requires FactIntake focus",
             state=state,
         )
     pipeline = _pipeline_config(cycle_id, project_root, profile_id)
     inductive = pipeline.get("inductive") is True
-    expected = "Inductive" if inductive else "Deductive"
-    if state != expected:
+    slice_dir = (revision_dir / focus).resolve()
+    err = _fact_intake_complete_error(slice_dir, inductive=inductive)
+    if err:
+        return _failure(_CMD_COMPLETE_FACT_INTAKE, "fact_intake_incomplete", err)
+    _write_stamp(slice_dir, _FACT_INTAKE_STAMP)
+    return _success(
+        _CMD_COMPLETE_FACT_INTAKE, state=state, fact_intake_complete=True
+    )
+
+
+def enter_inductive(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    blocked = _require_working(_CMD_ENTER_INDUCTIVE, cycle_id, project_root, profile_id)
+    if blocked:
+        return blocked
+    pipeline = _pipeline_config(cycle_id, project_root, profile_id)
+    if pipeline.get("inductive") is not True:
         return _failure(
-            _CMD_COMPLETE_PRODUCER,
+            _CMD_ENTER_INDUCTIVE,
             "illegal_transition",
-            "producer path does not match profile",
+            "enter-inductive requires pipeline.inductive",
+        )
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    try:
+        dispatch_input = _format_producer_dispatch(
+            cycle_id,
+            project_root,
+            profile_id,
+            inductive=True,
+            revision_dir=revision_dir,
+        )
+    except (OSError, ValueError) as exc:
+        return _failure(_CMD_ENTER_INDUCTIVE, "illegal_transition", str(exc))
+
+    def apply(ledger: dict[str, Any]) -> dict[str, Any]:
+        focus = str(ledger["focus"])
+        slice_dir = (revision_dir / focus).resolve()
+        if not _has_stamp(slice_dir, _FACT_INTAKE_STAMP):
+            raise IllegalTransition(
+                "illegal_transition",
+                "enter-inductive requires completed fact intake",
+            )
+        new = step_enter_inductive(ledger)
+        _strip_derived(slice_dir)
+        return new
+
+    payload = _with_revision_lock(_CMD_ENTER_INDUCTIVE, revision_dir, apply)
+    if payload.get("ok"):
+        payload["dispatch_input"] = dispatch_input
+        focus = str(payload.get("focus") or "")
+        slice_dir = (revision_dir / focus).resolve()
+        try:
+            _init_inductive_slice(slice_dir, cycle_id, profile_id)
+        except (OSError, ValueError) as exc:
+            return _failure(_CMD_ENTER_INDUCTIVE, "illegal_transition", str(exc))
+    return payload
+
+
+def complete_inductive(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    blocked = _require_working(
+        _CMD_COMPLETE_INDUCTIVE, cycle_id, project_root, profile_id
+    )
+    if blocked:
+        return blocked
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    try:
+        ledger = load_l_ledger(revision_dir)
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        return _failure(_CMD_COMPLETE_INDUCTIVE, "unsupported_revision", str(exc))
+    focus = str(ledger["focus"])
+    state = ledger["by_id"][focus]["state"]
+    if state != "Inductive":
+        return _failure(
+            _CMD_COMPLETE_INDUCTIVE,
+            "illegal_transition",
+            "complete-inductive requires Inductive focus",
             state=state,
         )
     slice_dir = (revision_dir / focus).resolve()
-    err = _producer_complete_error(
-        cycle_id,
-        project_root,
-        profile_id,
-        inductive=inductive,
-        revision_dir=revision_dir,
-        slice_dir=slice_dir,
-    )
+    err = _inductive_complete_error(cycle_id, project_root, profile_id, slice_dir)
     if err:
-        return _failure(_CMD_COMPLETE_PRODUCER, "producer_incomplete", err)
-    _write_stamp(slice_dir, _PRODUCER_STAMP)
-    return _success(_CMD_COMPLETE_PRODUCER, state=state, producer_complete=True)
+        return _failure(_CMD_COMPLETE_INDUCTIVE, "inductive_incomplete", err)
+    _write_stamp(slice_dir, _INDUCTIVE_STAMP)
+    return _success(_CMD_COMPLETE_INDUCTIVE, state=state, inductive_complete=True)
+
+
+def enter_deductive(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    blocked = _require_working(_CMD_ENTER_DEDUCTIVE, cycle_id, project_root, profile_id)
+    if blocked:
+        return blocked
+    pipeline = _pipeline_config(cycle_id, project_root, profile_id)
+    inductive = pipeline.get("inductive") is True
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    try:
+        dispatch_input = _format_producer_dispatch(
+            cycle_id,
+            project_root,
+            profile_id,
+            inductive=False,
+            revision_dir=revision_dir,
+        )
+    except (OSError, ValueError) as exc:
+        return _failure(_CMD_ENTER_DEDUCTIVE, "illegal_transition", str(exc))
+
+    def apply(ledger: dict[str, Any]) -> dict[str, Any]:
+        focus = str(ledger["focus"])
+        state = ledger["by_id"][focus]["state"]
+        slice_dir = (revision_dir / focus).resolve()
+        if not _has_stamp(slice_dir, _FACT_INTAKE_STAMP):
+            raise IllegalTransition(
+                "illegal_transition",
+                "enter-deductive requires completed fact intake",
+            )
+        if state == "FactIntake" and inductive:
+            raise IllegalTransition(
+                "illegal_transition",
+                "enter-deductive from FactIntake requires pipeline.inductive=false",
+            )
+        if state == "Inductive":
+            if not inductive:
+                raise IllegalTransition(
+                    "illegal_transition",
+                    "enter-deductive from Inductive requires pipeline.inductive",
+                )
+            if _inductive_complete_error(
+                cycle_id, project_root, profile_id, slice_dir
+            ) is not None:
+                raise IllegalTransition(
+                    "illegal_transition",
+                    "enter-deductive requires completed inductive",
+                )
+        new = step_enter_deductive(ledger)
+        _strip_derived(slice_dir)
+        return new
+
+    payload = _with_revision_lock(_CMD_ENTER_DEDUCTIVE, revision_dir, apply)
+    if payload.get("ok"):
+        payload["dispatch_input"] = dispatch_input
+    return payload
+
+
+def complete_deductive(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    blocked = _require_working(
+        _CMD_COMPLETE_DEDUCTIVE, cycle_id, project_root, profile_id
+    )
+    if blocked:
+        return blocked
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+    try:
+        ledger = load_l_ledger(revision_dir)
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        return _failure(_CMD_COMPLETE_DEDUCTIVE, "unsupported_revision", str(exc))
+    focus = str(ledger["focus"])
+    state = ledger["by_id"][focus]["state"]
+    if state != "Deductive":
+        return _failure(
+            _CMD_COMPLETE_DEDUCTIVE,
+            "illegal_transition",
+            "complete-deductive requires Deductive focus",
+            state=state,
+        )
+    slice_dir = (revision_dir / focus).resolve()
+    err = _deductive_complete_error(revision_dir, slice_dir)
+    if err:
+        return _failure(_CMD_COMPLETE_DEDUCTIVE, "deductive_incomplete", err)
+    _write_stamp(slice_dir, _DEDUCTIVE_STAMP)
+    return _success(_CMD_COMPLETE_DEDUCTIVE, state=state, deductive_complete=True)
 
 
 def enter_writing(
@@ -712,35 +949,20 @@ def enter_writing(
     if blocked:
         return blocked
     revision_dir = _revision_dir(cycle_id, project_root, profile_id)
-    pipeline = _pipeline_config(cycle_id, project_root, profile_id)
-    inductive = pipeline.get("inductive") is True
     try:
         ledger = load_l_ledger(revision_dir)
         slice_dir = (revision_dir / str(ledger["focus"])).resolve()
-        err = _producer_complete_error(
-            cycle_id,
-            project_root,
-            profile_id,
-            inductive=inductive,
-            revision_dir=revision_dir,
-            slice_dir=slice_dir,
-        )
+        err = _deductive_complete_error(revision_dir, slice_dir)
         if err:
-            return _failure(_CMD_ENTER_WRITING, "producer_incomplete", err)
-        if not _has_stamp(slice_dir, _PRODUCER_STAMP):
-            if not _opaque_producer_closed(
-                cycle_id,
-                project_root,
-                profile_id,
-                inductive=inductive,
-                revision_dir=revision_dir,
-            ):
+            return _failure(_CMD_ENTER_WRITING, "deductive_incomplete", err)
+        if not _has_stamp(slice_dir, _DEDUCTIVE_STAMP):
+            if not _opaque_deductive_closed(revision_dir):
                 return _failure(
                     _CMD_ENTER_WRITING,
-                    "producer_incomplete",
-                    "producer complete check failed",
+                    "deductive_incomplete",
+                    "deductive complete check failed",
                 )
-            _write_stamp(slice_dir, _PRODUCER_STAMP)
+            _write_stamp(slice_dir, _DEDUCTIVE_STAMP)
         dispatch_input = _format_writing_dispatch(
             cycle_id, project_root, profile_id, revision_dir
         )
@@ -821,39 +1043,88 @@ def enter_freeedit(
     )
 
 
-def reverse_to_producer(
+def reverse_to_inductive(
     cycle_id: str,
     project_root: Path,
     *,
     profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
 ) -> dict[str, Any]:
-    blocked = _require_working(_CMD_REVERSE_PRODUCER, cycle_id, project_root, profile_id)
+    blocked = _require_working(
+        _CMD_REVERSE_INDUCTIVE, cycle_id, project_root, profile_id
+    )
     if blocked:
         return blocked
-    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
     pipeline = _pipeline_config(cycle_id, project_root, profile_id)
-    inductive = pipeline.get("inductive") is True
+    if pipeline.get("inductive") is not True:
+        return _failure(
+            _CMD_REVERSE_INDUCTIVE,
+            "illegal_transition",
+            "reverse-to-inductive requires pipeline.inductive",
+        )
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
 
     def apply(ledger: dict[str, Any]) -> dict[str, Any]:
-        new = step_reverse_to_producer(ledger, {"inductive": inductive})
+        new = step_reverse_to_inductive(ledger)
         slice_dir = (revision_dir / str(new["focus"])).resolve()
-        _reset_producer_complete(
+        _reset_stage_complete(
             cycle_id,
             project_root,
             profile_id,
             slice_dir,
-            inductive=inductive,
+            init_inductive=True,
         )
+        _strip_derived(slice_dir)
         return new
 
-    payload = _with_revision_lock(_CMD_REVERSE_PRODUCER, revision_dir, apply)
+    payload = _with_revision_lock(_CMD_REVERSE_INDUCTIVE, revision_dir, apply)
     if payload.get("ok"):
         try:
             payload["dispatch_input"] = _format_producer_dispatch(
                 cycle_id,
                 project_root,
                 profile_id,
-                inductive=inductive,
+                inductive=True,
+                revision_dir=revision_dir,
+            )
+        except (OSError, ValueError) as exc:
+            payload["dispatch_input_error"] = str(exc)
+    return payload
+
+
+def reverse_to_deductive(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
+) -> dict[str, Any]:
+    blocked = _require_working(
+        _CMD_REVERSE_DEDUCTIVE, cycle_id, project_root, profile_id
+    )
+    if blocked:
+        return blocked
+    revision_dir = _revision_dir(cycle_id, project_root, profile_id)
+
+    def apply(ledger: dict[str, Any]) -> dict[str, Any]:
+        new = step_reverse_to_deductive(ledger)
+        slice_dir = (revision_dir / str(new["focus"])).resolve()
+        _reset_stage_complete(
+            cycle_id,
+            project_root,
+            profile_id,
+            slice_dir,
+            init_inductive=False,
+        )
+        _strip_derived(slice_dir)
+        return new
+
+    payload = _with_revision_lock(_CMD_REVERSE_DEDUCTIVE, revision_dir, apply)
+    if payload.get("ok"):
+        try:
+            payload["dispatch_input"] = _format_producer_dispatch(
+                cycle_id,
+                project_root,
+                profile_id,
+                inductive=False,
                 revision_dir=revision_dir,
             )
         except (OSError, ValueError) as exc:
@@ -1060,12 +1331,17 @@ def _cli() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     for command in (
         _CMD_STATUS,
-        _CMD_ENTER_PRODUCER,
-        _CMD_COMPLETE_PRODUCER,
+        _CMD_ENTER_FACT_INTAKE,
+        _CMD_COMPLETE_FACT_INTAKE,
+        _CMD_ENTER_INDUCTIVE,
+        _CMD_COMPLETE_INDUCTIVE,
+        _CMD_ENTER_DEDUCTIVE,
+        _CMD_COMPLETE_DEDUCTIVE,
         _CMD_ENTER_WRITING,
         _CMD_COMPLETE_WRITING,
         _CMD_ENTER_FREEEDIT,
-        _CMD_REVERSE_PRODUCER,
+        _CMD_REVERSE_INDUCTIVE,
+        _CMD_REVERSE_DEDUCTIVE,
         _CMD_REVERSE_WRITING,
         _CMD_ENTER_EVALUATING,
     ):
@@ -1097,18 +1373,28 @@ def _cli() -> int:
         with session_lock(session_dir, exclusive=False):
             if args.command == _CMD_STATUS:
                 result = draft_status(**kwargs)
-            elif args.command == _CMD_ENTER_PRODUCER:
-                result = enter_producer(**kwargs)
-            elif args.command == _CMD_COMPLETE_PRODUCER:
-                result = complete_producer(**kwargs)
+            elif args.command == _CMD_ENTER_FACT_INTAKE:
+                result = enter_fact_intake(**kwargs)
+            elif args.command == _CMD_COMPLETE_FACT_INTAKE:
+                result = complete_fact_intake(**kwargs)
+            elif args.command == _CMD_ENTER_INDUCTIVE:
+                result = enter_inductive(**kwargs)
+            elif args.command == _CMD_COMPLETE_INDUCTIVE:
+                result = complete_inductive(**kwargs)
+            elif args.command == _CMD_ENTER_DEDUCTIVE:
+                result = enter_deductive(**kwargs)
+            elif args.command == _CMD_COMPLETE_DEDUCTIVE:
+                result = complete_deductive(**kwargs)
             elif args.command == _CMD_ENTER_WRITING:
                 result = enter_writing(**kwargs)
             elif args.command == _CMD_COMPLETE_WRITING:
                 result = complete_writing(**kwargs)
             elif args.command == _CMD_ENTER_FREEEDIT:
                 result = enter_freeedit(**kwargs)
-            elif args.command == _CMD_REVERSE_PRODUCER:
-                result = reverse_to_producer(**kwargs)
+            elif args.command == _CMD_REVERSE_INDUCTIVE:
+                result = reverse_to_inductive(**kwargs)
+            elif args.command == _CMD_REVERSE_DEDUCTIVE:
+                result = reverse_to_deductive(**kwargs)
             elif args.command == _CMD_REVERSE_WRITING:
                 result = reverse_to_writing(**kwargs)
             elif args.command == _CMD_ENTER_EVALUATING:
