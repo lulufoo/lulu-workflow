@@ -21,14 +21,36 @@ from open_point_store import (  # noqa: E402
     add_opens,
     check_close,
     defer_open,
+    lens_snapshot,
     load_bundle,
     reconcile,
+    registry_lens_keys,
     reject_open,
+    set_frontier,
     settle_open,
     skip_open,
 )
 from open_point_transaction_schema import open_point_txn_path  # noqa: E402
+from lens_frontier_schema import (  # noqa: E402
+    empty_lens_frontier,
+    init_frontier_from_keys,
+    lens_frontier_path,
+    load_lens_frontier,
+    merge_missing_keys,
+)
 from opens_schema import opens_path  # noqa: E402
+
+
+def _frontier_digest(slice_dir: Path) -> str:
+    keys = registry_lens_keys(lens_snapshot(slice_dir))
+    path = lens_frontier_path(slice_dir)
+    if path.is_file():
+        data = merge_missing_keys(load_lens_frontier(path), keys)
+    elif keys:
+        data = init_frontier_from_keys(keys)
+    else:
+        data = empty_lens_frontier()
+    return canonical_digest(data)
 
 
 def _candidate(**overrides):
@@ -36,6 +58,8 @@ def _candidate(**overrides):
         "question": "What breaks first?",
         "basis": "Intent and facts collide on the write path",
         "blocking": True,
+        "lens": "I",
+        "source": {"actor": "ai", "means": "probe"},
     }
     base.update(overrides)
     return base
@@ -55,15 +79,18 @@ def _detect_meta(slice_dir: Path, raw_candidates, **overrides):
     facts_digest = canonical_digest(facts)
     lens_digest = canonical_digest(lenses)
     opens_digest = canonical_digest(opens)
+    frontier_digest = _frontier_digest(slice_dir)
     meta = {
         "checked_lenses": ["I", "FL"],
         "facts_digest": facts_digest,
         "lens_digest": lens_digest,
         "opens_digest": opens_digest,
+        "frontier_digest": frontier_digest,
         "raw_candidates": list(raw_candidates),
         "expected_facts_digest": facts_digest,
         "expected_lens_digest": lens_digest,
         "expected_opens_digest": opens_digest,
+        "expected_frontier_digest": frontier_digest,
     }
     meta.update(overrides)
     return meta
@@ -98,7 +125,8 @@ def test_nonempty_detect_from_idle_creates_batch_and_processing(tmp_path: Path):
     )
     bundle = load_bundle(tmp_path)
     assert [item["id"] for item in bundle["opens"]] == ["O-1", "O-2"]
-    assert bundle["opens"][0]["source"] == {"actor": "ai", "means": "detect"}
+    assert bundle["opens"][0]["source"] == {"actor": "ai", "means": "probe"}
+    assert bundle["opens"][0]["lens"] == "I"
     assert bundle["state"]["phase"] == "processing"
     assert bundle["state"]["active_open_id"] == "O-1"
     batch = bundle["batches"]["batches"][0]
@@ -300,6 +328,7 @@ def test_crash_mixed_restores_before(tmp_path: Path):
             "question": "ghost",
             "basis": "should roll back",
             "blocking": False,
+            "lens": "I",
         }
     ]
     after_state = {
@@ -359,3 +388,91 @@ def test_crash_neither_sets_repair_required(tmp_path: Path):
     with pytest.raises(RepairRequired):
         add_opens(tmp_path, opens=[_human_open(question="blocked")])
     assert txn_path.is_file()
+
+
+def _write_registry_and_kw(slice_dir: Path) -> None:
+    (slice_dir / "section-registry.json").write_text(
+        json.dumps(
+            {
+                "version": "1",
+                "document_preamble": "test",
+                "section_order": ["I"],
+                "sections": {
+                    "I": {
+                        "heading": "Intent",
+                        "intent": "constraints",
+                        "presence": "required",
+                    }
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (slice_dir / "section-kw-criteria.md").write_text(
+        "## I\n\n| KW | Verifiable intent attributes |\n|----|------------------------------|\n"
+        "| KW0 | unnamed |\n| KW1 | readable |\n| KW2 | traceable |\n| KW3 | boundary-clear |\n",
+        encoding="utf-8",
+    )
+
+
+def test_detect_rejects_legacy_detect_means(tmp_path: Path):
+    with pytest.raises(ValueError, match="scan, intent, or probe"):
+        add_opens(
+            tmp_path,
+            opens=[_candidate(source={"actor": "ai", "means": "detect"})],
+            detect=_detect_meta(
+                tmp_path, [_candidate(source={"actor": "ai", "means": "detect"})]
+            ),
+        )
+    with pytest.raises(ValueError, match="means"):
+        add_opens(
+            tmp_path,
+            opens=[_candidate(source={"actor": "ai", "means": "ai_scan"})],
+            detect=_detect_meta(
+                tmp_path, [_candidate(source={"actor": "ai", "means": "ai_scan"})]
+            ),
+        )
+
+
+def test_add_opens_requires_lens(tmp_path: Path):
+    raw = _human_open()
+    del raw["lens"]
+    with pytest.raises(ValueError, match="lens"):
+        add_opens(tmp_path, opens=[raw])
+
+
+def test_human_add_does_not_filter_by_kw(tmp_path: Path):
+    add_opens(
+        tmp_path,
+        opens=[_human_open(question="What is the sign-off rollback path?")],
+    )
+    bundle = load_bundle(tmp_path)
+    assert bundle["opens"][0]["question"].startswith("What is the sign-off")
+
+
+def test_cleared_requires_target_and_fresh_frontier(tmp_path: Path):
+    _write_registry_and_kw(tmp_path)
+    add_opens(tmp_path, opens=[], detect=_detect_meta(tmp_path, []))
+    cleared = check_close(tmp_path, mode="cleared")
+    assert cleared["ok"] is False
+    assert any("below target" in item for item in cleared["reasons"])
+    assert check_close(tmp_path, mode="hard-skip")["ok"] is True
+
+    set_frontier(tmp_path, "I", 3)
+    stale = check_close(tmp_path, mode="cleared")
+    assert stale["ok"] is False
+    assert any("frontier digest" in item for item in stale["reasons"])
+
+    add_opens(tmp_path, opens=[], detect=_detect_meta(tmp_path, []))
+    assert check_close(tmp_path, mode="cleared")["ok"] is True
+
+
+def test_detect_rejects_unknown_registry_lens(tmp_path: Path):
+    _write_registry_and_kw(tmp_path)
+    with pytest.raises(ValueError, match="section-registry"):
+        add_opens(
+            tmp_path,
+            opens=[_candidate(lens="NOPE")],
+            detect=_detect_meta(tmp_path, [_candidate(lens="NOPE")]),
+        )

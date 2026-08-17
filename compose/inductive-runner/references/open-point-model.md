@@ -10,6 +10,7 @@ objects describe unresolved work and its evidence without deciding substance.
 An Open is one unresolved question that matters to the current slice.
 
 - It records whether it came from human dialogue or AI detection.
+- It belongs to one registry lens. It does not record KW altitude.
 - Its blocking character states whether unresolved work prevents closure.
 - `open` means unresolved.
 - `settled` means its conclusion landed in facts.
@@ -33,7 +34,7 @@ A Batch is an ordered, processable group of Opens.
 
 A Detect receipt is immutable evidence of one complete lens inspection.
 
-- It binds the inspected facts, lenses, and existing Opens.
+- It binds the inspected facts, lenses, existing Opens, and the lens-frontier digest.
 - It preserves the raw detection outcome and the final registered Open
   identities.
 - A zero result means the raw detection produced no candidates.

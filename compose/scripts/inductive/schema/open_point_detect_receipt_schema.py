@@ -31,6 +31,7 @@ _RECEIPT_KEYS = frozenset(
         "facts_digest",
         "lens_digest",
         "opens_digest",
+        "frontier_digest",
         "raw_candidate_count",
         "raw_candidate_digest",
         "final_open_ids",
@@ -90,7 +91,13 @@ def _validate_receipt(entry: Any, index: int) -> list[str]:
         errors.append(f"{prefix}.checked_lenses must be a non-empty string list")
     elif any(not isinstance(item, str) or not item.strip() for item in lenses):
         errors.append(f"{prefix}.checked_lenses entries must be non-empty strings")
-    for field in ("facts_digest", "lens_digest", "opens_digest", "raw_candidate_digest"):
+    for field in (
+        "facts_digest",
+        "lens_digest",
+        "opens_digest",
+        "frontier_digest",
+        "raw_candidate_digest",
+    ):
         errors.extend(_validate_digest(prefix, field, entry.get(field)))
     count = entry.get("raw_candidate_count")
     if not isinstance(count, int) or isinstance(count, bool) or count < 0:
@@ -148,6 +155,7 @@ def normalize_receipt(entry: dict[str, Any]) -> dict[str, Any]:
         "facts_digest": str(entry["facts_digest"]).strip(),
         "lens_digest": str(entry["lens_digest"]).strip(),
         "opens_digest": str(entry["opens_digest"]).strip(),
+        "frontier_digest": str(entry["frontier_digest"]).strip(),
         "raw_candidate_count": int(entry["raw_candidate_count"]),
         "raw_candidate_digest": str(entry["raw_candidate_digest"]).strip(),
         "final_open_ids": [str(item).strip() for item in entry.get("final_open_ids") or []],

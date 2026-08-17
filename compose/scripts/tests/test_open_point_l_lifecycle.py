@@ -54,6 +54,7 @@ def _human_open(**overrides):
         "basis": "Intent and facts collide on the write path",
         "blocking": True,
         "source": {"actor": "human", "means": "direct"},
+        "lens": "I",
     }
     item.update(overrides)
     return item
@@ -64,6 +65,7 @@ def _finding():
         "question": "Who owns retry?",
         "basis": "Two facts disagree on ownership",
         "blocking": True,
+        "lens": "I",
     }
 
 

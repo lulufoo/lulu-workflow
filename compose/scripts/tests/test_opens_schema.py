@@ -30,6 +30,7 @@ def _minimal_open(**overrides):
         "question": "What is the failure mode?",
         "basis": "Collision between intent and current facts",
         "blocking": True,
+        "lens": "I",
     }
     base.update(overrides)
     return base
@@ -57,7 +58,7 @@ def test_validate_accepts_empty_and_gap_ids():
 
 
 def test_validate_rejects_missing_required_fields():
-    for field in ("id", "status", "source", "question", "basis", "blocking"):
+    for field in ("id", "status", "source", "question", "basis", "blocking", "lens"):
         raw = _minimal_open()
         del raw[field]
         errs = validate_opens([raw])
@@ -73,6 +74,16 @@ def test_validate_rejects_old_fields():
     ):
         errs = validate_opens([_minimal_open(**{field: value})])
         assert any("unexpected" in e and field in e for e in errs), field
+
+
+def test_validate_accepts_scan_intent_probe_means():
+    for means in ("scan", "intent", "probe"):
+        assert (
+            validate_opens(
+                [_minimal_open(source={"actor": "ai", "means": means})]
+            )
+            == []
+        )
 
 
 def test_validate_rejects_invalid_actor_and_means():

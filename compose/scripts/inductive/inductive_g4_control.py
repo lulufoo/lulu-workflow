@@ -100,6 +100,7 @@ def _report_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 "question": item.get("question"),
                 "basis": item.get("basis") or item.get("evidence"),
                 "blocking": item.get("blocking", True),
+                "lens": item.get("lens"),
             }
             cleaned.append(finding)
         report["findings"] = cleaned

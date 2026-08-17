@@ -99,15 +99,35 @@ def _detect_meta(slice_dir: Path, raw_candidates):
     facts_digest = canonical_digest(facts)
     lens_digest = canonical_digest(lenses)
     opens_digest = canonical_digest(opens)
+    from lens_frontier_schema import (  # noqa: WPS433
+        empty_lens_frontier,
+        init_frontier_from_keys,
+        lens_frontier_path,
+        load_lens_frontier,
+        merge_missing_keys,
+    )
+    from open_point_store import registry_lens_keys  # noqa: WPS433
+
+    keys = registry_lens_keys(lenses)
+    path = lens_frontier_path(slice_dir)
+    if path.is_file():
+        frontier = merge_missing_keys(load_lens_frontier(path), keys)
+    elif keys:
+        frontier = init_frontier_from_keys(keys)
+    else:
+        frontier = empty_lens_frontier()
+    frontier_digest = canonical_digest(frontier)
     return {
         "checked_lenses": ["I"],
         "facts_digest": facts_digest,
         "lens_digest": lens_digest,
         "opens_digest": opens_digest,
+        "frontier_digest": frontier_digest,
         "raw_candidates": list(raw_candidates),
         "expected_facts_digest": facts_digest,
         "expected_lens_digest": lens_digest,
         "expected_opens_digest": opens_digest,
+        "expected_frontier_digest": frontier_digest,
     }
 
 
@@ -197,6 +217,7 @@ def test_record_recompose_report_accepts_runner_return_shape(tmp_path: Path):
                 "question": "Who owns retry?",
                 "evidence": "Two facts disagree",
                 "blocking": True,
+                "lens": "I",
             }
         ],
         "buildable": False,
@@ -259,6 +280,7 @@ def test_check_recompose_report_fails_on_findings(tmp_path: Path):
                 "question": "Who owns retry?",
                 "basis": "Two facts disagree",
                 "blocking": True,
+                "lens": "I",
             }
         ],
         buildable=False,
@@ -329,6 +351,7 @@ def test_gate_close_g4_rejects_findings(tmp_path: Path):
                 "question": "Who owns retry?",
                 "basis": "Two facts disagree",
                 "blocking": True,
+                "lens": "I",
             }
         ],
         buildable=False,

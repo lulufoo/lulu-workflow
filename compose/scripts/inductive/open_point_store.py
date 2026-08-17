@@ -21,7 +21,9 @@ _HERE = Path(__file__).resolve().parent
 _SCHEMA = _HERE / "schema"
 _SECTION = _HERE.parent / "section"
 _SESSION = _HERE.parent / "schema" / "session"
-for _path in (_HERE, _SCHEMA, _SECTION, _SESSION):
+_IO = _HERE.parent / "io"
+_CORE = _HERE.parent / "core"
+for _path in (_HERE, _SCHEMA, _SECTION, _SESSION, _IO, _CORE):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
@@ -38,6 +40,19 @@ from open_point_batch_schema import (  # noqa: E402
     open_point_batches_path,
     save_open_point_batches,
     validate_open_point_batches,
+)
+from lens_frontier_schema import (  # noqa: E402
+    FRONTIER_BASENAME,
+    default_lens_entry,
+    init_frontier_from_keys,
+    lens_frontier_path,
+    load_lens_frontier,
+    merge_missing_keys,
+    normalize_lens_frontier,
+    save_lens_frontier,
+    slice_kw_criteria,
+    target_kw_for_slice,
+    validate_lens_frontier,
 )
 from open_point_detect_receipt_schema import (  # noqa: E402
     empty_open_point_receipts,
@@ -63,6 +78,7 @@ from open_point_transaction_schema import (  # noqa: E402
     save_open_point_txn,
 )
 from opens_schema import (  # noqa: E402
+    DETECT_MEANS,
     blocking_open_items,
     load_opens,
     mint_open_id,
@@ -81,6 +97,7 @@ _WRITERS = {
     "open-point-state.json": save_open_point_state,
     "open-point-batches.json": save_open_point_batches,
     "open-point-detect-receipts.json": save_open_point_receipts,
+    FRONTIER_BASENAME: save_lens_frontier,
 }
 _EXTRA_TARGETS = frozenset(
     {"g4-recompose-report.json", "inductive-gate-state.json"}
@@ -143,6 +160,104 @@ def facts_digest(slice_dir: Path) -> str:
 
 def lens_digest(slice_dir: Path) -> str:
     return canonical_digest(lens_snapshot(slice_dir))
+
+
+def registry_lens_keys(snapshot: Any) -> list[str]:
+    if not isinstance(snapshot, dict):
+        return []
+    order = snapshot.get("section_order")
+    if isinstance(order, list) and order:
+        return [str(item).strip().upper() for item in order if str(item).strip()]
+    sections = snapshot.get("sections")
+    if isinstance(sections, dict) and sections:
+        return [str(item).strip().upper() for item in sections if str(item).strip()]
+    return []
+
+
+def registry_presence(snapshot: Any, lens: str) -> str:
+    if not isinstance(snapshot, dict):
+        return "required"
+    sections = snapshot.get("sections")
+    if not isinstance(sections, dict):
+        return "required"
+    entry = sections.get(lens) or sections.get(str(lens).upper())
+    if isinstance(entry, dict):
+        presence = str(entry.get("presence") or "required").strip().lower()
+        if presence in {"required", "optional"}:
+            return presence
+    return "required"
+
+
+def payable_lenses(snapshot: Any, frontier: dict[str, Any]) -> list[str]:
+    entries = frontier.get("lenses") if isinstance(frontier, dict) else {}
+    if not isinstance(entries, dict):
+        entries = {}
+    out: list[str] = []
+    for lens in registry_lens_keys(snapshot):
+        if registry_presence(snapshot, lens) != "required":
+            continue
+        entry = entries.get(lens) or {}
+        if isinstance(entry, dict) and entry.get("skipped") is True:
+            continue
+        out.append(lens)
+    return out
+
+
+def frontier_snapshot(slice_dir: Path) -> dict[str, Any]:
+    return load_lens_frontier(lens_frontier_path(slice_dir))
+
+
+def frontier_digest(slice_dir: Path) -> str:
+    return canonical_digest(frontier_snapshot(slice_dir))
+
+
+def load_published_kw_raw(
+    slice_dir: Path, project_root: Path | str | None = None
+) -> str | None:
+    roots: list[Path] = []
+    if project_root:
+        roots.append(Path(project_root))
+    roots.append(Path(slice_dir))
+    roots.append(Path(slice_dir).parent)
+    for root in roots:
+        path = root / "section-kw-criteria.md"
+        if path.is_file():
+            return path.read_text(encoding="utf-8")
+    if not project_root:
+        return None
+    root = Path(project_root).resolve()
+    try:
+        from fetch_compose_framework import (  # noqa: WPS433
+            FetchComposeFrameworkError,
+            fetch_compose_framework,
+        )
+        from workflow_paths import resolve_revision_runtime_profile  # noqa: WPS433
+    except ImportError:
+        return None
+    try:
+        runtime = resolve_revision_runtime_profile(Path(slice_dir), root)
+        return fetch_compose_framework(
+            "section-kw-criteria",
+            root,
+            profile_id=runtime.profile_id,
+        )
+    except (OSError, ValueError, FileNotFoundError, FetchComposeFrameworkError):
+        return None
+
+
+def ensure_frontier(slice_dir: Path) -> dict[str, Any]:
+    keys = registry_lens_keys(lens_snapshot(slice_dir))
+    path = lens_frontier_path(slice_dir)
+    if path.is_file():
+        current = load_lens_frontier(path)
+        merged = merge_missing_keys(current, keys)
+        if merged != current:
+            _commit(slice_dir, "frontier-init", {FRONTIER_BASENAME: merged})
+            return merged
+        return current
+    data = init_frontier_from_keys(keys)
+    _commit(slice_dir, "frontier-init", {FRONTIER_BASENAME: data})
+    return data
 
 
 def _file_digest(path: Path) -> str | None:
@@ -264,6 +379,11 @@ def _normalize_payload(name: str, value: Any) -> Any:
         if errors:
             raise ValueError("; ".join(errors))
         return normalize_open_point_receipts(value)
+    if name == FRONTIER_BASENAME:
+        errors = validate_lens_frontier(value)
+        if errors:
+            raise ValueError("; ".join(errors))
+        return normalize_lens_frontier(value)
     if name == "g4-recompose-report.json":
         if not isinstance(value, dict):
             raise ValueError("g4-recompose-report must be an object")
@@ -342,6 +462,10 @@ def ensure_idle_bundle(slice_dir: Path) -> None:
         files["open-point-batches.json"] = empty_open_point_batches()
     if not open_point_receipts_path(slice_dir).is_file():
         files["open-point-detect-receipts.json"] = empty_open_point_receipts()
+    if not lens_frontier_path(slice_dir).is_file():
+        files[FRONTIER_BASENAME] = init_frontier_from_keys(
+            registry_lens_keys(lens_snapshot(slice_dir))
+        )
     if files:
         _commit(slice_dir, "init-idle", files)
 
@@ -350,10 +474,12 @@ def _mint_opens(
     existing: list[dict[str, Any]],
     incoming: list[Any],
     *,
-    default_source: dict[str, str],
+    default_source: dict[str, str] | None,
+    allowed_lenses: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     seq = next_open_seq(existing)
     minted: list[dict[str, Any]] = []
+    allowed = {item.strip().upper() for item in (allowed_lenses or []) if item.strip()}
     for raw in incoming:
         if not isinstance(raw, dict):
             raise ValueError("open must be an object")
@@ -362,7 +488,14 @@ def _mint_opens(
         item["id"] = mint_open_id(seq)
         seq += 1
         item.setdefault("status", "open")
-        item.setdefault("source", dict(default_source))
+        if default_source is not None:
+            item.setdefault("source", dict(default_source))
+        lens = str(item.get("lens", "")).strip().upper()
+        if not lens:
+            raise ValueError("open.lens is required")
+        item["lens"] = lens
+        if allowed and lens not in allowed:
+            raise ValueError(f"open.lens {lens!r} is not in section-registry")
         minted.append(item)
     combined = existing + minted
     errors = validate_opens(combined)
@@ -409,6 +542,7 @@ def _build_receipt(
     facts_d: str,
     lens_d: str,
     opens_d: str,
+    frontier_d: str,
     raw_candidates: list[Any],
     final_open_ids: list[str],
 ) -> dict[str, Any]:
@@ -418,6 +552,7 @@ def _build_receipt(
         "facts_digest": facts_d,
         "lens_digest": lens_d,
         "opens_digest": opens_d,
+        "frontier_digest": frontier_d,
         "raw_candidate_count": len(raw_candidates),
         "raw_candidate_digest": canonical_digest(raw_candidates),
         "final_open_ids": list(final_open_ids),
@@ -436,6 +571,9 @@ def prepare_add_opens(
     current_facts = facts_digest(slice_dir)
     current_lens = lens_digest(slice_dir)
     current_opens = canonical_digest(bundle["opens"])
+    ensure_frontier(slice_dir)
+    current_frontier = frontier_digest(slice_dir)
+    allowed = registry_lens_keys(lens_snapshot(slice_dir))
 
     if detect is not None:
         if bundle["state"]["phase"] != "idle":
@@ -446,6 +584,7 @@ def prepare_add_opens(
             _expected_digest(detect, "facts_digest") != current_facts
             or _expected_digest(detect, "lens_digest") != current_lens
             or _expected_digest(detect, "opens_digest") != current_opens
+            or _expected_digest(detect, "frontier_digest") != current_frontier
         ):
             raise StaleError()
         raw_candidates = detect.get("raw_candidates")
@@ -454,10 +593,22 @@ def prepare_add_opens(
         checked = detect.get("checked_lenses")
         if not isinstance(checked, list) or not checked:
             raise ValueError("detect.checked_lenses must be a non-empty list")
+        for raw in opens:
+            if not isinstance(raw, dict):
+                raise ValueError("open must be an object")
+            source = raw.get("source")
+            means = ""
+            if isinstance(source, dict):
+                means = str(source.get("means", "")).strip().lower()
+            if means not in DETECT_MEANS:
+                raise ValueError(
+                    "detect open source.means must be scan, intent, or probe"
+                )
         registered = _mint_opens(
             bundle["opens"],
             opens,
-            default_source={"actor": "ai", "means": "detect"},
+            default_source=None,
+            allowed_lenses=allowed,
         )
         receipt = _build_receipt(
             bundle["receipts"]["receipts"],
@@ -465,6 +616,7 @@ def prepare_add_opens(
             facts_d=current_facts,
             lens_d=current_lens,
             opens_d=current_opens,
+            frontier_d=current_frontier,
             raw_candidates=raw_candidates,
             final_open_ids=[item["id"] for item in registered],
         )
@@ -513,6 +665,7 @@ def prepare_add_opens(
         bundle["opens"],
         opens,
         default_source={"actor": "human", "means": "direct"},
+        allowed_lenses=allowed,
     )
     batches = list(bundle["batches"]["batches"])
     active = _active_batch(bundle)
@@ -796,11 +949,17 @@ def attach_code_refs(
     return {"open": next(item for item in opens if item["id"] == open_id)}
 
 
-def check_close(slice_dir: Path, *, mode: str) -> dict[str, Any]:
+def check_close(
+    slice_dir: Path,
+    *,
+    mode: str,
+    project_root: Path | str | None = None,
+) -> dict[str, Any]:
     bundle = load_bundle(slice_dir)
     reasons: list[str] = []
     if mode == "cleared":
         receipts = bundle["receipts"]["receipts"]
+        frontier = frontier_snapshot(slice_dir)
         if not receipts:
             reasons.append("no detect receipt")
         else:
@@ -813,14 +972,89 @@ def check_close(slice_dir: Path, *, mode: str) -> dict[str, Any]:
                 reasons.append("lens digest mismatch")
             if latest.get("opens_digest") != canonical_digest(bundle["opens"]):
                 reasons.append("opens digest mismatch")
+            if latest.get("frontier_digest") != canonical_digest(frontier):
+                reasons.append("frontier digest mismatch")
         if any(item.get("status") == "open" for item in bundle["opens"]):
             reasons.append("open items remain")
+        snapshot = lens_snapshot(slice_dir)
+        payable = payable_lenses(snapshot, frontier)
+        if payable:
+            kw_raw = load_published_kw_raw(slice_dir, project_root)
+            if not kw_raw:
+                reasons.append("KW criteria missing")
+            else:
+                for lens in payable:
+                    kw_slice = slice_kw_criteria(kw_raw, lens)
+                    if kw_slice is None:
+                        reasons.append(f"KW criteria missing for {lens}")
+                        continue
+                    try:
+                        target = target_kw_for_slice(kw_slice)
+                    except ValueError:
+                        reasons.append(f"KW criteria missing for {lens}")
+                        continue
+                    entry = (frontier.get("lenses") or {}).get(lens) or {}
+                    current_kw = int(entry.get("frontier_kw") or 0)
+                    if current_kw < target:
+                        reasons.append(f"lens {lens} below target KW{target}")
     elif mode == "hard-skip":
         if blocking_open_items(bundle["opens"]):
             reasons.append("blocking open remains")
     else:
         raise ValueError("mode must be cleared or hard-skip")
     return {"ok": not reasons, "reasons": reasons}
+
+
+def set_frontier(slice_dir: Path, lens: str, kw: int) -> dict[str, Any]:
+    if not isinstance(kw, int) or isinstance(kw, bool) or kw < 0 or kw > 4:
+        raise ValueError("frontier_kw must be an int 0..4")
+    key = str(lens).strip().upper()
+    if not key:
+        raise ValueError("lens is required")
+    allowed = registry_lens_keys(lens_snapshot(slice_dir))
+    if allowed and key not in allowed:
+        raise ValueError(f"lens {key!r} is not in section-registry")
+    data = ensure_frontier(slice_dir)
+    lenses = dict(data["lenses"])
+    current = dict(lenses.get(key) or default_lens_entry())
+    current["frontier_kw"] = kw
+    lenses[key] = current
+    updated = {"version": 1, "lenses": lenses}
+    _commit(slice_dir, "set-frontier", {FRONTIER_BASENAME: updated})
+    return updated
+
+
+def frontier_skip(slice_dir: Path, lens: str, note: str) -> dict[str, Any]:
+    if not isinstance(note, str) or not note.strip():
+        raise ValueError("--note is required")
+    key = str(lens).strip().upper()
+    if not key:
+        raise ValueError("lens is required")
+    allowed = registry_lens_keys(lens_snapshot(slice_dir))
+    if allowed and key not in allowed:
+        raise ValueError(f"lens {key!r} is not in section-registry")
+    data = ensure_frontier(slice_dir)
+    lenses = dict(data["lenses"])
+    current = dict(lenses.get(key) or default_lens_entry())
+    current["skipped"] = True
+    lenses[key] = current
+    updated = {"version": 1, "lenses": lenses}
+    _commit(slice_dir, "frontier-skip", {FRONTIER_BASENAME: updated})
+    return updated
+
+
+def frontier_unskip(slice_dir: Path, lens: str) -> dict[str, Any]:
+    key = str(lens).strip().upper()
+    if not key:
+        raise ValueError("lens is required")
+    data = ensure_frontier(slice_dir)
+    lenses = dict(data["lenses"])
+    current = dict(lenses.get(key) or default_lens_entry())
+    current["skipped"] = False
+    lenses[key] = current
+    updated = {"version": 1, "lenses": lenses}
+    _commit(slice_dir, "frontier-unskip", {FRONTIER_BASENAME: updated})
+    return updated
 
 
 def abandon_active_batch(slice_dir: Path) -> dict[str, Any]:

@@ -89,6 +89,7 @@ def _seed_kept_artifacts(ws: Path, slice_dir: Path) -> None:
                 "question": "What stays?",
                 "basis": "Open source is not G5 residue",
                 "blocking": False,
+                "lens": "I",
             }
         ],
     )

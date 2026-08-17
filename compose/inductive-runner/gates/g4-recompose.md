@@ -55,8 +55,9 @@ in G4. Then call:
 `$INDUCTIVE_GATE_CTL gate-reopen --gate G3 --from-report --report-digest <digest>`
 
 The control validates the report against current facts and Opens, atomically
-registers all findings as Opens, reopens G3, resets G4, and invalidates the
-report. After G3 closes again, run the complete G4 audit from fresh context.
+registers all findings as Opens (each finding must carry `lens`), reopens G3,
+resets G4, and invalidates the report. After G3 closes again, run the complete
+G4 audit from fresh context.
 
 ## Close
 

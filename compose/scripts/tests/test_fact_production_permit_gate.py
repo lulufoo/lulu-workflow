@@ -208,6 +208,7 @@ def _open_item(open_id: str = "O-1", **overrides: object) -> dict:
         "question": "q",
         "basis": "evidence",
         "blocking": True,
+        "lens": "I",
     }
     item.update(overrides)
     return item

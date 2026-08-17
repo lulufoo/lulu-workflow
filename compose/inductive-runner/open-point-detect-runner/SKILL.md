@@ -18,28 +18,29 @@ Required:
 - `facts_snapshot` and `facts_digest`
 - `lens_registry` and `lens_digest`
 - `existing_open_summaries` and `opens_digest`
+- `frontiers`, `frontier_digest`, and per-lens `kw_criteria`
 
 Optional:
 
-- intent baseline
-- norm constraints
-- project evidence scope
+- `intent_baseline_refs` (empty array is inert for `intent`)
+- `code_grounding` and `project_evidence_scope` (`scan` is inert when grounding is false)
 
-Use `../references/open-point-model.md` as the shared semantic contract.
+Missing KW or frontier context is a failure. Use `../references/open-point-model.md` as the shared semantic contract. Load `references/detect-means.md` before forming candidates.
 
 ## Detection
 
 1. Inspect every lens in the registry.
 2. Subtract questions settled by facts or already represented by existing Opens.
-3. Synthesize relevant evidence from code scanning, intent-baseline comparison, and collisions involving failures, boundaries, assumptions, or seams.
+3. Run all three means in `references/detect-means.md`. Skip a method that is inert. Do not invent gaps.
 4. Treat lenses and their facets as non-exhaustive prompts, not a questionnaire, reasoning sequence, or scan order.
-5. Use judgment to form one coherent, processable batch from the unresolved findings.
+5. Keep an AI candidate only when it leaves a current-altitude KW predicate false for its lens. Drop questions that belong only to a deeper row.
+6. Form one coherent, processable batch. Each candidate carries `lens`. Recommend a primary `means` of `scan`, `intent`, or `probe` for the parent to stamp.
 
 ## Output
 
 Return:
 
-- `echoed_digests`: the received facts, lens, and Opens digests
+- `echoed_digests`: the received facts, lens, Opens, and frontier digests
 - `checked_lenses`: every inspected lens
 - `candidates`: findings in processing order
 
@@ -48,6 +49,8 @@ Each candidate contains only:
 - `question`
 - `basis`
 - `blocking`
+- `lens`
+- `means` (`scan` | `intent` | `probe`)
 
 When raw detection finds no candidates, return `candidates: []` explicitly.
 

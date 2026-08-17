@@ -508,7 +508,11 @@ def _validate_g3_close(slice_dir: Path, args: argparse.Namespace) -> dict[str, A
     if not bool(getattr(args, "confirm", False)):
         _fail("G3 close requires --confirm")
     try:
-        result = check_close(slice_dir, mode=mode)
+        result = check_close(
+            slice_dir,
+            mode=mode,
+            project_root=getattr(args, "project_root", "") or None,
+        )
     except OpenPointError as exc:
         _fail(str(exc))
     if not result.get("ok"):
@@ -575,15 +579,22 @@ def _reopen_g3_from_report(out_dir: Path, args: argparse.Namespace, state: dict[
         findings = report.get("findings") or []
         if not findings:
             _fail("G3 reopen rejected: report has no findings")
-        incoming = [
-            {
-                "question": item["question"],
-                "basis": item["basis"],
-                "blocking": item["blocking"],
-                "source": {"actor": "ai", "means": "audit"},
-            }
-            for item in findings
-        ]
+        incoming = []
+        for item in findings:
+            if not isinstance(item, dict):
+                _fail("G3 reopen rejected: finding must be an object")
+            lens = str(item.get("lens", "")).strip()
+            if not lens:
+                _fail("G3 reopen rejected: finding.lens is required")
+            incoming.append(
+                {
+                    "question": item["question"],
+                    "basis": item["basis"],
+                    "blocking": item["blocking"],
+                    "lens": lens,
+                    "source": {"actor": "ai", "means": "audit"},
+                }
+            )
         try:
             prepared = prepare_add_opens(slice_dir, opens=incoming)
             updated = reopen_gate(state, "G3")

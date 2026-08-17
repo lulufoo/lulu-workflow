@@ -61,9 +61,13 @@ human's disposition.
 Run only from `idle` after an explicit human request.
 
 1. Resolve fresh detection context through `$OPEN_POINT_CTL detect-context`.
+   The context includes KW slices, frontiers, intent refs, and
+   `code_grounding`. Missing KW or frontier context is a failure.
 2. Dispatch `../open-point-detect-runner/SKILL.md`.
-3. Require one complete lens pass. Let the analysis form a coherent,
-   processable candidate batch.
+3. Require one complete lens pass at each lens's current `frontier_kw`.
+   Let the analysis form a coherent, processable candidate batch. Each
+   registered Detect Open needs `lens` and `source.means` in
+   `scan|intent|probe`.
 4. Present the candidate batch without adding solutions.
 5. Let the human adjust the candidates; the Parent Agent may refine them.
 6. Register the final set through `$OPEN_POINT_CTL add-opens --opens-json`
@@ -117,6 +121,11 @@ control returns to `idle`, offer:
 - continue discussion;
 - request G3 closure.
 
+After facts change on a lens, or after a Detect pass finds no current-
+altitude gap on that lens, the Parent Agent may run
+`$OPEN_POINT_CTL set-frontier`. After a climb or `frontier-skip`, the
+previous receipt is stale; Detect again before `cleared`.
+
 Do not start another detection automatically.
 
 ## Close
@@ -124,8 +133,10 @@ Do not start another detection automatically.
 G3 has two human-confirmed exits:
 
 - **`cleared`** — the latest complete lens detection has zero raw candidates,
-  its bound inputs are current, and no open remains.
+  its bound inputs (including the frontier digest) are current, no open
+  remains, and every required unskipped lens has reached its KW target.
 - **`hard-skip`** — no blocking open remains; non-blocking opens may remain.
+  Altitude is not required.
 
 After the human chooses an exit, call
 `$INDUCTIVE_GATE_CTL gate-close --gate G3 --mode <cleared|hard-skip> --confirm`

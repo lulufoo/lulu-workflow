@@ -56,6 +56,7 @@ def test_nonempty_findings_allowed_when_a_predicate_is_false() -> None:
                     "question": "Who owns retry?",
                     "basis": "Two facts disagree",
                     "blocking": True,
+                    "lens": "I",
                 }
             ],
             buildable=False,
@@ -64,10 +65,26 @@ def test_nonempty_findings_allowed_when_a_predicate_is_false() -> None:
     assert errors == []
 
 
+def test_finding_requires_lens() -> None:
+    errors = validate_report(
+        _clean_report(
+            findings=[
+                {
+                    "question": "Who owns retry?",
+                    "basis": "Two facts disagree",
+                    "blocking": True,
+                }
+            ],
+            buildable=False,
+        )
+    )
+    assert any("lens" in item for item in errors)
+
+
 def test_finding_requires_question_basis_blocking() -> None:
     errors = validate_report(
         _clean_report(
-            findings=[{"question": "", "basis": "x", "blocking": True}],
+            findings=[{"question": "", "basis": "x", "blocking": True, "lens": "I"}],
             buildable=False,
         )
     )
@@ -95,6 +112,7 @@ def test_finding_rejects_sections_and_owning_section() -> None:
                     "question": "Who owns retry?",
                     "basis": "Two facts disagree",
                     "blocking": True,
+                    "lens": "I",
                     "sections": ["I", "ST"],
                     "owning_section": "I",
                 }
@@ -122,6 +140,7 @@ def test_check_not_closable_when_findings_remain() -> None:
                     "question": "Who owns retry?",
                     "basis": "Two facts disagree",
                     "blocking": True,
+                    "lens": "I",
                 }
             ],
             buildable=False,

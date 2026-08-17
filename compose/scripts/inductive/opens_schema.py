@@ -25,10 +25,23 @@ from compose_state_lock import durable_write_json  # noqa: E402
 OPENS_BASENAME = "inductive-opens.json"
 OPEN_STATUSES = frozenset({"open", "settled", "deferred", "rejected"})
 ACTORS = frozenset({"human", "ai"})
-MEANS = frozenset({"collision", "direct", "noticed", "detect", "audit"})
+MEANS = frozenset(
+    {
+        "collision",
+        "direct",
+        "noticed",
+        "detect",
+        "audit",
+        "scan",
+        "intent",
+        "probe",
+    }
+)
+DETECT_MEANS = frozenset({"scan", "intent", "probe"})
 
-_OPEN_REQUIRED = ("id", "status", "source", "question", "basis", "blocking")
+_OPEN_REQUIRED = ("id", "status", "source", "question", "basis", "blocking", "lens")
 _OPEN_OPTIONAL = frozenset({"resolved_by", "note", "reason", "code_refs"})
+_FORBIDDEN_OPEN_FIELDS = frozenset({"frontier_kw", "kw", "kw_level"})
 _OPEN_ID_RE = re.compile(r"^O-([1-9]\d*)$")
 _FACT_ID_RE = re.compile(r"^F-([1-9]\d*)$")
 
@@ -128,6 +141,15 @@ def _validate_open(entry: dict[str, Any]) -> list[str]:
     if "blocking" in entry and not isinstance(entry.get("blocking"), bool):
         errors.append(f"{where}: blocking must be a bool")
 
+    if "lens" in entry:
+        lens = entry.get("lens")
+        if not isinstance(lens, str) or not lens.strip():
+            errors.append(f"{where}: lens must be a non-empty string")
+
+    for field in _FORBIDDEN_OPEN_FIELDS:
+        if field in entry:
+            errors.append(f"{where}: unexpected fields ['{field}']")
+
     for field in ("question", "basis"):
         if field in entry and (
             not isinstance(entry.get(field), str) or not str(entry.get(field)).strip()
@@ -201,6 +223,7 @@ def normalize_open(entry: dict[str, Any]) -> dict[str, Any]:
         "question": str(entry["question"]).strip(),
         "basis": str(entry["basis"]).strip(),
         "blocking": bool(entry["blocking"]),
+        "lens": str(entry["lens"]).strip().upper(),
     }
     if "resolved_by" in entry and entry["resolved_by"] is not None:
         out["resolved_by"] = [str(item).strip() for item in entry["resolved_by"]]

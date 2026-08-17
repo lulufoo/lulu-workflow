@@ -24,7 +24,9 @@ _SCHEMA = _HERE / "schema"
 _COMPOSE_SCRIPTS = _HERE.parent
 _SESSION = _COMPOSE_SCRIPTS / "schema" / "session"
 _SECTION = _COMPOSE_SCRIPTS / "section"
-for _path in (_HERE, _SCHEMA, _SESSION, _SECTION):
+_IO = _COMPOSE_SCRIPTS / "io"
+_CORE = _COMPOSE_SCRIPTS / "core"
+for _path in (_HERE, _SCHEMA, _SESSION, _SECTION, _IO, _CORE):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
@@ -38,16 +40,25 @@ from open_point_store import (  # noqa: E402
     attach_code_refs,
     check_close,
     defer_open,
+    ensure_frontier,
     facts_digest,
     facts_snapshot,
+    frontier_digest,
+    frontier_skip,
+    frontier_snapshot,
+    frontier_unskip,
     lens_digest,
     lens_snapshot,
     load_bundle,
+    load_published_kw_raw,
+    registry_lens_keys,
     reject_open,
+    set_frontier,
     settle_open,
     skip_open,
     update_open,
 )
+from lens_frontier_schema import slice_kw_criteria  # noqa: E402
 
 
 def _ok(payload: dict[str, Any]) -> None:
@@ -103,29 +114,80 @@ def cmd_resolve_context(slice_dir: Path, _args: argparse.Namespace) -> None:
             "state": bundle["state"],
             "active_batch": active_batch_of(bundle),
             "close": {
-                "cleared": check_close(slice_dir, mode="cleared"),
-                "hard-skip": check_close(slice_dir, mode="hard-skip"),
+                "cleared": check_close(
+                    slice_dir,
+                    mode="cleared",
+                    project_root=getattr(_args, "project_root", "") or None,
+                ),
+                "hard-skip": check_close(
+                    slice_dir,
+                    mode="hard-skip",
+                    project_root=getattr(_args, "project_root", "") or None,
+                ),
             },
         }
     )
 
 
-def cmd_detect_context(slice_dir: Path, _args: argparse.Namespace) -> None:
+def _session_detect_materials(
+    slice_dir: Path, project_root: Path | None
+) -> tuple[list[dict[str, Any]], bool]:
+    if project_root is None:
+        return [], False
+    try:
+        from resolved_refs_schema import intent_baseline_from_workflow  # noqa: WPS433
+        from workflow_paths import resolve_revision_runtime_profile  # noqa: WPS433
+
+        runtime = resolve_revision_runtime_profile(slice_dir, project_root)
+        cycle_id = runtime.session_base.parent.name
+        refs = intent_baseline_from_workflow(
+            cycle_id, project_root, runtime.profile_id
+        )
+        pipeline = runtime.profile_data.get("pipeline") or {}
+        code_grounding = bool(pipeline.get("code_grounding"))
+        return [item.to_dict() for item in refs], code_grounding
+    except (OSError, ValueError, FileNotFoundError, ImportError, KeyError):
+        return [], False
+
+
+def cmd_detect_context(slice_dir: Path, args: argparse.Namespace) -> None:
     bundle = load_bundle(slice_dir)
     if bundle["state"]["phase"] != "idle":
         raise ValueError("detect-context requires idle (currently processing)")
+    project_root = Path(args.project_root).resolve() if args.project_root else None
     facts = facts_snapshot(slice_dir)
     lenses = lens_snapshot(slice_dir)
-    _ok(
-        {
-            "facts": facts,
-            "facts_digest": canonical_digest(facts),
-            "lenses": lenses,
-            "lens_digest": canonical_digest(lenses),
-            "opens": bundle["opens"],
-            "opens_digest": canonical_digest(bundle["opens"]),
-        }
-    )
+    keys = registry_lens_keys(lenses)
+    ensure_frontier(slice_dir)
+    frontiers = frontier_snapshot(slice_dir)
+    kw_raw = load_published_kw_raw(slice_dir, project_root)
+    if keys and not kw_raw:
+        raise ValueError("KW criteria missing")
+    kw_criteria: dict[str, str] = {}
+    for lens in keys:
+        if not kw_raw:
+            break
+        sliced = slice_kw_criteria(kw_raw, lens)
+        if sliced is None:
+            raise ValueError(f"KW criteria missing for {lens}")
+        kw_criteria[lens] = sliced
+    intent_refs, code_grounding = _session_detect_materials(slice_dir, project_root)
+    payload: dict[str, Any] = {
+        "facts": facts,
+        "facts_digest": canonical_digest(facts),
+        "lenses": lenses,
+        "lens_digest": canonical_digest(lenses),
+        "opens": bundle["opens"],
+        "opens_digest": canonical_digest(bundle["opens"]),
+        "frontiers": frontiers,
+        "frontier_digest": frontier_digest(slice_dir),
+        "kw_criteria": kw_criteria,
+        "intent_baseline_refs": intent_refs,
+        "code_grounding": code_grounding,
+    }
+    if code_grounding and project_root is not None:
+        payload["project_evidence_scope"] = {"project_root": str(project_root)}
+    _ok(payload)
 
 
 def cmd_process_context(slice_dir: Path, _args: argparse.Namespace) -> None:
@@ -200,10 +262,26 @@ def cmd_attach_code_refs(slice_dir: Path, args: argparse.Namespace) -> None:
 
 
 def cmd_check_close(slice_dir: Path, args: argparse.Namespace) -> None:
-    result = check_close(slice_dir, mode=args.mode)
+    result = check_close(
+        slice_dir,
+        mode=args.mode,
+        project_root=args.project_root or None,
+    )
     if not result["ok"]:
         raise ValueError("; ".join(result["reasons"]) or "close check failed")
     _ok({**result, "state": load_bundle(slice_dir)["state"]})
+
+
+def cmd_set_frontier(slice_dir: Path, args: argparse.Namespace) -> None:
+    _ok({"frontier": set_frontier(slice_dir, args.lens, args.kw)})
+
+
+def cmd_frontier_skip(slice_dir: Path, args: argparse.Namespace) -> None:
+    _ok({"frontier": frontier_skip(slice_dir, args.lens, args.note)})
+
+
+def cmd_frontier_unskip(slice_dir: Path, args: argparse.Namespace) -> None:
+    _ok({"frontier": frontier_unskip(slice_dir, args.lens)})
 
 
 def _add_freshness_flags(parser: argparse.ArgumentParser) -> None:
@@ -218,20 +296,28 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--out-dir", required=True, metavar="PATH")
-    parser.add_argument("--project-root", default="", help="Accepted; unused this task")
+    parser.add_argument(
+        "--project-root",
+        default="",
+        help="Session root for KW / intent / code_grounding on detect-context",
+    )
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
     sub.add_parser("resolve-context", help="Opens + state + active batch + close summary")
-    sub.add_parser("detect-context", help="Facts/lens/opens snapshots + digests")
+    sub.add_parser(
+        "detect-context",
+        help="Facts/lens/opens/frontier snapshots, KW slices, and means materials",
+    )
     sub.add_parser("process-context", help="Active open + facts + freshness digests")
 
     add = sub.add_parser(
         "add-opens",
         help=(
             "Register 0..N opens. Detect must pass --detect-json "
-            "(checked_lenses, facts/lens/opens digests or expected_*, "
+            "(checked_lenses, facts/lens/opens/frontier digests or expected_*, "
             "raw_candidates). Empty --opens-json is legal only with detect "
-            "metadata. zero_result is raw_candidates length == 0."
+            "metadata. zero_result is raw_candidates length == 0. "
+            "AI Detect means must be scan|intent|probe."
         ),
     )
     add.add_argument("--opens-json", required=True)
@@ -275,6 +361,17 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Ignored; G3 close is $INDUCTIVE_GATE_CTL gate-close --confirm",
     )
+
+    frontier = sub.add_parser("set-frontier", help="Cache one lens frontier_kw")
+    frontier.add_argument("--lens", required=True)
+    frontier.add_argument("--kw", required=True, type=int)
+
+    skip_f = sub.add_parser("frontier-skip", help="Skip a required lens for cleared")
+    skip_f.add_argument("--lens", required=True)
+    skip_f.add_argument("--note", required=True)
+
+    unskip = sub.add_parser("frontier-unskip", help="Restore a skipped required lens")
+    unskip.add_argument("--lens", required=True)
     return parser
 
 
@@ -294,6 +391,9 @@ def main(argv: list[str] | None = None) -> int:
         "settle-resolved": cmd_settle_resolved,
         "attach-code-refs": cmd_attach_code_refs,
         "check-close": cmd_check_close,
+        "set-frontier": cmd_set_frontier,
+        "frontier-skip": cmd_frontier_skip,
+        "frontier-unskip": cmd_frontier_unskip,
     }
     with compose_state_lock(slice_dir):
         try:

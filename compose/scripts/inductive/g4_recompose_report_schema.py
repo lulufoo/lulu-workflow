@@ -49,7 +49,7 @@ _FORBIDDEN_FIELDS = frozenset(
         "owning_section",
     }
 )
-_FINDING_REQUIRED = ("question", "basis", "blocking")
+_FINDING_REQUIRED = ("question", "basis", "blocking", "lens")
 _FINDING_ALLOWED = frozenset(_FINDING_REQUIRED)
 _FINDING_FORBIDDEN = frozenset({"sections", "owning_section", "conflicts"})
 _EVIDENCE_KEYS = ("buildable", "reversible", "verifiable")
@@ -106,6 +106,9 @@ def _validate_finding(finding: Any, index: int) -> list[str]:
         errors.append(f"{prefix}: basis is required")
     if not isinstance(finding.get("blocking"), bool):
         errors.append(f"{prefix}: blocking must be a bool")
+    lens = finding.get("lens")
+    if not isinstance(lens, str) or not lens.strip():
+        errors.append(f"{prefix}: lens is required")
     return errors
 
 
@@ -173,6 +176,7 @@ def normalize_report(raw: dict[str, Any]) -> dict[str, Any]:
                     "question": str(item.get("question", "")).strip(),
                     "basis": str(item.get("basis", "")).strip(),
                     "blocking": bool(item.get("blocking", False)),
+                    "lens": str(item.get("lens", "")).strip().upper(),
                 }
             )
     evidence_raw = raw.get("evidence") if isinstance(raw.get("evidence"), dict) else {}

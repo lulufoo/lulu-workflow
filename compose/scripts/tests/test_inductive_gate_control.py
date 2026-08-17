@@ -142,15 +142,35 @@ def _detect_meta(slice_dir: Path, raw_candidates, **overrides):
     facts_digest = canonical_digest(facts)
     lens_digest = canonical_digest(lenses)
     opens_digest = canonical_digest(opens)
+    from lens_frontier_schema import (  # noqa: WPS433
+        empty_lens_frontier,
+        init_frontier_from_keys,
+        lens_frontier_path,
+        load_lens_frontier,
+        merge_missing_keys,
+    )
+    from open_point_store import registry_lens_keys  # noqa: WPS433
+
+    keys = registry_lens_keys(lenses)
+    path = lens_frontier_path(slice_dir)
+    if path.is_file():
+        frontier = merge_missing_keys(load_lens_frontier(path), keys)
+    elif keys:
+        frontier = init_frontier_from_keys(keys)
+    else:
+        frontier = empty_lens_frontier()
+    frontier_digest = canonical_digest(frontier)
     meta = {
         "checked_lenses": ["I", "ST"],
         "facts_digest": facts_digest,
         "lens_digest": lens_digest,
         "opens_digest": opens_digest,
+        "frontier_digest": frontier_digest,
         "raw_candidates": list(raw_candidates),
         "expected_facts_digest": facts_digest,
         "expected_lens_digest": lens_digest,
         "expected_opens_digest": opens_digest,
+        "expected_frontier_digest": frontier_digest,
     }
     meta.update(overrides)
     return meta
@@ -162,6 +182,7 @@ def _human_open(**overrides):
         "basis": "Dialogue exposed a gap",
         "blocking": True,
         "source": {"actor": "human", "means": "direct"},
+        "lens": "I",
     }
     base.update(overrides)
     return base
@@ -335,6 +356,7 @@ def test_gate_reopen_g3_from_report_registers_findings_and_deletes_report(
         "question": "Who owns retry?",
         "basis": "Two facts disagree on ownership",
         "blocking": True,
+        "lens": "I",
     }
     code, recorded = _record_ok_recompose_report(
         tmp_path,
@@ -570,6 +592,7 @@ def test_gate_close_g4_fails_when_findings_remain_or_predicate_false(
                 "question": "Who owns retry?",
                 "basis": "Two facts disagree",
                 "blocking": True,
+                "lens": "I",
             }
         ],
         buildable=False,

@@ -36,7 +36,9 @@ specific.
 Return:
 
 - `echoed_digests.facts` and `echoed_digests.opens`: the received digests;
-- `findings`: `[{question, basis, blocking}]` — one object per issue;
+- `findings`: `[{question, basis, blocking, lens}]` — one object per issue;
+  stamp `lens` with the one registry lens the issue belongs to; prefer an
+  implicated Open's `lens`;
 - `buildable`, `reversible`, and `verifiable`;
 - `evidence`: brief support for those three predicates only.
 

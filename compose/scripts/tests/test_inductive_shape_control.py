@@ -94,6 +94,7 @@ def test_shape_control_perceive_splits_lenses_and_counts_opens(tmp_path: Path) -
                     "question": "What is missing?",
                     "basis": "Dialogue",
                     "blocking": True,
+                    "lens": "I",
                 },
                 {
                     "id": "O-2",
@@ -102,6 +103,7 @@ def test_shape_control_perceive_splits_lenses_and_counts_opens(tmp_path: Path) -
                     "question": "Already closed",
                     "basis": "Landed",
                     "blocking": False,
+                    "lens": "I",
                     "resolved_by": ["F-1"],
                 },
             ],
