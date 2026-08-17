@@ -29,9 +29,6 @@ _LEGACY_WORKFLOW_CONFIG_FILENAME = "workflow-config.json"
 _STAGES_SUBDIR = "stages"
 _MANIFEST_FILENAME = "manifest.json"
 _DEFAULT_HOOK_CONFIG_PATH = "skill-config/lulu-dev-workflow/workflow-guard-config.json"
-_DEFAULT_CONFIGURE_BLOB_URL = (
-    "https://github.com/lulufoo/lulu-workflow-framework/blob/main/template/workflow-config.json"
-)
 RESERVED_TOP_LEVEL_KEYS = frozenset({"version", "layout"})
 _STAGE_CONFIG_BUCKETS = frozenset({"compose", "eval"})
 _STAGE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
@@ -194,11 +191,22 @@ def _stage_file_in_root(root: Path, stage: str) -> Path:
     return root / _STAGES_SUBDIR / f"{stage}.json"
 
 
+def _skill_stage_config_path(stage: str) -> Path:
+    return _WORKFLOW_ROOT / stage / "config.json"
+
+
 def _load_stage_from_stages_dir(root: Path, stage: str) -> dict:
     stage_path = _stage_file_in_root(root, stage)
     if not stage_path.exists():
         return {}
     return _read_json_object(stage_path, label=f"stage config [{stage}]")
+
+
+def _load_stage_from_skill_root(stage: str) -> dict:
+    stage_path = _skill_stage_config_path(stage)
+    if not stage_path.exists():
+        return {}
+    return _read_json_object(stage_path, label=f"built-in stage config [{stage}]")
 
 
 def _config_root_from_pointer(pointer: Path) -> Path:
@@ -219,10 +227,14 @@ def resolve_stage_config_path(
     stage: str,
     platform: Optional[str] = None,
 ) -> Path:
-    """Return stages/{stage}.json under the config root."""
+    """Return the project stage config or a built-in stage config fallback."""
     _validate_stage_name(stage)
     root = resolve_workflow_config_root(project_root, platform)
-    return _stage_file_in_root(root, stage)
+    project_path = _stage_file_in_root(root, stage)
+    if project_path.exists():
+        return project_path
+    built_in_path = _skill_stage_config_path(stage)
+    return built_in_path if built_in_path.exists() else project_path
 
 
 def _read_json_object(path: Path, *, label: str) -> dict:
@@ -256,13 +268,19 @@ def load_stage_config(project_root: Path, stage: str, platform: Optional[str] = 
         stage_cfg = _load_stage_from_legacy_monolith(pointer, stage)
         if stage_cfg:
             return stage_cfg
-        return _load_stage_from_stages_dir(root, stage)
+        stage_cfg = _load_stage_from_stages_dir(root, stage)
+        if stage_cfg:
+            return stage_cfg
+        return _load_stage_from_skill_root(stage)
 
     stage_cfg = _load_stage_from_stages_dir(root, stage)
     if stage_cfg:
         return stage_cfg
 
-    return _load_stage_from_legacy_monolith(_legacy_monolith_in_root(root), stage)
+    stage_cfg = _load_stage_from_legacy_monolith(_legacy_monolith_in_root(root), stage)
+    if stage_cfg:
+        return stage_cfg
+    return _load_stage_from_skill_root(stage)
 
 
 def workflow_config_is_present(project_root: Path, platform: Optional[str] = None) -> bool:
@@ -498,16 +516,21 @@ def apply_workflow_config_from_url(
     *,
     platform: Optional[str] = None,
 ) -> Path:
-    """Download monolith workflow-config JSON and write stages/ layout."""
-    from fetch_template import gh_api_fetch, parse_blob_url  # noqa: WPS433
+    """Load a local or explicit GitHub source and write the stages layout."""
+    source = url.strip()
+    local_source = Path(source[7:]) if source.startswith("file://") else Path(source)
+    if local_source.is_file():
+        content = local_source.read_text(encoding="utf-8")
+    else:
+        from fetch_template import gh_api_fetch, parse_blob_url  # noqa: WPS433
 
-    parsed = parse_blob_url(url.strip())
-    content = gh_api_fetch(
-        parsed["owner"],
-        parsed["repo"],
-        parsed["ref"],
-        parsed["path"],
-    )
+        parsed = parse_blob_url(source)
+        content = gh_api_fetch(
+            parsed["owner"],
+            parsed["repo"],
+            parsed["ref"],
+            parsed["path"],
+        )
     try:
         payload = json.loads(content)
     except json.JSONDecodeError as exc:
@@ -551,7 +574,3 @@ def resolve_subagent_model(
     except ValueError:
         return None
     return extract_subagent_model(stage_cfg, platform)
-
-
-def default_configure_blob_url() -> str:
-    return _DEFAULT_CONFIGURE_BLOB_URL

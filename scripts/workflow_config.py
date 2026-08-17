@@ -19,7 +19,6 @@ from typing import Optional
 from fetch_template import FetchTemplateError  # noqa: E402
 from workflow_config_schema import (  # noqa: E402
     apply_workflow_config_from_url,
-    default_configure_blob_url,
     resolve_stage_config_path,
     resolve_subagent_model,
     resolve_workflow_config_path,
@@ -101,8 +100,8 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     )
     configure.add_argument(
         "--url",
-        default=default_configure_blob_url(),
-        help="GitHub blob URL for workflow-config.json (default: framework template).",
+        required=True,
+        help="Local workflow-config.json path or explicit GitHub blob URL.",
     )
 
     sub.add_parser(

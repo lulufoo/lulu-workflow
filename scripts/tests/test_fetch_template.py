@@ -26,18 +26,18 @@ from fetch_template import (  # noqa: E402
 class TestParseBlobUrl:
     def test_parses_github_blob_url(self):
         url = (
-            "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
+            "https://github.com/example/workflow-framework/blob/main/"
             "lulu-dev-workflow/template/plan/43-tech-plan-section-kw-criteria.md"
         )
         parsed = parse_blob_url(url)
-        assert parsed["owner"] == "lulufoo"
-        assert parsed["repo"] == "lulu-workflow-framework"
+        assert parsed["owner"] == "example"
+        assert parsed["repo"] == "workflow-framework"
         assert parsed["ref"] == "main"
         assert parsed["path"].endswith("43-tech-plan-section-kw-criteria.md")
 
     def test_parses_multi_segment_ref(self):
         url = (
-            "https://github.com/lulufoo/lulu-workflow-framework/blob/release/2026.06/"
+            "https://github.com/example/workflow-framework/blob/release/2026.06/"
             "lulu-dev-workflow/template/plan/43-tech-plan-section-kw-criteria.md"
         )
         parsed = parse_blob_url(url)
@@ -48,7 +48,7 @@ class TestParseBlobUrl:
 
     def test_parses_multi_segment_ref_with_nested_path(self):
         url = (
-            "https://github.com/lulufoo/lulu-workflow-framework/blob/release/candidate/v2/"
+            "https://github.com/example/workflow-framework/blob/release/candidate/v2/"
             "lulu-dev-workflow/template/decision/decision-doc.template.md"
         )
         parsed = parse_blob_url(url)
@@ -63,7 +63,7 @@ class TestParseBlobUrl:
 
     def test_parses_repo_root_template_path(self):
         url = (
-            "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
+            "https://github.com/example/workflow-framework/blob/main/"
             "template/workflow-config.json"
         )
         parsed = parse_blob_url(url)
@@ -228,14 +228,14 @@ class TestFetchTemplate:
 
     def test_fetches_decision_template(self, tmp_path):
         url = (
-            "https://github.com/lulufoo/lulu-workflow-framework/blob/main/"
+            "https://github.com/example/workflow-framework/blob/main/"
             "lulu-dev-workflow/template/decision/decision-doc.template.md"
         )
         self._write_config(tmp_path, {"decision": {"decision_doc_template_url": url}})
 
         def mock_fetch(owner, repo, ref, path):
-            assert owner == "lulufoo"
-            assert repo == "lulu-workflow-framework"
+            assert owner == "example"
+            assert repo == "workflow-framework"
             assert ref == "main"
             assert path == "lulu-dev-workflow/template/decision/decision-doc.template.md"
             return "# diagnostic template\n"

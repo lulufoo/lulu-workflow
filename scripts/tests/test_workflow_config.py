@@ -27,7 +27,7 @@ from workflow_config_schema import (  # noqa: E402
 from workflow_config_test_helpers import write_monolith_config, write_stage_config  # noqa: E402
 
 _DEFAULT_URL = (
-    "https://github.com/lulufoo/lulu-workflow-framework/blob/main/template/workflow-config.json"
+    "https://github.com/example/workflow-framework/blob/main/template/workflow-config.json"
 )
 
 
@@ -166,8 +166,8 @@ class TestConfigureWorkflowConfig:
         }
 
         def stub_fetch(owner: str, repo: str, ref: str, path: str) -> str:
-            assert owner == "lulufoo"
-            assert repo == "lulu-workflow-framework"
+            assert owner == "example"
+            assert repo == "workflow-framework"
             assert ref == "main"
             assert path == "template/workflow-config.json"
             return json.dumps(payload)
@@ -194,11 +194,9 @@ class TestConfigureWorkflowConfig:
         }
         assert workflow_config_is_present(tmp_path, "cursor")
 
-    def test_cli_configure_prints_root(self, tmp_path: Path, monkeypatch) -> None:
-        monkeypatch.setattr(
-            "fetch_template.gh_api_fetch",
-            lambda owner, repo, ref, path: json.dumps({"version": 1}),
-        )
+    def test_cli_configure_prints_root(self, tmp_path: Path) -> None:
+        source = tmp_path / "workflow-config.json"
+        source.write_text(json.dumps({"version": 1}), encoding="utf-8")
         result = subprocess.run(
             [
                 sys.executable,
@@ -208,6 +206,8 @@ class TestConfigureWorkflowConfig:
                 str(tmp_path),
                 "--platform",
                 "cursor",
+                "--url",
+                str(source),
             ],
             capture_output=True,
             text=True,

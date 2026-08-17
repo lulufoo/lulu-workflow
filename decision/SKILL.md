@@ -4,7 +4,7 @@ name: decision
 
 # decision-workflow
 
-> Framework reference: [diagnostic-decision-framework.md](https://github.com/lulufoo/lulu-workflow-framework/blob/main/lulu-dev-workflow/diagnostic/diagnostic-decision-framework.md)
+> Framework reference: the local decision runners, scripts, and templates shipped with this skill.
 
 Run a Diagnostic Decision Framework (DDF) session.
 
