@@ -17,7 +17,7 @@ Read `$SOURCE_PATH` once; write focus-slice `_facts.json` atoms with non-empty
 ## Input
 
 ```text
-REVISION_DIR: <revision or focus-L dir>
+REVISION_DIR: <abs revision root>
 PROJECT_ROOT: <abs project root>
 CYCLE_ID: <cycle id>
 SOURCE_PATH: <abs intake SoT>

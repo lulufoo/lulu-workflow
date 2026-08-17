@@ -17,7 +17,7 @@ kick back to `fact-cut-runner`.
 ## Input
 
 ```text
-REVISION_DIR: <revision or focus-L dir>
+REVISION_DIR: <abs revision root>
 PROJECT_ROOT: <abs project root>
 CYCLE_ID: <cycle id>
 SOURCE_PATH: <abs intake SoT>
