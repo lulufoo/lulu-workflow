@@ -110,7 +110,7 @@ User-driven edits to the generated compose document. Entry: writing pause, outer
 - `$L_STEP reverse-to-deductive` returns to Deductive. Derived facts are already cleared by this command. On success, the switch is done.
 - `$L_STEP reverse-to-writing` returns to Writing and regenerates the document from facts.
 
-Follow remaining `next_actions`. Do not offer `reverse-to-inductive` when `$INDUCTIVE` is false.
+Do not offer `reverse-to-inductive` when `$INDUCTIVE` is false.
 
 ## Evaluating
 

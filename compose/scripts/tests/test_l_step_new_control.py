@@ -70,8 +70,20 @@ def test_enter_fact_intake_from_pending(tmp_path: Path) -> None:
     assert result["ok"] is True, result
     assert result["state"] == "FactIntake"
     assert "SOURCE_PATH" in result["dispatch_input"]
+    assert f"REVISION_DIR:         {ws.parent.as_posix()}" in result["dispatch_input"]
     assert "REQUIRE_SEED_ORIGIN:  false" in result["dispatch_input"]
     assert load_l_ledger(ws.parent)["by_id"]["L1"]["state"] == "FactIntake"
+
+
+def test_enter_fact_intake_design_binds_revision_root(tmp_path: Path) -> None:
+    profile = "lulu-design"
+    ws = _seed(tmp_path, profile=profile)
+    result = l_step_control.enter_fact_intake(_CYCLE, tmp_path, profile_id=profile)
+    assert result["ok"] is True, result
+    rev = ws.parent
+    assert f"REVISION_DIR:         {rev.as_posix()}" in result["dispatch_input"]
+    assert f"REVISION_DIR:         {(rev / 'L1').as_posix()}" not in result["dispatch_input"]
+    assert "REQUIRE_SEED_ORIGIN:  true" in result["dispatch_input"]
 
 
 def test_enter_deductive_from_fact_intake(tmp_path: Path) -> None:

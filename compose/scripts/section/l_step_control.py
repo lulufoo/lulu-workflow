@@ -490,14 +490,9 @@ def _format_fact_intake_dispatch(
 ) -> str:
     scope_path = _scope_doc(revision_dir, cycle_id, project_root, profile_id)
     source = _focus_source_path(revision_dir, scope_path).as_posix()
-    revision = (
-        _inductive_out(cycle_id, project_root, profile_id).as_posix()
-        if inductive
-        else revision_dir.as_posix()
-    )
     return "\n".join(
         [
-            f"REVISION_DIR:         {revision}",
+            f"REVISION_DIR:         {revision_dir.as_posix()}",
             f"PROJECT_ROOT:         {project_root.as_posix()}",
             f"CYCLE_ID:             {cycle_id}",
             f"SOURCE_PATH:          {source}",

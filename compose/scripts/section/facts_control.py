@@ -10,7 +10,7 @@ Subcommands:
     CLI details: ``python3 facts_control.py --help``
 
     ``write --target-l Lx`` buckets into ``revision/Lx/_facts.json``.
-    Writes require the current unfrozen focus in Inductive or Deductive.
+    Writes require the current unfrozen focus in FactIntake, Inductive, or Deductive.
 
 Design rationale (source repo, why-only): docs/domain/ssot/compose/mechanism-ssot/compose-fact-architecture.md;
 process how archive: docs/domain/archive/compose/archive-2.0/compose-fact-first-display-layer-design.md §3.1, §11 (M1);
@@ -209,9 +209,9 @@ def _require_producer_focus_write(revision_dir: Path, target_l: str | None) -> s
     cell = ledger["by_id"][focus]
     if cell.get("frozen") is True:
         return f"focus {focus} is frozen"
-    if cell.get("state") not in {"Inductive", "Deductive"}:
+    if cell.get("state") not in {"FactIntake", "Inductive", "Deductive"}:
         return (
-            "facts write requires current unfrozen focus in Inductive or Deductive "
+            "facts write requires current unfrozen focus in FactIntake, Inductive, or Deductive "
             f"(focus {focus} is {cell.get('state')!r})"
         )
     if target_l and target_l not in {focus, "package"}:

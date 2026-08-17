@@ -19,7 +19,7 @@ fetch registry/role in parent Load (L1 self-`context`).
 
 | Variable | Purpose |
 |---|---|
-| `$REVISION_DIR` | Absolute revision / focus-L root |
+| `$REVISION_DIR` | Absolute revision root |
 | `$PROJECT_ROOT` | Project root; default `$(pwd)` |
 | `$CYCLE_ID` | Active cycle id |
 | `$SOURCE_PATH` | Absolute intake SoT doc (Eval SoT) |

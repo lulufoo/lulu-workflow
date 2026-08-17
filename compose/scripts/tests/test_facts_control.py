@@ -887,6 +887,50 @@ def test_write_target_l_buckets_and_rejects_completed_predecessor(tmp_path: Path
     assert cmd_write(args) == 1
 
 
+def test_write_allows_fact_intake_and_rejects_pending_writing(tmp_path: Path) -> None:
+    import argparse
+
+    from facts_control import cmd_write
+
+    rev = _revision(tmp_path)
+    ledger = load_l_ledger(rev)
+    focus = str(ledger["focus"])
+    ledger["by_id"][focus]["state"] = "FactIntake"
+    save_l_ledger(rev, ledger)
+    (rev / focus).mkdir(exist_ok=True)
+
+    facts_file = tmp_path / "intake.json"
+    facts_file.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "F-1",
+                    "text": "intake",
+                    "lens_tags": ["CTX"],
+                    "home_l": focus,
+                    "home_rationale": "current",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    args = argparse.Namespace(
+        revision_dir=rev,
+        facts_file=facts_file,
+        target_l=focus,
+        package_confirm=False,
+        project_root=_REPO,
+    )
+    assert cmd_write(args) == 0
+    assert (rev / focus / "_facts.json").is_file()
+
+    for state in ("Pending", "Writing"):
+        ledger = load_l_ledger(rev)
+        ledger["by_id"][focus]["state"] = state
+        save_l_ledger(rev, ledger)
+        assert cmd_write(args) == 1
+
+
 def test_validate_intake_structure_accepts_pre_disposition_facts():
     facts = [
         {
