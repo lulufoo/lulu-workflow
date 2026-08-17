@@ -432,3 +432,81 @@ def test_repo_relative_method_stays_under_workflow_root(tmp_path: Path) -> None:
     assert Path(loaded["dimensions"][0]["method"]["ref"]).read_text(
         encoding="utf-8"
     ) == "method-body"
+
+
+_PLAN_SOT_REF = "lulu-dev-workflow/lulu-plan/eval/sots/solution-quality.md"
+_PLAN_METHOD_REF = "lulu-dev-workflow/lulu-plan/eval/methods/solution-quality.md"
+
+
+def test_skill_prefix_sot_resolves_when_absent_from_project(tmp_path: Path) -> None:
+    project = tmp_path / "consumer"
+    project.mkdir()
+    method = project / "method.md"
+    template = project / "review.md"
+    method.write_text("m", encoding="utf-8")
+    template.write_text("t", encoding="utf-8")
+    assert not (project / "lulu-dev-workflow").exists()
+    dest = tmp_path / "snap"
+    manifest = materialize_corpus_snapshot(
+        dest,
+        _corpus(method, Path(_PLAN_SOT_REF), template),
+        method_roots=[project],
+        sot_roots=[project],
+    )
+    loaded = load_materialized_corpus(dest, expected_digest=manifest["corpus_digest"])
+    body = Path(loaded["dimensions"][0]["sots"][0]["ref"]).read_text(encoding="utf-8")
+    assert "## P1 " in body
+
+
+def test_skill_prefix_fixture_tree_wins_over_installed_skill(tmp_path: Path) -> None:
+    fixture = tmp_path / "lulu-dev-workflow" / "lulu-plan" / "eval" / "sots"
+    fixture.mkdir(parents=True)
+    (fixture / "solution-quality.md").write_text("fixture-sot\n", encoding="utf-8")
+    method = tmp_path / "method.md"
+    template = tmp_path / "review.md"
+    method.write_text("m", encoding="utf-8")
+    template.write_text("t", encoding="utf-8")
+    dest = tmp_path / "snap"
+    manifest = materialize_corpus_snapshot(
+        dest,
+        _corpus(method, Path(_PLAN_SOT_REF), template),
+        method_roots=[tmp_path],
+        sot_roots=[tmp_path],
+    )
+    loaded = load_materialized_corpus(dest, expected_digest=manifest["corpus_digest"])
+    assert Path(loaded["dimensions"][0]["sots"][0]["ref"]).read_text(
+        encoding="utf-8"
+    ) == "fixture-sot\n"
+
+
+def test_skill_prefix_method_respects_contain_under(tmp_path: Path) -> None:
+    project = tmp_path / "consumer"
+    project.mkdir()
+    sot = project / "sot.md"
+    template = project / "review.md"
+    sot.write_text("sot", encoding="utf-8")
+    template.write_text("t", encoding="utf-8")
+    jail = tmp_path / "jail"
+    jail.mkdir()
+    with pytest.raises(ValueError, match="outside workflow root"):
+        materialize_corpus_snapshot(
+            tmp_path / "snap",
+            _corpus(Path(_PLAN_METHOD_REF), sot, template),
+            method_roots=[project],
+            sot_roots=[project],
+            method_must_stay_under=jail,
+        )
+
+
+def test_skill_prefix_unknown_ref_still_missing(tmp_path: Path) -> None:
+    method = tmp_path / "method.md"
+    template = tmp_path / "review.md"
+    method.write_text("m", encoding="utf-8")
+    template.write_text("t", encoding="utf-8")
+    with pytest.raises(ValueError, match="source ref not found"):
+        materialize_corpus_snapshot(
+            tmp_path / "snap",
+            _corpus(method, Path("lulu-dev-workflow/no-such-sot.md"), template),
+            method_roots=[tmp_path],
+            sot_roots=[tmp_path],
+        )

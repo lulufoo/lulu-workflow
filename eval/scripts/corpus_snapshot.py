@@ -9,10 +9,18 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
 from corpus_schema import normalize_corpus
+
+_WORKFLOW_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+if str(_WORKFLOW_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_WORKFLOW_SCRIPTS))
+import fetch_template  # noqa: E402
+from fetch_template import resolve_local_template_path  # noqa: E402
+from platforms.registry import resolve_skill_root  # noqa: E402
 
 SNAPSHOT_DIRNAME = "corpus-snapshot"
 SNAPSHOT_MANIFEST_NAME = "manifest.json"
@@ -143,7 +151,29 @@ def _resolve_under_roots(
                 raise ValueError(f"source ref has symlink component: {raw}")
             _reject_outside_containment(trial, contain_under, raw)
             return trial
-    raise ValueError(f"source ref not found: {raw}")
+    return _resolve_skill_runtime_prefix(raw, contain_under=contain_under)
+
+
+def _resolve_skill_runtime_prefix(
+    raw: str,
+    *,
+    contain_under: Path | None,
+) -> Path:
+    if not raw.startswith("lulu-dev-workflow/"):
+        raise ValueError(f"source ref not found: {raw}")
+    local = resolve_local_template_path(raw)
+    if local is None or not local.exists():
+        raise ValueError(f"source ref not found: {raw}")
+    if _has_symlink_component(local):
+        raise ValueError(f"source ref has symlink component: {raw}")
+    resolved = local.resolve()
+    skill_root = resolve_skill_root(script_path=Path(fetch_template.__file__))
+    try:
+        resolved.relative_to(skill_root.resolve())
+    except ValueError as exc:
+        raise ValueError(f"source ref outside workflow root: {raw}") from exc
+    _reject_outside_containment(resolved, contain_under, raw)
+    return resolved
 
 
 def _reject_outside_containment(
