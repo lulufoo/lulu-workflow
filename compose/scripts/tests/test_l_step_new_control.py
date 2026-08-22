@@ -71,7 +71,7 @@ def test_enter_fact_intake_from_pending(tmp_path: Path) -> None:
     assert result["state"] == "FactIntake"
     assert "SOURCE_PATH" in result["dispatch_input"]
     assert f"REVISION_DIR:         {ws.parent.as_posix()}" in result["dispatch_input"]
-    assert "REQUIRE_SEED_ORIGIN:  false" in result["dispatch_input"]
+    assert "REQUIRE_SEED_ORIGIN:  true" in result["dispatch_input"]
     assert load_l_ledger(ws.parent)["by_id"]["L1"]["state"] == "FactIntake"
 
 
@@ -86,14 +86,23 @@ def test_enter_fact_intake_design_binds_revision_root(tmp_path: Path) -> None:
     assert "REQUIRE_SEED_ORIGIN:  true" in result["dispatch_input"]
 
 
-def test_enter_deductive_from_fact_intake(tmp_path: Path) -> None:
-    ws = _seed(tmp_path)
+def test_enter_deductive_from_fact_intake_on_arch(tmp_path: Path) -> None:
+    profile = "lulu-arch"
+    ws = _seed(tmp_path, profile=profile)
     _ready_fact_intake(ws.parent)
-    result = l_step_control.enter_deductive(_CYCLE, tmp_path, profile_id=_PROFILE)
+    result = l_step_control.enter_deductive(_CYCLE, tmp_path, profile_id=profile)
     assert result["ok"] is True, result
     assert result["state"] == "Deductive"
     assert "SOURCE_PATH" in result["dispatch_input"]
     assert load_l_ledger(ws.parent)["by_id"]["L1"]["state"] == "Deductive"
+
+
+def test_enter_deductive_from_fact_intake_rejected_on_plan(tmp_path: Path) -> None:
+    ws = _seed(tmp_path)
+    _ready_fact_intake(ws.parent)
+    result = l_step_control.enter_deductive(_CYCLE, tmp_path, profile_id=_PROFILE)
+    assert result["ok"] is False
+    assert result["code"] == "illegal_transition"
 
 
 def test_enter_deductive_requires_fact_intake(tmp_path: Path) -> None:
@@ -111,12 +120,13 @@ def test_enter_deductive_rejects_other_state(tmp_path: Path) -> None:
     assert result["code"] == "illegal_transition"
 
 
-def test_enter_inductive_rejected_on_plan(tmp_path: Path) -> None:
+def test_enter_inductive_accepted_on_plan(tmp_path: Path) -> None:
     ws = _seed(tmp_path)
     _ready_fact_intake(ws.parent)
     result = l_step_control.enter_inductive(_CYCLE, tmp_path, profile_id=_PROFILE)
-    assert result["ok"] is False
-    assert result["code"] == "illegal_transition"
+    assert result["ok"] is True, result
+    assert result["state"] == "Inductive"
+    assert load_l_ledger(ws.parent)["by_id"]["L1"]["state"] == "Inductive"
 
 
 def test_complete_fact_intake_requires_facts(tmp_path: Path) -> None:
@@ -134,7 +144,14 @@ def test_complete_fact_intake_writes_stamp(tmp_path: Path) -> None:
     (rev / "L1").mkdir(parents=True, exist_ok=True)
     (rev / "L1" / "_facts.json").write_text(
         json.dumps(
-            [{"id": "F-1", "text": "seed fact", "lens_tags": []}],
+            [
+                {
+                    "id": "F-1",
+                    "text": "seed fact",
+                    "lens_tags": [],
+                    "origin": {"type": "seed", "ref": ["doc"]},
+                }
+            ],
             ensure_ascii=False,
         )
         + "\n",
@@ -153,7 +170,7 @@ def test_status_fact_intake_next_actions(tmp_path: Path) -> None:
     assert result["next_actions"] == ["run-fact-intake"]
     _stamp(ws.parent, "_fact_intake.complete")
     result = l_step_control.draft_status(_CYCLE, tmp_path, profile_id=_PROFILE)
-    assert result["next_actions"] == ["enter-deductive"]
+    assert result["next_actions"] == ["enter-inductive"]
 
 
 def test_complete_deductive_requires_facts(tmp_path: Path) -> None:
@@ -250,12 +267,12 @@ def test_reverse_to_deductive_resets_stamp(tmp_path: Path) -> None:
     assert [f["id"] for f in facts] == ["F-1"]
 
 
-def test_reverse_to_inductive_rejected_on_plan(tmp_path: Path) -> None:
+def test_reverse_to_inductive_accepted_on_plan(tmp_path: Path) -> None:
     ws = _seed(tmp_path)
     _set_state(ws.parent, "FreeEdit")
     result = l_step_control.reverse_to_inductive(_CYCLE, tmp_path, profile_id=_PROFILE)
-    assert result["ok"] is False
-    assert result["code"] == "illegal_transition"
+    assert result["ok"] is True, result
+    assert result["state"] == "Inductive"
 
 
 def test_accept_requires_confirm(tmp_path: Path) -> None:
@@ -409,11 +426,12 @@ def _write_mixed_facts(rev: Path, nid: str = "L1") -> None:
 
 
 def test_enter_deductive_strips_derived(tmp_path: Path) -> None:
-    ws = _seed(tmp_path)
+    profile = "lulu-arch"
+    ws = _seed(tmp_path, profile=profile)
     rev = ws.parent
     _ready_fact_intake(rev)
     _write_mixed_facts(rev)
-    result = l_step_control.enter_deductive(_CYCLE, tmp_path, profile_id=_PROFILE)
+    result = l_step_control.enter_deductive(_CYCLE, tmp_path, profile_id=profile)
     assert result["ok"] is True, result
     facts = json.loads((rev / "L1" / "_facts.json").read_text(encoding="utf-8"))
     assert [f["id"] for f in facts] == ["F-1"]

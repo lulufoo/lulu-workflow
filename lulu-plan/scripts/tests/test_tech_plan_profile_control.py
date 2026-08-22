@@ -7,8 +7,6 @@ import json
 import sys
 from pathlib import Path
 
-import pytest
-
 _SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW_ROOT = _SCRIPTS_ROOT.parents[1]
 _KERNEL_TESTS = _WORKFLOW_ROOT / "compose" / "scripts" / "tests"
@@ -46,47 +44,48 @@ def _seed_ref(tmp_path: Path, delivered_type: str, rel: str) -> Path:
     return doc
 
 
-def test_design_upstream_writes_inductive_false(tmp_path: Path) -> None:
-    _seed_ref(tmp_path, "lulu-design", "design/design-doc.md")
-    path = materialize_profile(_CYCLE, tmp_path)
+def _assert_instance(path: Path, tmp_path: Path) -> dict:
     data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["pipeline"]["inductive"] is False
+    assert data["pipeline"]["inductive"] is True
     assert path == (
         tmp_path.resolve() / CACHE_DIR / _CYCLE / "lulu-plan" / "compose-profile.json"
     )
+    return data
+
+
+def test_writes_inductive_true_without_upstream(tmp_path: Path) -> None:
+    path = materialize_profile(_CYCLE, tmp_path)
+    _assert_instance(path, tmp_path)
+
+
+def test_design_upstream_writes_inductive_true(tmp_path: Path) -> None:
+    _seed_ref(tmp_path, "lulu-design", "design/design-doc.md")
+    path = materialize_profile(_CYCLE, tmp_path)
+    _assert_instance(path, tmp_path)
 
 
 def test_approach_only_writes_inductive_true(tmp_path: Path) -> None:
     _seed_ref(tmp_path, "lulu-approach", "approach/decision-doc.md")
     path = materialize_profile(_CYCLE, tmp_path)
-    data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["pipeline"]["inductive"] is True
+    _assert_instance(path, tmp_path)
 
 
-def test_design_wins_over_approach(tmp_path: Path) -> None:
+def test_design_and_approach_writes_inductive_true(tmp_path: Path) -> None:
     _seed_ref(tmp_path, "lulu-design", "design/design-doc.md")
     _seed_ref(tmp_path, "lulu-approach", "approach/decision-doc.md")
     path = materialize_profile(_CYCLE, tmp_path)
-    data = json.loads(path.read_text(encoding="utf-8"))
-    assert data["pipeline"]["inductive"] is False
-
-
-def test_missing_upstream_fails(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="lulu-design or lulu-approach"):
-        materialize_profile(_CYCLE, tmp_path)
+    _assert_instance(path, tmp_path)
 
 
 def test_does_not_rewrite_authoring_template(tmp_path: Path) -> None:
     template = _WORKFLOW_ROOT / "lulu-plan" / "compose-profile.json"
     before = template.read_text(encoding="utf-8")
-    _seed_ref(tmp_path, "lulu-approach", "approach/decision-doc.md")
     materialize_profile(_CYCLE, tmp_path)
     assert template.read_text(encoding="utf-8") == before
-    assert json.loads(before)["pipeline"]["inductive"] is False
+    assert json.loads(before)["pipeline"]["inductive"] is True
 
 
-def test_overwrite_and_cli_stdout(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    _seed_ref(tmp_path, "lulu-approach", "approach/decision-doc.md")
+def test_overwrite_and_cli_stdout(tmp_path: Path, capsys) -> None:
     first = materialize_profile(_CYCLE, tmp_path)
     _seed_ref(tmp_path, "lulu-design", "design/design-doc.md")
     code = main(["--project-root", str(tmp_path), "--cycle-id", _CYCLE])
@@ -94,4 +93,4 @@ def test_overwrite_and_cli_stdout(tmp_path: Path, capsys: pytest.CaptureFixture[
     assert code == 0
     assert captured.out.strip() == first.as_posix()
     data = json.loads(first.read_text(encoding="utf-8"))
-    assert data["pipeline"]["inductive"] is False
+    assert data["pipeline"]["inductive"] is True

@@ -38,6 +38,8 @@ _DROP_ORPHAN_CONFIG_KEYS = frozenset(
     {
         "tdt_design_doc_template_url",
         "tpt_spec_template_url",
+        "tdt_inductive_scan_criteria_url",
+        "pst_inductive_scan_criteria_url",
     }
 )
 _LEGACY_COMPOSE_FRAMEWORK_KEYS = {
@@ -66,7 +68,6 @@ _LEGACY_COMPOSE_FRAMEWORK_KEYS = {
             "tdt_section_kw_criteria_url",
             "tdt_feature_role_instance_url",
             "tdt_feature_domain_instance_url",
-            "tdt_inductive_scan_criteria_url",
         }
     ),
     "lulu-plan": frozenset(
@@ -85,7 +86,6 @@ _LEGACY_COMPOSE_FRAMEWORK_KEYS = {
             "pst_section_kw_criteria_url",
             "pst_feature_role_instance_url",
             "pst_feature_domain_instance_url",
-            "pst_inductive_scan_criteria_url",
         }
     ),
 }

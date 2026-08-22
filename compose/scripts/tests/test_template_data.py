@@ -79,7 +79,6 @@ LEGACY_SECTION_REGISTRY: dict[str, Any] = {
 }
 
 from framework_template_sources import (  # noqa: E402
-    product_spec_inductive_scan_criteria,
     product_spec_section_form_registry,
     product_spec_section_registry,
     tech_arch_topic_domain_instance,
@@ -205,12 +204,6 @@ def seed_product_spec_test_caches(project_root: Path) -> None:
         "lulu-spec",
         "pst_section_form_registry_url",
         product_spec_section_form_registry(),
-    )
-    seed_template_cache(
-        project_root,
-        "lulu-spec",
-        "pst_inductive_scan_criteria_url",
-        product_spec_inductive_scan_criteria(),
     )
 
 

@@ -79,10 +79,6 @@ def product_spec_section_form_registry() -> dict[str, Any]:
     return _skill_builtin_section_form_registry("lulu-spec")
 
 
-def product_spec_inductive_scan_criteria() -> dict[str, Any]:
-    return _skill_builtin_template("lulu-spec", "inductive-scan-criteria.json")
-
-
 def tech_design_section_registry() -> dict[str, Any]:
     return _skill_builtin_section_registry("lulu-design")
 

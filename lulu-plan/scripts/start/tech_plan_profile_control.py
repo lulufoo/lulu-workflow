@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Materialize lulu-plan runtime compose-profile.json before $START_COMPOSE.
 
-Reads cycle delivered-refs, copies the authoring template, overlays
-``pipeline.inductive``, writes the instance under the stage session cache, and
-prints the absolute path (one line) for ``--profile-path``.
+Copies the authoring template into the stage session cache and prints the
+absolute path (one line) for ``--profile-path``.
 """
 
 from __future__ import annotations
@@ -22,7 +21,6 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from workflow_common import CACHE_DIR  # noqa: E402
-from tech_plan_start_adapter import TechPlanStartAdapter  # noqa: E402
 
 _TEMPLATE_PATH = Path(__file__).resolve().parents[2] / "compose-profile.json"
 _INSTANCE_FILENAME = "compose-profile.json"
@@ -30,14 +28,7 @@ _INSTANCE_FILENAME = "compose-profile.json"
 
 def materialize_profile(cycle_id: str, project_root: Path) -> Path:
     """Write the session instance and return its absolute path."""
-    inductive = TechPlanStartAdapter().resolve_pipeline_inductive(
-        cycle_id,
-        project_root,
-    )
     template = json.loads(_TEMPLATE_PATH.read_text(encoding="utf-8"))
-    pipeline = dict(template.get("pipeline") or {})
-    pipeline["inductive"] = inductive
-    template["pipeline"] = pipeline
     cache_subdir = str(template.get("cache_subdir", "")).strip()
     if not cache_subdir:
         raise ValueError("authoring compose-profile.json missing cache_subdir")

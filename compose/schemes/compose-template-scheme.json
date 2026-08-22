@@ -5,7 +5,6 @@
     { "key": "section-form-registry", "format": "json", "required": "optional" },
     { "key": "section-kw-criteria", "format": "markdown", "required": "always" },
     { "key": "role-instance", "format": "json", "required": "always" },
-    { "key": "domain-instance", "format": "json", "required": "always" },
-    { "key": "inductive-scan-criteria", "format": "json", "required": "optional" }
+    { "key": "domain-instance", "format": "json", "required": "always" }
   ]
 }

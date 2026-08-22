@@ -60,15 +60,11 @@ class TestResolveTemplateRef:
         assert resolve_template_ref("section-form-registry", "lulu-spec") == (
             "lulu-dev-workflow/lulu-spec/templates/section-form-registry.json"
         )
-        assert resolve_template_ref("inductive-scan-criteria", "lulu-spec") == (
-            "lulu-dev-workflow/lulu-spec/templates/inductive-scan-criteria.json"
-        )
 
     def test_scheme_keys(self) -> None:
         assert scheme_template_keys() == frozenset(
             {
                 "domain-instance",
-                "inductive-scan-criteria",
                 "role-instance",
                 "section-form-registry",
                 "section-kw-criteria",
@@ -78,36 +74,6 @@ class TestResolveTemplateRef:
 
 
 class TestFetchComposeFramework:
-    def test_fetch_product_spec_inductive_scan_criteria(self, tmp_path: Path) -> None:
-        import fetch_compose_framework as mod
-
-        root = Path(__file__).resolve().parents[4]
-        content = mod.fetch_compose_framework(
-            "inductive-scan-criteria",
-            root,
-            profile_id="lulu-spec",
-        )
-        data = __import__("json").loads(content)
-        assert data["profile_id"] == "lulu-spec"
-        assert data["expose_axis"]["coverage_sections"] == [
-            "RN",
-            "UR",
-            "SN",
-            "FL",
-            "NG",
-            "AC",
-        ]
-        assert data["shape_extraction"]["peeled_from_gate3"] == [
-            "PB",
-            "GO",
-            "SC",
-            "IO",
-        ]
-        assert "trigger_gap" in data["expose_axis"]["methods"]
-        assert "exclusion_gap" in data["expose_axis"]["methods"]
-        assert "io_instantiate_gap" in data["deferred"]["methods"]
-        assert len(data["expose_axis"]["coverage_sections"]) == 6
-
     def test_delegates_to_fetch_template(self, tmp_path: Path) -> None:
         calls: list[tuple[str, str]] = []
 

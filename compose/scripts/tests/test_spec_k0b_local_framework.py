@@ -45,7 +45,6 @@ def test_spec_k0b_profile_points_to_direct_templates() -> None:
         ("section-kw-criteria", "section-kw-criteria.md"),
         ("role-instance", "role-instance.json"),
         ("domain-instance", "domain-instance.json"),
-        ("inductive-scan-criteria", "inductive-scan-criteria.json"),
     ):
         expected = f"lulu-dev-workflow/lulu-spec/templates/{filename}"
         assert compose[key] == expected

@@ -14,7 +14,7 @@
     "schema": "chapter"
   },
   "pipeline": {
-    "inductive": false,
+    "inductive": true,
     "freeedit": true,
     "code_grounding": true,
     "post_writing_options": [

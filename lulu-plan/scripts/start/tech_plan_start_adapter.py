@@ -44,21 +44,6 @@ class TechPlanStartAdapter:
             return "product"
         return "tech"
 
-    def resolve_pipeline_inductive(
-        self,
-        cycle_id: str,
-        project_root: Path,
-    ) -> bool:
-        """True when plan has no design and falls back to approach."""
-        data = load_delivered_refs_file(cycle_id, project_root)
-        if entry_path_ok(data, "lulu-design"):
-            return False
-        if entry_path_ok(data, "lulu-approach"):
-            return True
-        raise ValueError(
-            "missing delivered-refs entry: lulu-design or lulu-approach",
-        )
-
     def validate_for_start(
         self,
         cycle_id: str,

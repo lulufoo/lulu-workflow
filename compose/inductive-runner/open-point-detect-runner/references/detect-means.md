@@ -30,7 +30,7 @@ Ask whether classified intent-baseline items that map to this lens are
 still unfulfilled by current facts or Opens.
 
 Evidence is `intent_baseline_refs`. An empty array makes this method
-inert. Do not use norm constraints or scan-criteria methods.
+inert. Do not use norm constraints.
 
 Stamp `actor=ai`, `means=intent`.
 

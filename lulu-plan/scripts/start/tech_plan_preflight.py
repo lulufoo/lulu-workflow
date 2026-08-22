@@ -40,12 +40,8 @@ def main(argv: list[str] | None = None) -> int:
     cycle_id = args.cycle_id.strip()
     try:
         adapter = TechPlanStartAdapter()
-        inductive = adapter.resolve_pipeline_inductive(cycle_id, root)
-        template = json.loads(_TEMPLATE.read_text(encoding="utf-8"))
-        pipeline = dict(template.get("pipeline") or {})
-        pipeline["inductive"] = inductive
         out = preflight_dir(root, cycle_id, _CACHE_SUBDIR)
-        profile = write_profile_bytes(_TEMPLATE, out, overlay={"pipeline": pipeline})
+        profile = write_profile_bytes(_TEMPLATE, out)
         scope = run_scope_preflight(
             adapter=adapter,
             cycle_id=cycle_id,
