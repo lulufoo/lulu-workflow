@@ -41,7 +41,7 @@ def test_assumption_state_rejected() -> None:
     assert any("state" in e for e in errors)
 
 
-def test_risk_fields_forbidden_before_r() -> None:
+def test_leftover_assumption_risk_fields_allowed_before_r() -> None:
     data = _base(
         assumptions=[
             {
@@ -55,8 +55,7 @@ def test_risk_fields_forbidden_before_r() -> None:
             }
         ]
     )
-    errors = validate_registers(data, r_gate_closed=False)
-    assert any("before R" in e for e in errors)
+    assert validate_registers(data, r_gate_closed=False) == []
 
 
 def test_triad_none_ok_when_r_closed() -> None:
@@ -172,6 +171,35 @@ def test_reject_release_tracking_and_released() -> None:
     )
     released_errors = validate_registers(released, r_gate_closed=True)
     assert any("released" in e for e in released_errors)
+
+
+def test_constraint_and_risk_rows_validate() -> None:
+    data = {
+        "version": "1",
+        "cycle_id": "c1",
+        "stage": "decision",
+        "prior": [],
+        "assumptions": [{"id": "A1", "source": "O", "text": "unverified"}],
+        "constraints": [
+            {"id": "C1", "text": "SSO required", "revision": 1, "source": "Q"}
+        ],
+        "risks": [
+            {
+                "id": "RK1",
+                "source_ref": {"kind": "assumption", "id": "A1"},
+                "text": "Client may reject",
+                "risk_level": "H",
+                "risk_class": "decision",
+                "risk_state": "open",
+                "risk_consequence": "blocked",
+            }
+        ],
+        "next_prior_seq": 1,
+        "next_assumption_seq": 2,
+        "next_constraint_seq": 2,
+        "next_risk_seq": 2,
+    }
+    assert validate_registers(data, r_gate_closed=False) == []
 
 
 def test_ignore_is_not_none_triad() -> None:

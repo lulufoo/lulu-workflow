@@ -291,8 +291,11 @@ def test_r_dc_allows_implementation_class(
         r_gate_closed=True,
         r_risk_fields_allowed=True,
     )
-    assert registers["assumptions"][0]["risk_state"] == "completed"
-    assert registers["assumptions"][0]["release_terms"] == "Accepted"
+    from dec_test_helpers import risk_for_source  # noqa: WPS433
+
+    entry = risk_for_source(registers, "A1")
+    assert entry["risk_state"] == "completed"
+    assert entry["release_terms"] == "Accepted"
 
     doc = load_rendered_doc(project_root, cycle_id, stage)
     assert "implementation" in doc

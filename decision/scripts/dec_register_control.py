@@ -28,17 +28,16 @@ from dec_decision_doc_schema import (
     save_decision_doc,
 )
 from dec_domain_constraints_schema import load_domain_constraints, resolve_stage
-from dec_gate_state_schema import is_gate_closed, is_gate_reached, load_gate_state
+from dec_gate_state_schema import is_gate_closed, load_gate_state
 from dec_register_schema import (
     PRIOR_KINDS,
     REGISTER_STATES,
-    RISK_CLASSES,
-    RISK_LEVELS,
-    RISK_STATES,
     find_duplicate_assumption,
+    find_duplicate_constraint,
     find_duplicate_prior,
     load_registers,
     next_assumption_id,
+    next_constraint_id,
     next_prior_id,
     save_registers,
 )
@@ -81,13 +80,7 @@ def _paths(
 
 def _register_io_flags(gate_state: dict[str, Any]) -> dict[str, bool]:
     r_closed = is_gate_closed(gate_state, "R")
-    allowed = is_gate_reached(gate_state, "R")
-    return {"r_gate_closed": r_closed, "r_risk_fields_allowed": allowed}
-
-
-def _r_risk_fields_writable(gate_state: dict[str, Any]) -> bool:
-    active = str(gate_state.get("active_gate", ""))
-    return active == "R" or is_gate_closed(gate_state, "R")
+    return {"r_gate_closed": r_closed, "r_risk_fields_allowed": True}
 
 
 def _active_register_source(gate_state: dict[str, Any]) -> str:
@@ -172,6 +165,24 @@ def _apply_append_operation(
         registers["assumptions"].append(entry)
         registers["next_assumption_seq"] = int(registers.get("next_assumption_seq", 1)) + 1
         return entry
+    if register_kind == "constraint":
+        text = str(payload.get("text", "")).strip()
+        if not text:
+            raise ValueError("text is required")
+        duplicate = find_duplicate_constraint(registers, text)
+        if duplicate:
+            return duplicate
+        entry_id = next_constraint_id(registers)
+        entry = {
+            "id": entry_id,
+            "text": text,
+            "revision": 1,
+            "source": source,
+            "created_at": _now_iso(),
+        }
+        registers.setdefault("constraints", []).append(entry)
+        registers["next_constraint_seq"] = int(registers.get("next_constraint_seq", 1)) + 1
+        return entry
     raise ValueError(f"invalid register kind: {register_kind!r}")
 
 
@@ -183,18 +194,19 @@ def _apply_update_operation(
     r_closed: bool,
     r_risk_fields_writable: bool | None = None,
 ) -> dict[str, Any]:
-    if r_risk_fields_writable is None:
-        r_risk_fields_writable = r_closed
+    del r_closed, r_risk_fields_writable
     target = _find_entry(registers, entry_id)
     if target is None:
         raise ValueError(f"entry not found: {entry_id}")
 
     is_assumption = str(target.get("id", "")).startswith("A")
-    prior_risk_state = str(target.get("risk_state", "")).strip()
+    is_constraint = str(target.get("id", "")).startswith("C")
 
     if "state" in payload:
         if is_assumption:
             raise ValueError("assumption.state retired; use risk_state")
+        if is_constraint:
+            raise ValueError("constraint has no state")
         state = str(payload["state"])
         if state not in REGISTER_STATES:
             raise ValueError(f"invalid state: {state!r}")
@@ -205,39 +217,18 @@ def _apply_update_operation(
         if not text:
             raise ValueError("text must be non-empty")
         target["text"] = text
+        if is_constraint:
+            target["revision"] = int(target.get("revision", 1)) + 1
 
-    risk_field_map = {
-        "risk_level": RISK_LEVELS,
-        "risk_class": RISK_CLASSES,
-        "risk_state": RISK_STATES,
-    }
-    for field, allowed in risk_field_map.items():
+    for field in (
+        "risk_level",
+        "risk_class",
+        "risk_state",
+        "risk_consequence",
+        "release_terms",
+    ):
         if field in payload:
-            if not is_assumption:
-                raise ValueError(f"{field} only valid on assumptions")
-            if not r_risk_fields_writable:
-                raise ValueError(f"{field} can only be set while R is active or closed")
-            value = payload[field]
-            if value is not None and str(value).strip() not in allowed:
-                raise ValueError(f"invalid {field}: {value!r}")
-            normalized = None if value is None else str(value).strip()
-            if field == "risk_state" and normalized == "completed":
-                raise ValueError(
-                    "risk_state=completed only via complete-assumption "
-                    "(not register-update)"
-                )
-            target[field] = normalized
-
-    for field in ("risk_consequence", "release_terms"):
-        if field in payload:
-            if not is_assumption:
-                raise ValueError(f"{field} only valid on assumptions")
-            if not r_risk_fields_writable:
-                raise ValueError(f"{field} can only be set while R is active or closed")
-            target[field] = payload[field]
-
-    if prior_risk_state == "completed" and target.get("risk_state") == "open":
-        target.pop("release_terms", None)
+            raise ValueError(f"{field} is written on RK# via gate-control, not register-update")
 
     for retired in ("risk", "consequence", "verification", "disposition", "release_tracking", "released"):
         if retired in payload:
@@ -256,7 +247,6 @@ def apply_register_commit_operations(
     reg_flags = _register_io_flags(gate_state)
     registers = load_registers(paths["registers"], **reg_flags)
     source = _active_register_source(gate_state)
-    risk_fields_writable = _r_risk_fields_writable(gate_state)
     applied = 0
 
     for op in operations:
@@ -266,25 +256,41 @@ def apply_register_commit_operations(
             payload = op.get("payload")
             if not isinstance(payload, dict):
                 raise ValueError("append operation requires object payload")
+            if kind == "risk":
+                raise ValueError("register-commit cannot write risks[]")
             _apply_append_operation(registers, register_kind=kind, payload=payload, source=source)
             applied += 1
-        elif action == "update":
+        elif action in {"update", "revise"}:
             entry_id = str(op.get("id", "")).strip()
             payload = op.get("payload")
             if not entry_id:
-                raise ValueError("update operation requires id")
+                raise ValueError(f"{action} operation requires id")
             if not isinstance(payload, dict):
-                raise ValueError("update operation requires object payload")
+                raise ValueError(f"{action} operation requires object payload")
+            if entry_id.startswith("RK"):
+                raise ValueError("register-commit cannot write risks[]")
             _apply_update_operation(
                 registers,
                 entry_id=entry_id,
                 payload=payload,
                 r_closed=reg_flags["r_gate_closed"],
-                r_risk_fields_writable=risk_fields_writable,
             )
             applied += 1
+        elif action == "remove":
+            entry_id = str(op.get("id", "")).strip()
+            if not entry_id.startswith("C"):
+                raise ValueError("remove only supports constraint ids")
+            before = len(registers.get("constraints") or [])
+            registers["constraints"] = [
+                e
+                for e in registers.get("constraints", [])
+                if not (isinstance(e, dict) and str(e.get("id")) == entry_id)
+            ]
+            if len(registers["constraints"]) == before:
+                raise ValueError(f"entry not found: {entry_id}")
+            applied += 1
         else:
-            raise ValueError(f"invalid action: {action!r} (use append or update)")
+            raise ValueError(f"invalid action: {action!r} (use append, update, revise, or remove)")
 
     save_registers(paths["registers"], registers, **reg_flags)
     return registers, applied
@@ -387,7 +393,6 @@ def cmd_register_update(
             entry_id=entry_id,
             payload=payload,
             r_closed=reg_flags["r_gate_closed"],
-            r_risk_fields_writable=_r_risk_fields_writable(gate_state),
         )
         save_registers(paths["registers"], registers, **reg_flags)
     except (FileNotFoundError, ValueError) as exc:
@@ -398,7 +403,7 @@ def cmd_register_update(
 
 
 def _find_entry(registers: dict[str, Any], entry_id: str) -> dict[str, Any] | None:
-    for collection in ("prior", "assumptions"):
+    for collection in ("prior", "assumptions", "constraints"):
         for entry in registers.get(collection, []):
             if isinstance(entry, dict) and str(entry.get("id")) == entry_id:
                 return entry
@@ -420,6 +425,8 @@ def prepare_register_batch_operations(
         entry_id = str(op.get("id", ""))
         action = str(op.get("action", ""))
         target = _find_entry(registers, entry_id)
+        if entry_id.startswith(("C", "RK")):
+            raise ValueError(f"RS batch does not dispose {entry_id}")
         if target is None:
             raise ValueError(f"entry not found: {entry_id}")
         if action == "delete":
@@ -569,14 +576,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "register-append",
         help="Append a register entry (G0 capture).",
         description=(
-            "Append User Prior or Assumption. Sets source from active_gate, assigns id, "
-            "dedupes by kind+text (prior) or text (assumption).\n\n"
+            "Append User Prior, Constraint, or Assumption. Sets source from active_gate, "
+            "assigns id, dedupes by kind+text (prior) or text.\n\n"
             "Prior payload: {\"kind\": \"judgment|preference|concern|excluded\", \"text\": \"...\"}\n"
+            "Constraint payload: {\"text\": \"...\"}\n"
             "Assumption payload: {\"text\": \"...\"}"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    append.add_argument("--kind", required=True, choices=["prior", "assumption"])
+    append.add_argument("--kind", required=True, choices=["prior", "assumption", "constraint"])
     append.add_argument("--payload", required=True, help="JSON payload string.")
 
     update = sub.add_parser("register-update", help="Update a register entry.")
@@ -594,6 +602,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "Operations JSON array examples:\n"
             '  [{"action":"append","kind":"prior","payload":{"kind":"preference","text":"..."}}]\n'
             '  [{"action":"append","kind":"assumption","payload":{"text":"..."}}]\n'
+            '  [{"action":"append","kind":"constraint","payload":{"text":"..."}}]\n'
+            '  [{"action":"revise","id":"C1","payload":{"text":"revised"}}]\n'
+            '  [{"action":"remove","id":"C1"}]\n'
             '  [{"action":"update","id":"P1","payload":{"text":"revised"}}]\n'
             "Multiple ops in one array are allowed (e.g. prior + assumption in one G0 turn)."
         ),

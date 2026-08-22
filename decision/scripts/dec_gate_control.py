@@ -19,9 +19,9 @@ Subcommands:
                            decision-doc). Nested approach main/Dx skips cycle
                            delivered-refs (holder stage deliver owns them).
                            Alias: deliver.
-    complete-assumption    Write release_terms + risk_state=completed (R active or closed)
-    set-risk-state         Set risk_state to ignore|open on a risk row (R active or closed)
-    apply-r-assumptions    Persist R expose draft risk fields without closing R
+    complete-assumption    Write release_terms + risk_state=completed on RK# (or leftover A#)
+    set-risk-state         Set risk_state to ignore|open on RK# (or leftover A#)
+    apply-r-assumptions    Persist risk rows on risks[] without requiring active_gate=R
     migrate-session        Bootstrap gate-state/registers for legacy sessions
 """
 
@@ -65,7 +65,6 @@ from dec_gate_state_schema import (  # noqa: E402
     close_gate_r,
     init_gate_state,
     is_gate_closed,
-    is_gate_reached,
     load_gate_state,
     mark_stale_from_gate,
     save_gate_state,
@@ -74,8 +73,12 @@ from dec_register_schema import (  # noqa: E402
     RISK_CLASSES,
     RISK_LEVELS,
     RISK_STATES,
+    find_risk_by_id,
+    find_risk_by_source,
     init_registers,
     load_registers,
+    next_constraint_id,
+    next_risk_id,
     save_registers,
     validate_release_terms,
 )
@@ -118,16 +121,11 @@ def _reject_if_legacy_rr_active(state: dict[str, Any]) -> str | None:
     return None
 
 
-def _r_risk_fields_allowed(gate_state: dict[str, Any]) -> bool:
-    return is_gate_reached(gate_state, "R")
-
-
 def _register_io_flags(gate_state: dict[str, Any]) -> dict[str, bool]:
     r_closed = is_gate_closed(gate_state, "R")
-    allowed = _r_risk_fields_allowed(gate_state)
     return {
         "r_gate_closed": r_closed,
-        "r_risk_fields_allowed": allowed,
+        "r_risk_fields_allowed": True,
     }
 
 
@@ -145,11 +143,119 @@ def _is_risk_row(entry: dict[str, Any]) -> bool:
     return not (level == "none" and klass == "none" and state == "none")
 
 
-def _reject_if_r_assumption_gate_closed(state: dict[str, Any]) -> str | None:
-    active = str(state.get("active_gate", ""))
-    if active == "R" or is_gate_closed(state, "R"):
+def _source_kind_for_id(entry_id: str) -> str | None:
+    if entry_id.startswith("P"):
+        return "prior"
+    if entry_id.startswith("A"):
+        return "assumption"
+    if entry_id.startswith("C"):
+        return "constraint"
+    return None
+
+
+def _iter_open_risk_ids(registers: dict[str, Any]) -> list[str]:
+    open_ids: list[str] = []
+    for entry in registers.get("risks", []):
+        if isinstance(entry, dict) and _risk_state_of(entry) == "open":
+            open_ids.append(str(entry.get("id")))
+    covered_assumptions = {
+        str(entry.get("source_ref", {}).get("id"))
+        for entry in registers.get("risks", [])
+        if isinstance(entry, dict)
+        and isinstance(entry.get("source_ref"), dict)
+        and entry["source_ref"].get("kind") == "assumption"
+    }
+    for entry in registers.get("assumptions", []):
+        if not isinstance(entry, dict):
+            continue
+        entry_id = str(entry.get("id"))
+        if entry_id in covered_assumptions:
+            continue
+        if _is_risk_row(entry) and _risk_state_of(entry) == "open":
+            open_ids.append(entry_id)
+    return open_ids
+
+
+def _reject_if_open_risks(registers: dict[str, Any]) -> str | None:
+    open_ids = _iter_open_risk_ids(registers)
+    if open_ids:
+        return (
+            "open risk_state blocks ordinary close: "
+            f"{sorted(open_ids)}; complete-assumption or set-risk-state first"
+        )
+    return None
+
+
+def _find_source_entry(
+    registers: dict[str, Any], kind: str, source_id: str
+) -> dict[str, Any] | None:
+    collection = {
+        "prior": "prior",
+        "assumption": "assumptions",
+        "constraint": "constraints",
+    }.get(kind)
+    if collection is None:
         return None
-    return "complete-assumption and set-risk-state require R active or closed"
+    for entry in registers.get(collection, []):
+        if isinstance(entry, dict) and str(entry.get("id")) == source_id:
+            return entry
+    return None
+
+
+def _find_risk_target(
+    registers: dict[str, Any], entry_id: str
+) -> dict[str, Any] | None:
+    entry_id = entry_id.strip()
+    if entry_id.startswith("RK"):
+        return find_risk_by_id(registers, entry_id)
+    kind = _source_kind_for_id(entry_id)
+    if kind:
+        found = find_risk_by_source(registers, kind=kind, source_id=entry_id)
+        if found is not None:
+            return found
+    leftover = _find_assumption(registers, entry_id)
+    if leftover is not None and _is_risk_row(leftover):
+        return leftover
+    return None
+
+
+def _legacy_q_constraint_text(payload: dict[str, Any] | None) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    text = str(payload.get("constraints", "")).strip()
+    if not text or text.lower() == "none":
+        return ""
+    return text
+
+
+def _fold_legacy_q_constraints(
+    registers_path: Path,
+    *,
+    gate_state: dict[str, Any],
+    incoming: dict[str, Any],
+    previous: dict[str, Any] | None,
+) -> None:
+    reg_flags = _register_io_flags(gate_state)
+    registers = load_registers(registers_path, **reg_flags)
+    if any(isinstance(entry, dict) for entry in registers.get("constraints") or []):
+        return
+    text = _legacy_q_constraint_text(previous) or _legacy_q_constraint_text(incoming)
+    if not text:
+        return
+    registers.setdefault("constraints", []).append(
+        {
+            "id": next_constraint_id(registers),
+            "text": text,
+            "revision": 1,
+            "source": "Q",
+        }
+    )
+    registers["next_constraint_seq"] = int(registers.get("next_constraint_seq", 1)) + 1
+    save_registers(registers_path, registers, **reg_flags)
+
+
+def _q_persist_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    return {"problem_statement": str(payload.get("problem_statement", "")).strip()}
 
 
 def _emit(payload: dict[str, Any]) -> None:
@@ -552,18 +658,35 @@ def _validate_r_assumption_payload(item: dict[str, Any], *, exit_path: str) -> N
 
 
 def _validate_open_risk_states_for_dc(registers: dict[str, Any]) -> None:
-    open_ids = [
-        str(entry.get("id"))
-        for entry in registers.get("assumptions", [])
-        if isinstance(entry, dict)
-        and _is_risk_row(entry)
-        and _risk_state_of(entry) == "open"
-    ]
+    open_ids = _iter_open_risk_ids(registers)
     if open_ids:
         raise ValueError(
             "R exit dc forbids risk_state=open: "
             f"{sorted(open_ids)}; use complete-assumption or set-risk-state"
         )
+
+
+def _stale_review_index(registers: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    by_id: dict[str, dict[str, Any]] = {}
+    covered_assumptions: set[str] = set()
+    for entry in registers.get("risks", []):
+        if not isinstance(entry, dict):
+            continue
+        by_id[str(entry.get("id"))] = entry
+        ref = entry.get("source_ref")
+        if isinstance(ref, dict) and str(ref.get("id", "")).strip():
+            by_id.setdefault(str(ref.get("id")), entry)
+            if ref.get("kind") == "assumption":
+                covered_assumptions.add(str(ref.get("id")))
+    for entry in registers.get("assumptions", []):
+        if not isinstance(entry, dict):
+            continue
+        entry_id = str(entry.get("id"))
+        if entry_id in covered_assumptions:
+            continue
+        if _is_risk_row(entry):
+            by_id.setdefault(entry_id, entry)
+    return by_id
 
 
 def _validate_stale_r_review(
@@ -597,11 +720,7 @@ def _validate_stale_r_review(
             "stale_review.dispositions keys must match affected_ids exactly"
         )
 
-    by_id = {
-        str(entry.get("id")): entry
-        for entry in registers.get("assumptions", [])
-        if isinstance(entry, dict)
-    }
+    by_id = _stale_review_index(registers)
     for entry_id in normalized_ids:
         entry = by_id.get(entry_id)
         if entry is None:
@@ -702,6 +821,74 @@ def _validate_gate_close_payload(gate: str, payload: dict[str, Any], *, constrai
     raise ValueError(f"unsupported gate-close payload validation for {gate!r}")
 
 
+def _is_none_risk_item(item: dict[str, Any]) -> bool:
+    level = str(item.get("risk_level", item.get("risk", ""))).strip()
+    klass = str(item.get("risk_class", "")).strip()
+    state = str(item.get("risk_state", "")).strip()
+    return "none" in {level, klass, state}
+
+
+def _apply_risk_fields(
+    target: dict[str, Any],
+    update: dict[str, Any],
+    *,
+    prior_state: str,
+) -> None:
+    risk_level = str(update.get("risk_level", update.get("risk", ""))).strip()
+    target["risk_level"] = risk_level
+    target["risk_consequence"] = str(
+        update.get("risk_consequence", update.get("consequence", ""))
+    ).strip()
+    target["risk_class"] = str(update.get("risk_class", "")).strip()
+    explicit_state = str(update.get("risk_state", "")).strip() if "risk_state" in update else ""
+    if explicit_state:
+        target["risk_state"] = explicit_state
+    elif not str(target.get("risk_state", "")).strip():
+        if risk_level == "L":
+            target["risk_state"] = "ignore"
+        elif risk_level in {"H", "M"}:
+            target["risk_state"] = "open"
+    if prior_state == "completed" and _risk_state_of(target) == "open":
+        target.pop("release_terms", None)
+    text = str(update.get("text", "")).strip()
+    if text:
+        target["text"] = text
+
+
+def _upsert_risk_from_apply_item(
+    registers: dict[str, Any],
+    item: dict[str, Any],
+) -> None:
+    if _is_none_risk_item(item):
+        return
+    entry_id = str(item.get("id", "")).strip()
+    if entry_id.startswith("RK"):
+        target = find_risk_by_id(registers, entry_id)
+        if target is None:
+            raise ValueError(f"entry not found: {entry_id}")
+        _apply_risk_fields(target, item, prior_state=_risk_state_of(target))
+        return
+    kind = _source_kind_for_id(entry_id)
+    if kind is None:
+        raise ValueError(f"invalid risk source id: {entry_id}")
+    source = _find_source_entry(registers, kind, entry_id)
+    if source is None:
+        raise ValueError(f"entry not found: {entry_id}")
+    target = find_risk_by_source(registers, kind=kind, source_id=entry_id)
+    if target is None:
+        text = str(item.get("text") or source.get("text") or "").strip()
+        if not text:
+            raise ValueError(f"{entry_id}: risk text is required")
+        target = {
+            "id": next_risk_id(registers),
+            "source_ref": {"kind": kind, "id": entry_id},
+            "text": text,
+        }
+        registers.setdefault("risks", []).append(target)
+        registers["next_risk_seq"] = int(registers.get("next_risk_seq", 1)) + 1
+    _apply_risk_fields(target, item, prior_state=_risk_state_of(target))
+
+
 def _apply_r_register_updates(
     registers_path: Path,
     payload: dict[str, Any],
@@ -709,41 +896,15 @@ def _apply_r_register_updates(
     gate_state: dict[str, Any],
 ) -> None:
     reg_flags = _register_io_flags(gate_state)
-    reg_flags["r_risk_fields_allowed"] = True
     registers = load_registers(registers_path, **reg_flags)
-    by_id = {
-        str(item.get("id")): item
+    items = [
+        item
         for item in payload.get("assumptions", [])
         if isinstance(item, dict)
-    }
-    for entry in registers.get("assumptions", []):
-        if not isinstance(entry, dict):
-            continue
-        update = by_id.get(str(entry.get("id")))
-        if update is None:
-            continue
-        prior_risk_state = _risk_state_of(entry)
-        risk_level = str(update.get("risk_level", update.get("risk", ""))).strip()
-        entry["risk_level"] = risk_level
-        entry["risk_consequence"] = str(
-            update.get("risk_consequence", update.get("consequence", ""))
-        ).strip()
-        entry["risk_class"] = str(update.get("risk_class", "")).strip()
-        if "risk_state" in update:
-            entry["risk_state"] = str(update.get("risk_state", "")).strip()
-        elif not entry.get("risk_state"):
-            # D3 defaults when payload omits risk_state: H/M→open, L→ignore
-            if risk_level == "L":
-                entry["risk_state"] = "ignore"
-            elif risk_level in {"H", "M"}:
-                entry["risk_state"] = "open"
-        if prior_risk_state == "completed" and _risk_state_of(entry) == "open":
-            entry.pop("release_terms", None)
-        for retired in ("risk", "consequence", "state", "verification", "disposition"):
-            entry.pop(retired, None)
-    save_flags = dict(reg_flags)
-    save_flags["r_gate_closed"] = is_gate_closed(gate_state, "R") or bool(by_id)
-    save_registers(registers_path, registers, **save_flags)
+    ]
+    for item in items:
+        _upsert_risk_from_apply_item(registers, item)
+    save_registers(registers_path, registers, **reg_flags)
 
 
 def _apply_r_prior_signoff(registers_path: Path, *, gate_state: dict[str, Any]) -> None:
@@ -778,12 +939,9 @@ def cmd_complete_assumption(
         rr_err = _reject_if_legacy_rr_active(state)
         if rr_err:
             return _emit_error(rr_err)
-        gate_err = _reject_if_r_assumption_gate_closed(state)
-        if gate_err:
-            return _emit_error(gate_err)
         reg_flags = _register_io_flags(state)
         registers = load_registers(paths["registers"], **reg_flags)
-        target = _find_assumption(registers, entry_id.strip())
+        target = _find_risk_target(registers, entry_id.strip())
         if target is None:
             return _emit_error(f"entry not found: {entry_id}")
         if not _is_risk_row(target):
@@ -827,12 +985,9 @@ def cmd_set_risk_state(
         rr_err = _reject_if_legacy_rr_active(state)
         if rr_err:
             return _emit_error(rr_err)
-        gate_err = _reject_if_r_assumption_gate_closed(state)
-        if gate_err:
-            return _emit_error(gate_err)
         reg_flags = _register_io_flags(state)
         registers = load_registers(paths["registers"], **reg_flags)
-        target = _find_assumption(registers, entry_id.strip())
+        target = _find_risk_target(registers, entry_id.strip())
         if target is None:
             return _emit_error(f"entry not found: {entry_id}")
         if not _is_risk_row(target):
@@ -869,8 +1024,6 @@ def cmd_apply_r_assumptions(
         rr_err = _reject_if_legacy_rr_active(state)
         if rr_err:
             return _emit_error(rr_err)
-        if str(state.get("active_gate", "")) != "R":
-            return _emit_error("apply-r-assumptions requires active_gate=R")
         assumptions = payload.get("assumptions")
         if not isinstance(assumptions, list) or not assumptions:
             return _emit_error("assumptions array is required")
@@ -966,11 +1119,7 @@ def _collect_delivery_errors(
     if require_decision_doc and not paths["decision_doc"].exists():
         errors.append("decision-doc not found; run session-integrity render before deliver")
 
-    for entry in registers.get("assumptions", []):
-        if not isinstance(entry, dict):
-            continue
-        if not _is_risk_row(entry):
-            continue
+    for entry in _iter_delivery_risk_rows(registers):
         entry_id = str(entry.get("id", ""))
         risk_state = _risk_state_of(entry)
         if risk_state == "open":
@@ -985,6 +1134,26 @@ def _collect_delivery_errors(
                 except ValueError as exc:
                     errors.append(str(exc))
     return errors
+
+
+def _iter_delivery_risk_rows(registers: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    covered_assumptions: set[str] = set()
+    for entry in registers.get("risks", []):
+        if not isinstance(entry, dict):
+            continue
+        rows.append(entry)
+        ref = entry.get("source_ref")
+        if isinstance(ref, dict) and ref.get("kind") == "assumption":
+            covered_assumptions.add(str(ref.get("id")))
+    for entry in registers.get("assumptions", []):
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("id")) in covered_assumptions:
+            continue
+        if _is_risk_row(entry):
+            rows.append(entry)
+    return rows
 
 
 def cmd_check_delivery_ready(
@@ -1194,6 +1363,12 @@ def cmd_gate_close(
         if prereq_error:
             return _emit_error(prereq_error)
         _validate_gate_close_payload(gate, payload, constraints=constraints)
+        if gate in {"Q", "GL", "E", "D", "X"}:
+            open_err = _reject_if_open_risks(
+                load_registers(paths["registers"], **_register_io_flags(state))
+            )
+            if open_err:
+                return _emit_error(open_err)
         if gate == "R":
             exit_path = str(payload.get("exit", "")).strip()
             r_status = str(state["gates"]["R"].get("status", "")).lower()
@@ -1249,7 +1424,21 @@ def cmd_gate_close(
             updated = close_gate(state, gate)
         save_gate_state(paths["gate_state"], updated)
         if _gate_close_persists_payload(gate, payload):
-            _persist_gate_payload(paths, gate, payload)
+            persist_payload = payload
+            previous_q = None
+            if gate == "Q":
+                q_path = gate_payload_path(paths["payloads_dir"], gate)
+                if q_path.exists():
+                    previous_q = load_gate_payload(q_path)
+                persist_payload = _q_persist_payload(payload)
+            _persist_gate_payload(paths, gate, persist_payload)
+            if gate == "Q":
+                _fold_legacy_q_constraints(
+                    paths["registers"],
+                    gate_state=state,
+                    incoming=payload,
+                    previous=previous_q,
+                )
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
 
@@ -1437,7 +1626,21 @@ def cmd_batch_reclose(
 
     # Validate fully before any write (atomic batch).
     for gate in ordered:
-        _persist_gate_payload(paths, gate, payloads[gate])
+        persist_payload = payloads[gate]
+        previous_q = None
+        if gate == "Q":
+            q_path = gate_payload_path(paths["payloads_dir"], gate)
+            if q_path.exists():
+                previous_q = load_gate_payload(q_path)
+            persist_payload = _q_persist_payload(payloads[gate])
+        _persist_gate_payload(paths, gate, persist_payload)
+        if gate == "Q":
+            _fold_legacy_q_constraints(
+                paths["registers"],
+                gate_state=updated,
+                incoming=payloads[gate],
+                previous=previous_q,
+            )
     save_gate_state(paths["gate_state"], updated)
 
     _emit(

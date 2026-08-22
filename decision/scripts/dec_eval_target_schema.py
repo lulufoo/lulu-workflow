@@ -12,7 +12,7 @@ from dec_decision_doc_schema import SECTION_HEADINGS, SECTION_ORDER
 from dec_domain_constraints_schema import is_section_active
 from dec_gate_payload_schema import gate_payloads_for_session
 from dec_io import atomic_write_text
-from dec_register_schema import load_registers
+from dec_register_schema import effective_constraint_text, load_registers, risk_display_rows
 
 EVAL_TARGET_FILENAME = "decision-eval-target.md"
 
@@ -22,7 +22,7 @@ _SECTION_SOURCE: dict[str, str] = {
     "direction_readiness": "gate-payloads/GL.json",
     "direction": "gate-payloads/E.json",
     "settled_direction": "gate-payloads/D.json",
-    "assumptions": "registers.json#assumptions",
+    "assumptions": "registers.json#assumptions+risks",
     "execution_analysis": "gate-payloads/X.json",
 }
 
@@ -141,15 +141,18 @@ def _section_body(
     if section_key == "user_prior":
         return _render_prior_table(list(registers.get("prior") or []))
     if section_key == "assumptions":
-        return _render_assumptions_table(list(registers.get("assumptions") or []))
+        return _render_assumptions_table(risk_display_rows(registers))
     gate = _SECTION_GATE[section_key]
     assert gate is not None
     payload = payloads.get(gate) or {}
     if section_key == "problem":
+        constraint_text = effective_constraint_text(registers)
+        if not constraint_text:
+            constraint_text = payload.get("constraints", "")
         return _render_kv_block(
             {
                 "problem_statement": payload.get("problem_statement", ""),
-                "constraints": payload.get("constraints", ""),
+                "constraints": constraint_text,
             }
         )
     if section_key == "direction_readiness":

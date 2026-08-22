@@ -6,8 +6,8 @@ meta-skill-version: 1.0.0
 
 # q-problem-runner
 
-Clarify the problem statement and non-negotiable constraints. Complete when the
-user confirms both are accurate.
+Write and confirm the problem statement. Complete when the user confirms it.
+Hard constraints are already on `C#` via G0; do not collect them here.
 
 ## Blocking policy
 
@@ -40,34 +40,29 @@ Subcommand contracts: module docstring / `--help`.
 | ID | Must be clear |
 |----|----------------|
 | `G-problem` | What triggered this decision? What problem are we solving? |
-| `G-constraints` | What are the known, non-negotiable constraints? |
 
-Constraints are **facts**, not decisions. Do not challenge or negotiate them away.
+Do not re-collect hard constraints. New facts / unverified claims / judgments
+go to G0 as `C#` / `A#` / `P#`.
 
 ### Coverage
 
-Evaluate both goals from the conversation so far, **including O prior** and
-anything the user already stated before Q became active.
+Evaluate `G-problem` from the conversation so far, **including O prior**.
 
-- **Covered:** user has stated an equivalent claim (or explicitly confirmed “no
-  extra hard constraints” for an empty constraint set).
-- **Gap:** goal not yet satisfied.
-- If a goal is already covered: **do not** re-ask or split it into another
-  confirmation round (G7). When **both** are covered on entry (typical after a
-  rich O), go straight to **summarize** — never three confirmation rounds.
+- **Covered:** user has stated an equivalent problem claim.
+- **Gap:** problem not yet satisfied.
+- If already covered on entry: go straight to **summarize** (G7).
 
 ### Dialogue modes
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `probe` | Any goal has a gap | Apply ask-protocol, then ask only the gap (G1: one question per turn). Prefer one gap face per turn. |
-| `summarize` | Both goals covered | Restate problem + constraints once; ask if correct. At most one waiting-for-confirm turn. |
+| `probe` | `G-problem` has a gap | Apply ask-protocol; one question per turn (G1). |
+| `summarize` | `G-problem` covered | Restate the problem once; ask if correct. |
 | `close` | User confirms summarize | `gate-close` with payload below. |
 
-If the user rejects the summary: treat the denied point as a gap → `probe`, then
-re-evaluate.
+If the user rejects the summary: treat the denied point as a gap → `probe`.
 
-Do **not** hard-code fixed question wording; phrase from goals +
+Do **not** hard-code fixed question wording; phrase from the goal +
 `$CTX.domain_constraints`.
 
 ### Side routes
@@ -88,9 +83,9 @@ Do **not** hard-code fixed question wording; phrase from goals +
 **Act:**
 
 1. Loop (Cognitive map):
-   - Evaluate `G-problem` / `G-constraints`.
-   - If any gap → `probe` (side routes as above; then continue loop).
-   - If both covered → `summarize` → on confirm →
+   - Evaluate `G-problem`.
+   - If gap → `probe` (side routes as above; then continue loop).
+   - If covered → `summarize` → on confirm →
      `$GATE_CONTROL gate-close --gate Q --payload '<json>'` → break.
 
 **Done:** Return `GATE_COMPLETE Q`.
@@ -102,8 +97,7 @@ user direction.
 
 ```json
 {
-  "problem_statement": "<agreed problem>",
-  "constraints": "<enumerated constraints>"
+  "problem_statement": "<agreed problem>"
 }
 ```
 

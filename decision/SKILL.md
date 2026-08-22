@@ -90,7 +90,8 @@ unless re-registered or re-closed.
 ### Topology
 
 - **G0 · Parallel Registers** — entire session · parallel on hit · spine uninterrupted (see § Gate routing · G0).
-- **G9 · Upstream-change detect** — any turn · not parallel · on hit load RS (no dedicated G9 runner).
+- **G8 · Incremental risk** — after a write in § Runner handoff · 4 · not parallel · load Scan incremental (no dedicated G8 runner). Complete only after this Diff's `open` is released or the user routes away.
+- **G9 · Semantic inconsistency** — after G8 is complete, and on revise of a closed conclusion · not parallel · on hit load RS (no dedicated G9 runner). Context only; do not load persisted files to evaluate.
 - **RS · Realign State Handler** — upstream change needs downstream sync · not parallel · LoopA re-entry at align gate `G` (see § Gate routing · RS).
 
 **Spine:** [LoopA] O → Q → GL → E → D → X → R → DC → `$GATE_CONTROL complete`.
@@ -108,11 +109,16 @@ runner owns its context acquisition or reuse rule. Do not skip it or rely on
 memory.
 </HARD-GATE>
 
-1. After `GATE_COMPLETE`, load the next spine runner per the table.
+1. After `GATE_COMPLETE`, load the next spine runner.
 2. On an eligible G0 identification hit, load G0 before the next user-visible
    reply. After `G0_COMPLETE`, resume the interrupted flow.
-3. On G9, load RS before `$RS_COMMIT`. After RS or Batch completion, load the
-   runner named by its completion result.
+3. On G9 hit, load RS before `$RS_COMMIT`. After RS or Batch completion, load
+   the runner named by its completion result.
+4. After `$REGISTER_COMMIT`, `$RS_COMMIT`, `$BATCH_RECLOSE`, or a
+   payload-writing `$GATE_CONTROL gate-close`: bind Diff from that stdout; run
+   G8 then G9 before the next user-visible reply. Do not change `active_gate`.
+   Do not re-enter G8 on `apply-r-assumptions`, `complete-assumption`, or
+   `set-risk-state`.
 
 ### Gate routing
 
@@ -121,8 +127,11 @@ Global gates:
 | Gate | File | Load condition |
 |------|------|----------------|
 | **G0** | `$SKILL_DIR/runners/g0-parallel-registers-runner/SKILL.md` | Identification hit · **parallel** |
-| **G9** | _(no runner)_ → load **RS** | Any turn: revise/contradict a closed gate · **not parallel** |
+| **G8** | _(no runner)_ → load **Scan** | After a write in handoff 4 · **not parallel** |
+| **G9** | _(no runner)_ → load **RS** on hit | After G8 is complete; or revise/contradict a closed gate · **not parallel** |
 | **RS** | `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` | Upstream change → realign · **not parallel** |
+| **Scan** | `$SKILL_DIR/runners/risk-scan-runner/SKILL.md` | G8 incremental · R full |
+| **Release** | `$SKILL_DIR/runners/risk-release-runner/SKILL.md` | Scan incremental Done · R `handle` |
 
 Spine gates:
 
@@ -190,10 +199,14 @@ If user confirms exit → exit gracefully; mark as incomplete.
 
 **Prohibited:** re-asking information already stated.
 
-**G9. Upstream-change detect (global · any turn)** — on any user turn, if
-information revises or contradicts a closed gate's conclusion, load RS per
-§ Workflow Router. RS determines the realign point. This is an
-identification-hit check, not a per-turn full scan.
+**G8. Incremental risk (global)** — after a write in handoff 4, load
+`$SKILL_DIR/runners/risk-scan-runner/SKILL.md` in **incremental** mode with
+Diff = that stdout. G8 is complete when Scan returns `SCAN_COMPLETE`. Then G9.
+
+**G9. Semantic inconsistency (global · after G8)** — after G8 is complete, and
+on any user turn that revises or contradicts a closed conclusion: judge obvious
+inconsistency from the current conversation only. Do not load persisted files
+to evaluate. Hit → load RS. Miss ≠ strict consistency (Eval loads files).
 
 ---
 

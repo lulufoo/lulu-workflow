@@ -6,8 +6,8 @@ meta-skill-version: 1.0.0
 
 # g0-parallel-registers-runner
 
-Capture newly identified User Prior and Assumptions without changing the active
-gate. Complete when the entries are committed and the interrupted gate resumes.
+Capture newly identified Prior, hard constraints, and Assumptions without
+changing the active gate. Complete when the entries are committed.
 
 ## Blocking policy
 
@@ -31,6 +31,7 @@ Control CLI non-zero → stop, report error, wait for user direction.
 
 | Signal in dialogue | Log | Also log |
 |--------------------|-----|----------|
+| Confirmed fact / non-negotiable given | Constraint | — |
 | Judgment about the problem or solution | Prior · `judgment` | — |
 | Preference between options or approaches | Prior · `preference` | — |
 | Worry, risk, or blocker | Prior · `concern` | — |
@@ -38,7 +39,8 @@ Control CLI non-zero → stop, report error, wait for user direction.
 | Explicit or implicit unverified premise | Assumption | — |
 | Prior resting on an unverified premise | Prior (matching kind) | Assumption for the premise |
 
-Recognize Assumptions as they surface; do not defer them to R.
+Classify on intake. Unverified claims must not become Constraint. Do not write
+`risks[]`. Do not rewrite a scanned risk into a Constraint.
 
 ### Bounds
 
@@ -46,9 +48,9 @@ Recognize Assumptions as they surface; do not defer them to R.
   does not call `gate-close`.
 - Confirm the proposed entries briefly with the user before persistence.
 - Persist only through `$REGISTER_COMMIT`; do not hand-edit registers or chain
-  register commands.
-- Reading or organizing Prior belongs to D or R. Bulk Assumption updates belong
-  to R; RS owns register batches during realignment.
+  register commands. `$REGISTER_COMMIT` cannot write `risks[]`.
+- Constraint revise/remove uses `revise` / `remove` on `C#`. RS does not
+  edit or delete `C#`.
 - The Frozen exception resumes the interrupted RS confirmation; do not resume a
   spine gate.
 
@@ -60,11 +62,11 @@ Recognize Assumptions as they surface; do not defer them to R.
 
 **Act:**
 
-1. Briefly confirm the proposed Prior and Assumption entries with the user.
-2. Run `$REGISTER_COMMIT` with the required append/update operations.
+1. Briefly confirm the proposed Prior, Constraint, and Assumption entries.
+2. Run `$REGISTER_COMMIT` with the required append/update/revise/remove operations.
 3. Pin `$CTX` from stdout.
 
-**Done:** Return `G0_COMPLETE` and resume the interrupted gate dialogue.
+**Done:** Return `G0_COMPLETE`.
 
 **Stop:** Non-zero command → stop, report error, wait for user direction.
 
@@ -77,6 +79,7 @@ Append example:
 ```json
 [
   {"action": "append", "kind": "prior", "payload": {"kind": "concern", "text": "..."}},
+  {"action": "append", "kind": "constraint", "payload": {"text": "..."}},
   {"action": "append", "kind": "assumption", "payload": {"text": "..."}}
 ]
 ```

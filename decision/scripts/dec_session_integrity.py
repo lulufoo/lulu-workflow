@@ -50,7 +50,11 @@ from dec_gate_state_schema import (  # noqa: E402
     is_gate_reached,
     load_gate_state,
 )
-from dec_register_schema import load_registers, validate_registers  # noqa: E402
+from dec_register_schema import (  # noqa: E402
+    effective_constraint_text,
+    load_registers,
+    validate_registers,
+)
 from dec_session_paths import (  # noqa: E402
     resolve_session_root_for_command,
     session_artifact_paths,
@@ -118,14 +122,13 @@ def run_structural_audit(
     errors: list[str] = []
 
     registers_raw = json.loads(paths["registers"].read_text(encoding="utf-8"))
-    reg_errors = validate_registers(
-        registers_raw,
-        r_gate_closed=r_closed,
-        r_risk_fields_allowed=r_reached,
+    errors.extend(
+        validate_registers(
+            registers_raw,
+            r_gate_closed=r_closed,
+            r_risk_fields_allowed=r_reached,
+        )
     )
-    for err in reg_errors:
-        if "risk fields set before R gate reached" in err:
-            errors.append(f"REG_RISK_WHEN_R_OPEN: {err}")
 
     skipped = frozenset(state.get("skipped_gates") or [])
     for gate in GATE_ORDER:
@@ -154,11 +157,17 @@ def _apply_payload_to_doc(
     payload: dict[str, Any],
     *,
     constraints: dict[str, Any],
+    registers: dict[str, Any] | None = None,
 ) -> str:
     if gate == "Q":
+        constraint_text = ""
+        if registers is not None:
+            constraint_text = effective_constraint_text(registers)
+        if not constraint_text:
+            constraint_text = str(payload.get("constraints", ""))
         body = render_problem_body(
             problem_statement=str(payload.get("problem_statement", "")),
-            constraints=str(payload.get("constraints", "")),
+            constraints=constraint_text,
         )
         return replace_section(doc, "problem", body, constraints=constraints)
     if gate == "GL":
@@ -224,10 +233,22 @@ def render_decision_doc(
     doc = init_decision_doc(template=template, cycle_id=cycle_id, constraints=constraints)
 
     payloads = gate_payloads_for_session(paths["payloads_dir"])
+    state = load_gate_state(paths["gate_state"])
+    registers = load_registers(
+        paths["registers"],
+        r_gate_closed=is_gate_closed(state, "R"),
+        r_risk_fields_allowed=True,
+    )
     for gate in ("Q", "GL", "E", "D", "X"):
         payload = payloads.get(gate)
         if payload is not None:
-            doc = _apply_payload_to_doc(doc, gate, payload, constraints=constraints)
+            doc = _apply_payload_to_doc(
+                doc,
+                gate,
+                payload,
+                constraints=constraints,
+                registers=registers,
+            )
 
     from dec_register_control import sync_registers_to_doc  # noqa: WPS433
 

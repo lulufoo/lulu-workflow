@@ -39,4 +39,4 @@ Major phases / landing steps in D must have corresponding acceptance coverage in
 
 ### Rule
 
-X `gap` must not contradict assumption `risk_state` / `release_terms` conclusions.
+X `gap` must not contradict assumption or `RK#` `risk_state` / `release_terms` conclusions.

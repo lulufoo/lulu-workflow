@@ -34,7 +34,7 @@ from dec_workflow_common import (  # noqa: E402
     registers_path,
     session_state_path,
 )
-from dec_test_helpers import gate_payload_exists  # noqa: E402
+from dec_test_helpers import gate_payload_exists, risk_for_source  # noqa: E402
 from test_dec_gate_loop_a import _close_qe, _full_template  # noqa: E402
 
 
@@ -417,7 +417,7 @@ def test_stale_from_d_after_r_closed_preserves_completed_risk(
     registers = json.loads(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
-    assumption = registers["assumptions"][0]
+    assumption = risk_for_source(registers, "A1")
     assert assumption["risk_level"] == "H"
     assert assumption["risk_consequence"] == "blocked"
     assert assumption["risk_class"] == "decision"
@@ -438,7 +438,7 @@ def test_stale_from_d_after_r_closed_preserves_completed_risk(
     capsys.readouterr()
     assert cmd_register_commit(project_root, cycle_id, stage, operations=[]) == 0
     context = json.loads(capsys.readouterr().out)
-    assert context["registers"]["assumptions"][0]["risk_state"] == "completed"
+    assert risk_for_source(context["registers"], "A1")["risk_state"] == "completed"
 
     assert cmd_render(project_root, cycle_id, stage) == 0
     decision_doc = (

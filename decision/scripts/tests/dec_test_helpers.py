@@ -69,6 +69,16 @@ def gate_payload_exists(
     return gate_payload_path(paths["payloads_dir"], gate).exists()
 
 
+def risk_for_source(registers: dict, source_id: str) -> dict:
+    for entry in registers.get("risks") or []:
+        if not isinstance(entry, dict):
+            continue
+        ref = entry.get("source_ref") if isinstance(entry.get("source_ref"), dict) else {}
+        if str(ref.get("id")) == source_id:
+            return entry
+    raise AssertionError(f"no RK# for {source_id}: {registers.get('risks')}")
+
+
 def list_gate_payloads(project_root: Path, cycle_id: str, stage: str = "decision") -> list[str]:
     paths = _active_paths(project_root, cycle_id, stage)
     payloads_dir = paths["payloads_dir"]

@@ -9,6 +9,7 @@ from typing import Any
 
 from dec_io import atomic_write_text
 
+from dec_register_schema import risk_display_rows  # noqa: WPS433
 from dec_domain_constraints_schema import (  # noqa: WPS433
     ALL_X_DIMENSIONS,
     active_x_dimensions,
@@ -360,7 +361,7 @@ def render_assumptions_body(registers: dict[str, Any]) -> str:
         "| # | Assumption | Source | Risk | Class | State | Failure Consequence | Release Terms | Status |",
         "|---|-----------|--------|------|-------|-------|---------------------|---------------|--------|",
     ]
-    assumptions = registers.get("assumptions", [])
+    assumptions = risk_display_rows(registers)
     if not assumptions:
         lines.append("| | | | | | | | | |")
     else:

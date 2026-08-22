@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Schema and I/O for decision registers.json."""
+"""Schema and I/O for decision registers.json.
+
+Design rationale: docs/domain/archive/decision/decision-risk-release-timing-design.md
+"""
 
 from __future__ import annotations
 
@@ -21,6 +24,14 @@ REGISTER_SOURCES = frozenset({"O", "Q", "GL", "E", "D", "X", "R", "RR", "V"})
 RISK_LEVELS = frozenset({"H", "M", "L", "none"})
 RISK_CLASSES = frozenset({"decision", "implementation", "pending", "none"})
 RISK_STATES = frozenset({"open", "ignore", "completed", "none"})
+RISK_SOURCE_KINDS = frozenset({"prior", "assumption", "constraint"})
+_RISK_FIELD_KEYS = (
+    "risk_level",
+    "risk_class",
+    "risk_state",
+    "risk_consequence",
+    "release_terms",
+)
 
 
 def _now_iso() -> str:
@@ -39,8 +50,12 @@ def init_registers(*, cycle_id: str, stage: str) -> dict[str, Any]:
             "stage": stage,
             "prior": [],
             "assumptions": [],
+            "constraints": [],
+            "risks": [],
             "next_prior_seq": 1,
             "next_assumption_seq": 1,
+            "next_constraint_seq": 1,
+            "next_risk_seq": 1,
             "updated_at": _now_iso(),
         }
     )
@@ -52,14 +67,14 @@ RELEASE_TERMS_PARTS = ("Method:", "Owner:", "Timing:", "Release condition:")
 def validate_release_terms(terms: str, *, entry_id: str) -> None:
     text = str(terms).strip()
     if not text:
-        raise ValueError(f"assumption {entry_id}: release_terms is required")
+        raise ValueError(f"{entry_id}: release_terms is required")
     if text.startswith("Handoff:"):
-        raise ValueError(f"assumption {entry_id}: Handoff: forbidden in release_terms")
+        raise ValueError(f"{entry_id}: Handoff: forbidden in release_terms")
     if text == "Accepted":
         return
     for part in RELEASE_TERMS_PARTS:
         if part not in text:
-            raise ValueError(f"assumption {entry_id}: release_terms missing {part!r}")
+            raise ValueError(f"{entry_id}: release_terms missing {part!r}")
 
 
 def validate_registers(
@@ -93,9 +108,29 @@ def validate_registers(
                     entry,
                     index,
                     seen_assumption,
-                    r_risk_fields_allowed=r_risk_fields_allowed,
+                    r_risk_fields_allowed=True,
                 )
             )
+
+    constraints = data.get("constraints")
+    if constraints is None:
+        pass
+    elif not isinstance(constraints, list):
+        errors.append("constraints must be an array")
+    else:
+        seen_constraint: set[str] = set()
+        for index, entry in enumerate(constraints):
+            errors.extend(_validate_constraint_entry(entry, index, seen_constraint))
+
+    risks = data.get("risks")
+    if risks is None:
+        pass
+    elif not isinstance(risks, list):
+        errors.append("risks must be an array")
+    else:
+        seen_risk: set[str] = set()
+        for index, entry in enumerate(risks):
+            errors.extend(_validate_risk_entry(entry, index, seen_risk))
 
     return errors
 
@@ -134,7 +169,7 @@ def _validate_assumption_entry(
     index: int,
     seen: set[str],
     *,
-    r_risk_fields_allowed: bool,
+    r_risk_fields_allowed: bool = True,
 ) -> list[str]:
     errors: list[str] = []
     if not isinstance(entry, dict):
@@ -176,12 +211,9 @@ def _validate_assumption_entry(
         v is not None
         for v in (risk_level, risk_class, risk_state, risk_consequence, release_terms)
     )
-    if any_risk and not r_risk_fields_allowed:
-        errors.append(f"assumptions[{index}]: risk fields set before R gate reached")
-        return errors
-
     if not any_risk:
         return errors
+    # Leftover A# risk_* is dual-read. New writes go to risks[].
 
     if risk_level is None or risk_class is None or risk_state is None:
         errors.append(
@@ -250,11 +282,79 @@ def _migrate_assumption_entry(entry: dict[str, Any]) -> None:
         entry.pop(key, None)
 
 
+def _validate_constraint_entry(entry: Any, index: int, seen: set[str]) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(entry, dict):
+        return [f"constraints[{index}] must be an object"]
+    entry_id = str(entry.get("id", ""))
+    if not re.fullmatch(r"C\d+", entry_id):
+        errors.append(f"constraints[{index}].id invalid: {entry_id!r}")
+    elif entry_id in seen:
+        errors.append(f"duplicate constraint id: {entry_id}")
+    else:
+        seen.add(entry_id)
+    if not str(entry.get("text", "")).strip():
+        errors.append(f"constraints[{index}].text must be non-empty")
+    revision = entry.get("revision", 1)
+    if not isinstance(revision, int) or revision < 1:
+        errors.append(f"constraints[{index}].revision invalid: {revision!r}")
+    source = str(entry.get("source", ""))
+    if source not in REGISTER_SOURCES:
+        errors.append(f"constraints[{index}].source invalid: {source!r}")
+    return errors
+
+
+def _validate_risk_entry(entry: Any, index: int, seen: set[str]) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(entry, dict):
+        return [f"risks[{index}] must be an object"]
+    entry_id = str(entry.get("id", ""))
+    if not re.fullmatch(r"RK\d+", entry_id):
+        errors.append(f"risks[{index}].id invalid: {entry_id!r}")
+    elif entry_id in seen:
+        errors.append(f"duplicate risk id: {entry_id}")
+    else:
+        seen.add(entry_id)
+    source_ref = entry.get("source_ref")
+    if not isinstance(source_ref, dict):
+        errors.append(f"risks[{index}].source_ref must be an object")
+    else:
+        kind = str(source_ref.get("kind", "")).strip()
+        ref_id = str(source_ref.get("id", "")).strip()
+        if kind not in RISK_SOURCE_KINDS:
+            errors.append(f"risks[{index}].source_ref.kind invalid: {kind!r}")
+        prefix = {"prior": "P", "assumption": "A", "constraint": "C"}.get(kind, "")
+        if prefix and not re.fullmatch(rf"{prefix}\d+", ref_id):
+            errors.append(f"risks[{index}].source_ref.id invalid: {ref_id!r}")
+    if not str(entry.get("text", "")).strip():
+        errors.append(f"risks[{index}].text must be non-empty")
+    level_s = str(entry.get("risk_level", "")).strip()
+    class_s = str(entry.get("risk_class", "")).strip()
+    state_s = str(entry.get("risk_state", "")).strip()
+    if level_s not in {"H", "M", "L"}:
+        errors.append(f"risks[{index}].risk_level must be H/M/L")
+    if class_s not in {"decision", "implementation", "pending"}:
+        errors.append(f"risks[{index}].risk_class invalid: {class_s!r}")
+    if state_s not in {"open", "ignore", "completed"}:
+        errors.append(f"risks[{index}].risk_state invalid: {state_s!r}")
+    consequence = entry.get("risk_consequence")
+    if consequence is not None and not isinstance(consequence, str):
+        errors.append(f"risks[{index}].risk_consequence must be a string")
+    terms = entry.get("release_terms")
+    if terms is not None and not isinstance(terms, str):
+        errors.append(f"risks[{index}].release_terms must be a string")
+    return errors
+
+
 def normalize_registers(data: dict[str, Any]) -> dict[str, Any]:
     prior_raw = data.get("prior")
     assumptions_raw = data.get("assumptions")
+    constraints_raw = data.get("constraints")
+    risks_raw = data.get("risks")
     prior = prior_raw if isinstance(prior_raw, list) else []
     assumptions = assumptions_raw if isinstance(assumptions_raw, list) else []
+    constraints = constraints_raw if isinstance(constraints_raw, list) else []
+    risks = risks_raw if isinstance(risks_raw, list) else []
 
     for entry in prior:
         if isinstance(entry, dict) and str(entry.get("source", "")) == "open":
@@ -271,8 +371,12 @@ def normalize_registers(data: dict[str, Any]) -> dict[str, Any]:
         "stage": str(data.get("stage", "")),
         "prior": prior,
         "assumptions": assumptions,
+        "constraints": constraints,
+        "risks": risks,
         "next_prior_seq": int(data.get("next_prior_seq", 1)),
         "next_assumption_seq": int(data.get("next_assumption_seq", 1)),
+        "next_constraint_seq": int(data.get("next_constraint_seq", 1)),
+        "next_risk_seq": int(data.get("next_risk_seq", 1)),
         "updated_at": data.get("updated_at") or _now_iso(),
     }
 
@@ -333,6 +437,102 @@ def next_prior_id(data: dict[str, Any]) -> str:
 def next_assumption_id(data: dict[str, Any]) -> str:
     seq = int(data.get("next_assumption_seq", 1))
     return f"A{seq}"
+
+
+def next_constraint_id(data: dict[str, Any]) -> str:
+    seq = int(data.get("next_constraint_seq", 1))
+    return f"C{seq}"
+
+
+def next_risk_id(data: dict[str, Any]) -> str:
+    seq = int(data.get("next_risk_seq", 1))
+    return f"RK{seq}"
+
+
+def find_duplicate_constraint(data: dict[str, Any], text: str) -> dict[str, Any] | None:
+    target = _normalize_text(text)
+    for entry in data.get("constraints", []):
+        if not isinstance(entry, dict):
+            continue
+        if _normalize_text(str(entry.get("text", ""))) == target:
+            return entry
+    return None
+
+
+def find_risk_by_source(
+    data: dict[str, Any], *, kind: str, source_id: str
+) -> dict[str, Any] | None:
+    for entry in data.get("risks", []):
+        if not isinstance(entry, dict):
+            continue
+        ref = entry.get("source_ref")
+        if not isinstance(ref, dict):
+            continue
+        if str(ref.get("kind", "")) == kind and str(ref.get("id", "")) == source_id:
+            return entry
+    return None
+
+
+def find_risk_by_id(data: dict[str, Any], entry_id: str) -> dict[str, Any] | None:
+    for entry in data.get("risks", []):
+        if isinstance(entry, dict) and str(entry.get("id")) == entry_id:
+            return entry
+    return None
+
+
+def effective_constraint_text(data: dict[str, Any]) -> str:
+    lines = [
+        str(entry.get("text", "")).strip()
+        for entry in data.get("constraints", [])
+        if isinstance(entry, dict) and str(entry.get("text", "")).strip()
+    ]
+    return "\n".join(lines)
+
+
+def risk_display_rows(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Assumption rows with RK# overlay, then leftover P/C risks."""
+    rows: list[dict[str, Any]] = []
+    used: set[str] = set()
+    by_assumption: dict[str, dict[str, Any]] = {}
+    for entry in data.get("risks", []):
+        if not isinstance(entry, dict):
+            continue
+        ref = entry.get("source_ref")
+        if isinstance(ref, dict) and ref.get("kind") == "assumption":
+            by_assumption[str(ref.get("id"))] = entry
+    for entry in data.get("assumptions", []):
+        if not isinstance(entry, dict):
+            continue
+        row = dict(entry)
+        risk = by_assumption.get(str(entry.get("id")))
+        if risk is not None:
+            used.add(str(risk.get("id")))
+            for key in _RISK_FIELD_KEYS:
+                if key in risk:
+                    row[key] = risk.get(key)
+        rows.append(row)
+    for entry in data.get("risks", []):
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("id")) in used:
+            continue
+        ref = entry.get("source_ref") if isinstance(entry.get("source_ref"), dict) else {}
+        kind = str(ref.get("kind", "")).strip()
+        source_id = str(ref.get("id", "")).strip()
+        source = f"{kind}:{source_id}" if kind or source_id else ""
+        rows.append(
+            {
+                "id": entry.get("id"),
+                "text": entry.get("text"),
+                "source": source,
+                "risk_level": entry.get("risk_level"),
+                "risk_class": entry.get("risk_class"),
+                "risk_state": entry.get("risk_state"),
+                "risk_consequence": entry.get("risk_consequence"),
+                "release_terms": entry.get("release_terms"),
+            }
+        )
+    return rows
 
 
 def find_duplicate_prior(data: dict[str, Any], *, kind: str, text: str) -> dict[str, Any] | None:

@@ -20,7 +20,7 @@ from dec_gate_control import (  # noqa: E402
     cmd_init_session,
     cmd_rs_commit,
 )
-from dec_workflow_common import gate_state_path  # noqa: E402
+from dec_workflow_common import gate_state_path, registers_path  # noqa: E402
 from dec_test_helpers import load_gate_payload_file  # noqa: E402
 from test_dec_gate_loop_a import _close_qe, _full_template  # noqa: E402
 
@@ -288,6 +288,9 @@ def test_rs_to_batch_reclose_integration(
     out = json.loads(capsys.readouterr().out)
     assert out["closed"] == ["Q", "GL", "E", "D", "X"]
     assert out["active_gate"] == "R"
-    assert load_gate_payload_file(project_root, cycle_id, "Q")["constraints"] == (
-        "tenant isolation"
+    q_closed = load_gate_payload_file(project_root, cycle_id, "Q")
+    assert "constraints" not in q_closed
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
+    assert registers["constraints"][0]["text"] == "tenant isolation"

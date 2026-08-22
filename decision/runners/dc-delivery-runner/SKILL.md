@@ -52,7 +52,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 - **Decision-doc:** not maintained during the session; `$SESSION_INTEGRITY render` builds it once before present. Layout / section filtering: `render --help`. Template: bundled at `$SKILL_DIR/templates/decision-doc.template.md` and loaded by the render command.
 - **Present** (from rendered doc; do not show file paths): Direction Readiness;
   Decision Rationale; Scope (incl. exclusions); Assumptions & Risks
-  (`risk_level`, `risk_class`, `risk_state`, `release_terms` where set).
+  (`RK#` `risk_level`, `risk_class`, `risk_state`, `release_terms` where set).
 - **Eval:** replaces AI Semantic Review; invoke Eval's Probe control segment, then route its returned result through Decision. Eval owns probe-runner dispatch; Decision never dispatches Eval runners or remediation. Details: `eval/eval-profile.json`, `$DEC_EVAL` / `$EVAL_CONTROL` `--help`, `eval/methods/decision-consistency.md`.
 - **After close:** do not announce stage Delivered or next stages.
 

@@ -23,6 +23,7 @@ from dec_gate_control import (  # noqa: E402
 from dec_gate_state_schema import load_gate_state  # noqa: E402
 from dec_register_control import cmd_register_append, cmd_register_update  # noqa: E402
 from dec_workflow_common import gate_state_path, registers_path  # noqa: E402
+from dec_test_helpers import risk_for_source  # noqa: E402
 from test_dec_gate_loop_a import _close_qe, _full_template  # noqa: E402
 
 _H_TERMS = (
@@ -140,7 +141,8 @@ def test_apply_r_assumptions_without_closing(
     registers = json.loads(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
-    assert registers["assumptions"][0]["risk_state"] == "open"
+    assert "risk_state" not in registers["assumptions"][0]
+    assert risk_for_source(registers, "A1")["risk_state"] == "open"
 
 
 def test_complete_assumption_during_active_r(
@@ -167,7 +169,7 @@ def test_complete_assumption_during_active_r(
     registers = json.loads(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
-    entry = registers["assumptions"][0]
+    entry = risk_for_source(registers, "A1")
     assert entry["risk_state"] == "completed"
     assert entry["release_terms"] == _H_TERMS
 
@@ -205,7 +207,7 @@ def test_reopening_completed_risk_clears_release_terms(
     registers = json.loads(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
-    entry = registers["assumptions"][0]
+    entry = risk_for_source(registers, "A1")
     assert entry["risk_state"] == "open"
     assert "release_terms" not in entry
 
@@ -249,12 +251,12 @@ def test_apply_r_reopening_completed_risk_clears_release_terms(
     registers = json.loads(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
-    entry = registers["assumptions"][0]
+    entry = risk_for_source(registers, "A1")
     assert entry["risk_state"] == "open"
     assert "release_terms" not in entry
 
 
-def test_register_update_reopening_completed_risk_clears_release_terms(
+def test_register_update_rejects_risk_state(
     template_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project_root = template_config
@@ -278,15 +280,13 @@ def test_register_update_reopening_completed_risk_clears_release_terms(
             entry_id="A1",
             payload={"risk_state": "open"},
         )
-        == 0
+        != 0
     )
-
     registers = json.loads(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
-    entry = registers["assumptions"][0]
-    assert entry["risk_state"] == "open"
-    assert "release_terms" not in entry
+    entry = risk_for_source(registers, "A1")
+    assert entry["risk_state"] == "completed"
 
 
 def test_complete_assumption_accepts_literal(
@@ -301,7 +301,7 @@ def test_complete_assumption_accepts_literal(
     registers = json.loads(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
-    registers["assumptions"][0]["risk_level"] = "L"
+    risk_for_source(registers, "A1")["risk_level"] = "L"
     (project_root / registers_path(cycle_id, stage)).write_text(
         json.dumps(registers, indent=2), encoding="utf-8"
     )
@@ -381,7 +381,7 @@ def test_set_risk_state_ignore_and_open(
     registers = json.loads(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
-    assert registers["assumptions"][0]["risk_state"] == "ignore"
+    assert risk_for_source(registers, "A1")["risk_state"] == "ignore"
 
     assert (
         cmd_set_risk_state(
@@ -455,7 +455,7 @@ def test_apply_r_defaults_l_to_ignore(
     registers = json.loads(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
-    assert registers["assumptions"][0]["risk_state"] == "ignore"
+    assert risk_for_source(registers, "A1")["risk_state"] == "ignore"
 
 
 def test_register_update_rejects_completed(
@@ -499,7 +499,7 @@ def test_register_update_rejects_completed(
     registers = json.loads(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
-    assert registers["assumptions"][0]["risk_state"] == "open"
+    assert risk_for_source(registers, "A1")["risk_state"] == "open"
 
 
 def test_gate_close_rejects_invented_completed(
@@ -536,7 +536,7 @@ def test_gate_close_rejects_invented_completed(
     registers = json.loads(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
-    assert registers["assumptions"][0].get("risk_state") != "completed"
+    assert risk_for_source(registers, "A1")["risk_state"] != "completed"
 
 
 def test_rr_gate_close_rejected(
@@ -673,17 +673,27 @@ def test_changing_risk_level_keeps_risk_state(
         == 0
     )
     assert (
-        cmd_register_update(
+        cmd_apply_r_assumptions(
             project_root,
             cycle_id,
             stage,
-            entry_id="A1",
-            payload={"risk_level": "M"},
+            payload={
+                "assumptions": [
+                    {
+                        "id": "A1",
+                        "risk_level": "M",
+                        "risk_class": "decision",
+                        "risk_state": "ignore",
+                        "risk_consequence": "May fail",
+                    }
+                ]
+            },
         )
         == 0
     )
     registers = json.loads(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
-    assert registers["assumptions"][0]["risk_level"] == "M"
-    assert registers["assumptions"][0]["risk_state"] == "ignore"
+    entry = risk_for_source(registers, "A1")
+    assert entry["risk_level"] == "M"
+    assert entry["risk_state"] == "ignore"

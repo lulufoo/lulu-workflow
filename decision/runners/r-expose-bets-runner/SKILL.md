@@ -48,14 +48,18 @@ Subcommand contracts: module docstring / `--help` (including
 
 ### Input scope
 
+- **Full set.** Scan input is all current Prior / Constraint / Assumption in
+  `$CTX.registers`, plus `$D` / `$X`. Not the G8 incremental Diff.
 - **Empty Prior / empty assumptions:** legal; present as empty — do not block close for lack of prior dump.
 - **Do not recollect Prior via G0** at R; sign-off is on `$CTX.registers.prior` as shown in the pack.
-- **Coverage:** review `$CTX.registers.assumptions` against `$D`, `$X`, and
-  current dialogue; do not collect the log from scratch.
+- **Coverage:** review `$CTX.registers` Prior / Constraint / Assumption against
+  `$D`, `$X`, and current dialogue; do not collect the log from scratch.
 - **Read `$CTX.gl.exchanges` in full** during `prepare` (prefer `gap_check` / risk-narrative / confirmation intents); fold into the draft — **no separate confirm turn**.
 - **Classification:** during `prepare`, load
-  `$SKILL_DIR/references/r-risk-classification.md`. Classify only on the full
-  table here — never at G0 / append time.
+  `$SKILL_DIR/runners/risk-scan-runner/SKILL.md` in **full** mode. Hits persist
+  as `RK#`; `none` stays in the pack only. Full Scan does not Release; `open`
+  stays for `handle` after `G-expose-confirm`. G8 incremental scan does not
+  replace this.
 
 ### Exit model
 
@@ -71,10 +75,10 @@ The user selects exactly one exit; do not choose it unilaterally.
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `prepare` | Pack not ready | Off-turn: read `$D`, `$X`, and other inputs; load `r-risk-classification`; draft the full table and proposed exit. **No user confirm turn.** |
-| `present` | Pack ready; awaiting expose confirm | Show Prior, coverage, risk table, and proposed exit together. Ask for one confirm or change points; do not split confirmations. |
+| `prepare` | Pack not ready | Off-turn: read `$D`, `$X`, and other inputs; load Scan in **full** mode; draft the full table and proposed exit. **No user confirm turn.** |
+| `present` | Pack ready; awaiting expose confirm | Show Prior, coverage, `RK#` table, and proposed exit together. Ask for one confirm or change points; do not split confirmations. |
 | `revise` | User requests expose changes | Apply changes, then re-present the full pack. |
-| `handle` | After `apply-r-assumptions` and any `risk_state=open` | H→M→L: pick next open; load `$SKILL_DIR/references/r-risk-release.md`; one op; repeat or exit. |
+| `handle` | After `apply-r-assumptions` and any `risk_state=open` | H→M→L: pick next open; load `$SKILL_DIR/runners/risk-release-runner/SKILL.md`; one op; repeat or exit. |
 | `close` | `G-handled` met for `dc` / `rs` / `human_decision` | `$GATE_CONTROL gate-close --gate R` with payload below. |
 
 ### Pass criterion
@@ -168,7 +172,9 @@ user direction.
 }
 ```
 
-- each assumption requires `risk_level`, `risk_class`, `risk_state`, `risk_consequence`
+- each hit requires `risk_level`, `risk_class`, `risk_state`, `risk_consequence`
+- item `id` is the source `P#` / `A#` / `C#` or an existing `RK#`
+- omit `none` triad rows from apply-r; they belong in the shown pack only
 - **Forbidden:** `risk_state=completed` (use `complete-assumption` in `handle`)
 
 ### Final `gate-close --gate R`

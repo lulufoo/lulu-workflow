@@ -51,6 +51,8 @@ Subcommand and stdout contracts: module docstring / `--help`.
 - The user confirms the align point and all Register operations before commit.
 - Prior may change between `pending` / `verified`; Assumption progress remains
   `risk_state`, so RS may only retain or delete Assumption rows.
+- RS does not edit or delete `C#`. Constraint revise/remove is G0
+  `$REGISTER_COMMIT`.
 - `$RS_COMMIT` owns stale marking and persistence. Do not edit session data,
   delete payloads, call `stale-from` separately, or enumerate downstream gates.
 - Surviving Assumption risk facts remain intact. RS does not invent or rewrite
