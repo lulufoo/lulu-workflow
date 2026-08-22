@@ -11,7 +11,7 @@
 
 Use each control's `--help` as the command and stdout contract.
 
-**Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate` is `G2` (G1 closed).
+**Prerequisites:** `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate` is `G2`.
 
 ## Goal
 

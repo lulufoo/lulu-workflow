@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Schema and I/O for inductive-gate-state.json.
 
-Tracks the G1–G4 lock machine. After G4 closes, active_gate becomes
-complete. Retired active_gate=G5 is incompatible and is not translated
-to complete.
+Tracks the G2–G4 lock machine. After G4 closes, active_gate becomes
+complete. Retired active_gate=G1 or G5 is incompatible and is not
+translated.
 
 Gate statuses: pending | active | closed | reopened
 """
@@ -15,14 +15,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-GATE_ORDER: tuple[str, ...] = ("G1", "G2", "G3", "G4")
+GATE_ORDER: tuple[str, ...] = ("G2", "G3", "G4")
 COMPLETE_GATE = "complete"
 ROUTING_GATES: tuple[str, ...] = GATE_ORDER + (COMPLETE_GATE,)
-_RETIRED_G5 = "G5"
+_RETIRED_GATES = frozenset({"G1", "G5"})
 GATE_STATUSES = frozenset({"pending", "active", "closed", "reopened"})
 
 _GATE_LABELS: dict[str, str] = {
-    "G1": "Shape Perception",
     "G2": "Topic Loop",
     "G3": "Open-point Loop",
     "G4": "Internal Audit",
@@ -43,16 +42,17 @@ def init_gate_state(
     stage: str,
     master_conversation_id: str = "",
 ) -> dict[str, Any]:
-    """Return a new gate state with G1 active."""
+    """Return a new gate state with G2 active."""
+    first = GATE_ORDER[0]
     gates: dict[str, dict[str, Any]] = {}
     for gate in GATE_ORDER:
-        status = "active" if gate == "G1" else "pending"
+        status = "active" if gate == first else "pending"
         gates[gate] = _default_gate_entry(status=status)
     data: dict[str, Any] = {
         "version": "1",
         "cycle_id": cycle_id,
         "stage": stage,
-        "active_gate": "G1",
+        "active_gate": first,
         "gates": gates,
         "updated_at": _now_iso(),
     }
@@ -68,8 +68,8 @@ def validate_gate_state(data: dict[str, Any]) -> list[str]:
         errors.append(f"invalid version: {data.get('version')!r}")
 
     active = str(data.get("active_gate", ""))
-    if active == _RETIRED_G5:
-        errors.append("incompatible: active_gate G5 is retired")
+    if active in _RETIRED_GATES:
+        errors.append(f"incompatible: active_gate {active} is retired")
     elif active not in ROUTING_GATES:
         errors.append(f"invalid active_gate: {active!r}")
 
@@ -92,7 +92,7 @@ def validate_gate_state(data: dict[str, Any]) -> list[str]:
             entry = gates.get(gate) if isinstance(gates, dict) else None
             if not isinstance(entry, dict) or str(entry.get("status", "")).lower() != "closed":
                 errors.append(f"active_gate complete requires gates.{gate}.status=closed")
-    elif active and active != _RETIRED_G5 and isinstance(gates, dict):
+    elif active and active not in _RETIRED_GATES and isinstance(gates, dict):
         active_entry = gates.get(active)
         if isinstance(active_entry, dict):
             active_status = str(active_entry.get("status", "")).lower()
@@ -120,11 +120,11 @@ def normalize_gate_state(data: dict[str, Any]) -> dict[str, Any]:
             "payload": entry.get("payload"),
         }
 
-    active = str(data.get("active_gate", "G1"))
-    if active == _RETIRED_G5:
-        active = _RETIRED_G5
+    active = str(data.get("active_gate", GATE_ORDER[0]))
+    if active in _RETIRED_GATES:
+        pass
     elif active not in ROUTING_GATES:
-        active = "G1"
+        active = GATE_ORDER[0]
 
     normalized: dict[str, Any] = {
         "version": "1",

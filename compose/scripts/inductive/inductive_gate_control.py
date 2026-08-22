@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Inductive runner outer gate spine control.
 
-Manages the G1->G2->G3->G4 lock machine. After G4 closes, active_gate
+Manages the G2->G3->G4 lock machine. After G4 closes, active_gate
 becomes complete. Provenance audit is delivery Eval, not a G5 gate.
 
 Subcommands:
@@ -18,7 +18,6 @@ Subcommands:
     record-g2-topic-exit    Persist _g2-topic-exit.json referencing a landscape run_id
 
 Close per gate:
-    G1: no payload; --payload ignored; no user_confirmed / shape checkpoint
     G2: Topic Loop exit — topic_loop_done + design_goal_met + human_exit_confirmed
         + topic_exit in {cleared, hard_skip} matching _g2-topic-exit.json /
           pre_close _topic-landscape.json (archive-21)
@@ -202,7 +201,7 @@ def cmd_init_session(out_dir: Path, args: argparse.Namespace) -> None:
 
     _ok({
         "message": "session initialized",
-        "active_gate": "G1",
+        "active_gate": state["active_gate"],
     })
 
 
@@ -292,9 +291,6 @@ def cmd_gate_close(out_dir: Path, args: argparse.Namespace) -> None:
                 _fail(f"invalid payload JSON: {exc}")
         _validate_g2_close(out_dir, payload)
         updated = close_gate(state, gate, payload=payload if payload else None)
-        save_gate_state(gate_path, updated)
-    elif gate == "G1":
-        updated = close_gate(state, gate, payload=None)
         save_gate_state(gate_path, updated)
     elif gate == "G3":
         slice_dir = working_slice_dir(out_dir)
@@ -636,7 +632,7 @@ def cmd_gate_reopen(out_dir: Path, args: argparse.Namespace) -> None:
     """Reopen a previously closed gate.
 
     G3 requires --from-report --report-digest and registers report findings.
-    G1 remains a simple spine reopen that deletes the G4 report.
+    G2 is a spine reopen that deletes the stale G4 report.
     """
     gate: str = args.gate.upper()
     sections_arg = (getattr(args, "sections", "") or "").strip()
@@ -676,7 +672,7 @@ def cmd_gate_reopen(out_dir: Path, args: argparse.Namespace) -> None:
     save_gate_state(gate_path, updated)
 
     deleted_g4_report = False
-    if gate == "G1":
+    if gate == "G2":
         deleted_g4_report = delete_report(working_slice_dir(out_dir))
 
     _ok({
@@ -757,12 +753,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Close a gate with payload / mode validation",
         parents=[conv_id_parent],
     )
-    p.add_argument("--gate", required=True, metavar="G", help="G1 | G2 | G3 | G4")
+    p.add_argument("--gate", required=True, metavar="G", help="G2 | G3 | G4")
     p.add_argument(
         "--payload",
         default="{}",
         metavar="JSON",
-        help="G2 close payload (JSON object); ignored for G1 and G4",
+        help="G2 close payload (JSON object); ignored for G4",
     )
     p.add_argument(
         "--mode",
@@ -785,7 +781,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--gate",
         required=True,
         metavar="G",
-        help="G1 | G2 | G3 | G4 — gate to reopen; downstream gates reset to pending",
+        help="G2 | G3 | G4 — gate to reopen; downstream gates reset to pending",
     )
     p.add_argument(
         "--sections",

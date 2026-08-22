@@ -76,7 +76,7 @@ def _write_json(path: Path, value) -> None:
 
 def _g4_closed_state(out_dir: Path) -> dict:
     state = init_gate_state(cycle_id="c1", stage="lulu-design")
-    for gate in ("G1", "G2", "G3"):
+    for gate in ("G2", "G3"):
         state = close_gate(state, gate)
     save_gate_state(out_dir / "inductive-gate-state.json", state)
     return load_gate_state(out_dir / "inductive-gate-state.json")
@@ -189,7 +189,7 @@ def _repair_required_txn(slice_dir: Path) -> None:
 
 def _close_producer_gates(slice_dir: Path) -> None:
     state = init_gate_state(cycle_id="c1", stage="lulu-design")
-    for gate in ("G1", "G2", "G3", "G4"):
+    for gate in ("G2", "G3", "G4"):
         state = close_gate(state, gate)
     save_gate_state(slice_dir / "inductive-gate-state.json", state)
 
@@ -271,7 +271,6 @@ def test_gate_close_g3_refused_on_frozen_slice(tmp_path: Path, capsys: pytest.Ca
     _set_cell(rev, "L2", frozen=True)
     slice_dir = rev / "L2"
     state = init_gate_state(cycle_id="c1", stage="lulu-design")
-    state = close_gate(state, "G1")
     state = close_gate(state, "G2")
     save_gate_state(slice_dir / "inductive-gate-state.json", state)
     args = argparse.Namespace(gate="G3", mode="cleared", confirm=True, payload=None)
@@ -320,7 +319,7 @@ def test_enter_inductive_l2_does_not_copy_l1_open_point(tmp_path: Path):
         },
     )
     state = init_gate_state(cycle_id=_CYCLE, stage=_PROFILE)
-    for gate in ("G1", "G2", "G3"):
+    for gate in ("G2", "G3"):
         state = close_gate(state, gate)
     save_gate_state(l1 / "inductive-gate-state.json", state)
     l1_opens = load_opens(opens_path(l1))
@@ -346,8 +345,9 @@ def test_enter_inductive_l2_does_not_copy_l1_open_point(tmp_path: Path):
     assert (l2 / "open-point-batches.json").is_file()
     assert (l2 / "open-point-detect-receipts.json").is_file()
     gate = load_gate_state(l2 / "inductive-gate-state.json")
-    assert gate["active_gate"] == "G1"
-    assert gate["gates"]["G1"]["status"] == "active"
+    assert gate["active_gate"] == "G2"
+    assert gate["gates"]["G2"]["status"] == "active"
+    assert "G1" not in gate["gates"]
     assert load_opens(opens_path(l1)) == l1_opens
     assert json.loads((l1 / "open-point-detect-receipts.json").read_text(encoding="utf-8")) == l1_receipts
     assert load_gate_state(l1 / "inductive-gate-state.json")["active_gate"] == l1_gate["active_gate"]

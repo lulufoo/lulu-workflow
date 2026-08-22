@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 _GATE_CTL = _INDUCTIVE_DIR / "inductive_gate_control.py"
 _G4_CTL = _INDUCTIVE_DIR / "inductive_g4_control.py"
@@ -112,23 +114,6 @@ def _seed_session(out_dir: Path) -> None:
     assert res.returncode == 0, res.stdout + res.stderr
 
 
-def _g1_payload() -> str:
-    return json.dumps(
-        {
-            "architecture_view": {
-                "as_is": "a",
-                "to_be": "b",
-                "scope": {"in": ["x"], "out": []},
-                "affected_files": [],
-                "spine": "s",
-                "traces_to": ["upstream"],
-            },
-            "shape_constraints": [],
-            "user_confirmed": True,
-        }
-    )
-
-
 def _json_or_empty(path: Path):
     if not path.is_file():
         return []
@@ -217,9 +202,7 @@ def _human_open(**overrides):
     return base
 
 
-def _close_g1_g2(out_dir: Path) -> None:
-    code, result = _run_gate(out_dir, "gate-close", "--gate", "G1")
-    assert code == 0, result
+def _close_g2(out_dir: Path) -> None:
     _g2_prepare_exit(out_dir, result="cleared", gap_remaining=0)
     code, result = _run_gate(
         out_dir, "gate-close", "--gate", "G2", "--payload", _g2_close_payload()
@@ -229,7 +212,7 @@ def _close_g1_g2(out_dir: Path) -> None:
 
 def _drive_to_g3(out_dir: Path) -> None:
     _seed_session(out_dir)
-    _close_g1_g2(out_dir)
+    _close_g2(out_dir)
 
 
 def _drive_to_g4(out_dir: Path) -> None:
@@ -304,39 +287,49 @@ def test_init_session_fills_gate_stage_from_revision_pointer(tmp_path: Path) -> 
     assert gate.get("stage") == "lulu-design"
 
 
-def test_gate_close_g1_succeeds_without_payload_and_writes_no_shape_checkpoint(
-    tmp_path: Path,
-) -> None:
+def test_init_session_starts_at_g2(tmp_path: Path) -> None:
+    _seed_session(tmp_path)
+    code, result = _run_gate(tmp_path, "resolve-context")
+    assert code == 0, result
+    assert result.get("active_gate") == "G2"
+    assert result.get("gates", {}).get("G2") == "active"
+    assert "G1" not in (result.get("gates") or {})
+
+
+def test_gate_close_g1_is_rejected(tmp_path: Path) -> None:
     _seed_session(tmp_path)
     code, result = _run_gate(tmp_path, "gate-close", "--gate", "G1")
-    assert code == 0, result
-    assert result.get("closed") == "G1"
-    dqi_path = tmp_path / "inductive-dqi.json"
-    if dqi_path.is_file():
-        dqi = json.loads(dqi_path.read_text(encoding="utf-8"))
-        assert "architecture_view" not in dqi
-        assert "shape_constraints" not in dqi
+    assert code != 0
+    assert "invalid gate" in str(result).lower() or "g1" in str(result).lower()
 
 
-def test_gate_close_g1_does_not_require_user_confirmed(tmp_path: Path) -> None:
-    _seed_session(tmp_path)
-    code, result = _run_gate(
-        tmp_path,
-        "gate-close",
-        "--gate",
-        "G1",
-        "--payload",
-        json.dumps({"user_confirmed": False}),
+def test_load_active_gate_g1_is_incompatible(tmp_path: Path) -> None:
+    sys.path.insert(0, str(_INDUCTIVE_DIR))
+    from inductive_gate_state_schema import (  # noqa: WPS433
+        init_gate_state,
+        load_gate_state,
+        save_gate_state,
+        validate_gate_state,
     )
-    assert code == 0, result
-    assert result.get("closed") == "G1"
+
+    path = tmp_path / "inductive-gate-state.json"
+    state = init_gate_state(cycle_id="c1", stage="lulu-design")
+    save_gate_state(path, state)
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw["active_gate"] = "G1"
+    raw["gates"]["G1"] = {"status": "active", "closed_at": None, "payload": None}
+    path.write_text(json.dumps(raw, indent=2) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="G1 is retired"):
+        load_gate_state(path)
+    errors = validate_gate_state(raw)
+    assert any("G1 is retired" in item for item in errors)
 
 
 def test_resolve_context_reports_open_point_idle_zeros(tmp_path: Path) -> None:
     _seed_session(tmp_path)
     code, result = _run_gate(tmp_path, "resolve-context")
     assert code == 0, result
-    assert result.get("active_gate") == "G1"
+    assert result.get("active_gate") == "G2"
     assert "gates" in result
     open_point = result.get("open_point") or {}
     assert open_point.get("phase") == "idle"
@@ -348,7 +341,6 @@ def test_resolve_context_reports_open_point_idle_zeros(tmp_path: Path) -> None:
 def test_gate_close_accepts_hook_injected_conversation_id(tmp_path: Path):
     """hook_guard appends --conversation-id after subcommand args."""
     _seed_session(tmp_path)
-    _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
     _g2_prepare_exit(tmp_path, result="cleared", gap_remaining=0)
     code, result = _run_gate(
         tmp_path,
@@ -422,9 +414,22 @@ def test_gate_reopen_g3_from_report_registers_findings_and_deletes_report(
     assert bundle["state"]["active_open_id"] == opens[0]["id"]
 
 
+def test_gate_reopen_g2_deletes_g4_report(tmp_path: Path) -> None:
+    _drive_to_g4(tmp_path)
+    code, recorded = _record_ok_recompose_report(tmp_path)
+    assert code == 0, recorded
+    report_path = g4_report_path(tmp_path)
+    assert report_path.is_file()
+    code, result = _run_gate(tmp_path, "gate-reopen", "--gate", "G2")
+    assert code == 0, result
+    assert result.get("reopened") == "G2"
+    assert result.get("active_gate") == "G2"
+    assert result.get("deleted_g4_report") is True
+    assert not report_path.exists()
+
+
 def test_gate_close_g2_topic_loop_payload(tmp_path: Path):
     _seed_session(tmp_path)
-    _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
     code, result = _run_gate(tmp_path, "resolve-context")
     assert code == 0, result
     assert "Topic Loop" in str(result.get("gate_symbols", {}).get("G2", ""))
@@ -436,7 +441,6 @@ def test_gate_close_g2_topic_loop_payload(tmp_path: Path):
 
 def test_gate_close_g2_requires_topic_exit(tmp_path: Path):
     _seed_session(tmp_path)
-    _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
     bare = (
         '{"topic_loop_done": true, "design_goal_met": true, '
         '"human_exit_confirmed": true}'
@@ -448,7 +452,6 @@ def test_gate_close_g2_requires_topic_exit(tmp_path: Path):
 
 def test_gate_close_g2_rejects_missing_exit_receipt(tmp_path: Path):
     _seed_session(tmp_path)
-    _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
     code, result = _run_gate(
         tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload(),
     )
@@ -458,7 +461,6 @@ def test_gate_close_g2_rejects_missing_exit_receipt(tmp_path: Path):
 
 def test_gate_close_g2_rejects_cleared_with_remaining_gaps(tmp_path: Path):
     _seed_session(tmp_path)
-    _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
     code, payload = _run_gate(
         tmp_path,
         "record-topic-landscape",
@@ -481,7 +483,6 @@ def test_gate_close_g2_rejects_cleared_with_remaining_gaps(tmp_path: Path):
 
 def test_gate_close_g2_rejects_seek_purpose_for_close(tmp_path: Path):
     _seed_session(tmp_path)
-    _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
     code, payload = _run_gate(
         tmp_path,
         "record-topic-landscape",
@@ -504,7 +505,6 @@ def test_gate_close_g2_rejects_seek_purpose_for_close(tmp_path: Path):
 
 def test_gate_close_g2_accepts_hard_skip_topic_exit(tmp_path: Path):
     _seed_session(tmp_path)
-    _run_gate(tmp_path, "gate-close", "--gate", "G1", "--payload", _g1_payload())
     _g2_prepare_exit(tmp_path, result="hard_skip", gap_remaining=2)
     code, result = _run_gate(
         tmp_path,

@@ -71,7 +71,7 @@ def _set_state(rev: Path, state: str) -> None:
 
 def _g5_gate_payload() -> dict:
     state = init_gate_state(cycle_id=_CYCLE, stage=_PROFILE)
-    for gate in ("G1", "G2", "G3", "G4"):
+    for gate in ("G2", "G3", "G4"):
         state = close_gate(state, gate)
     state["active_gate"] = "G5"
     return state
@@ -126,8 +126,9 @@ def test_reverse_to_inductive_purges_g5_and_inits_current_schema(tmp_path: Path)
     assert (rev / "resolved-refs.json").is_file()
     assert not (l1 / "evaluate-state.md").is_file()
     gate = load_gate_state(l1 / "inductive-gate-state.json")
-    assert gate["active_gate"] == "G1"
-    assert gate["gates"]["G1"]["status"] == "active"
+    assert gate["active_gate"] == "G2"
+    assert gate["gates"]["G2"]["status"] == "active"
+    assert "G1" not in gate["gates"]
 
 
 def test_enter_inductive_restart_replaces_raw_g5_with_current_schema(
@@ -146,8 +147,9 @@ def test_enter_inductive_restart_replaces_raw_g5_with_current_schema(
     for name in _G5_RESIDUE:
         assert not (l1 / name).is_file()
     gate = load_gate_state(l1 / "inductive-gate-state.json")
-    assert gate["active_gate"] == "G1"
-    assert gate["gates"]["G1"]["status"] == "active"
+    assert gate["active_gate"] == "G2"
+    assert gate["gates"]["G2"]["status"] == "active"
+    assert "G1" not in gate["gates"]
 
 
 def test_l_execution_defers_eval_admission_to_begin_eval_round() -> None:
@@ -183,6 +185,8 @@ def test_complete_inductive_stays_incomplete_on_raw_g5(tmp_path: Path) -> None:
 
 def test_runtime_surface_has_no_g5_or_support_mixin() -> None:
     compose = _WORKFLOW / "compose"
+    assert not (compose / "inductive-runner" / "gates" / "g1-shape.md").exists()
+    assert not (compose / "scripts" / "inductive" / "inductive_shape_control.py").exists()
     assert not (compose / "inductive-runner" / "gates" / "g5-provenance.md").exists()
     assert not (compose / "inductive-runner" / "g5-provenance-runner").exists()
     assert not (compose / "scripts" / "inductive" / "provenance_gate_control.py").exists()

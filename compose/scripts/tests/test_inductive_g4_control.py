@@ -188,8 +188,6 @@ def _drive_to_g4(tmp_path: Path) -> None:
         text=True,
     )
     assert res.returncode == 0, res.stdout + res.stderr
-    code, result = _run_gate(tmp_path, "gate-close", "--gate", "G1")
-    assert code == 0, result
     _g2_prepare_exit(tmp_path)
     code, result = _run_gate(
         tmp_path, "gate-close", "--gate", "G2", "--payload", _g2_close_payload()

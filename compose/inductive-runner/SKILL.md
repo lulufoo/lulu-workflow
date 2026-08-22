@@ -1,13 +1,13 @@
 ---
 name: inductive-runner
 description: >-
-  Coordinates pre-writing induction across shape perception, topic convergence,
+  Coordinates pre-writing induction across topic convergence,
   open-point resolution, and internal audit.
 ---
 
 # inductive-runner
 
-Run the G1→G4 control spine for one active Compose slice. Complete when G4 is
+Run the G2→G4 control spine for one active Compose slice. Complete when G4 is
 closed, `active_gate=complete`, and the settled facts are ready for Deductive.
 Delivery Eval owns provenance audit of the written document.
 
@@ -50,7 +50,6 @@ Route only from control stdout or `$CTX`; never route from a state-file path.
 
 | `$CTX.active_gate` | Load |
 |---|---|
-| `G1` | `gates/g1-shape.md` |
 | `G2` | `gates/g2-topic-loop.md` |
 | `G3` | `gates/g3-open-point-loop.md` |
 | `G4` | `gates/g4-recompose.md` |
