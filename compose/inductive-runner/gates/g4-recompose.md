@@ -26,7 +26,7 @@ Require the current facts and Opens to be:
 ## Boundaries
 
 - `$INDUCTIVE_G4_CTL` owns digest-bound audit context and report recording.
-- `../g4-recompose-runner/SKILL.md` owns the read-only whole-set analysis.
+- `../recompose-runner/SKILL.md` owns the read-only whole-set analysis.
 - The Parent Agent owns dispatch, report handoff, presentation, and routing.
 - `$INDUCTIVE_GATE_CTL` owns Gate transitions and report-driven closure.
 - G4 names findings. G3 resolves them.
@@ -37,7 +37,7 @@ Run only when `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate=G4`.
 
 1. Obtain a fresh facts-and-Opens audit context through
    `$INDUCTIVE_G4_CTL audit-context`.
-2. Dispatch `../g4-recompose-runner/SKILL.md` through `$SUBAGENT_TOOL` with
+2. Dispatch `../recompose-runner/SKILL.md` through `$SUBAGENT_TOOL` with
    `$SUBAGENT_AWAIT_SYNC`, supplying that complete context.
 3. Record the runner return through
    `$INDUCTIVE_G4_CTL record-recompose-report`. The parent records; the

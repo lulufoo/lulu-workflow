@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gate 4 internal-audit report control (g4-recompose-runner output).
+"""Gate 4 internal-audit report control (recompose-runner output).
 
 Persists one g4-recompose-report.json on the working slice. The report binds
 facts/opens digests and findings; it does not copy the fact list.
@@ -164,7 +164,7 @@ def cmd_record_recompose_report(out_dir: Path, args: argparse.Namespace) -> None
 def cmd_check_recompose_report(out_dir: Path, _args: argparse.Namespace) -> None:
     path = g4_report_path(_slice_dir(out_dir))
     if not path.exists():
-        _fail("g4-recompose-report.json missing; dispatch g4-recompose-runner first")
+        _fail("g4-recompose-report.json missing; dispatch recompose-runner first")
     try:
         report = load_report(path)
     except (FileNotFoundError, ValueError) as exc:
@@ -189,7 +189,7 @@ def cmd_check_recompose_report(out_dir: Path, _args: argparse.Namespace) -> None
 def cmd_list_recompose_report(out_dir: Path, _args: argparse.Namespace) -> None:
     path = g4_report_path(_slice_dir(out_dir))
     if not path.exists():
-        _fail("g4-recompose-report.json missing; dispatch g4-recompose-runner first")
+        _fail("g4-recompose-report.json missing; dispatch recompose-runner first")
     try:
         report = load_report(path)
     except (FileNotFoundError, ValueError) as exc:

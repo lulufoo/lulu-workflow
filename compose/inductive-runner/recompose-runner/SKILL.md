@@ -1,9 +1,9 @@
 ---
-name: g4-recompose-runner
+name: recompose-runner
 description: Performs stateless, read-only internal coherence analysis over current facts and Opens.
 ---
 
-# g4-recompose-runner
+# recompose-runner
 
 Cross-audit the supplied facts and Opens once. Complete with one structured
 analysis return bound to the supplied digests.

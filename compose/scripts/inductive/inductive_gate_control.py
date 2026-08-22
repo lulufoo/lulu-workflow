@@ -524,7 +524,7 @@ def _validate_g3_close(slice_dir: Path, args: argparse.Namespace) -> dict[str, A
 def _validate_g4_close(slice_dir: Path) -> dict[str, Any]:
     path = g4_report_path(slice_dir)
     if not path.exists():
-        _fail("g4 recompose report missing; dispatch g4-recompose-runner first")
+        _fail("g4 recompose report missing; dispatch recompose-runner first")
     try:
         report = load_report(path)
     except (FileNotFoundError, ValueError) as exc:
