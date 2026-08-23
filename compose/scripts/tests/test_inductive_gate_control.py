@@ -26,12 +26,16 @@ sys.path.insert(0, str(_SECTION))
 
 from compose_state_lock import canonical_digest  # noqa: E402
 from g4_recompose_report_schema import g4_report_path, load_report  # noqa: E402
+from lens_frontier_schema import (  # noqa: E402
+    default_lens_entry,
+    lens_frontier_path,
+    load_lens_frontier,
+)
 from open_point_store import (  # noqa: E402
     add_opens,
     ensure_frontier,
     frontier_digest,
     load_bundle,
-    set_frontier,
 )
 from opens_schema import load_opens, opens_path  # noqa: E402
 
@@ -162,7 +166,6 @@ def _write_ruler(slice_dir: Path) -> None:
 def _ready_cleared(slice_dir: Path) -> None:
     _write_ruler(slice_dir)
     ensure_frontier(slice_dir)
-    set_frontier(slice_dir, "I", 3)
     (slice_dir / "_facts.json").write_text(
         json.dumps(
             [{"id": "F-seed", "text": "g4 lens source", "lens_tags": ["I"]}]
@@ -181,18 +184,36 @@ def _detect_meta(slice_dir: Path, raw_candidates, **overrides):
     opens_d = canonical_digest(opens)
     ensure_frontier(slice_dir)
     frontier_d = frontier_digest(slice_dir)
+    path = lens_frontier_path(slice_dir)
+    frontier_lenses = load_lens_frontier(path)["lenses"] if path.is_file() else {}
+    raw = list(raw_candidates)
+    checked = overrides.get("checked_lenses") or ["I", "ST"]
+    hit = {
+        str(item.get("lens", "")).strip().upper()
+        for item in raw
+        if isinstance(item, dict) and item.get("lens")
+    }
+    measurements = []
+    for lens in checked:
+        key = str(lens).strip().upper()
+        entry = frontier_lenses.get(key) or default_lens_entry()
+        start = int(entry.get("frontier_kw") or 0)
+        measurements.append(
+            {"lens": key, "start_kw": start, "gap_kw": start if key in hit else None}
+        )
     meta = {
-        "checked_lenses": ["I", "ST"],
+        "checked_lenses": checked,
         "facts_digest": facts_d,
         "lens_digest": lens_d,
         "opens_digest": opens_d,
         "frontier_digest": frontier_d,
-        "raw_candidates": list(raw_candidates),
+        "raw_candidates": raw,
         "expected_facts_digest": facts_d,
         "expected_lens_digest": lens_d,
         "expected_opens_digest": opens_d,
         "expected_frontier_digest": frontier_d,
         "inert_means": ["intent", "scan"],
+        "lens_measurements": measurements,
     }
     meta.update(overrides)
     return meta

@@ -15,6 +15,11 @@ sys.path.insert(0, str(_INDUCTIVE_DIR))
 sys.path.insert(0, str(_SCHEMA_DIR))
 
 from compose_state_lock import canonical_digest  # noqa: E402
+from lens_frontier_schema import (  # noqa: E402
+    default_lens_entry,
+    lens_frontier_path,
+    load_lens_frontier,
+)
 from open_point_store import add_opens, ensure_frontier, set_frontier  # noqa: E402
 
 _REGISTRY = {
@@ -42,7 +47,6 @@ def _ready_cleared(out_dir: Path) -> None:
     _write_registry(out_dir)
     _write_kw(out_dir)
     ensure_frontier(out_dir)
-    set_frontier(out_dir, "I", 3)
 
 
 def _run(out_dir: Path, *args: str, project_root: str | None = None) -> tuple[int, dict]:
@@ -74,6 +78,25 @@ def _human_open(**overrides):
     return base
 
 
+def _lens_measurements(out_dir: Path, checked, raw_candidates):
+    path = lens_frontier_path(out_dir)
+    lenses = load_lens_frontier(path)["lenses"] if path.is_file() else {}
+    hit = {
+        str(item.get("lens", "")).strip().upper()
+        for item in raw_candidates
+        if isinstance(item, dict) and item.get("lens")
+    }
+    out = []
+    for lens in checked:
+        key = str(lens).strip().upper()
+        entry = lenses.get(key) or default_lens_entry()
+        start = int(entry.get("frontier_kw") or 0)
+        out.append(
+            {"lens": key, "start_kw": start, "gap_kw": start if key in hit else None}
+        )
+    return out
+
+
 def _detect_json(out_dir: Path, raw_candidates):
     from open_point_store import frontier_digest  # noqa: WPS433
 
@@ -91,9 +114,10 @@ def _detect_json(out_dir: Path, raw_candidates):
     opens_digest = canonical_digest(opens)
     ensure_frontier(out_dir)
     frontier_d = frontier_digest(out_dir)
+    checked = ["I"]
     return json.dumps(
         {
-            "checked_lenses": ["I"],
+            "checked_lenses": checked,
             "facts_digest": facts_digest,
             "lens_digest": lens_digest,
             "opens_digest": opens_digest,
@@ -104,6 +128,7 @@ def _detect_json(out_dir: Path, raw_candidates):
             "expected_opens_digest": opens_digest,
             "expected_frontier_digest": frontier_d,
             "inert_means": ["intent", "scan"],
+            "lens_measurements": _lens_measurements(out_dir, checked, raw_candidates),
         }
     )
 
@@ -275,8 +300,7 @@ def test_detect_context_emits_frontier_and_inert_means(tmp_path: Path):
 def test_add_opens_rejects_inert_intent_means(tmp_path: Path):
     _write_registry(tmp_path)
     _write_kw(tmp_path)
-    detect = json.loads(_detect_json(tmp_path, []))
-    detect["raw_candidates"] = [
+    raw = [
         {
             "question": "q",
             "basis": "b",
@@ -285,6 +309,7 @@ def test_add_opens_rejects_inert_intent_means(tmp_path: Path):
             "source": {"actor": "ai", "means": "intent"},
         }
     ]
+    detect = json.loads(_detect_json(tmp_path, raw))
     code, payload = _run(
         tmp_path,
         "add-opens",

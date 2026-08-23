@@ -5,7 +5,7 @@ description: Performs full-lens, read-only detection of unresolved questions for
 
 # open-point-detect-runner
 
-Perform one complete, read-only lens inspection of the current slice and return a coherent, processable candidate batch. Complete only when every lens has been checked and the result is structured.
+Perform one complete, read-only lens inspection of the current slice and return a coherent, processable candidate batch. Complete only when every lens has been measured from its start and the coarsest remaining gaps are structured.
 
 ## Script Macros
 
@@ -36,7 +36,7 @@ Do not accept snapshot fields. Fetch the current snapshot through `$OPEN_POINT_C
 4. Subtract questions settled by facts or already represented by existing Opens.
 5. Run all three means. Skip a method listed in `inert_means`. Do not invent gaps.
 6. Treat lenses and their facets as non-exhaustive prompts, not a questionnaire, reasoning sequence, or scan order.
-7. Keep an AI candidate only when it leaves a current-altitude KW predicate false for its lens. Drop questions that belong only to a deeper row.
+7. For each lens, start at `frontier_kw`. Keep AI candidates only at that lens's coarsest remaining false KW. Drop finer rows. Several questions at that KW are legal. Return no candidates only when every required unskipped lens has no false KW on its published KW slice from that start.
 8. Form one coherent, processable batch. Each candidate carries `lens`. Recommend a primary `means` of `scan`, `intent`, or `probe` for the parent to stamp.
 
 ## Output
@@ -46,6 +46,7 @@ Return:
 - `echoed_digests`: the received facts, lens, Opens, and frontier digests
 - `checked_lenses`: every inspected lens
 - `inert_means`: the list echoed from `detect-context`
+- `lens_measurements`: per checked lens, `start_kw` and `gap_kw` (`null` if none)
 - `candidates`: findings in processing order
 
 Each candidate contains only:

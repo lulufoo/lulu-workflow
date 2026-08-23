@@ -310,10 +310,14 @@ def test_enter_inductive_l2_does_not_copy_l1_open_point(tmp_path: Path):
                     "facts_digest": canonical_digest([]),
                     "lens_digest": canonical_digest([]),
                     "opens_digest": canonical_digest([]),
+                    "frontier_digest": canonical_digest([]),
                     "raw_candidate_count": 1,
                     "raw_candidate_digest": canonical_digest([_finding()]),
                     "final_open_ids": ["O-1"],
                     "zero_result": False,
+                    "lens_measurements": [
+                        {"lens": "I", "start_kw": 0, "gap_kw": 0}
+                    ],
                 }
             ],
         },

@@ -64,16 +64,18 @@ Run only from `idle` after an explicit human request.
    frontier init write.
 2. Dispatch `../open-point-detect-runner/SKILL.md` with `--out-dir` and
    `--project-root` only. Do not pass snapshot fields.
-3. Require one complete lens pass at each lens's current `frontier_kw`.
-   Let the analysis form a coherent, processable candidate batch. Each
-   registered Detect Open needs `lens` and `source.means` in
-   `scan|intent|probe`, and that means must not be inert.
+3. Require one complete lens pass. Each lens starts at its
+   `frontier_kw` (first pass: 0) and reports one coarsest remaining
+   gap KW. Several questions at that KW are legal. Each registered
+   Detect Open needs `lens` and `source.means` in `scan|intent|probe`,
+   and that means must not be inert.
 4. Present the candidate batch without adding solutions.
 5. Let the human adjust the candidates; the Parent Agent may refine them.
 6. Register the final set through `$OPEN_POINT_CTL add-opens --opens-json`
    `--detect-json`. Detect must pass `--detect-json` with the echoed
-   digests and `inert_means`. Empty `--opens-json` is legal only with
-   detect metadata.
+   digests, `inert_means`, and `lens_measurements`. Empty
+   `--opens-json` is legal only with detect metadata. Control writes
+   each non-null `gap_kw` as that lens's next start.
 7. Route from the control result: process a registered batch or return to
    `idle`.
 
@@ -122,14 +124,14 @@ control returns to `idle`, offer:
 - continue discussion;
 - request G3 closure.
 
-After facts change on a lens, or after a Detect pass finds no current-
-altitude gap on that lens, take one required fork:
-`$OPEN_POINT_CTL set-frontier`, `$OPEN_POINT_CTL frontier-skip`, or an
-explicit no-climb. After an explicit no-climb, only `hard-skip` remains.
-After a climb or `frontier-skip`, the previous receipt is stale; Detect
-again before `cleared`.
+Facts do not reset a lens start. `$OPEN_POINT_CTL set-frontier` and
+`frontier-skip` are only for a human override of a lens start X, or to
+mark a required lens as not blocking `cleared`. Detect gaps go through
+`add-opens` measurements. After either command, the previous receipt
+is stale; Detect again before `cleared`.
 
-Do not start another detection automatically.
+Do not offer a climb / skip / no-climb fork after Detect. Do not start
+another detection automatically.
 
 ## Close
 
@@ -137,7 +139,7 @@ G3 has two human-confirmed exits:
 
 - **`cleared`** — the latest complete lens detection has zero raw candidates,
   its bound inputs (including the frontier digest) are current, no open
-  remains, and every required unskipped lens has reached its KW target.
+  remains, and every required unskipped lens was measured with no gap.
 - **`hard-skip`** — no blocking open remains; non-blocking opens may remain.
   Altitude is not required.
 

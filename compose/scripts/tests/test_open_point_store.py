@@ -15,6 +15,11 @@ sys.path.insert(0, str(_INDUCTIVE_DIR))
 sys.path.insert(0, str(_SCHEMA_DIR))
 
 from compose_state_lock import canonical_digest, durable_write_json  # noqa: E402
+from lens_frontier_schema import (  # noqa: E402
+    default_lens_entry,
+    lens_frontier_path,
+    load_lens_frontier,
+)
 from open_point_store import (  # noqa: E402
     RepairRequired,
     StaleError,
@@ -53,6 +58,25 @@ def _human_open(**overrides):
     return raw
 
 
+def _lens_measurements(slice_dir: Path, checked, raw_candidates):
+    path = lens_frontier_path(slice_dir)
+    lenses = load_lens_frontier(path)["lenses"] if path.is_file() else {}
+    hit = {
+        str(item.get("lens", "")).strip().upper()
+        for item in raw_candidates
+        if isinstance(item, dict) and item.get("lens")
+    }
+    out = []
+    for lens in checked:
+        key = str(lens).strip().upper()
+        entry = lenses.get(key) or default_lens_entry()
+        start = int(entry.get("frontier_kw") or 0)
+        out.append(
+            {"lens": key, "start_kw": start, "gap_kw": start if key in hit else None}
+        )
+    return out
+
+
 def _detect_meta(slice_dir: Path, raw_candidates, **overrides):
     facts = _json_or_empty(slice_dir / "_facts.json")
     lenses = _json_or_empty(slice_dir / "section-registry.json")
@@ -76,6 +100,10 @@ def _detect_meta(slice_dir: Path, raw_candidates, **overrides):
         "inert_means": ["intent", "scan"],
     }
     meta.update(overrides)
+    if "lens_measurements" not in overrides:
+        meta["lens_measurements"] = _lens_measurements(
+            slice_dir, meta["checked_lenses"], meta["raw_candidates"]
+        )
     return meta
 
 
@@ -261,7 +289,6 @@ def test_stale_expected_digest_rejected(tmp_path: Path):
 def test_cleared_and_hard_skip_predicates(tmp_path: Path):
     _write_registry_and_kw(tmp_path)
     ensure_frontier(tmp_path)
-    set_frontier(tmp_path, "I", 3)
     add_opens(tmp_path, opens=[], detect=_detect_meta(tmp_path, []))
     cleared = check_close(tmp_path, mode="cleared")
     assert cleared["ok"] is True
@@ -437,13 +464,21 @@ def test_human_add_does_not_filter_by_kw(tmp_path: Path):
     assert bundle["opens"][0]["question"].startswith("What is the sign-off")
 
 
-def test_cleared_requires_target_and_fresh_frontier(tmp_path: Path):
+def test_cleared_ok_at_kw0_when_no_gap(tmp_path: Path):
     _write_registry_and_kw(tmp_path)
     add_opens(tmp_path, opens=[], detect=_detect_meta(tmp_path, []))
     cleared = check_close(tmp_path, mode="cleared")
-    assert cleared["ok"] is False
-    assert any("below target" in item for item in cleared["reasons"])
+    assert cleared["ok"] is True, cleared
+    assert load_lens_frontier(lens_frontier_path(tmp_path))["lenses"]["I"][
+        "frontier_kw"
+    ] == 0
     assert check_close(tmp_path, mode="hard-skip")["ok"] is True
+
+
+def test_cleared_requires_fresh_frontier(tmp_path: Path):
+    _write_registry_and_kw(tmp_path)
+    add_opens(tmp_path, opens=[], detect=_detect_meta(tmp_path, []))
+    assert check_close(tmp_path, mode="cleared")["ok"] is True
 
     set_frontier(tmp_path, "I", 3)
     stale = check_close(tmp_path, mode="cleared")
@@ -454,13 +489,68 @@ def test_cleared_requires_target_and_fresh_frontier(tmp_path: Path):
     assert check_close(tmp_path, mode="cleared")["ok"] is True
 
 
+def test_detect_writes_last_gap_kw(tmp_path: Path):
+    _write_registry_and_kw(tmp_path)
+    add_opens(
+        tmp_path,
+        opens=[_candidate()],
+        detect=_detect_meta(
+            tmp_path,
+            [_candidate()],
+            checked_lenses=["I"],
+            lens_measurements=[{"lens": "I", "start_kw": 0, "gap_kw": 1}],
+        ),
+    )
+    frontier = load_lens_frontier(lens_frontier_path(tmp_path))
+    assert frontier["lenses"]["I"]["frontier_kw"] == 1
+    receipt = load_bundle(tmp_path)["receipts"]["receipts"][0]
+    assert receipt["lens_measurements"][0]["gap_kw"] == 1
+    assert receipt["frontier_digest"] != frontier_digest(tmp_path)
+
+
+def test_detect_rejects_start_kw_mismatch(tmp_path: Path):
+    _write_registry_and_kw(tmp_path)
+    with pytest.raises(ValueError, match="start_kw"):
+        add_opens(
+            tmp_path,
+            opens=[_candidate()],
+            detect=_detect_meta(
+                tmp_path,
+                [_candidate()],
+                checked_lenses=["I"],
+                lens_measurements=[{"lens": "I", "start_kw": 2, "gap_kw": 2}],
+            ),
+        )
+
+
+def test_settle_does_not_reset_frontier_kw(tmp_path: Path):
+    _write_registry_and_kw(tmp_path)
+    add_opens(
+        tmp_path,
+        opens=[_candidate()],
+        detect=_detect_meta(
+            tmp_path,
+            [_candidate()],
+            checked_lenses=["I"],
+            lens_measurements=[{"lens": "I", "start_kw": 0, "gap_kw": 1}],
+        ),
+    )
+    settle_open(tmp_path, "O-1", ["F-1"])
+    frontier = load_lens_frontier(lens_frontier_path(tmp_path))
+    assert frontier["lenses"]["I"]["frontier_kw"] == 1
+
+
 def test_detect_rejects_unknown_registry_lens(tmp_path: Path):
     _write_registry_and_kw(tmp_path)
     with pytest.raises(ValueError, match="section-registry"):
         add_opens(
             tmp_path,
             opens=[_candidate(lens="NOPE")],
-            detect=_detect_meta(tmp_path, [_candidate(lens="NOPE")]),
+            detect=_detect_meta(
+                tmp_path,
+                [_candidate(lens="NOPE")],
+                checked_lenses=["I", "NOPE"],
+            ),
         )
 
 

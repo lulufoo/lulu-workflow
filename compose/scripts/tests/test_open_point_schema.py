@@ -85,6 +85,10 @@ def _receipt(**overrides):
         "raw_candidate_digest": _DIGEST,
         "final_open_ids": [],
         "zero_result": True,
+        "lens_measurements": [
+            {"lens": "I", "start_kw": 0, "gap_kw": None},
+            {"lens": "FL", "start_kw": 0, "gap_kw": None},
+        ],
     }
     base.update(overrides)
     return base
@@ -183,6 +187,10 @@ def test_receipt_accepts_non_zero_with_empty_final_ids():
             raw_candidate_count=3,
             zero_result=False,
             final_open_ids=[],
+            lens_measurements=[
+                {"lens": "I", "start_kw": 0, "gap_kw": 1},
+                {"lens": "FL", "start_kw": 0, "gap_kw": None},
+            ],
         )
     )
     assert validate_open_point_receipts(payload) == []
@@ -197,6 +205,17 @@ def test_receipt_requires_checked_lenses():
         _receipts(_receipt(checked_lenses=[]))
     )
     assert any("checked_lenses" in e for e in errs)
+
+
+def test_receipt_requires_lens_measurements():
+    raw = _receipt()
+    del raw["lens_measurements"]
+    errs = validate_open_point_receipts(_receipts(raw))
+    assert any("lens_measurements" in e for e in errs)
+    errs = validate_open_point_receipts(
+        _receipts(_receipt(raw_candidate_count=1, zero_result=False))
+    )
+    assert any("gap_kw" in e for e in errs)
 
 
 def test_empty_receipts_shape():

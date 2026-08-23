@@ -7,7 +7,7 @@ This module never takes the lock. Extra txn targets may include
 ``None`` deletes a target after recording before/after digests.
 
 Design rationale:
-docs/domain/archive/compose/archive-37.0/compose-g3-detect-execution-closure-design.md
+docs/domain/archive/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
 """
 
 from __future__ import annotations
@@ -50,8 +50,6 @@ from lens_frontier_schema import (  # noqa: E402
     merge_missing_keys,
     normalize_lens_frontier,
     save_lens_frontier,
-    slice_kw_criteria,
-    target_kw_for_slice,
     validate_lens_frontier,
 )
 from open_point_detect_receipt_schema import (  # noqa: E402
@@ -61,6 +59,7 @@ from open_point_detect_receipt_schema import (  # noqa: E402
     next_receipt_seq,
     normalize_open_point_receipts,
     open_point_receipts_path,
+    parse_lens_measurements,
     save_open_point_receipts,
     validate_open_point_receipts,
 )
@@ -582,6 +581,32 @@ def _expected_digest(detect: dict[str, Any], name: str) -> Any:
     return detect.get(f"expected_{name}") or detect.get(name)
 
 
+def _frontier_kw(frontier: dict[str, Any], lens: str) -> int:
+    entry = (frontier.get("lenses") or {}).get(lens) or {}
+    return int(entry.get("frontier_kw") or 0)
+
+
+def _frontier_after_gaps(
+    frontier: dict[str, Any], measurements: list[dict[str, Any]]
+) -> dict[str, Any] | None:
+    lenses = dict(frontier.get("lenses") or {})
+    changed = False
+    for item in measurements:
+        gap = item.get("gap_kw")
+        if gap is None:
+            continue
+        key = str(item["lens"]).strip().upper()
+        current = dict(lenses.get(key) or default_lens_entry())
+        if current.get("frontier_kw") == int(gap):
+            continue
+        current["frontier_kw"] = int(gap)
+        lenses[key] = current
+        changed = True
+    if not changed:
+        return None
+    return {"version": 1, "lenses": lenses}
+
+
 def _build_receipt(
     existing: list[dict[str, Any]],
     *,
@@ -592,6 +617,7 @@ def _build_receipt(
     frontier_d: str,
     raw_candidates: list[Any],
     final_open_ids: list[str],
+    lens_measurements: list[dict[str, Any]],
 ) -> dict[str, Any]:
     return {
         "id": mint_receipt_id(next_receipt_seq(existing)),
@@ -604,6 +630,7 @@ def _build_receipt(
         "raw_candidate_digest": canonical_digest(raw_candidates),
         "final_open_ids": list(final_open_ids),
         "zero_result": len(raw_candidates) == 0,
+        "lens_measurements": list(lens_measurements),
     }
 
 
@@ -642,6 +669,26 @@ def prepare_add_opens(
         checked = detect.get("checked_lenses")
         if not isinstance(checked, list) or not checked:
             raise ValueError("detect.checked_lenses must be a non-empty list")
+        checked_norm = [str(item).strip().upper() for item in checked if str(item).strip()]
+        registry_keys = registry_lens_keys(lens_snapshot(slice_dir))
+        missing_checked = [key for key in registry_keys if key not in checked_norm]
+        if missing_checked:
+            raise ValueError(
+                f"checked_lenses must cover registry {missing_checked}"
+            )
+        current_frontier_data = frontier_snapshot(slice_dir)
+        measurements = parse_lens_measurements(
+            detect.get("lens_measurements"),
+            checked_lenses=checked_norm,
+            raw_candidate_count=len(raw_candidates),
+        )
+        for item in measurements:
+            expected = _frontier_kw(current_frontier_data, item["lens"])
+            if int(item["start_kw"]) != expected:
+                raise ValueError(
+                    f"lens {item['lens']} start_kw {item['start_kw']} "
+                    f"!= frontier {expected}"
+                )
         intent_refs, code_grounding = load_detect_materials(slice_dir, project_root)
         current_inert = compute_inert_means(intent_refs, code_grounding)
         echoed = detect.get("inert_means")
@@ -678,14 +725,19 @@ def prepare_add_opens(
             frontier_d=current_frontier,
             raw_candidates=raw_candidates,
             final_open_ids=[item["id"] for item in registered],
+            lens_measurements=measurements,
         )
         receipts = {
             "version": 1,
             "receipts": bundle["receipts"]["receipts"] + [receipt],
         }
+        files: dict[str, Any] = {"open-point-detect-receipts.json": receipts}
+        updated_frontier = _frontier_after_gaps(current_frontier_data, measurements)
+        if updated_frontier is not None:
+            files[FRONTIER_BASENAME] = updated_frontier
         if not registered:
             return {
-                "files": {"open-point-detect-receipts.json": receipts},
+                "files": files,
                 "opens": [],
                 "state": bundle["state"],
                 "batch": None,
@@ -702,16 +754,18 @@ def prepare_add_opens(
             "active_batch_id": batch["id"],
             "active_open_id": registered[0]["id"],
         }
-        return {
-            "files": {
+        files.update(
+            {
                 "inductive-opens.json": bundle["opens"] + registered,
                 "open-point-state.json": state,
                 "open-point-batches.json": {
                     "version": 1,
                     "batches": bundle["batches"]["batches"] + [batch],
                 },
-                "open-point-detect-receipts.json": receipts,
-            },
+            }
+        )
+        return {
+            "files": files,
             "opens": registered,
             "state": state,
             "batch": batch,
@@ -1046,21 +1100,20 @@ def check_close(
         if not kw_raw:
             reasons.append("KW criteria missing")
         payable = payable_lenses(snapshot, frontier)
+        latest_measurements = {}
+        if receipts:
+            latest_measurements = {
+                str(item.get("lens", "")).strip().upper(): item
+                for item in (receipts[-1].get("lens_measurements") or [])
+                if isinstance(item, dict)
+            }
         if payable and kw_raw:
             for lens in payable:
-                kw_slice = slice_kw_criteria(kw_raw, lens)
-                if kw_slice is None:
-                    reasons.append(f"KW criteria missing for {lens}")
-                    continue
-                try:
-                    target = target_kw_for_slice(kw_slice)
-                except ValueError:
-                    reasons.append(f"KW criteria missing for {lens}")
-                    continue
-                entry = (frontier.get("lenses") or {}).get(lens) or {}
-                current_kw = int(entry.get("frontier_kw") or 0)
-                if current_kw < target:
-                    reasons.append(f"lens {lens} below target KW{target}")
+                item = latest_measurements.get(lens)
+                if item is None:
+                    reasons.append(f"lens {lens} unmeasured")
+                elif item.get("gap_kw") is not None:
+                    reasons.append(f"lens {lens} still has a KW gap")
     elif mode == "hard-skip":
         if blocking_open_items(bundle["opens"]):
             reasons.append("blocking open remains")

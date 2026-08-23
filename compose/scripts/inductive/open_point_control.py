@@ -8,7 +8,7 @@ Subcommands print JSON to stdout. Exit 0 on success, exit 1 on
 validation / stale / invariant errors.
 
 Design rationale:
-docs/domain/archive/compose/archive-37.0/compose-g3-detect-execution-closure-design.md
+docs/domain/archive/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
 """
 
 from __future__ import annotations
@@ -298,7 +298,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     sub.add_parser(
         "detect-context",
-        help="Read-only facts/lens/opens/frontier snapshots, KW slices, and means materials",
+        help="Read-only facts/lens/opens/frontier snapshots, KW slices, and means materials. frontier_kw is the last found gap KW (resume start).",
     )
     sub.add_parser("process-context", help="Active open + facts + freshness digests")
 
@@ -307,9 +307,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Register 0..N opens. Detect must pass --detect-json "
             "(checked_lenses, facts/lens/opens/frontier digests or expected_*, "
-            "raw_candidates). Empty --opens-json is legal only with detect "
-            "metadata. zero_result is raw_candidates length == 0. "
-            "AI Detect means must be scan|intent|probe and not inert."
+            "raw_candidates, inert_means, lens_measurements). Empty "
+            "--opens-json is legal only with detect metadata. "
+            "zero_result is raw_candidates length == 0. "
+            "AI Detect means must be scan|intent|probe and not inert. "
+            "Non-null gap_kw writes that lens frontier_kw."
         ),
     )
     add.add_argument("--opens-json", required=True)
@@ -354,7 +356,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Ignored; G3 close is $INDUCTIVE_GATE_CTL gate-close --confirm",
     )
 
-    frontier = sub.add_parser("set-frontier", help="Cache one lens frontier_kw")
+    frontier = sub.add_parser(
+        "set-frontier",
+        help="Cache one lens last-found gap KW (resume start)",
+    )
     frontier.add_argument("--lens", required=True)
     frontier.add_argument("--kw", required=True, type=int)
 

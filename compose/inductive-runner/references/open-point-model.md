@@ -35,6 +35,7 @@ A Batch is an ordered, processable group of Opens.
 A Detect receipt is immutable evidence of one complete lens inspection.
 
 - It binds the inspected facts, lenses, existing Opens, and the lens-frontier digest.
+- It records per-lens measurements: start KW and found gap KW, or no gap.
 - It preserves the raw detection outcome and the final registered Open
   identities.
 - A zero result means the raw detection produced no candidates.

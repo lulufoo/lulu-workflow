@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Schema and I/O for slice ``lens-frontier.json``.
 
-Caches per-lens ``frontier_kw`` (0..4) and skip flags. The script does not
-judge KW truth; it only stores values written through control commands.
+Caches per-lens ``frontier_kw`` (0..4) and skip flags. ``frontier_kw`` is
+the last found gap KW for that lens (resume start; default 0). The script
+does not judge KW truth; it only stores values written through commands.
 
 Design rationale:
-docs/domain/archive/compose/archive-36.0/compose-g3-kw-ruler-on-open-point-loop-design.md
+docs/domain/archive/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
 """
 
 from __future__ import annotations
