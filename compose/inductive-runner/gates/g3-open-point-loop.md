@@ -54,100 +54,75 @@ human's disposition.
 - On timeout, exception, or invalid output, write no state. The Parent Agent
   reports the failure or retries with the same inputs while they remain fresh.
 
-## Loop
+## Routing
+
+Heading = phase; first line = after which action (behavior map); rest = paths
+(what, not a script).
 
 ### Detect a batch
 
-Run only from `idle` after an explicit human request.
+After an explicit human Detect request from `idle`:
 
-1. Run `$OPEN_POINT_CTL ensure-frontier`. This is the only Detect-path
-   frontier init write.
-2. Dispatch `../open-point-detect-runner/SKILL.md` with `--out-dir` and
-   `--project-root` only. Do not pass snapshot fields.
-3. Require one complete lens pass. Each lens starts at its
-   `frontier_kw` (first pass: 0) and reports one coarsest remaining
-   gap KW. Several questions at that KW are legal. Each registered
-   Detect Open needs `lens` and `source.means` in `scan|intent|probe`,
-   and that means must not be inert.
-4. Present the candidate batch without adding solutions.
-5. Let the human adjust the candidates; the Parent Agent may refine them.
-6. Register the final set through `$OPEN_POINT_CTL add-opens --opens-json`
-   `--detect-json`. Detect must pass `--detect-json` with the echoed
-   digests, `inert_means`, and `lens_measurements`. Empty
-   `--opens-json` is legal only with detect metadata. Control writes
-   each non-null `gap_kw` as that lens's next start.
-7. Route from the control result: process a registered batch or return to
-   `idle`.
-
-If freshness validation fails, discard the result and repeat detection from
-fresh context. Removing all candidates from a non-empty detection is not a
-zero-result detection.
+- `$OPEN_POINT_CTL ensure-frontier` — only Detect-path frontier init write.
+- Dispatch `../open-point-detect-runner/SKILL.md` with `--out-dir` and
+  `--project-root` only.
+- Present the candidate batch without adding solutions. The human may
+  adjust; the Parent Agent may refine.
+- Register the final set through `$OPEN_POINT_CTL add-opens --opens-json`
+  `--detect-json`. Payload and empty-batch rules live in `--help`.
+- Route from the control: process a registered batch or return to `idle`.
+- Freshness failure → discard and repeat Detect from fresh context.
 
 ### Process the batch
 
-1. Resolve the active open through `$OPEN_POINT_CTL process-context`.
-2. Dispatch `../open-point-process-runner/SKILL.md` for that open only.
-3. Route its `validity` result:
-   - **`null`** — not assessed. Present the blocker and keep the Open active.
-     Refresh available input and re-dispatch; otherwise wait.
-   - **`changed`** — present the replacement question; after human confirmation,
-     call `$OPEN_POINT_CTL update-open`, resolve `process-context`, and
-     re-dispatch analysis.
-   - **`resolved`** — present the cited fact links; after human confirmation,
-     call `$OPEN_POINT_CTL settle-resolved`.
-   - **`invalid`** — present the reason; after human confirmation, call
-     `$OPEN_POINT_CTL reject-open`.
-   - **`valid`** — present its analysis for disposition.
-4. For `valid`, wait for one human action:
-   - **Land** — load `fact-store-runner` and run `propose --kind settle_open`
-     → ack → consume. Do not call `$OPEN_POINT_CTL settle-resolved`.
-   - **Ignore** — `$OPEN_POINT_CTL defer-open`.
-   - **Skip** — `$OPEN_POINT_CTL skip-open`.
-   - **Reject** — `$OPEN_POINT_CTL reject-open`.
-5. Apply only the named control for that action.
-6. Resolve `$OPEN_POINT_CTL process-context` or `resolve-context` before
-   selecting the next open.
+After `$OPEN_POINT_CTL process-context` names the active open:
 
-If dialogue exposes another open, call `$OPEN_POINT_CTL add-opens`. Append it
-to the active batch tail without interrupting the active open; create a normal
-batch when none is active.
-
-Re-dispatch process analysis when its substantive inputs change. Never act on
-an analysis rejected as stale.
+- Dispatch `../open-point-process-runner/SKILL.md` for that open only.
+- Route its `validity`:
+  - **`null`** — present the blocker; keep the Open active. Refresh
+    available input and re-dispatch; otherwise wait.
+  - **`changed`** — present the replacement question; after human
+    confirmation, `$OPEN_POINT_CTL update-open`, resolve
+    `process-context`, and re-dispatch.
+  - **`resolved`** — present the cited fact links; after human
+    confirmation, `$OPEN_POINT_CTL settle-resolved`.
+  - **`invalid`** — present the reason; after human confirmation,
+    `$OPEN_POINT_CTL reject-open`.
+  - **`valid`** — present its analysis for disposition.
+- For `valid`, wait for one human action:
+  - **Land** — `fact-store-runner` `propose --kind settle_open` → ack →
+    consume. Do not call `$OPEN_POINT_CTL settle-resolved`.
+  - **Ignore** — `$OPEN_POINT_CTL defer-open`.
+  - **Skip** — `$OPEN_POINT_CTL skip-open`.
+  - **Reject** — `$OPEN_POINT_CTL reject-open`.
+- Apply only the named control for that action.
+- Resolve `$OPEN_POINT_CTL process-context` or `resolve-context` before
+  selecting the next open.
+- Dialogue exposes another open → `$OPEN_POINT_CTL add-opens`. Append to
+  the active batch tail; create a batch when none is active.
+- Re-dispatch when substantive inputs change. Never act on a stale
+  analysis.
 
 ### Batch done
 
-The batch is done only when its registered opens no longer remain open. When
-control returns to `idle`, offer:
+After control returns to `idle` (registered opens no longer remain open):
 
-- detect another batch;
-- continue discussion;
-- request G3 closure.
-
-Facts do not reset a lens start. `$OPEN_POINT_CTL set-frontier` and
-`frontier-skip` are only for a human override of a lens start X, or to
-mark a required lens as not blocking `cleared`. Detect gaps go through
-`add-opens` measurements. After either command, the previous receipt
-is stale; Detect again before `cleared`.
-
-Do not offer a climb / skip / no-climb fork after Detect. Do not start
-another detection automatically.
+- Offer: detect another batch; continue discussion; request G3 closure.
+- Human asks to change a lens start X, or to mark a required lens as not
+  blocking `cleared` → `$OPEN_POINT_CTL set-frontier` or `frontier-skip`;
+  then Detect again before `cleared`. Details in `--help`.
+- Do not offer a climb / skip / no-climb fork after Detect. Do not start
+  another detection automatically.
 
 ## Close
 
-G3 has two human-confirmed exits:
-
-- **`cleared`** — the latest complete lens detection has zero raw candidates,
-  its bound inputs (including the frontier digest) are current, no open
-  remains, and every required unskipped lens was measured with no gap.
-- **`hard-skip`** — no blocking open remains; non-blocking opens may remain.
-  Altitude is not required.
-
-After the human chooses an exit, call
+After the human chooses `cleared` or `hard-skip`, call
 `$INDUCTIVE_GATE_CTL gate-close --gate G3 --mode <cleared|hard-skip> --confirm`
-once. Let the control validate the exit. On success, resolve a fresh `$CTX`
+once. The control validates the exit. On success, resolve a fresh `$CTX`
 and load the gate it names. Do not close G3 through `$OPEN_POINT_CTL`.
 
 ## Hard cuts
 
 - Do not overlap Detect and Process dispatches.
+- Do not paste Detect measurement, Process analysis, `--detect-json`
+  fields, or close predicates into this gate.

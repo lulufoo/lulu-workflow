@@ -9,6 +9,7 @@ validation / stale / invariant errors.
 
 Design rationale:
 docs/domain/archive/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
+docs/domain/archive/compose/archive-43.0/compose-g3-gate-phase-map-design.md
 """
 
 from __future__ import annotations
@@ -356,14 +357,28 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Ignored; G3 close is $INDUCTIVE_GATE_CTL gate-close --confirm",
     )
 
+    _SET_FRONTIER = (
+        "Human override of one lens resume start X. Not for Detect gaps "
+        "(those write via add-opens measurements). Stales the previous "
+        "receipt; Detect again before cleared."
+    )
     frontier = sub.add_parser(
         "set-frontier",
-        help="Cache one lens last-found gap KW (resume start)",
+        help=_SET_FRONTIER,
+        description=_SET_FRONTIER,
     )
     frontier.add_argument("--lens", required=True)
     frontier.add_argument("--kw", required=True, type=int)
 
-    skip_f = sub.add_parser("frontier-skip", help="Skip a required lens for cleared")
+    _FRONTIER_SKIP = (
+        "Mark a required lens as not blocking cleared. Not for Detect "
+        "gaps. Stales the previous receipt; Detect again before cleared."
+    )
+    skip_f = sub.add_parser(
+        "frontier-skip",
+        help=_FRONTIER_SKIP,
+        description=_FRONTIER_SKIP,
+    )
     skip_f.add_argument("--lens", required=True)
     skip_f.add_argument("--note", required=True)
 
