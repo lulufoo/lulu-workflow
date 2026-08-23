@@ -3,8 +3,7 @@
 Load from `derive-runner` Execution after Prepare.
 Macros: `../SKILL.md`.
 
-Path: Floor → Ceiling. A Ceiling pass that ran `$DERIVE_CTL append` enters
-Cascade.
+Path: Floor → Ceiling → Cascade. Cascade is the only persist exit.
 
 ## Floor
 
@@ -12,63 +11,44 @@ Purpose: close graph holes without using KW.
 
 A **Floor round** starts with `$DERIVE_CTL edge-scan` and ends after every
 returned lens has been handled. One Floor invocation may run at most **three
-rounds**. Cascade re-entry resets the Floor round count.
+rounds**. Cascade re-entry resets the Floor round count. Floor does not write
+pending.
 
 ### Run a round
 
 1. `$DERIVE_CTL edge-scan` → local `edge_holes`.
 2. Empty `edge_holes` → Floor is complete; enter Ceiling.
 3. For each lens `L` in `edge_holes`:
-   - Projectable → write one lens batch (§ Derived batch), using exact upstream
-     `F-id` in `origin.ref` (prefer `source`).
-   - Not projectable → `$DEDUCTIVE_CTL pending-add` (kind=`edge_hole`).
+  - Projectable → write one lens batch (§ Derived batch), using exact upstream
+   `F-id` in `origin.ref` (prefer `source`).
+  - Not projectable → skip this lens.
 4. Scan again after the round:
-   - No holes → Ceiling.
-   - Holes remain and fewer than three rounds have run → next Floor round.
-   - Holes remain after the third round → use this scan only to record each
-     remaining lens with `$DEDUCTIVE_CTL pending-add` (kind=`edge_hole`) →
-     Ceiling.
+  - No holes or third-round leftover → Ceiling.
+  - Holes remain, under three rounds → next Floor round.
 
 ## Ceiling
 
-Purpose: thicken every required lens under its published KW criteria.
+Purpose: one KW thicken pass per required lens.
 
-Walk required lenses in `$VAR_LENS_ORDER`; read `presence` from
-`$VAR_SECTION_REGISTRY`. Finish all required lenses before Cascade.
+Walk required lenses in `$VAR_LENS_ORDER` (`presence` from
+`$VAR_SECTION_REGISTRY`).
 
-### Process a required lens
-
-1. `$DERIVE_BUILD_CTL lens-bundle --lens L …` → this lens’s `kw_criteria` and
-   `facts` (`--help`).
-2. Judge whether `facts` satisfy `kw_criteria`.
-3. Satisfied → continue to the next required lens.
-4. Unsatisfied → apply Means, then re-judge:
-   - Derived produced → write one lens batch (§ Derived batch).
-   - Means exhausted and still unsatisfied → `$DEDUCTIVE_CTL pending-add`
-     (kind=`kw_shortfall`, `--lens L`, summary = table gap).
-5. Continue to the next required lens.
-6. After all required lenses: no `$DERIVE_CTL append` in this pass → Persist
-   validate; one or more → Cascade.
-
-### Means
-
-1. List Intent should-cover / thicken opportunities.
-2. Produce derived entries only if all hold: projectable · on `decompose` /
-   `instantiate` edge · within table depth.
-3. Still thin → recover: carried → quarantined ledger → not_needed ledger →
-   pending.
-4. Off-edge / undecided → `$DEDUCTIVE_CTL pending-add`
-   (kind=`off_edge` \| `undecided`); never `origin.type=derived` off-edge.
-5. Do not invent to pad KW with no edge.
+1. `$DERIVE_BUILD_CTL lens-bundle --lens L …` → `kw_criteria` and `facts`
+   (`--help`).
+2. Satisfied → next lens.
+3. Unsatisfied → one compensate: project only if projectable · on
+   `decompose` / `instantiate` · within table depth. Derived → one lens batch
+   (§ Derived batch). Otherwise skip.
+4. After the walk: Cascade.
 
 ## Cascade
 
-After a Ceiling pass appended, `$DERIVE_CTL edge-scan` → local `edge_holes`.
+After every Ceiling pass, `$DERIVE_CTL edge-scan` → local `edge_holes`.
 
 - **No holes:** Persist validate.
-- **Holes:** rerun Floor → Ceiling up to **three times**.
-- **Holes still remain:** `$DEDUCTIVE_CTL pending-add` (kind=`edge_hole`) for
-  each; Persist validate.
+- **Holes** and under three reruns: Floor → Ceiling.
+- **Otherwise:** `$DEDUCTIVE_CTL pending-replace` from this scan's
+  `edge_holes` (`--help`) → Persist validate.
 
 ## Emit invariants
 

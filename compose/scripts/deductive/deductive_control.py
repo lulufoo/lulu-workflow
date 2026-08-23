@@ -4,11 +4,11 @@
 Subcommands:
     pending-init       Ensure pending store exists
     pending-add        Add an open pending item
+    pending-replace    Replace open edge_hole items from a leftover list
     pending-resolve    Resolve an open item (resolved|escalated|out_of_scope)
     pending-list       List pending items (default: open only)
     quarantine-unref   List quarantined facts not cited by any other fact
-    gate-check         Fail if pending missing, open items remain, or
-                       unreferenced quarantine is unsettled
+    gate-check         Fail if facts or pending store is missing
     disposition-patch-validate  Validate post-intake retag op-list patch
     disposition-patch-apply     Apply post-intake retag op-list patch to _facts.json
     consume-policy-check        Fail if role lacks non-empty consume_policy.rules
@@ -18,7 +18,10 @@ Intake Disposition Confirm uses fact-intake disposition control
 
 Design rationale (source repo, why-only):
 docs/domain/archive/compose/archive-3.0/compose-deductive-runner-architecture-design.md §4.5;
-docs/domain/archive/compose/archive-6.0/compose-plan-deductive-consume-disposition-design.md.
+docs/domain/archive/compose/archive-6.0/compose-plan-deductive-consume-disposition-design.md;
+docs/domain/archive/compose/archive-45.0/compose-floor-edge-hole-pending-replace-design.md;
+docs/domain/archive/compose/archive-47.0/compose-cascade-only-exit-edge-hole-ledger-design.md;
+docs/domain/archive/compose/archive-48.0/compose-pending-confirm-display-only-design.md.
 """
 
 from __future__ import annotations
@@ -150,6 +153,86 @@ def cmd_pending_add(args: argparse.Namespace) -> int:
     except ValueError as exc:
         return _fail(str(exc))
     return _ok({"ok": True, "command": "pending-add", "id": item["id"], "deduped": False})
+
+
+def _parse_replace_items(raw: str) -> list[dict[str, Any]] | str:
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return f"items-json invalid: {exc}"
+    if not isinstance(data, list):
+        return "items-json must be an array"
+    seen: set[str] = set()
+    out: list[dict[str, Any]] = []
+    for i, item in enumerate(data):
+        if not isinstance(item, dict):
+            return f"items-json[{i}] must be an object"
+        lens = str(item.get("lens", "")).strip().upper()
+        if not lens:
+            return f"items-json[{i}].lens must be a non-empty string"
+        if lens in seen:
+            return f"items-json duplicate lens {lens}"
+        seen.add(lens)
+        uncovered = item.get("uncovered")
+        if not isinstance(uncovered, list) or not uncovered:
+            return f"items-json[{i}].uncovered must be a non-empty array"
+        ids: list[str] = []
+        for j, uid in enumerate(uncovered):
+            if not isinstance(uid, str) or not uid.strip():
+                return f"items-json[{i}].uncovered[{j}] must be a non-empty string"
+            text = uid.strip()
+            if text not in ids:
+                ids.append(text)
+        out.append({"lens": lens, "uncovered": ids})
+    return out
+
+
+def cmd_pending_replace(args: argparse.Namespace) -> int:
+    kind = args.kind.strip().lower()
+    if kind != "edge_hole":
+        return _fail("kind must be edge_hole")
+    parsed = _parse_replace_items(args.items_json)
+    if isinstance(parsed, str):
+        return _fail(parsed)
+    path = pending_path(_slice_dir(args))
+    data = load_pending(path)
+    kept: list[dict[str, Any]] = []
+    removed = 0
+    for item in data["items"]:
+        same_kind = str(item.get("kind", "")).strip().lower() == kind
+        is_open = str(item.get("status", "")).strip().lower() == "open"
+        if same_kind and is_open:
+            removed += 1
+            continue
+        kept.append(item)
+    data["items"] = kept
+    added: list[str] = []
+    for row in parsed:
+        uncovered = row["uncovered"]
+        item = {
+            "id": next_pending_id(data["items"]),
+            "kind": kind,
+            "status": "open",
+            "summary": "uncovered " + ", ".join(uncovered),
+            "lens": row["lens"],
+            "upstream_ref": uncovered[0] if len(uncovered) == 1 else "",
+        }
+        data["items"].append(item)
+        added.append(item["id"])
+    try:
+        save_pending(path, data)
+    except ValueError as exc:
+        return _fail(str(exc))
+    return _ok(
+        {
+            "ok": True,
+            "command": "pending-replace",
+            "kind": kind,
+            "removed": removed,
+            "added": added,
+            "ids": added,
+        }
+    )
 
 
 def cmd_pending_resolve(args: argparse.Namespace) -> int:
@@ -421,6 +504,18 @@ def main() -> int:
     p_add.add_argument("--upstream-ref", default="")
     p_add.set_defaults(func=cmd_pending_add)
 
+    p_rep = sub.add_parser(
+        "pending-replace",
+        help="Replace open edge_hole items from a leftover list",
+    )
+    p_rep.add_argument("--kind", required=True, help="must be edge_hole")
+    p_rep.add_argument(
+        "--items-json",
+        required=True,
+        help="JSON array of {lens, uncovered: [F-id, ...]}",
+    )
+    p_rep.set_defaults(func=cmd_pending_replace)
+
     p_res = sub.add_parser("pending-resolve", help="Resolve open pending item")
     p_res.add_argument("--id", required=True)
     p_res.add_argument("--status", required=True)
@@ -437,7 +532,10 @@ def main() -> int:
     )
     p_q.set_defaults(func=cmd_quarantine_unref)
 
-    p_gate = sub.add_parser("gate-check", help="Fail if open pending remain")
+    p_gate = sub.add_parser(
+        "gate-check",
+        help="Fail if facts or pending store is missing",
+    )
     p_gate.set_defaults(func=cmd_gate_check)
 
     p_cp = sub.add_parser(

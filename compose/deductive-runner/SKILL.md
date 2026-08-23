@@ -7,8 +7,8 @@ description: >-
 # deductive-runner
 
 Orchestrate deductive fact production from already-intaken facts through
-human confirmation. Done when facts validate, all pending obligations are
-settled, and the parent can enter Writing.
+a leftover display. Done when facts validate, the user confirms that
+display, and the parent can enter Writing.
 
 ## Responsibility
 
@@ -26,7 +26,7 @@ settled, and the parent can enter Writing.
 | Projection | Project known upstream substance into this stage's required lenses. |
 | Stage model | Resolve lenses, Intent, and derivation edges from `section-registry`. |
 | State | Facts + pending are the source of truth. |
-| Collaboration | AI proposes; the user closes Confirm gates; scripts move state. |
+| Collaboration | AI shows leftovers; the user confirms once; scripts move state. |
 
 ## Invariants
 
@@ -37,7 +37,7 @@ settled, and the parent can enter Writing.
    never hand-write state JSON.
 4. Preserve user decision ownership: do not invent decisions or label off-edge
    obligations as `derived`.
-5. Send every unreferenced quarantined fact through Pending Confirm.
+5. Show unreferenced quarantined ids and leftover `edge_hole` links.
 
 ## Inputs
 
@@ -96,15 +96,22 @@ CYCLE_ID: <$CYCLE_ID>
 
 ### Step 3 — Pending Confirm
 
-Interactive in this conversation.
+Interactive. Show leftovers, then one confirm.
 
-Load and follow [Pending Confirm](references/pending-confirm.md):
+1. `$DEDUCTIVE_CTL quarantine-unref` → count and ids
+2. `$DEDUCTIVE_CTL pending-list` → each open `edge_hole` as `lens ←` uncovered ids
+3. Ask once to end Deductive.
 
-1. settle unreferenced quarantine;
-2. resolve open pending;
-3. pass the gate.
+```text
+Unreferenced quarantine: <n>
+  <F-id> …
+edge_hole links: <n>
+  <lens> ← <F-id>, …
+```
 
-**Done:** `gate-check` exits 0. Proceed to Step 4.
+Zero counts still show the heading.
+
+**Done:** user confirmed. Proceed to Step 4.
 
 ### Step 4 — Complete
 
@@ -130,8 +137,5 @@ facts: `derivation.disposition` ∈ {`carried`,`quarantined`,`not_needed`};
 
 **Disposition Confirm (intake):** `{slice}/fact-intake-disposition-review.patch`
 (owned by `fact-intake-runner`).
-
-**Post-intake retag patch (optional, Step 3):** agent-chosen path via
-`$DEDUCTIVE_CTL disposition-patch-*`.
 
 **Handoff:** return `_facts.json` only; Writing consumes it validate-only.

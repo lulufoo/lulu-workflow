@@ -7,7 +7,8 @@ description: >-
 # derive-runner
 
 Run Derive on intake-classified facts under the published KW ruler. Done when
-validate passes and every floor hole / required lens is covered or pending.
+validate passes. Cascade is the persist exit; leftover edge holes are recorded
+only on Otherwise.
 
 ## Boundaries
 
@@ -45,9 +46,9 @@ CYCLE_ID: <cycle id>
 
 | Layer | Role |
 |-------|------|
-| **Floor** | Close edge holes (`edge-scan` + per-lens `append`; no KW). |
-| **Ceiling** | Per required lens: `lens-bundle` → KW judge → Means/`append`. |
-| **Cascade** | Only after Ceiling `append`: fresh holes? → Floor then full Ceiling. |
+| **Floor** | Close edge holes (`edge-scan` + per-lens `append`; no KW; no pending). |
+| **Ceiling** | Per required lens: `lens-bundle` → KW judge → one compensate `append`. |
+| **Cascade** | After every Ceiling: scan; persist, or rerun Floor→Ceiling, or record leftover then persist. |
 
 ## Execution
 
@@ -58,20 +59,20 @@ CYCLE_ID: <cycle id>
    - `$VAR_SECTION_REGISTRY` ← `section_registry`
 
 ### Derive
-3. Load `references/derive-semantic-work.md`; run Floor Loop → Ceiling →
+3. Load `references/derive-semantic-work.md`; run Floor → Ceiling →
    Cascade as that file defines.
-4. Open gaps → `$DEDUCTIVE_CTL pending-add` (kinds in the reference).
 
 ### Persist
-5. `$FACTS_CTL validate` (`--help`).
+4. `$FACTS_CTL validate` (`--help`).
 
 ## Done
 
 | Check | Criterion |
 |-------|-----------|
 | Validate | exit 0 |
-| Floor | every hole covered or pending |
-| Ceiling | every required lens KW-satisfied or open `kw_shortfall` / other pending |
+| Floor | holes closed in-round or left for Cascade |
+| Ceiling | every required lens judged; thin lenses got one compensate pass |
+| Cascade | persist after scan; Otherwise has the leftover ledger |
 
 ## Summary
 
