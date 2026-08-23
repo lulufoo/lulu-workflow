@@ -179,6 +179,9 @@ def test_g2_gate_declares_tools_and_points_at_split_references():
     assert "## Routing" in text
     assert "## Close" in text
     assert "## Session boundaries" in text
+    assert "`$CTX.guide.cognitive_frame`" in text
+    assert "`$CTX.guide.intent_anchor`" in text
+    assert "pins `$CTX.guide`" in text
     assert "## Topic operation" not in text
     assert "### Adopt" not in text
     assert "Autonomously build `topic-landscape`" in text

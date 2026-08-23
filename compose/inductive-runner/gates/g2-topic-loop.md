@@ -16,8 +16,8 @@ Use each control's `--help` as the command and stdout contract.
 ## Goal
 
 Converge the current Compose stage's substance through Topic-driven dialogue.
-Domain `cognitive_frame` (D1) and `intent_anchor` (D2) jointly guide the Topic
-Loop as a whole.
+`$CTX.guide.cognitive_frame` (D1) and `$CTX.guide.intent_anchor` (D2)
+jointly guide the Topic Loop as a whole.
 
 ## Dialogue cognition
 
@@ -31,9 +31,9 @@ human-adopted Topics **in dialogue**.
 
 ## Session boundaries
 
-- G2 maps Domain D1+D2 to the model's induction context, the current
-  settled-fact set to settled facts, and `$TOPIC_CURRENT_CTL` binding to
-  the optional current topic.
+- G2 pins `$CTX.guide` (Domain D1+D2) as the model's induction context,
+  the current settled-fact set to settled facts, and `$TOPIC_CURRENT_CTL`
+  binding to the optional current topic.
 - Fact production and narrative-arc display are orthogonal.
 - `$TOPIC_CURRENT_CTL` binds only the current adopted topic; it does not store the seeking landscape or close proof.
 - Exit receipts are the pre-close landscape and exit receipt (Close).

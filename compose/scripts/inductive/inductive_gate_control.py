@@ -6,8 +6,11 @@ becomes complete. Provenance audit is delivery Eval, not a G5 gate.
 
 Subcommands:
     init-session        Seed gate state only
-    resolve-context     Return active_gate, gates, and open_point (idle zeros
-                        when Open-point files are absent)
+    resolve-context     Return active_gate, gates, open_point (idle zeros
+                        when Open-point files are absent), and
+                        guide (Domain cognitive_frame + intent_anchor).
+                        Fails if --project-root or gate-state.stage is
+                        missing, or the Domain instance cannot be loaded.
     gate-close          Close a gate with payload / mode validation
     gate-reopen         Reopen a gate; downstream gates reset to pending
                         (also deletes the stale g4 report where applicable).
@@ -27,6 +30,7 @@ Close per gate:
 
 Design rationale:
 docs/domain/archive/compose/archive-34.0/compose-g3-open-point-loop-refactor-design.md
+docs/domain/archive/compose/archive-41.0/compose-resolve-context-guide-design.md
 """
 
 from __future__ import annotations
@@ -52,7 +56,8 @@ _SESSION = _COMPOSE_SCRIPTS / "schema" / "session"
 _CORE = _COMPOSE_SCRIPTS / "core"
 _SCHEMA = _HERE / "schema"
 _SECTION = _COMPOSE_SCRIPTS / "section"
-for _p in (_COMPOSE_SCRIPTS, _SESSION, _CORE, _SCHEMA, _SECTION):
+_SCOPE = _COMPOSE_SCRIPTS / "schema" / "section" / "scope"
+for _p in (_COMPOSE_SCRIPTS, _SESSION, _CORE, _SCHEMA, _SECTION, _SCOPE):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
@@ -82,6 +87,8 @@ from open_point_store import (  # noqa: E402
 )
 from opens_schema import load_opens, opens_path  # noqa: E402
 from platform_schema import detect_platform  # noqa: E402
+from domain_instance_schema import load_and_validate_domain_instance  # noqa: E402
+from workflow_common import detect_cycle_type  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 from inductive_gate_state_schema import (  # noqa: E402
@@ -205,6 +212,32 @@ def cmd_init_session(out_dir: Path, args: argparse.Namespace) -> None:
     })
 
 
+def _guide(state: dict[str, Any], args: argparse.Namespace) -> dict[str, str]:
+    """Load Domain D1/D2 for $CTX.guide. Fail closed."""
+    root = str(getattr(args, "project_root", "") or "").strip()
+    if not root:
+        _fail("resolve-context failed: --project-root is required to load guide")
+    stage = str(state.get("stage") or "").strip()
+    if not stage:
+        _fail(
+            "resolve-context failed: gate-state.stage is empty; "
+            "cannot resolve domain instance"
+        )
+    cycle_type = detect_cycle_type(str(state.get("cycle_id") or ""))
+    try:
+        domain = load_and_validate_domain_instance(
+            cycle_type,
+            project_root=Path(root).resolve(),
+            profile_id=stage,
+        )
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        _fail(f"guide unresolved: {exc}")
+    return {
+        "cognitive_frame": str(domain["cognitive_frame"]),
+        "intent_anchor": str(domain["intent_anchor"]),
+    }
+
+
 def _open_point_view(slice_dir: Path) -> dict[str, Any]:
     idle = empty_open_point_state()
     try:
@@ -225,8 +258,8 @@ def _open_point_view(slice_dir: Path) -> dict[str, Any]:
     }
 
 
-def cmd_resolve_context(out_dir: Path, _args: argparse.Namespace) -> None:
-    """Multi-turn resume entry point: aggregate gate + open-point state."""
+def cmd_resolve_context(out_dir: Path, args: argparse.Namespace) -> None:
+    """Multi-turn resume entry point: aggregate gate + open-point + D1/D2."""
     gate_path = _gate_state_path(out_dir)
     if not gate_path.exists():
         _fail("gate state not found; run init-session first")
@@ -235,6 +268,7 @@ def cmd_resolve_context(out_dir: Path, _args: argparse.Namespace) -> None:
     symbols = header_gate_symbols(state)
     slice_dir = working_slice_dir(out_dir)
     open_point = _open_point_view(slice_dir)
+    guide = _guide(state, args)
 
     architecture_view = None
     dqi_p = _dqi_path(out_dir)
@@ -251,6 +285,7 @@ def cmd_resolve_context(out_dir: Path, _args: argparse.Namespace) -> None:
         "gates": {g: state["gates"][g]["status"] for g in GATE_ORDER},
         "open_point": open_point,
         "architecture_view": architecture_view,
+        "guide": guide,
     })
 
 
@@ -722,7 +757,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--project-root",
         default="",
         metavar="PATH",
-        help="Project root so init-session can fill gate-state.stage from the revision pointer",
+        help=(
+            "Project root: init-session fills gate-state.stage from the revision "
+            "pointer; resolve-context loads guide from the Domain instance"
+        ),
     )
 
     sub = parser.add_subparsers(dest="subcommand", required=True)
@@ -743,7 +781,7 @@ def _build_parser() -> argparse.ArgumentParser:
     # resolve-context
     sub.add_parser(
         "resolve-context",
-        help="Return active_gate, gates, and open_point",
+        help="Return active_gate, gates, open_point, and guide",
         parents=[conv_id_parent],
     )
 

@@ -11,7 +11,11 @@ from pathlib import Path
 import pytest
 
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
+_REPO = Path(__file__).resolve().parents[4]
 _GATE_CTL = _INDUCTIVE_DIR / "inductive_gate_control.py"
+_DESIGN_DOMAIN = (
+    _REPO / "lulu-dev-workflow" / "lulu-design" / "templates" / "domain-instance.json"
+)
 _G4_CTL = _INDUCTIVE_DIR / "inductive_g4_control.py"
 _SCHEMA_DIR = _INDUCTIVE_DIR / "schema"
 _SECTION = Path(__file__).resolve().parent.parent / "section"
@@ -68,8 +72,12 @@ def _g2_prepare_exit(
 
 
 def _run_gate(out_dir: Path, *args: str) -> tuple[int, dict]:
+    argv = [sys.executable, str(_GATE_CTL), "--out-dir", str(out_dir)]
+    if "resolve-context" in args and "--project-root" not in args:
+        argv.extend(["--project-root", str(_REPO)])
+    argv.extend(args)
     res = subprocess.run(
-        [sys.executable, str(_GATE_CTL), "--out-dir", str(out_dir), *args],
+        argv,
         capture_output=True,
         text=True,
     )
@@ -336,6 +344,61 @@ def test_resolve_context_reports_open_point_idle_zeros(tmp_path: Path) -> None:
     assert open_point.get("active_batch_id") is None
     assert open_point.get("active_open_id") is None
     assert open_point.get("open_count") == 0
+
+
+def test_resolve_context_includes_guide_d1_d2(tmp_path: Path) -> None:
+    _seed_session(tmp_path)
+    code, result = _run_gate(tmp_path, "resolve-context")
+    assert code == 0, result
+    domain = json.loads(_DESIGN_DOMAIN.read_text(encoding="utf-8"))
+    guide = result.get("guide") or {}
+    assert guide.get("cognitive_frame") == domain["cognitive_frame"]
+    assert guide.get("intent_anchor") == domain["intent_anchor"]
+    assert set(guide) == {"cognitive_frame", "intent_anchor"}
+
+
+def test_resolve_context_fails_without_project_root(tmp_path: Path) -> None:
+    _seed_session(tmp_path)
+    code, result = _run_gate(tmp_path, "--project-root", "", "resolve-context")
+    assert code != 0
+    assert "project-root" in str(result.get("error", "")).lower()
+
+
+def test_resolve_context_fails_when_stage_empty(tmp_path: Path) -> None:
+    gate_path = tmp_path / "inductive-gate-state.json"
+    gate_path.write_text(
+        json.dumps(
+            {
+                "version": "1",
+                "cycle_id": "c1",
+                "stage": "",
+                "active_gate": "G2",
+                "gates": {
+                    "G2": {"status": "active", "closed_at": None, "payload": None},
+                    "G3": {"status": "pending", "closed_at": None, "payload": None},
+                    "G4": {"status": "pending", "closed_at": None, "payload": None},
+                },
+                "updated_at": "2026-01-01T00:00:00+00:00",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    code, result = _run_gate(tmp_path, "resolve-context")
+    assert code != 0
+    assert "stage" in str(result.get("error", "")).lower()
+
+
+def test_resolve_context_fails_when_domain_unresolved(tmp_path: Path) -> None:
+    _seed_session(tmp_path)
+    gate_path = tmp_path / "inductive-gate-state.json"
+    raw = json.loads(gate_path.read_text(encoding="utf-8"))
+    raw["stage"] = "not-a-compose-profile"
+    gate_path.write_text(json.dumps(raw, indent=2) + "\n", encoding="utf-8")
+    code, result = _run_gate(tmp_path, "resolve-context")
+    assert code != 0
+    error = str(result.get("error", "")).lower()
+    assert "guide" in error or "profile" in error or "domain" in error
 
 
 def test_gate_close_accepts_hook_injected_conversation_id(tmp_path: Path):
