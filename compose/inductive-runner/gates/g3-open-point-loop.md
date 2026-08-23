@@ -24,13 +24,13 @@ Use each control's `--help` as the command and stdout contract.
 
 | Role | Authority |
 |---|---|
-| Human | Starts detection, disposes each open, and chooses whether to close |
-| Parent Agent | Presents, discusses, dispatches analysis, and invokes controls |
+| Human | Starts Detect, disposes each registered open, and chooses whether to close |
+| Parent Agent | Dispatches analysis, invokes controls, then presents Process output |
 | Analysis sub-agent | Returns read-only analysis for one requested scope |
 | Control | Validates freshness and performs mechanical state changes |
 
-The Parent Agent may recommend. It never substitutes its choice for the
-human's disposition.
+The Parent Agent may recommend. It never substitutes Land, Ignore, Skip,
+or Reject.
 
 ## Session boundaries
 
@@ -56,63 +56,63 @@ human's disposition.
 
 ## Routing
 
-Heading = phase; first line = after which action (behavior map); rest = paths
-(what, not a script).
+Detect writes the batch. Process disposes one registered open. Idle waits
+for the next human start.
+
+Heading = phase; first line = after which action; rest = paths (what, not
+a script).
 
 ### Detect a batch
 
 After an explicit human Detect request from `idle`:
 
-- `$OPEN_POINT_CTL ensure-frontier` — only Detect-path frontier init write.
-- Dispatch `../open-point-detect-runner/SKILL.md` with `--out-dir` and
-  `--project-root` only.
-- Present the candidate batch without adding solutions. The human may
-  adjust; the Parent Agent may refine.
-- Register the final set through `$OPEN_POINT_CTL add-opens --opens-json`
-  `--detect-json`. Payload and empty-batch rules live in `--help`.
-- Route from the control: process a registered batch or return to `idle`.
-- Freshness failure → discard and repeat Detect from fresh context.
+1. `$OPEN_POINT_CTL ensure-frontier` — only Detect-path frontier init write.
+2. Dispatch `../open-point-detect-runner/SKILL.md` with `--out-dir` and
+   `--project-root` only.
+3. `$OPEN_POINT_CTL add-opens --opens-json --detect-json` with that return.
+   Contract in `--help`.
+4. Route from the control: a registered batch → Process; otherwise `idle`.
+5. Freshness failure → discard and repeat Detect from fresh context.
 
 ### Process the batch
 
 After `$OPEN_POINT_CTL process-context` names the active open:
 
-- Dispatch `../open-point-process-runner/SKILL.md` for that open only.
-- Route its `validity`:
-  - **`null`** — present the blocker; keep the Open active. Refresh
-    available input and re-dispatch; otherwise wait.
-  - **`changed`** — present the replacement question; after human
-    confirmation, `$OPEN_POINT_CTL update-open`, resolve
-    `process-context`, and re-dispatch.
-  - **`resolved`** — present the cited fact links; after human
-    confirmation, `$OPEN_POINT_CTL settle-resolved`.
-  - **`invalid`** — present the reason; after human confirmation,
-    `$OPEN_POINT_CTL reject-open`.
-  - **`valid`** — present its analysis for disposition.
-- For `valid`, wait for one human action:
-  - **Land** — `fact-store-runner` `propose --kind settle_open` → ack →
-    consume. Do not call `$OPEN_POINT_CTL settle-resolved`.
-  - **Ignore** — `$OPEN_POINT_CTL defer-open`.
-  - **Skip** — `$OPEN_POINT_CTL skip-open`.
-  - **Reject** — `$OPEN_POINT_CTL reject-open`.
-- Apply only the named control for that action.
-- Resolve `$OPEN_POINT_CTL process-context` or `resolve-context` before
-  selecting the next open.
-- Dialogue exposes another open → `$OPEN_POINT_CTL add-opens`. Append to
-  the active batch tail; create a batch when none is active.
-- Re-dispatch when substantive inputs change. Never act on a stale
-  analysis.
+1. Dispatch `../open-point-process-runner/SKILL.md` for that open only.
+2. Present the runner return. Route its `validity`:
+   - **`null`** — present the blocker; keep the Open active. Refresh
+     available input and re-dispatch; otherwise wait.
+   - **`changed`** — present the replacement question; after human
+     confirmation, `$OPEN_POINT_CTL update-open`, resolve
+     `process-context`, and re-dispatch.
+   - **`resolved`** — present the cited fact links; after human
+     confirmation, `$OPEN_POINT_CTL settle-resolved`.
+   - **`invalid`** — present the reason; after human confirmation,
+     `$OPEN_POINT_CTL reject-open`.
+   - **`valid`** — present its analysis for disposition.
+3. For `valid`, wait for one human action:
+   - **Land** — `fact-store-runner` `propose --kind settle_open` → ack →
+     consume. Do not call `$OPEN_POINT_CTL settle-resolved`.
+   - **Ignore** — `$OPEN_POINT_CTL defer-open`.
+   - **Skip** — `$OPEN_POINT_CTL skip-open`.
+   - **Reject** — `$OPEN_POINT_CTL reject-open`.
+4. Apply only the named control for that action.
+5. Resolve `$OPEN_POINT_CTL process-context` or `resolve-context` before
+   selecting the next open.
+6. Dialogue exposes another open → `$OPEN_POINT_CTL add-opens`. Append to
+   the active batch tail; create a batch when none is active.
+7. Re-dispatch when substantive inputs change. Never act on a stale
+   analysis.
 
 ### Batch done
 
 After control returns to `idle` (registered opens no longer remain open):
 
-- Offer: detect another batch; continue discussion; request G3 closure.
-- Human asks to change a lens start X, or to mark a required lens as not
-  blocking `cleared` → `$OPEN_POINT_CTL set-frontier` or `frontier-skip`;
-  then Detect again before `cleared`. Details in `--help`.
-- Do not offer a climb / skip / no-climb fork after Detect. Do not start
-  another detection automatically.
+1. Offer: detect another batch; continue discussion; request G3 closure.
+2. Human asks to change a lens start X, or to mark a required lens as not
+   blocking `cleared` → `$OPEN_POINT_CTL set-frontier` or `frontier-skip`;
+   then Detect again before `cleared`. Details in `--help`.
+3. Do not start another detection automatically.
 
 ## Close
 
@@ -124,5 +124,6 @@ and load the gate it names. Do not close G3 through `$OPEN_POINT_CTL`.
 ## Hard cuts
 
 - Do not overlap Detect and Process dispatches.
+- After Detect, route only to Process or `idle`.
 - Do not paste Detect measurement, Process analysis, `--detect-json`
   fields, or close predicates into this gate.
