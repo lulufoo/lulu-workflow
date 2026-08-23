@@ -21,7 +21,25 @@ from l_shell_control import (
     cmd_unfreeze,
     cmd_view,
     derive_next_actions,
+    main,
 )
+from session_state_schema import load_active_doc, resolve_path
+from workflow_paths import seed_profile_pointer_for_tests
+from workflow_profile_paths import state_path
+from workflow_state_schema import init_compose_session, save_workflow_state
+
+_DESIGN_CYCLE = "feat-l-shell-design"
+_DESIGN_PROFILE = "lulu-design"
+
+
+def _seed_design_working(tmp_path):
+    seed_profile_pointer_for_tests(tmp_path, _DESIGN_CYCLE, _DESIGN_PROFILE)
+    active_doc = load_active_doc(resolve_path(_DESIGN_CYCLE, tmp_path, _DESIGN_PROFILE))
+    ws = tmp_path / state_path(_DESIGN_CYCLE, active_doc, _DESIGN_PROFILE, tmp_path)
+    init_compose_session(ws, mode="tech", cycle_type="feature")
+    save_workflow_state(ws, {"current_state": "Working"})
+    save_l_ledger(ws.parent, build_ledger(["L1"]))
+    return ws.parent
 
 
 def _save(revision_dir, ledger):
@@ -190,3 +208,55 @@ def test_derive_next_actions_ready(tmp_path) -> None:
     actions = derive_next_actions(ledger, "Working")
     assert "ready-for-delivery" in actions
     assert "reopen-current" in actions
+
+
+def test_cli_status_uses_active_design_profile(tmp_path, capsys) -> None:
+    _seed_design_working(tmp_path)
+    code = main(
+        [
+            "--cycle-id",
+            _DESIGN_CYCLE,
+            "--project-root",
+            str(tmp_path),
+            "status",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert code == 0, captured.err
+    payload = json.loads(captured.out)
+    assert payload["ok"] is True
+    assert payload["session_state"] == "Working"
+    assert payload["focus"] == "L1"
+    assert "execute-current" in payload["next_actions"]
+
+
+def test_cli_rejects_profile_id_flag(tmp_path) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(
+            [
+                "--cycle-id",
+                _DESIGN_CYCLE,
+                "--project-root",
+                str(tmp_path),
+                "--profile-id",
+                _DESIGN_PROFILE,
+                "status",
+            ]
+        )
+    assert exc.value.code == 2
+
+
+def test_cli_missing_active_profile_fails(tmp_path, capsys) -> None:
+    code = main(
+        [
+            "--cycle-id",
+            "feat-missing-marker",
+            "--project-root",
+            str(tmp_path),
+            "status",
+        ]
+    )
+    captured = capsys.readouterr()
+    assert code == 1
+    assert "compose active profile not found" in captured.err
+    assert captured.out == ""

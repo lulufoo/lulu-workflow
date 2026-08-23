@@ -45,7 +45,7 @@ from l_transition_kernel import (  # noqa: E402
     shell_unfreeze,
 )
 from revision_lock import LockTimeout, revision_lock, session_lock  # noqa: E402
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID  # noqa: E402
+from workflow_paths import resolve_profile_id  # noqa: E402
 from workflow_profile_paths import session_state_path  # noqa: E402
 from workflow_state_schema import load_workflow_state  # noqa: E402
 
@@ -357,10 +357,6 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Compose L-shell (ordered chain)")
     parser.add_argument("--cycle-id", required=True)
     parser.add_argument("--project-root", type=Path, default=Path("."))
-    parser.add_argument(
-        "--profile-id",
-        default=DEFAULT_COMPOSE_PROFILE_ID,
-    )
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser(_CMD_STATUS)
     view = sub.add_parser(_CMD_VIEW)
@@ -374,11 +370,22 @@ def main(argv: list[str] | None = None) -> int:
     unf.add_argument("--confirm", action="store_true")
     args = parser.parse_args(argv)
 
+    project_root = args.project_root.resolve()
+    cycle_id = args.cycle_id.strip()
+    try:
+        profile_id = resolve_profile_id(
+            project_root=project_root,
+            cycle_id=cycle_id,
+        )
+    except (ValueError, FileNotFoundError, OSError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
     try:
         session_state, revision_dir = _load_session_state(
-            args.cycle_id,
-            args.project_root.resolve(),
-            args.profile_id,
+            cycle_id,
+            project_root,
+            profile_id,
         )
     except (OSError, ValueError, FileNotFoundError) as exc:
         return _emit(
@@ -386,9 +393,9 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     session_dir = session_state_path(
-        args.cycle_id,
-        args.profile_id,
-        args.project_root.resolve(),
+        cycle_id,
+        profile_id,
+        project_root,
     ).parent
     try:
         with session_lock(session_dir, exclusive=False):
