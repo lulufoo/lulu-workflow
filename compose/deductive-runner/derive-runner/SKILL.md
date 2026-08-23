@@ -12,14 +12,8 @@ only on Otherwise.
 
 ## Boundaries
 
-**Out of scope here** (do not perform):
-
-| Do not | Belongs to |
-|--------|------------|
-| Fact Intake (cut / eval / disposition / confirm) | Upstream `fact-intake-runner` |
-| Pending Confirm; disposition-patch / promote | Parent Step 3 |
-| Use `$SOURCE_PATH` or re-read upstream prose | Post-intake: facts only |
-| Write chapter prose; emit `origin.type=discovered` | Writing / other origin types |
+Owns Floor / Ceiling / Cascade on intake facts.
+Intake, leftover display, and Writing stay with the parent or neighbors.
 
 Floor / Ceiling / Cascade means: `references/derive-semantic-work.md`.
 
@@ -46,9 +40,9 @@ CYCLE_ID: <cycle id>
 
 | Layer | Role |
 |-------|------|
-| **Floor** | Close edge holes (`edge-scan` + per-lens `append`; no KW; no pending). |
-| **Ceiling** | Per required lens: `lens-bundle` → KW judge → one compensate `append`. |
-| **Cascade** | After every Ceiling: scan; persist, or rerun Floor→Ceiling, or record leftover then persist. |
+| **Floor** | Close uncovered derivation edges by projecting known facts onto the hole lens. |
+| **Ceiling** | Judge every required lens against the published KW table and thicken thin ones from existing edges. |
+| **Cascade** | Sole persist exit after Ceiling. Owns leftover hole records. |
 
 ## Execution
 
