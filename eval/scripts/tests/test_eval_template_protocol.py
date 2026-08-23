@@ -15,7 +15,6 @@ _WORKFLOW = _REPO / "lulu-dev-workflow"
 _ACTIVE_DEFINITIONS = (
     "lulu-plan/dimension-defs/codebase-consistency.json",
     "lulu-plan/dimension-defs/solution-quality.json",
-    "lulu-plan/dimension-defs/tech-conformance.json",
     "lulu-design/dimension-defs/codebase-consistency.json",
     "lulu-design/dimension-defs/solution-quality.json",
     "compose/eval/dimension-defs/intent-fidelity.json",

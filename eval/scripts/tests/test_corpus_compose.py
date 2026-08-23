@@ -15,7 +15,7 @@ from corpus_compose import (  # noqa: E402
     load_dimension_def,
 )
 
-_LULU_PLAN_COMPOSED_CORPUS_REF = "lulu-plan-composed@3"
+_LULU_PLAN_COMPOSED_CORPUS_REF = "lulu-plan-composed@4"
 _TECH_DESIGN_COMPOSED_CORPUS_REF = "lulu-design-composed@3"
 _COMMON_DEFS = Path(__file__).resolve().parents[3] / "compose" / "eval" / "dimension-defs"
 
@@ -50,11 +50,10 @@ class TestCorpusCompose:
         dims = [
             load_dimension_def(_TECH_PLAN_DIMENSION_DEFS / "codebase-consistency.json"),
             load_dimension_def(_TECH_PLAN_DIMENSION_DEFS / "solution-quality.json"),
-            load_dimension_def(_TECH_PLAN_DIMENSION_DEFS / "tech-conformance.json"),
         ]
         corpus = compose_corpus(
             corpus_id="lulu-plan-composed",
-            corpus_version="3",
+            corpus_version="4",
             scope="lulu-plan",
             dimensions=dims,
         )
@@ -62,7 +61,7 @@ class TestCorpusCompose:
         assert is_composed_corpus_ref(_LULU_PLAN_COMPOSED_CORPUS_REF)
         assert is_composed_corpus_ref(_TECH_DESIGN_COMPOSED_CORPUS_REF)
         assert corpus["dimensions"][0]["review"]["seq"] == 1
-        assert corpus["dimensions"][2]["review"]["output_path"] == "tech-review-e{M}3.md"
+        assert corpus["dimensions"][1]["review"]["output_path"] == "tech-review-e{M}2.md"
 
     def test_compose_rejects_empty(self):
         with pytest.raises(ValueError, match="non-empty"):

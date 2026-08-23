@@ -11,7 +11,6 @@ from typing import Any
 _DIMENSION_DEF_FILES = {
     "codebase-consistency": "codebase-consistency.json",
     "solution-quality": "solution-quality.json",
-    "tech-conformance": "tech-conformance.json",
 }
 
 _TOPIC_EVAL_BLOCKED = (
@@ -20,21 +19,13 @@ _TOPIC_EVAL_BLOCKED = (
 )
 
 
-def select_dimension_ids(
-    *,
-    tech_design_ref: str = "",
-    tech_diagnostic_ref: str = "",
-) -> list[str]:
+def select_dimension_ids() -> list[str]:
     """Return ordered dimension ids for this session.
 
     Dispatch rules:
     - codebase-consistency + solution-quality: always
-    - tech-conformance: any tech upstream present (design-doc or decision-doc)
     """
-    ids = ["codebase-consistency", "solution-quality"]
-    if tech_design_ref.strip() or tech_diagnostic_ref.strip():
-        ids.append("tech-conformance")
-    return ids
+    return ["codebase-consistency", "solution-quality"]
 
 
 def require_feature_eval(cycle_type: str) -> None:
@@ -63,14 +54,8 @@ def select_dimension_defs(
     *,
     cycle_type: str,
     dimension_defs_dir: Path,
-    tech_design_ref: str = "",
-    tech_diagnostic_ref: str = "",
 ) -> list[dict[str, Any]]:
     """Return ordered dimension definitions for compose_corpus."""
     require_feature_eval(cycle_type)
     defs = load_dimension_defs(dimension_defs_dir)
-    ids = select_dimension_ids(
-        tech_design_ref=tech_design_ref,
-        tech_diagnostic_ref=tech_diagnostic_ref,
-    )
-    return [copy.deepcopy(defs[dim_id]) for dim_id in ids]
+    return [copy.deepcopy(defs[dim_id]) for dim_id in select_dimension_ids()]

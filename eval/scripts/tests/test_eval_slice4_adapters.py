@@ -76,8 +76,8 @@ def _valid_config(**overrides) -> dict:
 
 
 class TestDimensionDefinitions:
-    def test_finds_exactly_fourteen_dimension_definitions(self) -> None:
-        assert len(_DIMENSION_DEFS) == 14
+    def test_finds_exactly_thirteen_dimension_definitions(self) -> None:
+        assert len(_DIMENSION_DEFS) == 13
 
     def test_all_definitions_pass_corpus_schema_v6(self) -> None:
         for path in _DIMENSION_DEFS:

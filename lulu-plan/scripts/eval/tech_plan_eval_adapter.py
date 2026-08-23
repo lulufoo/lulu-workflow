@@ -14,5 +14,5 @@ if str(_KERNEL_CORE) not in sys.path:
 from compose_corpus_versions import compose_corpus_ref  # noqa: E402
 
 LULU_PLAN_COMPOSED_CORPUS_ID = "lulu-plan-composed"
-LULU_PLAN_COMPOSED_CORPUS_VERSION = "3"
+LULU_PLAN_COMPOSED_CORPUS_VERSION = "4"
 LULU_PLAN_COMPOSED_CORPUS_REF = compose_corpus_ref("lulu-plan")

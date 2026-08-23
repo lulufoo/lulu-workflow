@@ -75,9 +75,7 @@ class TestTechPlanEvalAdapter:
         ]
         assert [d.get("legacy_alias") for d in corpus["dimensions"][3:]] == ["e2", "e3"]
 
-    def test_resolve_eval_corpus_tech_design_upstream_adds_tech_conformance(
-        self, tmp_path: Path
-    ):
+    def test_resolve_eval_corpus_ignores_tech_design_upstream(self, tmp_path: Path):
         import json
 
         from delivered_refs_schema import DeliveredRef  # noqa: WPS433
@@ -85,8 +83,7 @@ class TestTechPlanEvalAdapter:
         ws = _seed_session(tmp_path)
         design_rev = tmp_path / "design-rev"
         (design_rev / "L1").mkdir(parents=True)
-        design_doc = design_rev / "L1" / "design-doc.md"
-        design_doc.write_text("# Design\n", encoding="utf-8")
+        (design_rev / "L1" / "design-doc.md").write_text("# Design\n", encoding="utf-8")
         package = design_rev / "design-package.json"
         package.write_text(
             json.dumps(
@@ -110,14 +107,11 @@ class TestTechPlanEvalAdapter:
         assert ids == _COMMON_IDS + [
             "codebase-consistency",
             "solution-quality",
-            "tech-conformance",
         ]
         bind = adapter.corpus_bind_extensions(_CYCLE, tmp_path)
-        assert bind["upstream_doc_path"] == str(design_doc.resolve())
+        assert "upstream_doc_path" not in bind
 
-    def test_resolve_eval_corpus_tech_diagnostic_upstream_adds_tech_conformance(
-        self, tmp_path: Path
-    ):
+    def test_resolve_eval_corpus_ignores_tech_diagnostic_upstream(self, tmp_path: Path):
         from delivered_refs_schema import DeliveredRef  # noqa: WPS433
 
         ws = _seed_session(tmp_path)
@@ -133,7 +127,6 @@ class TestTechPlanEvalAdapter:
         assert ids == _COMMON_IDS + [
             "codebase-consistency",
             "solution-quality",
-            "tech-conformance",
         ]
 
     def test_resolve_evaluate_state_path(self, tmp_path: Path):
