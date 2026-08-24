@@ -15,11 +15,8 @@ CLI failure leaves the row `open`.
 ## Prerequisites
 
 <HARD-GATE>
-1. Do NOT proceed until you have read `../../../_runtime.md`.
-2. Caller names the current `open` id.
+Caller names the current `open` id.
 </HARD-GATE>
-
-- `$SKILL_DIR` = `$SKILL_ROOT/decision`
 
 ## Script Macros
 

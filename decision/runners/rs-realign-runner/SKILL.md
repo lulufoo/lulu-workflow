@@ -12,11 +12,6 @@ stale state is committed, and one recovery route is selected.
 
 ## Prerequisites
 
-<HARD-GATE>
-Do NOT proceed until you have read `../../../_runtime.md`
-</HARD-GATE>
-
-- `$SKILL_DIR` = `$SKILL_ROOT/decision`
 - A routing trigger supplied the upstream-change reason.
 - No spine `gate-close` occurs until RS returns.
 

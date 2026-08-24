@@ -12,14 +12,12 @@ changing the active gate. Complete when the entries are committed.
 ## Prerequisites
 
 <HARD-GATE>
-1. Do NOT proceed until you have read `../../../_runtime.md`.
-2. Confirm a G0 hit occurred this turn.
-3. Use the interrupted flow's `$CTX` to confirm one of:
+1. Confirm a G0 hit occurred this turn.
+2. Use the interrupted flow's `$CTX` to confirm one of:
    - Session is InProgress.
    - Session is Frozen after reopen, and G0 interrupts RS before `$RS_COMMIT`.
 </HARD-GATE>
 
-- `$SKILL_DIR` = `$SKILL_ROOT/decision`
 - Active gate unchanged — resume after G0
 
 ## Script Macros

@@ -11,15 +11,7 @@ confirmation. Complete when the user confirms the decision is correct to deliver
 
 ## Prerequisites
 
-<HARD-GATE>
-1. Do NOT proceed until you have read `../../../_runtime.md` and
-   `../../../_subagent.md`.
-2. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
-</HARD-GATE>
-
-- `$SKILL_DIR` = `$SKILL_ROOT/decision`
-- `$CTX.active_gate` must be `DC` (from resolve-context)
-- Entry: R exit `dc`
+- Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `DC`, R exit `dc`).
 
 ## Script Macros
 

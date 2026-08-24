@@ -11,14 +11,7 @@ explicitly accepts a candidate direction.
 
 ## Prerequisites
 
-<HARD-GATE>
-1. Do NOT proceed until you have read `../../../_runtime.md`.
-2. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
-</HARD-GATE>
-
-- `$SKILL_DIR` = `$SKILL_ROOT/decision`
-- `$CTX.active_gate` must be `E` (from resolve-context)
-- `$CTX.gl` must be present
+- Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `E`, `$CTX.gl` present).
 - Align questions: apply `$SKILL_ROOT/shared/references/ask-protocol.md`
 
 ## Script Macros
@@ -71,8 +64,7 @@ dialogue, and related G0 prior/assumptions.
 | `align` | Closable candidate set ready; direction not yet settled | Apply ask-protocol, then present the set and ask the user to accept a candidate or propose an alternative (G1). Lead with the recommended option. Presenting the options **is** this mode — no separate display-only turn. |
 | `settle` | Direction settled (`user_choice` ready) | `$GATE_CONTROL gate-close --gate E --payload '<json>'`. Do **not** ask a separate close question after settle. |
 
-Do **not** use `summarize`. Do **not** hard-code fixed wording; phrase from
-goals + `$CTX.domain_constraints`.
+Do **not** use `summarize`.
 
 ### Pass criterion
 

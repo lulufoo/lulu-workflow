@@ -11,14 +11,7 @@ approach. Complete when the user confirms all three.
 
 ## Prerequisites
 
-<HARD-GATE>
-1. Do NOT proceed until you have read `../../../_runtime.md`.
-2. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
-</HARD-GATE>
-
-- `$SKILL_DIR` = `$SKILL_ROOT/decision`
-- `$CTX.active_gate` must be `D` (from resolve-context)
-- `$CTX.gl` must be present
+- Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `D`, `$CTX.gl` present).
 
 ## Script Macros
 

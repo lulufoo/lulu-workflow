@@ -11,13 +11,7 @@ user is ready to enter Q; empty capture is valid.
 
 ## Prerequisites
 
-<HARD-GATE>
-1. Do NOT proceed until you have read `../../../_runtime.md`.
-2. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
-</HARD-GATE>
-
-- `$SKILL_DIR` = `$SKILL_ROOT/decision`
-- `$CTX.active_gate` must be `O` (from resolve-context)
+- Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `O`).
 
 ## Script Macros
 
@@ -52,16 +46,13 @@ Subcommand contracts: module docstring / `--help`.
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `invite` | `G-invite` not yet satisfied | Issue the open-channel invite (intent above; do not hard-code fixed wording). |
+| `invite` | `G-invite` not yet satisfied | Issue the open-channel invite. |
 | `listen` | User is sharing | Stay in channel; on G0 hit → G0 (see Side routes). |
 | `confirm` | Ready to ask for Q | Ask whether they are ready to proceed to Q. |
 | `close` | User confirms ready | `$GATE_CONTROL gate-close --gate O --payload '{"user_confirmed": true}'` |
 
 User may go `invite` → `confirm` with zero prior content, or `listen` for several
 turns before `confirm`.
-
-Do **not** hard-code fixed invitation wording; phrase from goals +
-`$CTX.domain_constraints`.
 
 ### Side routes
 

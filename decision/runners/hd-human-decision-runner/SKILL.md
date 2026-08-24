@@ -11,12 +11,7 @@ upstream error to RS or reporting an Unable to Decide outcome.
 
 ## Prerequisites
 
-<HARD-GATE>
-1. Do NOT proceed until you have read `../../../_runtime.md`.
-2. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
-</HARD-GATE>
-
-- Trigger: R exit `human_decision`
+- Run `$GATE_CONTROL resolve-context`; pin `$CTX` (R exit `human_decision`).
 
 ## Cognitive map
 

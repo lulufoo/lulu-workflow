@@ -11,13 +11,7 @@ setting. Complete when the input is sufficient to enter E.
 
 ## Prerequisites
 
-<HARD-GATE>
-1. Do NOT proceed until you have read `../../../_runtime.md`.
-2. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
-</HARD-GATE>
-
-- `$SKILL_DIR` = `$SKILL_ROOT/decision`
-- `$CTX.active_gate` must be `GL` (from resolve-context)
+- Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `GL`).
 - Probe questions: before the first probe in each GL entry, read
   `$SKILL_ROOT/shared/references/ask-protocol.md`; apply it to every probe.
 
