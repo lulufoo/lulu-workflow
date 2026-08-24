@@ -4,9 +4,9 @@ name: decision
 
 # decision-workflow
 
-> Framework reference: the local decision runners, scripts, and templates shipped with this skill.
-
-Run a Diagnostic Decision Framework (DDF) session.
+The goal is a delivered Diagnostic Decision Framework session the user has
+confirmed. This file starts, routes, and finishes; Signals fire beside the
+spine, and each runner owns dialogue.
 
 ---
 
@@ -16,18 +16,15 @@ Run a Diagnostic Decision Framework (DDF) session.
 Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
-
 - `$SKILL_DIR` = `$SKILL_ROOT/decision` (before Session Foundation)
-
 - Feature identification logic from `## Session Foundation`
-
-- `../_subagent.md` — `$SUBAGENT_*` (DC Eval probe)
-
 </HARD-GATE>
 
 <HARD-GATE name="Domain Constraints">
 
-**Runtime SSOT:** Pin `$CTX` via `$GATE_CONTROL resolve-context`. Authoritative fields: `domain_constraints` (`objective`, `role`, `domain`, `x_dimensions`, `omitted_sections`), `context`. Do not infer from holder SKILL prose or memory.
+**Runtime SSOT:** Pin `$CTX` via `$GATE_CONTROL resolve-context`. Authoritative
+fields: `domain_constraints` (`objective`, `role`, `domain`, `x_dimensions`,
+`omitted_sections`), `context`. Do not infer from holder SKILL prose or memory.
 
 </HARD-GATE>
 
@@ -36,110 +33,58 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 | Macro | Command |
 |-------|---------|
 | `$DEC_START` | `python3 "$SKILL_DIR/scripts/dec_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--conversation-id "<conversation_id>"] [--domain-constraints-file "<path>"] [--session-dir "<session_dir>"]` |
-| `$DEC_GET_ACTIVE` | `python3 "$SKILL_DIR/scripts/dec_active_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" get-active` |
 | `$DEC_REOPEN` | `python3 "$SKILL_DIR/scripts/dec_reopen.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--permit "<permit_path>"]` |
 | `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$GET_PAYLOAD` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" get-payload` |
-| `$BATCH_RECLOSE` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" batch-reclose --payloads '<json object>'` |
 | `$REGISTER_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
 | `$REGISTER_COMMIT` | `python3 "$SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" register-commit --operations '<json array>'` |
 | `$RS_COMMIT` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" rs-commit --gate "<G>" --operations '<json array>'` |
-| `$SESSION_INTEGRITY` | `python3 "$SKILL_DIR/scripts/dec_session_integrity.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$DEC_EVAL` | `python3 "$SKILL_DIR/scripts/dec_eval_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_entry.py" --adapter-config-file "$SKILL_DIR/eval/eval-profile.json" --project-root "$(pwd)" --cycle-id "<cycle_id>"` |
+| `$BATCH_RECLOSE` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" batch-reclose --payloads '<json object>'` |
 
-Subcommand contracts: module docstrings / `--help`.
+Subcommand contracts: module docstrings / `--help`. Runner-only macros stay in
+that runner.
 
 ---
 
-## Session Lifecycle
-
-### Start
+## Start
 
 1. Identify the active cycle through `_runtime.md` § Session Foundation. Do not
    run `$DEC_START` until `$CYCLE_ID` is confirmed.
 2. Run `$DEC_START`. Holder stages pass their own `--constraints`; generic
    `decision` may omit it. When the platform provides a conversation ID, pass
    `--conversation-id`.
+3. After `$DEC_START` or a holder binding returns `context_docs`: run
+   `$GATE_CONTROL resolve-context`; pin `$CTX`; load each returned context
+   document once; declare the bound session and use only the new `$CTX`.
 
-Holders resolve and supply their own context inputs. Archive, restore, and
-session-path mechanics belong to the lifecycle scripts and holder SKILLs.
-
-### Reopen
-
-Do not run `$DEC_START` again for a session being revised. When revision must
-freeze the active session, use `$DEC_REOPEN`; keep it `Frozen` until RS commits
-realignment. A holder that requires a reopen permit owns the permit flow.
-
-### Context activation
-
-After `$DEC_START` or a holder binding action returns `context_docs`:
-
-1. Run `$GATE_CONTROL resolve-context`; pin `$CTX`.
-2. Load each returned context document once.
-3. Declare the bound decision session, then use only the new `$CTX`.
-
-Holder SKILLs own nested-session navigation and binding. A binding changes the
-decision I/O subject; conclusions from the prior session do not carry over
-unless re-registered or re-closed.
+Do not run `$DEC_START` again for a session being revised. Freeze with
+`$DEC_REOPEN`; keep `Frozen` until RS commits. A holder that requires a reopen
+permit owns that flow. Holders own nested-session binding; prior-session
+conclusions do not carry over unless re-registered or re-closed.
 
 ---
 
-## Workflow Router
-
-### Topology
-
-- **G0 · Parallel Registers** — entire session · parallel on hit · spine uninterrupted (see § Gate routing · G0).
-- **G8 · Incremental risk** — after a write in § Runner handoff · 4 · not parallel · load Scan incremental (no dedicated G8 runner). Complete only after this Diff's `open` is released or the user routes away.
-- **G9 · Semantic inconsistency** — after G8 is complete, and on revise of a closed conclusion · not parallel · on hit load RS (no dedicated G9 runner). Context only; do not load persisted files to evaluate.
-- **RS · Realign State Handler** — upstream change needs downstream sync · not parallel · LoopA re-entry at align gate `G` (see § Gate routing · RS).
-
-**Spine:** [LoopA] O → Q → GL → E → D → X → R → DC → `$GATE_CONTROL complete`.
-
-**Phase grouping** (realign scope):
-- [LoopA] O → Q → GL → E → D → X → R — decision construction (realign at Q / GL / E / D / X)
-- [HD] Human Decision — R exit `human_decision` (see § Gate routing · HD)
-- [DC] Delivery Confirmation — terminal gate
-
-### Runner handoff
+## Router
 
 <HARD-GATE>
-Before executing any gate, read the corresponding runner SKILL first. Each
-runner owns its context acquisition or reuse rule. Do not skip it or rely on
-memory.
+Before executing any gate, read that runner SKILL first. Each runner owns its
+context rule and map. Do not skip it or rely on memory.
 </HARD-GATE>
 
-1. After `GATE_COMPLETE`, load the next spine runner.
-2. On an eligible G0 hit, load G0 before the next user-visible
-   reply. After `G0_COMPLETE`, resume the interrupted flow.
-3. On G9 hit, load RS before `$RS_COMMIT`. After RS or Batch completion, load
-   the runner named by its completion result.
-4. After `$REGISTER_COMMIT`, `$RS_COMMIT`, `$BATCH_RECLOSE`, or a
-   payload-writing `$GATE_CONTROL gate-close`: bind Diff from that stdout; run
-   G8 then G9 before the next user-visible reply. Do not change `active_gate`.
-   Do not re-enter G8 on `apply-r-assumptions`, `complete-assumption`, or
-   `set-risk-state`.
+**Spine:** O → Q → GL → E → D → X → R → DC → `$GATE_CONTROL complete`.
+Realign at Q / GL / E / D / X. R exit `human_decision` → HD. R exit `dc` → DC.
 
-### Gate routing
+After `GATE_COMPLETE`, load the next spine runner. After RS or Batch, load the
+runner named by its completion result. S1–S3 load from the table below;
+contracts are in Signals.
 
-- **G0 hit** — a G0 register item appears in dialogue
-- **G9 hit** — a closed conclusion is revised or contradicted
+Dialogue semantics: each runner owns its map. This file only loads runners.
 
-Global gates:
-
-| Gate | File | Load condition |
-|------|------|----------------|
-| **G0** | `$SKILL_DIR/runners/p-registers-runner/SKILL.md` | G0 hit · **parallel** |
-| **G8** | _(no runner)_ → load **Scan** | After a write in handoff 4 · **not parallel** |
-| **G9** | _(no runner)_ → load **RS** on hit | After G8 is complete; or revise/contradict a closed gate · **not parallel** |
-| **RS** | `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` | Upstream change → realign · **not parallel** |
-| **Scan** | `$SKILL_DIR/runners/risk-scan-runner/SKILL.md` | G8 incremental · R full |
-| **Release** | `$SKILL_DIR/runners/risk-release-runner/SKILL.md` | Scan incremental Done · R `handle` |
-
-Spine gates:
-
-| Gate | File | Load condition |
-|------|------|----------------|
+| Gate | File | When |
+|------|------|------|
+| P | `$SKILL_DIR/runners/p-registers-runner/SKILL.md` | S1 · parallel |
+| Scan | `$SKILL_DIR/runners/risk-scan-runner/SKILL.md` | S2 incremental · R full |
+| Release | `$SKILL_DIR/runners/risk-release-runner/SKILL.md` | Scan incremental Done · R `handle` |
+| RS | `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` | S3 · upstream realign |
 | O | `$SKILL_DIR/runners/o-open-channel-runner/SKILL.md` | After `$DEC_START` · `active_gate` is `O` |
 | Q | `$SKILL_DIR/runners/q-problem-runner/SKILL.md` | O closed |
 | GL | `$SKILL_DIR/runners/gl-grill-runner/SKILL.md` | Q closed |
@@ -148,83 +93,74 @@ Spine gates:
 | X | `$SKILL_DIR/runners/x-full-diagnosis-runner/SKILL.md` | D closed |
 | R | `$SKILL_DIR/runners/r-expose-bets-runner/SKILL.md` | X closed |
 | DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` |
-| Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | R exit `human_decision` |
-
-Dialogue semantics SSOT: each runner owns its map sections. Gate routing loads
-runners only.
+| HD | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | R exit `human_decision` |
 
 ---
 
-## Cross-Gate Rules
+## Signals
 
-### User-facing projection
+| ID | Contract |
+|----|----------|
+| S1 | A register item appears in dialogue → load p-registers-runner (parallel) before the next user-visible reply; after `P_COMPLETE`, resume the current runner. |
+| S2 | After `$REGISTER_COMMIT`, `$RS_COMMIT`, `$BATCH_RECLOSE`, or a payload-writing `$GATE_CONTROL gate-close`: bind Diff from that stdout; load Scan in **incremental** mode; do not change `active_gate`. Skip S2 on `apply-r-assumptions`, `complete-assumption`, or `set-risk-state`. S2 is complete when Scan returns `SCAN_COMPLETE`; then S3. |
+| S3 | After S2, and on a user turn that revises or contradicts a closed conclusion: judge from the current conversation only; do not load persisted files. S3 → load RS. Miss ≠ Eval consistency (Eval loads files). |
 
-1. **Task meaning** — Before every user-visible reply, translate workflow
-   identifiers, completion conditions, and control flow into user-facing task
-   meaning.
-2. **Technical precision** — Hide internal identifiers unless implementation or
-   failure details are needed. Preserve vocabulary required by
-   `$CTX.domain_constraints`; precedence is
+---
+
+## Cross-gate
+
+### Projection
+
+1. Before every user-visible reply, translate workflow identifiers and control
+   flow into task meaning. Hide internal identifiers unless implementation or
+   failure details are needed.
+2. Preserve `$CTX.domain_constraints` vocabulary. Precedence:
    `domain.instruction > role.instruction > projection rules`.
-3. **State-grounded** — Ground replies in pinned `$CTX`, the active runner's
-   map sections, gate routing, and domain constraints. Never infer workflow
-   state from conversation or memory.
-4. **Display only** — Do not persist projected text. `$CTX`, the active
-   runner's map, and command stdout remain the state sources.
+3. Ground replies in pinned `$CTX`, the active runner's map, Router,
+   Signals, and domain constraints. Never infer workflow state from
+   conversation or memory.
+4. Do not persist projected text. `$CTX`, the active runner's map, and command
+   stdout remain the state sources.
 
-### Global operating rules
+### Stance
 
-1. **Expose over conclude** — the goal is to surface assumptions and risks. A conclusion is the output of verification, not the target.
-2. **User prior over framework** — user's judgments, intuitions, and concerns shape the session; the framework captures and integrates them, does not override them.
+1. **Expose over conclude** — surface assumptions and risks; a conclusion is
+   the output of verification, not the target.
+2. **User prior over framework** — capture and integrate the user's judgments;
+   do not override them.
 
-**G1.** Ask One question at a time — never stack multiple questions in a single message. MUST NOT use checkbox, multiple-choice, or other selection UI.
+### Operating rules
 
-**G2.** Prefer numbered plain-text options when they help the user answer one clear question; use open-ended prompts when the options cannot be enumerated. Do not use selection UI.
+**G1.** One question per message. No checkbox, multiple-choice, or selection UI.
 
-**G3.** Each gate has a pass criterion. Do not advance until the criterion is met.
+**G2.** Prefer numbered plain-text options when they help answer one question;
+use an open prompt when the options cannot be enumerated.
+
+**G3.** Do not advance until the active runner's map holds.
 
 **G4. Session SSOT** — Route only from `$CTX` and macro stdout. Do not read or
 write session artifacts directly.
 
-**G5.** Upstream input error — if the intent input itself has a fundamental error, exit the loop; tell the user to fix the input and restart.
+**G5.** If the intent input itself has a fundamental error, exit; tell the user
+to fix the input and restart.
 
-**G6. Override Guard (reactive)** — when override signal detected ("skip" / "just implement it" / etc.):
-1. Stop immediately — do not execute
-2. State which gates are not yet closed
-3. Ask: "Continue diagnostic or exit intentionally?"
+**G6. Override Guard** — on "skip" / "just implement it" / equivalent: stop;
+state which gates are not yet closed; ask "Continue diagnostic or exit
+intentionally?" Confirmed exit → incomplete, exit gracefully.
 
-If user confirms exit → exit gracefully; mark as incomplete.
-
-**G7. Collect-or-Ask** (applies to all information-gathering):
-1. Check: is this information already explicitly stated by user?
-2. Yes → quote original + restate + confirm ("Is this correct?")
-3. No → ask normally
-
-**Prohibited:** re-asking information already stated.
-
-**G8. Incremental risk (global)** — after a write in handoff 4, load
-`$SKILL_DIR/runners/risk-scan-runner/SKILL.md` in **incremental** mode with
-Diff = that stdout. G8 is complete when Scan returns `SCAN_COMPLETE`. Then G9.
-
-**G9. Semantic inconsistency (global · after G8)** — after G8 is complete, and
-on any user turn that revises or contradicts a closed conclusion: judge obvious
-inconsistency from the current conversation only. Do not load persisted files
-to evaluate. Hit → load RS. Miss ≠ strict consistency (Eval loads files).
+**G7. Collect-or-Ask** — if the user already stated it: quote, restate, confirm.
+Do not re-ask.
 
 ---
 
-## Completion & Holder Handoff
+## Done
 
 <HARD-GATE name="Decision completion">
 Do NOT exit decision or transition to the next stage until:
 
-- DC runner has completed the decision session successfully.
+- DC has completed the decision session successfully.
 - The user has explicitly confirmed readiness to proceed.
 
-In a holder, completion applies to this decision node only. Holder delivery owns
-the outer stage transition and delivered references.
-
-This applies to EVERY intent, regardless of perceived clarity.
-"I already know what I want to build" is the most common reason to skip this —
-and the most common source of wasted downstream work.
+In a holder, this applies to this decision node only. Holder delivery owns the
+outer stage transition and delivered references.
 </HARD-GATE>

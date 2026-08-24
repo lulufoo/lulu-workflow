@@ -50,8 +50,8 @@ R `gate-close`).
 
 - If `$CTX.gates.R.status == stale`: follow
   `$SKILL_DIR/references/r-stale-review.md`, then Exit.
-- G0 hit: load G0 runner → `G0_COMPLETE` → resume `prepare` / `present`.
-- G9 hit: load RS runner → after return, resume stale review when R is stale.
+- S1: load p-registers-runner → `P_COMPLETE` → resume `prepare` / `present`.
+- S3: load RS runner → after return, resume stale review when R is stale.
 - `exit=rs` → load RS runner. `exit=human_decision` → load HD runner.
 
 ## Run

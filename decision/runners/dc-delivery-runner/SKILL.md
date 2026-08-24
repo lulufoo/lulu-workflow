@@ -74,8 +74,8 @@ dispatches Eval runners or remediation. Contracts: `eval/eval-profile.json`,
 - Eval fail → summarize issues → RS at `realign_gate`; do not present completion.
 - Confirm-time realign → load RS runner; after sync, `$GATE_CONTROL resolve-context`
   (fresh `$CTX`); restore `G-cleared` / `G-confirm` before close.
-- G9 hit: load RS runner → after return, resume DC dialogue.
-- G0 hit: load G0 runner → `G0_COMPLETE` → resume DC dialogue.
+- S3: load RS runner → after return, resume DC dialogue.
+- S1: load p-registers-runner → `P_COMPLETE` → resume DC dialogue.
 
 ## Act
 

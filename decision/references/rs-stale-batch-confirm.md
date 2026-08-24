@@ -39,4 +39,4 @@ uses the R runner's special stale entry.
 - Batch and Per-gate are mutually exclusive for one Realign recovery.
 - Only control commands persist state. Do not delete payloads or call
   `invalidate-from`.
-- G0 hit → load G0 runner, then resume this path.
+- S1 → load p-registers-runner, then resume this path.

@@ -43,8 +43,8 @@ Subcommand contracts: module docstring / `--help`.
 
 ## Routes
 
-- G9 hit: load RS runner → after return, resume O dialogue.
-- G0 hit: load G0 runner → `G0_COMPLETE` → resume O dialogue.
+- S3: load RS runner → after return, resume O dialogue.
+- S1: load p-registers-runner → `P_COMPLETE` → resume O dialogue.
 
 ## Act
 

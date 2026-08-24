@@ -30,7 +30,7 @@ LEGACY_RR_ACTIVE_ERROR = (
     "legacy gate RR is active; re-run R (RR retired — use R handle + complete-assumption)"
 )
 # Align-from gates for Realign (formerly "reopen"); letter code RS = Realign State.
-# Spine id GL (Grill) — not protocol G0/G9 and not RS metavariable "G".
+# Spine id GL (Grill) — not protocol P/S3 and not RS metavariable "G".
 RS_REALIGN_GATES: tuple[str, ...] = ("Q", "GL", "E", "D", "X")
 # Backward-compatible alias while callers migrate.
 RS_REOPEN_GATES: tuple[str, ...] = RS_REALIGN_GATES

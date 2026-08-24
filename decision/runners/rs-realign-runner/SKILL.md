@@ -47,7 +47,7 @@ Label every Prior and Assumption entry:
 Prior may change between `pending` / `verified`. Assumption progress remains
 `risk_state`, so RS may only retain or delete Assumption rows.
 
-RS does not edit or delete `C#`. Constraint revise/remove is G0
+RS does not edit or delete `C#`. Constraint revise/remove is P
 `$REGISTER_COMMIT`.
 
 Surviving Assumption risk facts remain intact. RS does not invent or rewrite

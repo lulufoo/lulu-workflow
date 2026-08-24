@@ -47,8 +47,8 @@ If the user rejects the summary: treat the denied point as a gap → `probe`.
 
 ## Routes
 
-- G9 hit: load RS runner → after return, resume Problem.
-- G0 hit: load G0 runner → `G0_COMPLETE` → resume Problem.
+- S3: load RS runner → after return, resume Problem.
+- S1: load p-registers-runner → `P_COMPLETE` → resume Problem.
 
 ## Act
 

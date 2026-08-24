@@ -58,8 +58,8 @@ states that no such Prior exists); the user confirms.
 
 ## Routes
 
-- G9 hit: load RS runner.
-- G0 hit: load G0 runner → `G0_COMPLETE` → resume the current mode.
+- S3: load RS runner.
+- S1: load p-registers-runner → `P_COMPLETE` → resume the current mode.
 
 ## Act
 

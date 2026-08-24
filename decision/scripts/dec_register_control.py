@@ -2,8 +2,8 @@
 """Register control for decision sessions.
 
 Subcommands:
-    register-append        Append prior or assumption entry (G0 capture)
-    register-commit        Atomic G0: append/update ops + full session context
+    register-append        Append prior or assumption entry (P capture)
+    register-commit        Atomic P: append/update ops + full session context
     register-update        Update an existing register entry
     register-batch-apply   RS batch labeling and deletions
     sync-registers-to-doc  Render registers into decision-doc sections
@@ -242,7 +242,7 @@ def apply_register_commit_operations(
     *,
     operations: list[dict[str, Any]],
 ) -> tuple[dict[str, Any], int]:
-    """Apply G0 append/update ops; persist registers once."""
+    """Apply P append/update ops; persist registers once."""
     gate_state = load_gate_state(paths["gate_state"])
     reg_flags = _register_io_flags(gate_state)
     registers = load_registers(paths["registers"], **reg_flags)
@@ -574,7 +574,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     append = sub.add_parser(
         "register-append",
-        help="Append a register entry (G0 capture).",
+        help="Append a register entry (P capture).",
         description=(
             "Append User Prior, Constraint, or Assumption. Sets source from active_gate, "
             "assigns id, dedupes by kind+text (prior) or text.\n\n"
@@ -596,7 +596,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     commit = sub.add_parser(
         "register-commit",
-        help="Atomic G0: append/update operations + sync + full session context.",
+        help="Atomic P: append/update operations + sync + full session context.",
         description=(
             "Apply one or more register writes, return full session context.\n\n"
             "Operations JSON array examples:\n"
@@ -606,7 +606,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             '  [{"action":"revise","id":"C1","payload":{"text":"revised"}}]\n'
             '  [{"action":"remove","id":"C1"}]\n'
             '  [{"action":"update","id":"P1","payload":{"text":"revised"}}]\n'
-            "Multiple ops in one array are allowed (e.g. prior + assumption in one G0 turn)."
+            "Multiple ops in one array are allowed (e.g. prior + assumption in one P turn)."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

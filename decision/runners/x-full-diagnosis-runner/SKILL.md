@@ -38,7 +38,7 @@ Subcommand contracts: module docstring / `--help`.
 ## Coverage
 
 Evaluate each active dimension from this session, `$CTX.gl`, `$E`, `$D`, and
-related G0 priors.
+related P priors.
 
 | State | When |
 |-------|------|
@@ -70,9 +70,9 @@ dimension's gap or contradiction → `probe` only that dimension.
 
 ## Routes
 
-- G9 hit: load RS runner.
+- S3: load RS runner.
 - `flag-gap`: load RS runner.
-- G0 hit: load G0 runner immediately → `G0_COMPLETE` → resume the current
+- S1: load p-registers-runner immediately → `P_COMPLETE` → resume the current
   mode (`probe` or `present`).
 
 ## Act

@@ -40,7 +40,7 @@ coverage handles (`lens` ids) only; phrase from locked Q + optional
 `domain.dimension_profile` (`question` / `depth`) hints — not as mini-X stems
 or shallow X fills.
 
-Evaluate using locked Q, this gate’s dialogue, and related G0 prior/assumptions.
+Evaluate using locked Q, this gate’s dialogue, and related P prior/assumptions.
 Both rows met + Q still holds + user confirmed ready for E + Ask domain
 respected. CLI green ≠ framework pass.
 
@@ -63,10 +63,10 @@ If the user rejects the summary: treat the denied point as a gap → `probe`.
 
 ## Routes
 
-- G0 hit: load G0 runner → `G0_COMPLETE` → resume (register `source` is `GL`).
-- G9 hit / Q falsified: load RS; **do not** `gate-close` GL.
+- S1: load p-registers-runner → `P_COMPLETE` → resume (register `source` is `GL`).
+- S3 / Q falsified: load RS; **do not** `gate-close` GL.
 - Persist intents only via GL `gate-close` payload — do not dual-write exchanges
-  to G0.
+  to P.
 
 ## Act
 

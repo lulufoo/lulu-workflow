@@ -1,6 +1,6 @@
 ---
 name: decision/p-registers-runner
-description: Internal runner for the Decision G0 global gate.
+description: Internal runner for the Decision P global gate.
 meta-skill-version: 1.0.0
 ---
 
@@ -21,13 +21,13 @@ Subcommand contracts: `$REGISTER_CONTROL --help` (`register-commit`).
 ## Prerequisites
 
 <HARD-GATE>
-1. Confirm a G0 hit occurred this turn.
+1. Confirm an S1 occurred this turn.
 2. Use the interrupted flow's `$CTX` to confirm one of:
    - Session is InProgress.
-   - Session is Frozen after reopen, and G0 interrupts RS before `$RS_COMMIT`.
+   - Session is Frozen after reopen, and P interrupts RS before `$RS_COMMIT`.
 </HARD-GATE>
 
-- Active gate unchanged — resume after G0. Do not call `gate-close`.
+- Active gate unchanged — resume after P. Do not call `gate-close`.
 - The Frozen exception resumes the interrupted RS confirmation; do not resume a
   spine gate.
 
@@ -56,14 +56,14 @@ persistence.
 
 ## Act
 
-1. Classify every G0 hit (Classification).
+1. Classify every S1 (Classification).
 2. Confirm the proposed entries.
 3. Run `$REGISTER_COMMIT` with the required append/update/revise/remove
    operations. Persist only through this call; do not hand-edit registers or
    chain register commands. `$REGISTER_COMMIT` cannot write `risks[]`.
 4. Pin `$CTX` from stdout.
 
-Return `G0_COMPLETE`.
+Return `P_COMPLETE`.
 
 ## register-commit
 
@@ -82,4 +82,4 @@ Append example:
 
 ## Exit
 
-`G0_COMPLETE` or `G0_FAILED reason=...`
+`P_COMPLETE` or `P_FAILED reason=...`

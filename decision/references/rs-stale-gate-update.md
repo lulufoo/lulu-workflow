@@ -34,4 +34,4 @@ close and handoff.
 - Both light patches and full rewrites are update proposals.
 - Only control commands persist state.
 - Do not delete payloads manually or call `invalidate-from`.
-- G0 hit → load G0 runner, then resume this path.
+- S1 → load p-registers-runner, then resume this path.

@@ -15,7 +15,7 @@ Full mode does not persist.
 ## Prerequisites
 
 <HARD-GATE>
-1. Caller states the mode: **incremental** (G8) or **full** (R).
+1. Caller states the mode: **incremental** (S2) or **full** (R).
 2. Incremental: caller has pinned Diff from the triggering write stdout.
 </HARD-GATE>
 

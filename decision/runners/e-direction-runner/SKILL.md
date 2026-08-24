@@ -31,7 +31,7 @@ Subcommand contracts: module docstring / `--help`.
 | `G-settled-direction` | For the locked Q, a direction is settled: the user accepts a candidate as proposed, or accepts one after reshaping via an alternative; that settled direction is ready to record as `user_choice` and close E. |
 
 Evaluate from locked Q, `$CTX.gl.exchanges`, this gate’s dialogue, and related
-G0 prior/assumptions. Closable set: 2–3 directions, pros/cons, one recommended,
+P prior/assumptions. Closable set: 2–3 directions, pros/cons, one recommended,
 excluded listed or explicitly none. CLI green ≠ framework pass.
 
 ## Ask domain
@@ -56,8 +56,8 @@ proposed alternative → `define`, then `align`.
 
 ## Routes
 
-- G9 hit: load RS runner → after return, resume `G-settled-direction`.
-- G0 hit: load G0 runner → `G0_COMPLETE` → resume `G-settled-direction`.
+- S3: load RS runner → after return, resume `G-settled-direction`.
+- S1: load p-registers-runner → `P_COMPLETE` → resume `G-settled-direction`.
 
 ## Act
 
