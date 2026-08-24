@@ -9,10 +9,6 @@ meta-skill-version: 1.0.0
 Resolve an R suspension caused by unresolved risks. Complete by routing an
 upstream error to RS or reporting an Unable to Decide outcome.
 
-## Blocking policy
-
-Control CLI non-zero → stop, report error, wait for user direction.
-
 ## Prerequisites
 
 <HARD-GATE>

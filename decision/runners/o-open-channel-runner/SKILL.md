@@ -9,11 +9,6 @@ meta-skill-version: 1.0.0
 Open the channel for existing User Prior or Assumption context. Complete when the
 user is ready to enter Q; empty capture is valid.
 
-## Blocking policy
-
-If any control CLI exits non-zero: **stop**, report the error, wait for user
-direction. Do not continue the gate dialogue.
-
 ## Prerequisites
 
 <HARD-GATE>
@@ -58,7 +53,7 @@ Subcommand contracts: module docstring / `--help`.
 | Mode | When | Behavior |
 |------|------|----------|
 | `invite` | `G-invite` not yet satisfied | Issue the open-channel invite (intent above; do not hard-code fixed wording). |
-| `listen` | User is sharing | Stay in channel; on identification hit → G0 (see Side routes). |
+| `listen` | User is sharing | Stay in channel; on G0 hit → G0 (see Side routes). |
 | `confirm` | Ready to ask for Q | Ask whether they are ready to proceed to Q. |
 | `close` | User confirms ready | `gate-close` with payload below. |
 
@@ -70,7 +65,7 @@ Do **not** hard-code fixed invitation wording; phrase from goals +
 
 ### Side routes
 
-- Identification hit → load G0 runner → `G0_COMPLETE` → resume O dialogue.
+- G0 hit → load G0 runner → `G0_COMPLETE` → resume O dialogue.
 - G9 hit → load RS runner → after return, resume O dialogue.
 
 ## Pipeline
@@ -91,8 +86,7 @@ Do **not** hard-code fixed invitation wording; phrase from goals +
 
 **Done:** Return `GATE_COMPLETE O`.
 
-**Stop:** Non-zero CLI, or readiness cannot be judged → stop and wait for user
-direction.
+**Stop:** Readiness cannot be judged → stop and wait for user direction.
 
 ## gate-close payload
 

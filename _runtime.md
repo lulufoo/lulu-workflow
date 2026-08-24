@@ -4,7 +4,9 @@
 Expand macros verbatim from the Script Macros table that defines them — include every flag; do not invoke control scripts by subcommand name alone.
 </HARD-GATE>
 
-Non-zero exit → stop and report stderr (unless noted below).
+<HARD-GATE name="CLI failure">
+Any CLI call: non-zero exit → stop and report stderr (unless noted below).
+</HARD-GATE>
 
 | Macro | Command |
 |-------|---------|

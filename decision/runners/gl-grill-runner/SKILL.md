@@ -9,11 +9,6 @@ meta-skill-version: 1.0.0
 Surface decision-relevant user intent and critical uncertainties before direction
 setting. Complete when the input is sufficient to enter E.
 
-## Blocking policy
-
-If any control CLI exits non-zero: **stop**, report the error, wait for user
-direction. Do not continue the gate dialogue.
-
 ## Prerequisites
 
 <HARD-GATE>
@@ -83,7 +78,7 @@ CLI green ≠ framework pass.
 
 ### Side routes
 
-- Identification hit → load G0 runner → `G0_COMPLETE` → resume (register `source` is `GL`).
+- G0 hit → load G0 runner → `G0_COMPLETE` → resume (register `source` is `GL`).
 - G9 / Q falsified → load RS; **do not** `gate-close` GL.
 - Persist intents only via GL `gate-close` payload — do not dual-write exchanges to G0.
 
@@ -110,8 +105,7 @@ CLI green ≠ framework pass.
 
 **Done:** Return `GATE_COMPLETE GL`.
 
-**Stop:** Non-zero CLI, or coverage/confirm cannot be judged → stop and wait for
-user direction.
+**Stop:** Coverage/confirm cannot be judged → stop and wait for user direction.
 
 ## gate-close payload
 

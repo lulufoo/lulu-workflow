@@ -12,10 +12,6 @@ away; full: `open` may remain).
 
 Does not change `active_gate`. Does not write `completed` (Release does).
 
-## Blocking policy
-
-Control CLI non-zero → stop, report error, wait for user direction.
-
 ## Prerequisites
 
 <HARD-GATE>
@@ -83,7 +79,7 @@ into a Constraint.
   routed away.
 - full: return `SCAN_COMPLETE` with `open` left for the caller.
 
-**Stop:** Non-zero CLI → stop; no silent rewrite.
+**Stop:** No silent rewrite.
 
 ## apply-r-assumptions
 

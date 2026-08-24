@@ -1,23 +1,19 @@
 ---
-name: decision/g0-parallel-registers-runner
+name: decision/p-registers-runner
 description: Internal runner for the Decision G0 global gate.
 meta-skill-version: 1.0.0
 ---
 
-# g0-parallel-registers-runner
+# p-registers-runner
 
 Capture newly identified Prior, hard constraints, and Assumptions without
 changing the active gate. Complete when the entries are committed.
-
-## Blocking policy
-
-Control CLI non-zero → stop, report error, wait for user direction.
 
 ## Prerequisites
 
 <HARD-GATE>
 1. Do NOT proceed until you have read `../../../_runtime.md`.
-2. Confirm an identification hit occurred this turn.
+2. Confirm a G0 hit occurred this turn.
 3. Use the interrupted flow's `$CTX` to confirm one of:
    - Session is InProgress.
    - Session is Frozen after reopen, and G0 interrupts RS before `$RS_COMMIT`.
@@ -58,7 +54,7 @@ Classify on intake. Unverified claims must not become Constraint. Do not write
 
 **Entry:**
 
-1. Classify every identification hit with the Cognitive map.
+1. Classify every G0 hit with the Cognitive map.
 
 **Act:**
 
@@ -67,8 +63,6 @@ Classify on intake. Unverified claims must not become Constraint. Do not write
 3. Pin `$CTX` from stdout.
 
 **Done:** Return `G0_COMPLETE`.
-
-**Stop:** Non-zero command → stop, report error, wait for user direction.
 
 ## register-commit
 

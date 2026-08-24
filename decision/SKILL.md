@@ -110,7 +110,7 @@ memory.
 </HARD-GATE>
 
 1. After `GATE_COMPLETE`, load the next spine runner.
-2. On an eligible G0 identification hit, load G0 before the next user-visible
+2. On an eligible G0 hit, load G0 before the next user-visible
    reply. After `G0_COMPLETE`, resume the interrupted flow.
 3. On G9 hit, load RS before `$RS_COMMIT`. After RS or Batch completion, load
    the runner named by its completion result.
@@ -122,11 +122,14 @@ memory.
 
 ### Gate routing
 
+- **G0 hit** — a G0 register item appears in dialogue
+- **G9 hit** — a closed conclusion is revised or contradicted
+
 Global gates:
 
 | Gate | File | Load condition |
 |------|------|----------------|
-| **G0** | `$SKILL_DIR/runners/g0-parallel-registers-runner/SKILL.md` | Identification hit · **parallel** |
+| **G0** | `$SKILL_DIR/runners/p-registers-runner/SKILL.md` | G0 hit · **parallel** |
 | **G8** | _(no runner)_ → load **Scan** | After a write in handoff 4 · **not parallel** |
 | **G9** | _(no runner)_ → load **RS** on hit | After G8 is complete; or revise/contradict a closed gate · **not parallel** |
 | **RS** | `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` | Upstream change → realign · **not parallel** |

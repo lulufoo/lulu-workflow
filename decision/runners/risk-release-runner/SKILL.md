@@ -10,10 +10,7 @@ Resolve one `risk_state=open` `RK#` (or leftover Assumption risk row). Complete
 when that row is `completed` or `ignore`, or the user routes away.
 
 Does not change `active_gate`. Call once per `open` row.
-
-## Blocking policy
-
-Control CLI non-zero → stop; the row stays `open`.
+CLI failure leaves the row `open`.
 
 ## Prerequisites
 

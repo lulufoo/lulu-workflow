@@ -6,13 +6,8 @@ meta-skill-version: 1.0.0
 
 # q-problem-runner
 
-Write and confirm the problem statement. Complete when the user confirms it.
-Hard constraints are already on `C#` via G0; do not collect them here.
-
-## Blocking policy
-
-If any control CLI exits non-zero: **stop**, report the error, wait for user
-direction. Do not continue the gate dialogue.
+Produce a clear problem definition. Complete when the user confirms the
+problem statement.
 
 ## Prerequisites
 
@@ -23,7 +18,8 @@ direction. Do not continue the gate dialogue.
 
 - `$SKILL_DIR` = `$SKILL_ROOT/decision`
 - `$CTX.active_gate` must be `Q` (from resolve-context)
-- Probe questions: apply `$SKILL_ROOT/shared/references/ask-protocol.md`
+- Before the first probe, read `$SKILL_ROOT/shared/references/ask-protocol.md`;
+  apply it to every probe.
 
 ## Script Macros
 
@@ -35,40 +31,32 @@ Subcommand contracts: module docstring / `--help`.
 
 ## Cognitive map
 
-### Goals
+### Goal
 
 | ID | Must be clear |
 |----|----------------|
-| `G-problem` | What triggered this decision? What problem are we solving? |
+| `G-problem` | A clear problem definition: what triggered this decision, and what problem we are solving. |
 
-Do not re-collect hard constraints. New facts / unverified claims / judgments
-go to G0 as `C#` / `A#` / `P#`.
+### Pass criterion
 
-### Coverage
-
-Evaluate `G-problem` from the conversation so far, **including O prior**.
-
-- **Covered:** user has stated an equivalent problem claim.
-- **Gap:** problem not yet satisfied.
-- If already covered on entry: go straight to **summarize** (G7).
+The problem statement is clear and unambiguous, and the user has confirmed it.
+A merely stated problem claim is not a pass. Evaluate from the conversation so
+far.
 
 ### Dialogue modes
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `probe` | `G-problem` has a gap | Apply ask-protocol; one question per turn (G1). |
-| `summarize` | `G-problem` covered | Restate the problem once; ask if correct. |
-| `close` | User confirms summarize | `gate-close` with payload below. |
+| `probe` | `G-problem` not yet clear | Apply ask-protocol; one question per turn (G1). |
+| `summarize` | `G-problem` clear | Restate the problem once; ask if correct. |
+| `close` | User confirms summarize | `$GATE_CONTROL gate-close --gate Q --payload '<json>'` |
 
 If the user rejects the summary: treat the denied point as a gap → `probe`.
 
-Do **not** hard-code fixed question wording; phrase from the goal +
-`$CTX.domain_constraints`.
-
 ### Side routes
 
-- Identification hit → load G0 runner → `G0_COMPLETE` → resume goal evaluation.
-- G9 hit → load RS runner → after return, resume goal evaluation.
+- G9 hit: load RS runner → after return, resume goal evaluation.
+- G0 hit: load G0 runner → `G0_COMPLETE` → resume goal evaluation.
 
 ## Pipeline
 
@@ -80,37 +68,15 @@ Do **not** hard-code fixed question wording; phrase from the goal +
    `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE Q`,
    and skip Act.
 
-**Act:**
-
-1. Loop (Cognitive map):
-   - Evaluate `G-problem`.
-   - If gap → `probe` (side routes as above; then continue loop).
-   - If covered → `summarize` → on confirm →
-     `$GATE_CONTROL gate-close --gate Q --payload '<json>'` → break.
-
-**Done:** Return `GATE_COMPLETE Q`.
-
-**Stop:** Non-zero CLI, or coverage/confirm cannot be judged → stop and wait for
-user direction.
+**Act:** Loop the Dialogue modes (side routes as above) until `close` succeeds,
+then Exit.
 
 ## gate-close payload
 
 ```json
-{
-  "problem_statement": "<agreed problem>"
-}
+{"problem_statement": "<agreed problem>"}
 ```
 
 ## Exit
 
-On success:
-
-```
-GATE_COMPLETE Q
-```
-
-On failure:
-
-```
-GATE_FAILED Q reason=<brief description>
-```
+`GATE_COMPLETE Q` · `GATE_FAILED Q reason=<brief description>`

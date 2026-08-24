@@ -9,11 +9,6 @@ meta-skill-version: 1.0.0
 Verify that the decision meets delivery conditions and obtain the user's delivery
 confirmation. Complete when the user confirms the decision is correct to deliver.
 
-## Blocking policy
-
-If any control CLI exits non-zero: **stop**, report the error, wait for user
-direction. Do not continue the gate dialogue.
-
 ## Prerequisites
 
 <HARD-GATE>
@@ -73,7 +68,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 
 - Eval fail → summarize issues → RS at `realign_gate`; do not present completion.
 - Confirm-time realign → load RS runner; after sync, `$GATE_CONTROL resolve-context` (fresh `$CTX`); restore `G-cleared` / `G-confirm` before close.
-- Identification hit → load G0 runner → `G0_COMPLETE` → resume DC dialogue.
+- G0 hit → load G0 runner → `G0_COMPLETE` → resume DC dialogue.
 - G9 hit → load RS runner → after return, resume DC dialogue.
 
 ### Decision Eval Probe handoff
@@ -108,8 +103,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 
 **Done:** Return `GATE_COMPLETE DC Completed`.
 
-**Stop:** Non-zero CLI or confirmation cannot be judged → stop
-and wait for user direction.
+**Stop:** Confirmation cannot be judged → stop and wait for user direction.
 
 ## gate-close payload
 

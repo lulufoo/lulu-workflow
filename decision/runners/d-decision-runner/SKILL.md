@@ -9,10 +9,6 @@ meta-skill-version: 1.0.0
 Define the selected direction's rationale, scope and exclusions, and landing
 approach. Complete when the user confirms all three.
 
-## Blocking policy
-
-Control CLI non-zero → stop, report error, wait for user direction.
-
 ## Prerequisites
 
 <HARD-GATE>
@@ -61,7 +57,7 @@ and `excluded` Prior (or states that no such Prior exists); the user confirms.
 
 ### Side routes
 
-- Identification hit → load G0 runner → `G0_COMPLETE` → resume the current
+- G0 hit → load G0 runner → `G0_COMPLETE` → resume the current
   mode.
 - G9 hit → load RS runner.
 
@@ -85,8 +81,8 @@ and `excluded` Prior (or states that no such Prior exists); the user confirms.
 
 **Done:** Return `GATE_COMPLETE D`.
 
-**Stop:** Non-zero CLI, a missing required input, or an unresolved conflict
-stops the gate until the user provides direction.
+**Stop:** A missing required input or an unresolved conflict stops the gate
+until the user provides direction.
 
 ## gate-close payload
 

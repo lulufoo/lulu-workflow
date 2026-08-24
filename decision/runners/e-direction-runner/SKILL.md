@@ -9,11 +9,6 @@ meta-skill-version: 1.0.0
 Settle a direction from the locked problem and GL intent. Complete when the user
 explicitly accepts a candidate direction.
 
-## Blocking policy
-
-If any control CLI exits non-zero: **stop**, report the error, wait for user
-direction. Do not continue the gate dialogue.
-
 ## Prerequisites
 
 <HARD-GATE>
@@ -87,7 +82,7 @@ framework pass.
 
 ### Side routes
 
-- Identification hit → load G0 runner → `G0_COMPLETE` → resume goal evaluation.
+- G0 hit → load G0 runner → `G0_COMPLETE` → resume goal evaluation.
 - G9 hit → load RS runner → after return, resume goal evaluation.
 
 ## Pipeline
@@ -115,8 +110,8 @@ framework pass.
 
 **Done:** Return `GATE_COMPLETE E`.
 
-**Stop:** Non-zero CLI, or coverage/settlement cannot be judged → stop and wait
-for user direction.
+**Stop:** Coverage/settlement cannot be judged → stop and wait for user
+direction.
 
 ## gate-close payload
 

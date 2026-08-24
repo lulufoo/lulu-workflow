@@ -9,10 +9,6 @@ meta-skill-version: 1.0.0
 Diagnose active X dimensions against each `dimension_profile.goal`. Complete
 when the user confirms the packed draft of all active dimensions.
 
-## Blocking policy
-
-Control CLI non-zero → stop, report error, wait for user direction.
-
 ## Prerequisites
 
 <HARD-GATE>
@@ -70,7 +66,7 @@ Gap Check does not create a separate document section. Record its result in the
 
 ### Side routes
 
-- Identification hit → load G0 runner immediately → `G0_COMPLETE` → resume the
+- G0 hit → load G0 runner immediately → `G0_COMPLETE` → resume the
   current mode (`probe` or `present`).
 - G9 hit → load RS runner.
 - Non-empty `gap` after all dimensions are Covered → `flag-gap`.
@@ -99,8 +95,8 @@ Gap Check does not create a separate document section. Record its result in the
 
 **Done:** Return `GATE_COMPLETE X`.
 
-**Stop:** Non-zero CLI, an unconfirmed packed draft, a missing required payload,
-or a gap that requires realignment stops X.
+**Stop:** An unconfirmed packed draft, a missing required payload, or a gap
+that requires realignment stops X.
 
 ## gate-close payload
 

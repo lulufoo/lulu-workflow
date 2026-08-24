@@ -10,11 +10,6 @@ Make assumptions and risks reviewable as a complete risk pack, then handle or
 route unresolved risks. Complete when the pack is confirmed and the selected exit
 is legal.
 
-## Blocking policy
-
-If any control CLI exits non-zero: **stop**, report the error, wait for user
-direction. Do not continue the gate dialogue.
-
 ## Prerequisites
 
 <HARD-GATE>
@@ -88,7 +83,7 @@ The user selects exactly one exit; do not choose it unilaterally.
 
 ### Side routes
 
-- Identification hit → load G0 runner → `G0_COMPLETE` → resume R at `prepare`/`present` (batch rules still apply).
+- G0 hit → load G0 runner → `G0_COMPLETE` → resume R at `prepare`/`present` (batch rules still apply).
 - G9 hit → load RS runner → after return, resume R's Stale entry when R is stale.
 - During `handle`: user wants table changes → `present`/`revise` (no control `return_expose`).
 - During `handle`: upstream wrong → `rs`; cannot finish → `human_decision` → HD runner.
@@ -137,8 +132,7 @@ The user selects exactly one exit; do not choose it unilaterally.
 - `exit=human_decision` → load `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md`
 - `exit=dc` → return `GATE_COMPLETE R exit=dc`
 
-**Stop:** Non-zero CLI, or confirmation cannot be judged → stop and wait for
-user direction.
+**Stop:** Confirmation cannot be judged → stop and wait for user direction.
 
 ## Payloads
 
