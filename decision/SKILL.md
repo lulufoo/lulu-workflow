@@ -150,7 +150,7 @@ Spine gates:
 | DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` |
 | Human Decision | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | R exit `human_decision` |
 
-Dialogue semantics SSOT: each runner owns its Cognitive map. Gate routing loads
+Dialogue semantics SSOT: each runner owns its map sections. Gate routing loads
 runners only.
 
 ---
@@ -167,10 +167,10 @@ runners only.
    `$CTX.domain_constraints`; precedence is
    `domain.instruction > role.instruction > projection rules`.
 3. **State-grounded** — Ground replies in pinned `$CTX`, the active runner's
-   Cognitive map, gate routing, and domain constraints. Never infer workflow
+   map sections, gate routing, and domain constraints. Never infer workflow
    state from conversation or memory.
 4. **Display only** — Do not persist projected text. `$CTX`, the active
-   Cognitive map, and command stdout remain the state sources.
+   runner's map, and command stdout remain the state sources.
 
 ### Global operating rules
 

@@ -60,24 +60,20 @@ Draft defaults: H / M → `open`; L → `ignore`. User may override at confirm
 One `RK#` has exactly one source: `P#` / `A#` / `C#`. Do not rewrite a hit
 into a Constraint.
 
-## Pipeline
-
-**Act:**
+## Act
 
 1. Judge hits per mode (incremental: Diff only; full: entire set).
 2. **incremental:** confirm Diff hits with the user; persist with
    `$GATE_CONTROL apply-r-assumptions` (`--help`); pin `$CTX` if returned.
+   If this Diff left `open`, load
+   `$SKILL_DIR/runners/risk-release-runner/SKILL.md` for each such row. Return
+   `SCAN_COMPLETE` only when none of those rows remain `open`, or the user
+   routed away.
 3. **full:** return the draft to the caller — no user confirm, no
-   `apply-r-assumptions`.
+   `apply-r-assumptions`. Return `SCAN_COMPLETE` with the draft; `open` is
+   not persisted.
 
-**Done:**
-- incremental: if this Diff left `open`, load
-  `$SKILL_DIR/runners/risk-release-runner/SKILL.md` for each such row. Return
-  `SCAN_COMPLETE` only when none of those rows remain `open`, or the user
-  routed away.
-- full: return `SCAN_COMPLETE` with the draft; `open` is not persisted.
-
-**Stop:** No silent rewrite.
+No silent rewrite.
 
 ## Exit
 

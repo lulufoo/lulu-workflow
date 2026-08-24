@@ -9,12 +9,6 @@ meta-skill-version: 1.0.0
 Open the channel for existing User Prior or Assumption context. Complete when the
 user is ready to enter Q; empty capture is valid.
 
-## Prerequisites
-
-- Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `O`).
-- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-  `domain.instruction`) to the dialogue.
-
 ## Script Macros
 
 | Macro | Command |
@@ -23,48 +17,38 @@ user is ready to enter Q; empty capture is valid.
 
 Subcommand contracts: module docstring / `--help`.
 
-## Cognitive map
+## Prerequisites
 
-### Goals
+- Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `O`).
+- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+  `domain.instruction`) to the dialogue.
 
-| ID | Must be clear |
-|----|----------------|
-| `G-invite` | Open channel: invite the user to share existing knowledge (direction preferences, concerns, ruled-out options, etc.). Completeness is not required; they may add more later. |
+## Channel
+
+| ID | Must hold |
+|----|-----------|
+| `G-invite` | Invite the user to share existing knowledge. Completeness is not required. An equivalent invite already this session satisfies this row. |
 | `G-ready` | User confirms they are ready to proceed to Q. |
 
-### Coverage / bounds
+## Modes
 
-- **Prior dump is optional.** Empty prior / assumption registers are allowed. Do
-  **not** block close because little or nothing was dumped.
-- **Parent context docs** were already loaded at Active bind — do **not** reload
-  them in O.
-- Dialogue in this gate **does not count** toward Q’s question quota.
-- O does **not** clarify problem statement or non-negotiable constraints — that
-  is Q’s job.
-- If an equivalent invite already happened in this session before O dialogue
-  started, treat `G-invite` as satisfied; do not stack redundant invites.
-
-### Dialogue modes
+`invite` → `confirm` may skip `listen`.
 
 | Mode | When | Behavior |
 |------|------|----------|
 | `invite` | `G-invite` not yet satisfied | Issue the open-channel invite. |
-| `listen` | User is sharing | Stay in channel; on G0 hit → G0 (see Side routes). |
+| `listen` | User is sharing | Stay in channel. |
 | `confirm` | Ready to ask for Q | Ask whether they are ready to proceed to Q. |
 | `close` | User confirms ready | `$GATE_CONTROL gate-close --gate O --payload '{"user_confirmed": true}'` |
 
-User may go `invite` → `confirm` with zero prior content, or `listen` for several
-turns before `confirm`.
-
-### Side routes
+## Routes
 
 - G9 hit: load RS runner → after return, resume O dialogue.
 - G0 hit: load G0 runner → `G0_COMPLETE` → resume O dialogue.
 
-## Pipeline
+## Act
 
-**Act:** Loop the Dialogue modes (side routes as above) until `close` succeeds,
-then Exit.
+Loop Modes (Routes as above) until `close` succeeds.
 
 ## gate-close payload
 

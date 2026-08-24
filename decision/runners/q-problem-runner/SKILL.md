@@ -9,14 +9,6 @@ meta-skill-version: 1.0.0
 Produce a clear problem definition. Complete when the user confirms the
 problem statement.
 
-## Prerequisites
-
-- Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `Q`).
-- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-  `domain.instruction`) to the dialogue.
-- Before the first probe, read `$SKILL_ROOT/shared/references/ask-protocol.md`;
-  apply it to every probe.
-
 ## Script Macros
 
 | Macro | Command |
@@ -25,21 +17,25 @@ problem statement.
 
 Subcommand contracts: module docstring / `--help`.
 
-## Cognitive map
+## Prerequisites
 
-### Goal
+- Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `Q`).
+- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+  `domain.instruction`) to the dialogue.
+- Before the first probe, read `$SKILL_ROOT/shared/references/ask-protocol.md`;
+  apply it to every probe.
 
-| ID | Must be clear |
-|----|----------------|
+## Problem
+
+| ID | Must hold |
+|----|-----------|
 | `G-problem` | A clear problem definition: what triggered this decision, and what problem we are solving. |
-
-### Pass criterion
 
 The problem statement is clear and unambiguous, and the user has confirmed it.
 A merely stated problem claim is not a pass. Evaluate from the conversation so
 far.
 
-### Dialogue modes
+## Modes
 
 | Mode | When | Behavior |
 |------|------|----------|
@@ -49,21 +45,17 @@ far.
 
 If the user rejects the summary: treat the denied point as a gap → `probe`.
 
-### Side routes
+## Routes
 
-- G9 hit: load RS runner → after return, resume goal evaluation.
-- G0 hit: load G0 runner → `G0_COMPLETE` → resume goal evaluation.
+- G9 hit: load RS runner → after return, resume Problem.
+- G0 hit: load G0 runner → `G0_COMPLETE` → resume Problem.
 
-## Pipeline
-
-**Entry:**
+## Act
 
 1. If `$CTX.gates.Q.status == stale`, follow
    `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE Q`,
-   and skip Act.
-
-**Act:** Loop the Dialogue modes (side routes as above) until `close` succeeds,
-then Exit.
+   and skip the loop.
+2. Loop Modes (Routes as above) until `close` succeeds.
 
 ## gate-close payload
 

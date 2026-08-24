@@ -9,12 +9,6 @@ meta-skill-version: 1.0.0
 Diagnose active X dimensions against each `dimension_profile.goal`. Complete
 when the user confirms the packed draft of all active dimensions.
 
-## Prerequisites
-
-- Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `X`).
-- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-  `domain.instruction`, `x_dimensions`, `dimension_profile`) to the dialogue.
-
 ## Script Macros
 
 | Macro | Command |
@@ -24,20 +18,24 @@ when the user confirms the packed draft of all active dimensions.
 
 Subcommand contracts: module docstring / `--help`.
 
-## Cognitive map
+## Prerequisites
 
-### Active-dimension rules
+- Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `X`).
+- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+  `domain.instruction`, `x_dimensions`, `dimension_profile`) to the dialogue.
 
-- Execute only `$CTX.domain_constraints.x_dimensions`; do not infer dimensions
-  from holder prose.
-- Read each active dimension's `question`, `depth`, and `goal` from
-  `$CTX.domain_constraints.domain.dimension_profile[<dimension>]`. No table
-  fallback.
-- A missing or incomplete profile on an active dimension → stop; do not open
-  dialogue.
-- `depth` is the ceiling. Self-check the draft against it before showing it.
+## Dimensions
 
-### Coverage
+1. Execute only `$CTX.domain_constraints.x_dimensions`; do not infer dimensions
+   from holder prose.
+2. Read each active dimension's `question`, `depth`, and `goal` from
+   `$CTX.domain_constraints.domain.dimension_profile[<dimension>]`. No table
+   fallback.
+3. A missing or incomplete profile on an active dimension → stop; do not open
+   dialogue.
+4. `depth` is the ceiling. Self-check the draft against it before showing it.
+
+## Coverage
 
 Evaluate each active dimension from this session, `$CTX.gl`, `$E`, `$D`, and
 related G0 priors.
@@ -51,7 +49,14 @@ related G0 priors.
 Do not re-ask a covered dimension. If the user names a dimension, treat it as
 unresolved.
 
-### Dialogue modes
+## Gap
+
+Gap Check does not create a separate document section. Record its result in the
+`gap` field for the decision document's Acceptance Criteria → Gap (if any).
+
+## Modes
+
+`probe` may repeat. One gap or contradiction per turn.
 
 | Mode | When | Behavior |
 |------|------|----------|
@@ -60,35 +65,24 @@ unresolved.
 | `present` | All active dimensions Covered, no Contradiction, and `gap` is empty or `None` | Show the packed draft. Ask for one confirm. |
 | `close` | User confirms the packed draft | `$GATE_CONTROL gate-close --gate X --payload '<json>'` (active-dimension fields only) |
 
-`probe` may repeat. One gap or contradiction per turn.
-
 If the user rejects the `present` draft, treat the denied point as that
 dimension's gap or contradiction → `probe` only that dimension.
 
-### Output rule
-
-Gap Check does not create a separate document section. Record its result in the
-`gap` field for the decision document's Acceptance Criteria → Gap (if any).
-
-### Side routes
+## Routes
 
 - G9 hit: load RS runner.
+- `flag-gap`: load RS runner.
 - G0 hit: load G0 runner immediately → `G0_COMPLETE` → resume the current
   mode (`probe` or `present`).
-- Non-empty `gap` after all dimensions are Covered → `flag-gap`.
 
-## Pipeline
-
-**Entry:**
+## Act
 
 1. If `$CTX.gates.X.status == stale`, follow
    `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE X`,
-   and skip Act.
+   and skip the loop.
 2. Run `$GET_PAYLOAD --gates E,D`; pin `payloads.E` as `$E` and `payloads.D` as
    `$D`. If either is missing, stop and report the missing required input.
-
-**Act:** Loop the Dialogue modes (side routes as above) until `close` succeeds
-or `flag-gap` loads RS.
+3. Loop Modes (Routes as above) until `close` succeeds or `flag-gap` loads RS.
 
 ## gate-close payload
 

@@ -9,12 +9,6 @@ meta-skill-version: 1.0.0
 Define the selected direction's rationale, scope and exclusions, and landing
 approach. Complete when the user confirms all three.
 
-## Prerequisites
-
-- Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `D`, `$CTX.gl` present).
-- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-  `domain.instruction`) to the dialogue.
-
 ## Script Macros
 
 | Macro | Command |
@@ -24,11 +18,15 @@ approach. Complete when the user confirms all three.
 
 Subcommand contracts: module docstring / `--help`.
 
-## Cognitive map
+## Prerequisites
 
-### Inputs to reconcile
+- Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `D`, `$CTX.gl` present).
+- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+  `domain.instruction`) to the dialogue.
 
-Before D dialogue:
+## Reconcile
+
+Before discussing a decision:
 
 1. Read `$E` (the persisted E payload), `$CTX.registers.prior`, and
    `$CTX.gl.exchanges` in full.
@@ -38,7 +36,7 @@ Before D dialogue:
 4. Surface and resolve every GL or Prior conflict explicitly in the Decision
    Rationale.
 
-### Goals
+## Establish
 
 | ID | Must establish |
 |----|----------------|
@@ -46,40 +44,34 @@ Before D dialogue:
 | `G-scope` | What the decision covers and explicit exclusions. |
 | `G-landing` | The in-scope must-do chunks, their roles, dependencies, and order or parallelism. This is decision-level landing, not a work breakdown, schedule, or staffing plan. |
 
-### Pass criterion
+All three established; exclusions explicit; rationale references E trade-offs,
+reconciles GL intents, and addresses every `concern` and `excluded` Prior (or
+states that no such Prior exists); the user confirms.
 
-All three goals are established; exclusions are explicit; the rationale
-references E trade-offs, reconciles GL intents, and addresses every `concern`
-and `excluded` Prior (or states that no such Prior exists); the user confirms.
-
-### Dialogue modes
+## Modes
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `reconcile` | Entry | Complete Inputs to reconcile before discussing a decision. |
-| `formulate` | Inputs reconciled | Build or revise all three goals. Ask only an uncovered goal (G1/G7). |
-| `confirm` | All goals are complete | Present the rationale, scope, exclusions, and landing approach together. Rejection → `formulate`. Acceptance → `$GATE_CONTROL gate-close --gate D --payload '<json>'` |
+| `intake` | Entry | Complete Reconcile before discussing a decision. |
+| `formulate` | Reconcile complete | Build or revise all three Establish rows. Ask only an uncovered goal (G1/G7). |
+| `confirm` | All three established | Present the rationale, scope, exclusions, and landing approach together. Rejection → `formulate`. Acceptance → `$GATE_CONTROL gate-close --gate D --payload '<json>'` |
 
-### Side routes
+## Routes
 
 - G9 hit: load RS runner.
 - G0 hit: load G0 runner → `G0_COMPLETE` → resume the current mode.
 
-## Pipeline
-
-**Entry:**
+## Act
 
 1. If `$CTX.gates.D.status == stale`, follow
    `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE D`,
-   and skip Act.
+   and skip the loop.
 2. Run `$GET_PAYLOAD --gate E`; pin `payloads.E` as `$E`. If E is missing,
    stop and report the missing required input.
+3. Loop Modes (Routes as above) until `confirm` acceptance succeeds.
 
-**Act:** Loop the Dialogue modes (side routes as above) until `confirm`
-acceptance / `close` succeeds, then Exit.
-
-**Stop:** A missing required input or an unresolved conflict stops the gate
-until the user provides direction.
+A missing required input or an unresolved conflict stops the gate until the user
+provides direction.
 
 ## gate-close payload
 

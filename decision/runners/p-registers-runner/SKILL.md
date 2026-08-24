@@ -9,17 +9,6 @@ meta-skill-version: 1.0.0
 Capture newly identified Prior, hard constraints, and Assumptions without
 changing the active gate. Complete when the entries are committed.
 
-## Prerequisites
-
-<HARD-GATE>
-1. Confirm a G0 hit occurred this turn.
-2. Use the interrupted flow's `$CTX` to confirm one of:
-   - Session is InProgress.
-   - Session is Frozen after reopen, and G0 interrupts RS before `$RS_COMMIT`.
-</HARD-GATE>
-
-- Active gate unchanged — resume after G0
-
 ## Script Macros
 
 | Macro | Command |
@@ -29,9 +18,20 @@ changing the active gate. Complete when the entries are committed.
 
 Subcommand contracts: `$REGISTER_CONTROL --help` (`register-commit`).
 
-## Cognitive map
+## Prerequisites
 
-### Classification
+<HARD-GATE>
+1. Confirm a G0 hit occurred this turn.
+2. Use the interrupted flow's `$CTX` to confirm one of:
+   - Session is InProgress.
+   - Session is Frozen after reopen, and G0 interrupts RS before `$RS_COMMIT`.
+</HARD-GATE>
+
+- Active gate unchanged — resume after G0. Do not call `gate-close`.
+- The Frozen exception resumes the interrupted RS confirmation; do not resume a
+  spine gate.
+
+## Classification
 
 | Signal in dialogue | Log | Also log |
 |--------------------|-----|----------|
@@ -46,35 +46,29 @@ Subcommand contracts: `$REGISTER_CONTROL --help` (`register-commit`).
 Classify on intake. Unverified claims must not become Constraint. Do not write
 `risks[]`. Do not rewrite a scanned risk into a Constraint.
 
-### Bounds
+Constraint revise/remove uses `revise` / `remove` on `C#`. RS does not edit or
+delete `C#`.
 
-- G0 runs alongside the interrupted gate, does not change `active_gate`, and
-  does not call `gate-close`.
-- Confirm the proposed entries briefly with the user before persistence.
-- Persist only through `$REGISTER_COMMIT`; do not hand-edit registers or chain
-  register commands. `$REGISTER_COMMIT` cannot write `risks[]`.
-- Constraint revise/remove uses `revise` / `remove` on `C#`. RS does not
-  edit or delete `C#`.
-- The Frozen exception resumes the interrupted RS confirmation; do not resume a
-  spine gate.
+## Confirm
 
-## Pipeline
+Briefly confirm the proposed Prior, Constraint, and Assumption entries before
+persistence.
 
-**Entry:**
+## Act
 
-1. Classify every G0 hit with the Cognitive map.
+1. Classify every G0 hit (Classification).
+2. Confirm the proposed entries.
+3. Run `$REGISTER_COMMIT` with the required append/update/revise/remove
+   operations. Persist only through this call; do not hand-edit registers or
+   chain register commands. `$REGISTER_COMMIT` cannot write `risks[]`.
+4. Pin `$CTX` from stdout.
 
-**Act:**
-
-1. Briefly confirm the proposed Prior, Constraint, and Assumption entries.
-2. Run `$REGISTER_COMMIT` with the required append/update/revise/remove operations.
-3. Pin `$CTX` from stdout.
-
-**Done:** Return `G0_COMPLETE`.
+Return `G0_COMPLETE`.
 
 ## register-commit
 
-One or more operations per `$REGISTER_COMMIT` invocation. Subcommand contract: `$REGISTER_CONTROL --help` (`register-commit`).
+One or more operations per `$REGISTER_COMMIT` invocation. Subcommand contract:
+`$REGISTER_CONTROL --help` (`register-commit`).
 
 Append example:
 
