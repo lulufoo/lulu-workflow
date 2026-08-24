@@ -52,7 +52,7 @@ unresolved.
 | `probe` | Any active dimension is a gap or contradiction | Ask only that one (G1). Use `question` as the default stem, or a more specific gap/contradiction question. |
 | `flag-gap` | All active dimensions Covered, no Contradiction, and `gap` is non-empty | Show the packed draft including the gap. Do not ask for confirm. Do not `gate-close`. Load RS. |
 | `present` | All active dimensions Covered, no Contradiction, and `gap` is empty or `None` | Show the packed draft. Ask for one confirm. |
-| `close` | User confirms the packed draft | `gate-close` with payload below. |
+| `close` | User confirms the packed draft | `$GATE_CONTROL gate-close --gate X --payload '<json>'` (active-dimension fields only) |
 
 `probe` may repeat. One gap or contradiction per turn.
 
@@ -66,9 +66,9 @@ Gap Check does not create a separate document section. Record its result in the
 
 ### Side routes
 
-- G0 hit → load G0 runner immediately → `G0_COMPLETE` → resume the
-  current mode (`probe` or `present`).
-- G9 hit → load RS runner.
+- G9 hit: load RS runner.
+- G0 hit: load G0 runner immediately → `G0_COMPLETE` → resume the current
+  mode (`probe` or `present`).
 - Non-empty `gap` after all dimensions are Covered → `flag-gap`.
 
 ## Pipeline
@@ -83,20 +83,8 @@ Gap Check does not create a separate document section. Record its result in the
 3. Run `$GET_PAYLOAD --gates E,D`; pin `payloads.E` as `$E` and `payloads.D` as
    `$D`. If either is missing, stop and report the missing required input.
 
-**Act:**
-
-1. Loop (Cognitive map):
-   - Evaluate each active dimension.
-   - If any gap or contradiction → `probe`.
-   - If all Covered and `gap` is non-empty → `flag-gap` → break.
-   - If all Covered and `gap` is empty or `None` → `present` → on confirm →
-     `$GATE_CONTROL gate-close --gate X --payload '<json>'` (only
-     active-dimension fields are required) → break.
-
-**Done:** Return `GATE_COMPLETE X`.
-
-**Stop:** An unconfirmed packed draft, a missing required payload, or a gap
-that requires realignment stops X.
+**Act:** Loop the Dialogue modes (side routes as above) until `close` succeeds
+or `flag-gap` loads RS.
 
 ## gate-close payload
 

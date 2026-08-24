@@ -58,7 +58,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 | `prepare` | `G-cleared` unmet | `$GATE_CONTROL check-delivery-ready` (fix all errors) → Decision Eval Probe handoff below (fail→RS; no remediation) → `$SESSION_INTEGRITY render`. |
 | `present` | `G-cleared` met | Present Coverage sections from `decision-doc.md`. |
 | `confirm` | `G-cleared` met | Ask whether decisions are correct / any item to realign. |
-| `close` | User confirms | `gate-close` + `complete` with payload below. |
+| `close` | User confirms | `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'` → `$GATE_CONTROL complete` |
 
 ### Pass criterion
 
@@ -68,8 +68,8 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 
 - Eval fail → summarize issues → RS at `realign_gate`; do not present completion.
 - Confirm-time realign → load RS runner; after sync, `$GATE_CONTROL resolve-context` (fresh `$CTX`); restore `G-cleared` / `G-confirm` before close.
-- G0 hit → load G0 runner → `G0_COMPLETE` → resume DC dialogue.
-- G9 hit → load RS runner → after return, resume DC dialogue.
+- G9 hit: load RS runner → after return, resume DC dialogue.
+- G0 hit: load G0 runner → `G0_COMPLETE` → resume DC dialogue.
 
 ### Decision Eval Probe handoff
 
@@ -92,18 +92,8 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
    run that file’s step 4 `gate-close` or step 5 `GATE_COMPLETE`), then
    continue Act.
 
-**Act:**
-
-1. Cognitive map loop:
-   - `G-cleared` unmet → `prepare` (side routes as above).
-   - `G-cleared` met → `present` → `confirm`.
-   - On confirm → `close`:
-     `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'`
-     → `$GATE_CONTROL complete` → break.
-
-**Done:** Return `GATE_COMPLETE DC Completed`.
-
-**Stop:** Confirmation cannot be judged → stop and wait for user direction.
+**Act:** Loop the Dialogue modes (side routes as above) until `close` succeeds,
+then Exit.
 
 ## gate-close payload
 
@@ -113,14 +103,4 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 
 ## Exit
 
-On success:
-
-```
-GATE_COMPLETE DC Completed
-```
-
-On failure:
-
-```
-GATE_FAILED DC reason=<brief description>
-```
+`GATE_COMPLETE DC Completed` · `GATE_FAILED DC reason=<brief description>`

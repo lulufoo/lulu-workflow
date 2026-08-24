@@ -69,7 +69,7 @@ dialogue, and related G0 prior/assumptions.
 |------|------|----------|
 | `define` | Direction not settled **and** no closable candidate set yet | Build or revise the 2–3 set (and excluded). If material is insufficient, ask only the gap (G1/G7). Do **not** apply ask-protocol. |
 | `align` | Closable candidate set ready; direction not yet settled | Apply ask-protocol, then present the set and ask the user to accept a candidate or propose an alternative (G1). Lead with the recommended option. Presenting the options **is** this mode — no separate display-only turn. |
-| `settle` | Direction settled (`user_choice` ready) | `gate-close` with payload below. Do **not** ask a separate close question after settle. |
+| `settle` | Direction settled (`user_choice` ready) | `$GATE_CONTROL gate-close --gate E --payload '<json>'`. Do **not** ask a separate close question after settle. |
 
 Do **not** use `summarize`. Do **not** hard-code fixed wording; phrase from
 goals + `$CTX.domain_constraints`.
@@ -82,8 +82,8 @@ framework pass.
 
 ### Side routes
 
-- G0 hit → load G0 runner → `G0_COMPLETE` → resume goal evaluation.
-- G9 hit → load RS runner → after return, resume goal evaluation.
+- G9 hit: load RS runner → after return, resume goal evaluation.
+- G0 hit: load G0 runner → `G0_COMPLETE` → resume goal evaluation.
 
 ## Pipeline
 
@@ -94,24 +94,11 @@ framework pass.
 2. If `$CTX.gates.E.status == stale`, follow
    `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE E`,
    and skip Act.
-
-**Act:**
-
-1. Confirm `$CTX.gl` is present; consult `$CTX.gl.exchanges` before proposing
+3. Confirm `$CTX.gl` is present; consult `$CTX.gl.exchanges` before proposing
    directions (Coverage).
-2. Loop (Cognitive map):
-   - Evaluate `G-settled-direction`.
-   - If candidate set not ready → `define` (side routes as above; then
-     continue).
-   - If set ready and direction not settled → `align`.
-   - If direction settled →
-     `$GATE_CONTROL gate-close --gate E --payload '<json>'` → break.
-   - HARD: do not call `gate-close` until framework pass holds.
 
-**Done:** Return `GATE_COMPLETE E`.
-
-**Stop:** Coverage/settlement cannot be judged → stop and wait for user
-direction.
+**Act:** Loop the Dialogue modes (side routes as above) until `settle` succeeds,
+then Exit. Do not call `gate-close` until the Pass criterion holds.
 
 ## gate-close payload
 
@@ -136,14 +123,4 @@ Requires **2–3** directions in `directions` (CLI). Row rules: CLI
 
 ## Exit
 
-On success:
-
-```
-GATE_COMPLETE E
-```
-
-On failure:
-
-```
-GATE_FAILED E reason=<brief description>
-```
+`GATE_COMPLETE E` · `GATE_FAILED E reason=<brief description>`

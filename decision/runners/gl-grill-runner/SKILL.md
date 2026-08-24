@@ -67,7 +67,7 @@ stems or shallow X fills.
 |------|------|----------|
 | `probe` | Either goal not met | Apply ask-protocol, then ask only the gap (G1). May pick next lens; order not fixed. |
 | `summarize` | Both goals met | Restate key intents once; ask if ready for E. |
-| `close` | User confirms | `gate-close` with payload below. |
+| `close` | User confirms | `$GATE_CONTROL gate-close --gate GL --payload '<json>'` |
 
 If the user rejects the summary: treat the denied point as a gap → `probe`.
 
@@ -78,8 +78,8 @@ CLI green ≠ framework pass.
 
 ### Side routes
 
-- G0 hit → load G0 runner → `G0_COMPLETE` → resume (register `source` is `GL`).
-- G9 / Q falsified → load RS; **do not** `gate-close` GL.
+- G0 hit: load G0 runner → `G0_COMPLETE` → resume (register `source` is `GL`).
+- G9 hit / Q falsified: load RS; **do not** `gate-close` GL.
 - Persist intents only via GL `gate-close` payload — do not dual-write exchanges to G0.
 
 ## Pipeline
@@ -91,21 +91,11 @@ CLI green ≠ framework pass.
 2. If `$CTX.gates.GL.status == stale`, follow
    `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE GL`,
    and skip Act.
-
-**Act:**
-
-1. Obtain locked Q via `$GATE_CONTROL get-payload` (or fields already on `$CTX`);
+3. Obtain locked Q via `$GATE_CONTROL get-payload` (or fields already on `$CTX`);
    do not start probes until Q payload is available.
-2. Loop (Cognitive map):
-   - Evaluate `G-direction-ready` / `G-diagnosis-preflight`.
-   - If any gap → `probe` (side routes as above; then continue).
-   - If both met → `summarize` → on confirm →
-     `$GATE_CONTROL gate-close --gate GL --payload '<json>'` → break.
-   - HARD: do not call `gate-close` until framework pass holds.
 
-**Done:** Return `GATE_COMPLETE GL`.
-
-**Stop:** Coverage/confirm cannot be judged → stop and wait for user direction.
+**Act:** Loop the Dialogue modes (side routes as above) until `close` succeeds,
+then Exit. Do not call `gate-close` until the Pass criterion holds.
 
 ## gate-close payload
 
@@ -129,14 +119,4 @@ CLI green ≠ framework pass.
 
 ## Exit
 
-On success:
-
-```
-GATE_COMPLETE GL
-```
-
-On failure:
-
-```
-GATE_FAILED GL reason=<brief description>
-```
+`GATE_COMPLETE GL` · `GATE_FAILED GL reason=<brief description>`

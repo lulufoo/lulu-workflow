@@ -55,7 +55,7 @@ Subcommand contracts: module docstring / `--help`.
 | `invite` | `G-invite` not yet satisfied | Issue the open-channel invite (intent above; do not hard-code fixed wording). |
 | `listen` | User is sharing | Stay in channel; on G0 hit → G0 (see Side routes). |
 | `confirm` | Ready to ask for Q | Ask whether they are ready to proceed to Q. |
-| `close` | User confirms ready | `gate-close` with payload below. |
+| `close` | User confirms ready | `$GATE_CONTROL gate-close --gate O --payload '{"user_confirmed": true}'` |
 
 User may go `invite` → `confirm` with zero prior content, or `listen` for several
 turns before `confirm`.
@@ -65,8 +65,8 @@ Do **not** hard-code fixed invitation wording; phrase from goals +
 
 ### Side routes
 
-- G0 hit → load G0 runner → `G0_COMPLETE` → resume O dialogue.
-- G9 hit → load RS runner → after return, resume O dialogue.
+- G9 hit: load RS runner → after return, resume O dialogue.
+- G0 hit: load G0 runner → `G0_COMPLETE` → resume O dialogue.
 
 ## Pipeline
 
@@ -75,18 +75,8 @@ Do **not** hard-code fixed invitation wording; phrase from goals +
 1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
    `domain.instruction`) to the dialogue.
 
-**Act:**
-
-1. Cognitive map loop:
-   - Ensure `G-invite` (invite if needed).
-   - `listen` as the user shares (side routes as above).
-   - `confirm` ready for Q → on confirm →
-     `$GATE_CONTROL gate-close --gate O --payload '{"user_confirmed": true}'`
-     → break.
-
-**Done:** Return `GATE_COMPLETE O`.
-
-**Stop:** Readiness cannot be judged → stop and wait for user direction.
+**Act:** Loop the Dialogue modes (side routes as above) until `close` succeeds,
+then Exit.
 
 ## gate-close payload
 
@@ -96,14 +86,4 @@ Do **not** hard-code fixed invitation wording; phrase from goals +
 
 ## Exit
 
-On success:
-
-```
-GATE_COMPLETE O
-```
-
-On failure:
-
-```
-GATE_FAILED O reason=<brief description>
-```
+`GATE_COMPLETE O` · `GATE_FAILED O reason=<brief description>`

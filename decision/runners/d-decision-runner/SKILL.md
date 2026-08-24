@@ -53,13 +53,12 @@ and `excluded` Prior (or states that no such Prior exists); the user confirms.
 |------|------|----------|
 | `reconcile` | Entry | Complete Inputs to reconcile before discussing a decision. |
 | `formulate` | Inputs reconciled | Build or revise all three goals. Ask only an uncovered goal (G1/G7). |
-| `confirm` | All goals are complete | Present the rationale, scope, exclusions, and landing approach together. User rejection returns to `formulate`; acceptance closes D. |
+| `confirm` | All goals are complete | Present the rationale, scope, exclusions, and landing approach together. Rejection → `formulate`. Acceptance → `$GATE_CONTROL gate-close --gate D --payload '<json>'` |
 
 ### Side routes
 
-- G0 hit → load G0 runner → `G0_COMPLETE` → resume the current
-  mode.
-- G9 hit → load RS runner.
+- G9 hit: load RS runner.
+- G0 hit: load G0 runner → `G0_COMPLETE` → resume the current mode.
 
 ## Pipeline
 
@@ -73,13 +72,8 @@ and `excluded` Prior (or states that no such Prior exists); the user confirms.
 3. Run `$GET_PAYLOAD --gate E`; pin `payloads.E` as `$E`. If E is missing,
    stop and report the missing required input.
 
-**Act:**
-
-1. Complete Cognitive map **Inputs to reconcile**.
-2. Loop through `reconcile` → `formulate` → `confirm`. On acceptance, run
-   `$GATE_CONTROL gate-close --gate D --payload '<json>'`.
-
-**Done:** Return `GATE_COMPLETE D`.
+**Act:** Loop the Dialogue modes (side routes as above) until `confirm`
+acceptance / `close` succeeds, then Exit.
 
 **Stop:** A missing required input or an unresolved conflict stops the gate
 until the user provides direction.
