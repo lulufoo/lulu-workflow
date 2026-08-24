@@ -12,6 +12,8 @@ upstream error to RS or reporting an Unable to Decide outcome.
 ## Prerequisites
 
 - Run `$GATE_CONTROL resolve-context`; pin `$CTX` (R exit `human_decision`).
+- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+  `domain.instruction`) to the dialogue.
 
 ## Cognitive map
 
@@ -31,11 +33,6 @@ conclusion may be wrong, or available information cannot support a decision.
 - This subroutine does not close a spine gate or change the active gate.
 
 ## Pipeline
-
-**Entry:**
-
-1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue.
 
 **Act:**
 

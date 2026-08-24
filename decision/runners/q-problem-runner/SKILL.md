@@ -12,6 +12,8 @@ problem statement.
 ## Prerequisites
 
 - Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `Q`).
+- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+  `domain.instruction`) to the dialogue.
 - Before the first probe, read `$SKILL_ROOT/shared/references/ask-protocol.md`;
   apply it to every probe.
 
@@ -56,9 +58,7 @@ If the user rejects the summary: treat the denied point as a gap → `probe`.
 
 **Entry:**
 
-1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue.
-2. If `$CTX.gates.Q.status == stale`, follow
+1. If `$CTX.gates.Q.status == stale`, follow
    `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE Q`,
    and skip Act.
 

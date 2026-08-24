@@ -14,6 +14,9 @@ stale state is committed, and one recovery route is selected.
 
 - A routing trigger supplied the upstream-change reason.
 - No spine `gate-close` occurs until RS returns.
+- Run `$GATE_CONTROL resolve-context`; pin `$CTX`.
+- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+  `domain.instruction`) to the dialogue.
 
 ## Script Macros
 
@@ -58,31 +61,28 @@ Subcommand and stdout contracts: module docstring / `--help`.
 
 **Entry**
 
-1. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
-2. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue.
-3. From the routing trigger and `$CTX`, propose the earliest align point; obtain
+1. From the routing trigger and `$CTX`, propose the earliest align point; obtain
    user confirmation.
 
 **Confirm**
 
-4. Present the three-state label for every entry in both Registers, including
+2. Present the three-state label for every entry in both Registers, including
    any semantic override of the defaults.
-5. Revise until the user confirms the complete disposition. Translate only the
+3. Revise until the user confirms the complete disposition. Translate only the
    confirmed Prior state changes and deletions into operations.
 
 **Commit**
 
-6. Run `$RS_COMMIT`. Pin its stdout as the new `$CTX`.
-7. Non-zero exit → stop, report the error, and wait for user direction.
+4. Run `$RS_COMMIT`. Pin its stdout as the new `$CTX`.
+5. Non-zero exit → stop, report the error, and wait for user direction.
 
 **Route**
 
-8. State whether the change is a light patch and why; ask Batch vs Per-gate.
-9. Batch → follow `$SKILL_DIR/references/rs-stale-batch-confirm.md`; return its
+6. State whether the change is a light patch and why; ask Batch vs Per-gate.
+7. Batch → follow `$SKILL_DIR/references/rs-stale-batch-confirm.md`; return its
    `BATCH_COMPLETE`.
-10. Per-gate → return `RS_COMPLETE reenter=<G>`; the kernel loads that stale
-    gate's runner.
+8. Per-gate → return `RS_COMPLETE reenter=<G>`; the kernel loads that stale
+   gate's runner.
 
 **Stop**
 

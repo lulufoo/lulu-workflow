@@ -12,6 +12,8 @@ setting. Complete when the input is sufficient to enter E.
 ## Prerequisites
 
 - Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `GL`).
+- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+  `domain.instruction`) to the dialogue.
 - Probe questions: before the first probe in each GL entry, read
   `$SKILL_ROOT/shared/references/ask-protocol.md`; apply it to every probe.
 
@@ -80,12 +82,10 @@ CLI green ≠ framework pass.
 
 **Entry:**
 
-1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue.
-2. If `$CTX.gates.GL.status == stale`, follow
+1. If `$CTX.gates.GL.status == stale`, follow
    `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE GL`,
    and skip Act.
-3. Obtain locked Q via `$GATE_CONTROL get-payload` (or fields already on `$CTX`);
+2. Obtain locked Q via `$GATE_CONTROL get-payload` (or fields already on `$CTX`);
    do not start probes until Q payload is available.
 
 **Act:** Loop the Dialogue modes (side routes as above) until `close` succeeds,

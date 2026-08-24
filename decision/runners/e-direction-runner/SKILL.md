@@ -12,6 +12,8 @@ explicitly accepts a candidate direction.
 ## Prerequisites
 
 - Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `E`, `$CTX.gl` present).
+- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+  `domain.instruction`) to the dialogue.
 - Align questions: apply `$SKILL_ROOT/shared/references/ask-protocol.md`
 
 ## Script Macros
@@ -81,12 +83,10 @@ framework pass.
 
 **Entry:**
 
-1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue.
-2. If `$CTX.gates.E.status == stale`, follow
+1. If `$CTX.gates.E.status == stale`, follow
    `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE E`,
    and skip Act.
-3. Confirm `$CTX.gl` is present; consult `$CTX.gl.exchanges` before proposing
+2. Confirm `$CTX.gl` is present; consult `$CTX.gl.exchanges` before proposing
    directions (Coverage).
 
 **Act:** Loop the Dialogue modes (side routes as above) until `settle` succeeds,

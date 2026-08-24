@@ -12,6 +12,8 @@ user is ready to enter Q; empty capture is valid.
 ## Prerequisites
 
 - Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `O`).
+- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+  `domain.instruction`) to the dialogue.
 
 ## Script Macros
 
@@ -60,11 +62,6 @@ turns before `confirm`.
 - G0 hit: load G0 runner → `G0_COMPLETE` → resume O dialogue.
 
 ## Pipeline
-
-**Entry:**
-
-1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue.
 
 **Act:** Loop the Dialogue modes (side routes as above) until `close` succeeds,
 then Exit.

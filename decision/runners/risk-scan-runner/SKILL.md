@@ -6,11 +6,11 @@ meta-skill-version: 1.0.0
 
 # risk-scan-runner
 
-Classify risks and persist hits as `RK#`. Complete when hits are written or
-there is no risk (incremental: after this Diff's `open` is released or routed
-away; full: `open` may remain).
+Classify risks. Incremental mode confirms and persists hits as `RK#`. Full mode
+returns a draft to the caller (R persists after pack confirm).
 
 Does not change `active_gate`. Does not write `completed` (Release does).
+Full mode does not persist.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ Does not change `active_gate`. Does not write `completed` (Release does).
 | Macro | Command |
 |-------|---------|
 | `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$GET_PAYLOAD` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" get-payload` |
+| `$GET_PAYLOAD` | `$GATE_CONTROL get-payload` |
 
 Subcommand contracts: module docstring / `--help` (`apply-r-assumptions`).
 
@@ -33,7 +33,7 @@ Subcommand contracts: module docstring / `--help` (`apply-r-assumptions`).
 | Mode | Scope | Evidence |
 |------|-------|----------|
 | incremental | Diff = the triggering write stdout (caller pin). Do not walk the full P / A / C set. | That stdout + current conversation. Do not load persisted files to evaluate. |
-| full | All current P / A / C. This is the R / `r-expose-bets-runner` input. | Load persisted registers and gate payloads (`$CTX` / `$GET_PAYLOAD`). |
+| full | All current P / A / C. This is the R / `r-expose-bets-runner` input. | Load persisted registers and gate payloads (`$CTX` / `$GET_PAYLOAD`, including `$D` / `$X`). |
 
 Incremental miss ≠ full scan complete. R cannot be skipped.
 
@@ -52,7 +52,8 @@ A non-risk conclusion uses `none` in the pack only — do not write a `none`
 | `risk_class` | `implementation` | Risk concerns later implementation. |
 | `risk_class` | `pending` | Class is not yet judged. |
 
-Draft defaults: H / M → `open`; L → `ignore`. User may override at confirm.
+Draft defaults: H / M → `open`; L → `ignore`. User may override at confirm
+(incremental: this runner; full: caller R).
 `risk_class` is a label only. Only `open` blocks ordinary close.
 `completed` is forbidden here — Release writes it.
 
@@ -64,35 +65,19 @@ into a Constraint.
 **Act:**
 
 1. Judge hits per mode (incremental: Diff only; full: entire set).
-2. Confirm the draft with the user (incremental: Diff hits only; full: the pack).
-3. Persist hits with `$GATE_CONTROL apply-r-assumptions`. Item `id` is the
-   source `P#` / `A#` / `C#` or an existing `RK#`. Omit `none` rows.
-4. Pin `$CTX` if the command returns context; otherwise keep the caller's pin.
+2. **incremental:** confirm Diff hits with the user; persist with
+   `$GATE_CONTROL apply-r-assumptions` (`--help`); pin `$CTX` if returned.
+3. **full:** return the draft to the caller — no user confirm, no
+   `apply-r-assumptions`.
 
 **Done:**
 - incremental: if this Diff left `open`, load
   `$SKILL_DIR/runners/risk-release-runner/SKILL.md` for each such row. Return
   `SCAN_COMPLETE` only when none of those rows remain `open`, or the user
   routed away.
-- full: return `SCAN_COMPLETE` with `open` left for the caller.
+- full: return `SCAN_COMPLETE` with the draft; `open` is not persisted.
 
 **Stop:** No silent rewrite.
-
-## apply-r-assumptions
-
-```json
-{
-  "assumptions": [
-    {
-      "id": "A1",
-      "risk_level": "H",
-      "risk_class": "decision",
-      "risk_state": "open",
-      "risk_consequence": "..."
-    }
-  ]
-}
-```
 
 ## Exit
 

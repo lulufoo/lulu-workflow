@@ -12,6 +12,8 @@ approach. Complete when the user confirms all three.
 ## Prerequisites
 
 - Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `D`, `$CTX.gl` present).
+- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+  `domain.instruction`) to the dialogue.
 
 ## Script Macros
 
@@ -67,12 +69,10 @@ and `excluded` Prior (or states that no such Prior exists); the user confirms.
 
 **Entry:**
 
-1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`) to the dialogue.
-2. If `$CTX.gates.D.status == stale`, follow
+1. If `$CTX.gates.D.status == stale`, follow
    `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE D`,
    and skip Act.
-3. Run `$GET_PAYLOAD --gate E`; pin `payloads.E` as `$E`. If E is missing,
+2. Run `$GET_PAYLOAD --gate E`; pin `payloads.E` as `$E`. If E is missing,
    stop and report the missing required input.
 
 **Act:** Loop the Dialogue modes (side routes as above) until `confirm`

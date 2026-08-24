@@ -12,6 +12,8 @@ when the user confirms the packed draft of all active dimensions.
 ## Prerequisites
 
 - Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `X`).
+- Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
+  `domain.instruction`, `x_dimensions`, `dimension_profile`) to the dialogue.
 
 ## Script Macros
 
@@ -79,12 +81,10 @@ Gap Check does not create a separate document section. Record its result in the
 
 **Entry:**
 
-1. Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
-   `domain.instruction`, `x_dimensions`, `dimension_profile`) to the dialogue.
-2. If `$CTX.gates.X.status == stale`, follow
+1. If `$CTX.gates.X.status == stale`, follow
    `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE X`,
    and skip Act.
-3. Run `$GET_PAYLOAD --gates E,D`; pin `payloads.E` as `$E` and `payloads.D` as
+2. Run `$GET_PAYLOAD --gates E,D`; pin `payloads.E` as `$E` and `payloads.D` as
    `$D`. If either is missing, stop and report the missing required input.
 
 **Act:** Loop the Dialogue modes (side routes as above) until `close` succeeds
