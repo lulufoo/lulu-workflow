@@ -16,8 +16,18 @@ approach. Complete when the user confirms all three.
 2. Run `$GATE_CONTROL resolve-context`; pin stdout JSON as `$CTX`.
 </HARD-GATE>
 
+- `$SKILL_DIR` = `$SKILL_ROOT/decision`
 - `$CTX.active_gate` must be `D` (from resolve-context)
 - `$CTX.gl` must be present
+
+## Script Macros
+
+| Macro | Command |
+|-------|---------|
+| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
+| `$GET_PAYLOAD` | `$GATE_CONTROL get-payload` |
+
+Subcommand contracts: module docstring / `--help`.
 
 ## Cognitive map
 

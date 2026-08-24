@@ -19,7 +19,17 @@ changing the active gate. Complete when the entries are committed.
    - Session is Frozen after reopen, and G0 interrupts RS before `$RS_COMMIT`.
 </HARD-GATE>
 
+- `$SKILL_DIR` = `$SKILL_ROOT/decision`
 - Active gate unchanged — resume after G0
+
+## Script Macros
+
+| Macro | Command |
+|-------|---------|
+| `$REGISTER_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
+| `$REGISTER_COMMIT` | `$REGISTER_CONTROL register-commit --operations '<json array>'` |
+
+Subcommand contracts: `$REGISTER_CONTROL --help` (`register-commit`).
 
 ## Cognitive map
 
