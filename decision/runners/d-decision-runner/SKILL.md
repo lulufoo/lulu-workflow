@@ -17,34 +17,23 @@ approach. Complete when the user confirms all three.
 
 ## Reconcile
 
-Before discussing a decision:
-
-1. Read `$E` (the persisted E payload), `$CTX.registers.prior`, and
-   `$CTX.gl.exchanges` in full.
-2. Compare GL confirmation and operational intents with the chosen E direction
-   and intended scope.
-3. Compare every Prior with the chosen E direction and intended scope.
-4. Surface and resolve every GL or Prior conflict in `G-rationale`.
+Check the selected E (rationale, scope, landing) against any settled Register write or gate-payload write. Conflict → revise E or load RS.
 
 ## Must hold
 
 | ID | Must hold |
 |----|-----------|
-| `G-rationale` | The chosen direction, its E trade-offs, and why alternatives are excluded. |
+| `G-rationale` | The chosen direction, its E trade-offs, and why alternatives are excluded. Addresses every `concern` and `excluded` Prior, or states that none exist. |
 | `G-scope` | What the decision covers and explicit exclusions. |
-| `G-landing` | The in-scope must-do chunks, their roles, dependencies, and order or parallelism. This is decision-level landing, not a work breakdown, schedule, or staffing plan. |
-
-All three established; exclusions explicit; rationale references E trade-offs,
-reconciles GL intents, and addresses every `concern` and `excluded` Prior (or
-states that no such Prior exists); the user confirms.
+| `G-landing` | How this decision lands: in-scope must-do chunks, their roles, and dependencies (order or parallelism). Not a work breakdown, schedule, or staffing plan. |
 
 ## Modes
 
 | Mode | When | Behavior |
 |------|------|----------|
 | `intake` | Entry | Complete Reconcile before discussing a decision. |
-| `formulate` | Reconcile complete | Build or revise all three Must hold rows. Ask only an uncovered row (G1). |
-| `confirm` | All three established | Present the rationale, scope, exclusions, and landing approach together. Rejection → `formulate`. Acceptance → `$GATE_CONTROL gate-close --gate D --payload '<json>'` |
+| `formulate` | Reconcile complete | One question per unmet Must hold row (G1). |
+| `confirm` | All three established | Present all three. Reject → `formulate`; accept → `$GATE_CONTROL gate-close --gate D --payload '<json>'`. |
 
 ## Signals
 
@@ -58,9 +47,6 @@ Apply Decision [Signals](../../SKILL.md#signals) throughout D.
 2. Run `$GET_PAYLOAD --gate E`; pin `payloads.E` as `$E`. If E is missing,
    stop and report the missing required input.
 3. Loop Modes (Signals as above) until `confirm` acceptance succeeds.
-
-A missing required input or an unresolved conflict stops the gate until the user
-provides direction.
 
 ## gate-close payload
 
