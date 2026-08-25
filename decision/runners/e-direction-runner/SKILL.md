@@ -50,7 +50,7 @@ proposed alternative → `define`, then `align`.
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `define` | Direction not settled **and** no closable candidate set yet | Read `$CTX.gl.exchanges` in full first (prioritize `impact_surface`, `external_dependencies`, confirmation-related answers); surface conflicts. Build or revise the 2–3 set (and excluded). If material is insufficient, ask only the gap (G1/G7). Do **not** apply ask-protocol. |
+| `define` | Direction not settled **and** no closable candidate set yet | Read `$CTX.gl.exchanges` in full first (prioritize `impact_surface`, `external_dependencies`, confirmation-related answers); surface conflicts. Build or revise the 2–3 set (and excluded). If material is insufficient, ask only the gap (G1). Do **not** apply the full ask-protocol. |
 | `align` | Closable candidate set ready; direction not yet settled; GL intents consulted | Apply ask-protocol, then present the set and ask the user to accept a candidate or propose an alternative (G1). Lead with the recommended option. Presenting the options **is** this mode — no separate display-only turn. |
 | `settle` | Direction settled (`user_choice` ready) | `$GATE_CONTROL gate-close --gate E --payload '<json>'`. Do **not** ask a separate close question after settle. |
 

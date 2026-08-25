@@ -53,7 +53,7 @@ states that no such Prior exists); the user confirms.
 | Mode | When | Behavior |
 |------|------|----------|
 | `intake` | Entry | Complete Reconcile before discussing a decision. |
-| `formulate` | Reconcile complete | Build or revise all three Establish rows. Ask only an uncovered goal (G1/G7). |
+| `formulate` | Reconcile complete | Build or revise all three Establish rows. Ask only an uncovered goal (G1). |
 | `confirm` | All three established | Present the rationale, scope, exclusions, and landing approach together. Rejection → `formulate`. Acceptance → `$GATE_CONTROL gate-close --gate D --payload '<json>'` |
 
 ## Signals

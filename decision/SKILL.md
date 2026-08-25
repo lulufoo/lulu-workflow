@@ -81,6 +81,8 @@ conclusions do not carry over unless re-registered or re-closed.
 <HARD-GATE>
 Load the routed runner before execution; never rely on memory. The runner owns
 its context and dialogue map.
+Route only from `$CTX` and macro stdout; never access session artifacts
+directly.
 </HARD-GATE>
 
 **Spine:** O → Q → GL → E → D → X → R → DC → `$GATE_CONTROL complete`.
@@ -89,12 +91,17 @@ its context and dialogue map.
 returned runner. Signals route P / Scan / RS. Scan incremental `open` or R
 `handle` → Release.
 
+**Global**
+
 | Route | Runner |
 |-------|--------|
 | P | `$SKILL_DIR/runners/p-registers-runner/SKILL.md` |
-| Scan | `$SKILL_DIR/runners/risk-scan-runner/SKILL.md` |
-| Release | `$SKILL_DIR/runners/risk-release-runner/SKILL.md` |
 | RS | `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` |
+
+**Gate**
+
+| Route | Runner |
+|-------|--------|
 | O | `$SKILL_DIR/runners/o-open-channel-runner/SKILL.md` |
 | Q | `$SKILL_DIR/runners/q-problem-runner/SKILL.md` |
 | GL | `$SKILL_DIR/runners/gl-grill-runner/SKILL.md` |
@@ -103,6 +110,13 @@ returned runner. Signals route P / Scan / RS. Scan incremental `open` or R
 | X | `$SKILL_DIR/runners/x-full-diagnosis-runner/SKILL.md` |
 | R | `$SKILL_DIR/runners/r-expose-bets-runner/SKILL.md` |
 | DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` |
+
+**Tools**
+
+| Route | Runner |
+|-------|--------|
+| Scan | `$SKILL_DIR/runners/risk-scan-runner/SKILL.md` |
+| Release | `$SKILL_DIR/runners/risk-release-runner/SKILL.md` |
 | HD | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` |
 
 ---
@@ -131,25 +145,14 @@ When both trigger, complete S2 before handling S3.
 
 ### Operating rules
 
-**G1.** Ask at most one question per user-visible reply; no checkbox or
-selection UI.
+**G1.** — Ask one question at a time. Apply the full
+[Ask Protocol](../shared/references/ask-protocol.md) only where the active
+runner binds it.
 
-**G2.** Use numbered plain-text options when useful; otherwise ask openly.
+**G2.** Advance only when the active runner's map holds.
 
-**G3.** Advance only when the active runner's map holds.
-
-**G4. Session SSOT** — Route only from `$CTX` and macro stdout; never access
-session artifacts directly.
-
-**G5.** A fundamental intent error → exit; tell the user to fix the input and
-restart.
-
-**G6. Override Guard** — On "skip" / "just implement it" / equivalent: stop,
-name the unclosed gates, and ask "Continue diagnostic or exit intentionally?"
-Confirmed exit → end incomplete.
-
-**G7. Collect-or-Ask** — If already stated: quote, restate, confirm; do not
-re-ask.
+**G3.** — Bypassing unclosed gates requires explicit user
+confirmation; confirmed exit ends incomplete.
 
 ---
 
