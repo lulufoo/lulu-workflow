@@ -74,11 +74,12 @@ def test_shared_ask_protocol_is_single_runtime_ssot():
     assert shared_ref in q
     assert shared_ref in gl
     assert shared_ref in e
-    assert "| `probe` | Any goal has a gap | Apply ask-protocol" in q
+    assert "| `probe` | `G-problem` not yet clear | Apply ask-protocol." in q
     assert "before the first probe in each GL entry, read" in gl
-    assert "| `probe` | Either goal not met | Apply ask-protocol" in gl
-    assert "| `align` | Closable candidate set ready;" in e
-    assert "Do **not** apply ask-protocol." in e
+    assert "| `probe` | Either Intent row not met | Apply ask-protocol" in gl
+    assert "| `define` | Candidate set incomplete |" in e
+    assert "| `align` | Candidate set ready; acceptance missing |" in e
+    assert "Apply `$SKILL_ROOT/shared/references/ask-protocol.md`" in e
 
     for runtime_md in _WORKFLOW.rglob("*.md"):
         assert "$SKILL_DIR/references/ask-protocol.md" not in runtime_md.read_text(

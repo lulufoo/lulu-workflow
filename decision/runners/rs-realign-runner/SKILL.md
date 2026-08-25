@@ -10,17 +10,6 @@ Serially realign downstream decision state after an upstream conclusion changes.
 Complete when the affected boundary and Register dispositions are confirmed,
 stale state is committed, and one recovery route is selected.
 
-## Script Macros
-
-| Macro | Command |
-|-------|---------|
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$RS_COMMIT` | `$GATE_CONTROL rs-commit --gate "<G>" --operations '<json array>'` |
-| `$GET_PAYLOAD` | `$GATE_CONTROL get-payload` |
-| `$BATCH_RECLOSE` | `$GATE_CONTROL batch-reclose --payloads '<json object>'` |
-
-Subcommand and stdout contracts: module docstring / `--help`.
-
 ## Prerequisites
 
 - A routing trigger supplied the upstream-change reason.

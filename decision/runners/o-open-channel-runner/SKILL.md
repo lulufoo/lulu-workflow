@@ -9,14 +9,6 @@ meta-skill-version: 1.0.0
 Open the channel for existing User Prior or Assumption context. Complete when the
 user is ready to enter Q; empty capture is valid.
 
-## Script Macros
-
-| Macro | Command |
-|-------|---------|
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-
-Subcommand contracts: module docstring / `--help`.
-
 ## Prerequisites
 
 - Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `O`).

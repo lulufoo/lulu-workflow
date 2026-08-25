@@ -9,14 +9,6 @@ meta-skill-version: 1.0.0
 Produce a clear problem definition. Complete when the user confirms the
 problem statement.
 
-## Script Macros
-
-| Macro | Command |
-|-------|---------|
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-
-Subcommand contracts: module docstring / `--help`.
-
 ## Prerequisites
 
 - Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `Q`).

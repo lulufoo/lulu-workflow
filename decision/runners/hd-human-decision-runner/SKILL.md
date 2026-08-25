@@ -11,14 +11,6 @@ upstream error to RS or reporting an Unable to Decide outcome.
 
 Does not close a spine gate or change the active gate.
 
-## Script Macros
-
-| Macro | Command |
-|-------|---------|
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-
-Subcommand contracts: module docstring / `--help`.
-
 ## Prerequisites
 
 - Run `$GATE_CONTROL resolve-context`; pin `$CTX` (R exit `human_decision`).

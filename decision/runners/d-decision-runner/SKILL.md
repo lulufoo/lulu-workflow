@@ -9,15 +9,6 @@ meta-skill-version: 1.0.0
 Define the selected direction's rationale, scope and exclusions, and landing
 approach. Complete when the user confirms all three.
 
-## Script Macros
-
-| Macro | Command |
-|-------|---------|
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$GET_PAYLOAD` | `$GATE_CONTROL get-payload` |
-
-Subcommand contracts: module docstring / `--help`.
-
 ## Prerequisites
 
 - Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `D`, `$CTX.gl` present).

@@ -8,15 +8,6 @@ meta-skill-version: 1.0.0
 
 Diagnose the pinned X dimensions against each `dimension_profile.goal`. Complete when the user confirms the packed draft of all active dimensions.
 
-## Script Macros
-
-| Macro | Command |
-|-------|---------|
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$GET_PAYLOAD` | `$GATE_CONTROL get-payload` |
-
-Subcommand contracts: module docstring / `--help`.
-
 ## Prerequisites
 
 - Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `X`).

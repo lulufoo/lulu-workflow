@@ -18,15 +18,6 @@ Does not change `active_gate`. Full mode does not persist.
 2. Incremental: caller has pinned Diff from the triggering write stdout.
 </HARD-GATE>
 
-## Script Macros
-
-| Macro | Command |
-|-------|---------|
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$GET_PAYLOAD` | `$GATE_CONTROL get-payload` |
-
-Subcommand contracts: module docstring / `--help` (`apply-r-assumptions`).
-
 ## Modes
 
 | Mode | Scope | Evidence |

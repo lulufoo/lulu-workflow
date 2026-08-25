@@ -9,15 +9,6 @@ meta-skill-version: 1.0.0
 Capture newly identified Prior, hard constraints, and Assumptions without
 changing the active gate. Complete when the entries are committed.
 
-## Script Macros
-
-| Macro | Command |
-|-------|---------|
-| `$REGISTER_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$REGISTER_COMMIT` | `$REGISTER_CONTROL register-commit --operations '<json array>'` |
-
-Subcommand contracts: `$REGISTER_CONTROL --help` (`register-commit`).
-
 ## Prerequisites
 
 <HARD-GATE>

@@ -10,14 +10,6 @@ The goal is one named `risk_state=open` `RK#` (or leftover Assumption risk
 row) released — legal terms, confirmed check, recorded `completed` or
 `ignore` — or the user routed away.
 
-## Script Macros
-
-| Macro | Command |
-|-------|---------|
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-
-Subcommand contracts: `--help` (`complete-assumption`, `set-risk-state`).
-
 ## Prerequisites
 
 Caller names the current `open` id. One call per that row.

@@ -10,16 +10,6 @@ Make assumptions and risks reviewable as a complete risk pack, then handle or
 route unresolved risks. Complete when the pack is confirmed and the selected exit
 is legal.
 
-## Script Macros
-
-| Macro | Command |
-|-------|---------|
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$GET_PAYLOAD` | `$GATE_CONTROL get-payload` |
-
-Subcommand contracts: module docstring / `--help` (`apply-r-assumptions`,
-R `gate-close`).
-
 ## Bind
 
 1. Run `$GATE_CONTROL resolve-context`; pin `$CTX` (`active_gate` is `R`).
