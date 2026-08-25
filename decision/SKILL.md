@@ -4,21 +4,16 @@ name: decision
 
 # decision-workflow
 
-The goal is a delivered Diagnostic Decision Framework session the user has
-confirmed. This file starts, routes, and finishes; Signals fire beside the
-spine, and each runner owns dialogue.
+The goal is a delivered Diagnostic Decision Framework session the user has confirmed. This file starts, routes, and finishes; Signals fire beside the spine, and each runner owns dialogue.
 
 ---
 
 ## Cognitive Principles
 
-1. **Fully expose risks** — surface risks arising from any Prior, Constraint,
-   or Assumption.
+1. **Fully expose risks** — surface risks arising from any Prior, Constraint, or Assumption.
 2. **Clear unresolved doubts** — offer `/converge` when doubts remain.
-3. **Respect evidence boundaries** — never present an unverified premise as a
-   verified conclusion.
-4. **User prior over framework** — integrate the user's judgments; never let
-   the framework override them.
+3. **Respect evidence boundaries** — never present an unverified premise as a verified conclusion.
+4. **User prior over framework** — integrate the user's judgments; never let the framework override them.
 
 ---
 
@@ -35,8 +30,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 <HARD-GATE name="Domain Constraints">
 
 1. Pin `$CTX` via `$GATE_CONTROL resolve-context`.
-2. Apply `$CTX.domain_constraints` (`objective`, `role`, `domain`,
-   `x_dimensions`, `omitted_sections`) to the session.
+2. Apply `$CTX.domain_constraints` (`objective`, `role`, `domain`, `x_dimensions`, `omitted_sections`) to the session.
 3. Do not infer domain constraints from holder SKILL prose or memory.
 
 </HARD-GATE>
@@ -53,43 +47,28 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 | `$RS_COMMIT` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" rs-commit --gate "<G>" --operations '<json array>'` |
 | `$BATCH_RECLOSE` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" batch-reclose --payloads '<json object>'` |
 
-Subcommand contracts: module docstrings / `--help`. Runner-only macros stay in
-that runner.
+Subcommand contracts: module docstrings / `--help`. Runner-only macros stay in that runner.
 
 ---
 
 ## Start
 
-1. Identify the active cycle through `_runtime.md` § Session Foundation. Do not
-   run `$DEC_START` until `$CYCLE_ID` is confirmed.
-2. Run `$DEC_START`. Holder stages pass their own `--constraints`; generic
-   `decision` may omit it. When the platform provides a conversation ID, pass
-   `--conversation-id`.
-3. After `$DEC_START` or a holder binding returns `context_docs`: run
-   `$GATE_CONTROL resolve-context`; pin `$CTX`; load each returned context
-   document once; declare the bound session and use only the new `$CTX`.
-
-Do not run `$DEC_START` again for a session being revised. Freeze with
-`$DEC_REOPEN`; keep `Frozen` until RS commits. A holder that requires a reopen
-permit owns that flow. Holders own nested-session binding; prior-session
-conclusions do not carry over unless re-registered or re-closed.
+1. Identify the active cycle through `_runtime.md` § Session Foundation. Do not run `$DEC_START` until `$CYCLE_ID` is confirmed.
+2. Run `$DEC_START`. Holder stages pass their own `--constraints`; generic `decision` may omit it. When the platform provides a conversation ID, pass `--conversation-id`.
+3. After `$DEC_START` or a holder binding returns `context_docs`: run `$GATE_CONTROL resolve-context`; pin `$CTX`; load each returned context document once; declare the bound session and use only the new `$CTX`.
 
 ---
 
 ## Router
 
 <HARD-GATE>
-Load the routed runner before execution; never rely on memory. The runner owns
-its context and dialogue map.
-Route only from `$CTX` and macro stdout; never access session artifacts
-directly.
+Load the routed runner before execution; never rely on memory. The runner owns its context and dialogue map.
+Route only from `$CTX` and macro stdout; never access session artifacts directly.
 </HARD-GATE>
 
 **Spine:** O → Q → GL → E → D → X → R → DC → `$GATE_CONTROL complete`.
 
-**Dispatch:** `GATE_COMPLETE` → next spine runner; RS / Batch →
-returned runner. Signals route P / Scan / RS. Scan incremental `open` or R
-`handle` → Release.
+**Dispatch:** `GATE_COMPLETE` → next spine runner; RS / Batch → returned runner. Signals route P / Scan / RS. Scan incremental `open` or R `handle` → Release.
 
 **Global**
 
@@ -137,22 +116,27 @@ When both trigger, complete S2 before handling S3.
 
 ### Projection
 
-1. Translate workflow state into task meaning for each reply; expose internal
-   identifiers only for implementation or failure details.
-2. Preserve `$CTX.domain_constraints` vocabulary. Precedence:
-   `domain.instruction > role.instruction > projection rules`.
+1. Speak in task terms; name internal IDs only for implementation or failure.
+2. Preserve `$CTX.domain_constraints` vocabulary. Precedence: `domain.instruction > role.instruction > projection rules`.
 3. Projected text is presentation only; never persist it.
 
 ### Operating rules
 
-**G1.** — Ask one question at a time. Apply the full
-[Ask Protocol](../shared/references/ask-protocol.md) only where the active
-runner binds it.
+**G1.** — Ask one question at a time. Apply the full [Ask Protocol](../shared/references/ask-protocol.md) only where the active runner binds it.
 
 **G2.** Advance only when the active runner's map holds.
 
-**G3.** — Bypassing unclosed gates requires explicit user
-confirmation; confirmed exit ends incomplete.
+**G3.** — Bypassing unclosed gates requires explicit user confirmation; confirmed exit ends incomplete.
+
+---
+
+## Freeze and Resume
+
+`Frozen` is external-revision-only; `$RS_COMMIT` releases it. In-session RS stays `InProgress`.
+
+1. **Freeze** — For a revision, run `$DEC_REOPEN`, not `$DEC_START`. The holder owns any required reopen permit.
+2. **Hold** — While `Frozen`, block ordinary gate advancement and complete RS.
+3. **Resume** — After RS confirmation, run `$RS_COMMIT`; it returns the session to `InProgress` and names the gate to resume.
 
 ---
 
@@ -160,9 +144,7 @@ confirmation; confirmed exit ends incomplete.
 
 <HARD-GATE name="Decision completion">
 
-1. Do not exit Decision or transition to the next stage until DC succeeds and
-   the user explicitly confirms readiness.
-2. In a holder, Decision completion closes only the decision node; holder
-   delivery owns the outer transition and delivered references.
+1. Do not exit Decision or transition to the next stage until DC succeeds and the user explicitly confirms readiness.
+2. In a holder, Decision completion closes only the decision node; holder delivery owns the outer transition and delivered references.
 
 </HARD-GATE>
