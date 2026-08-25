@@ -27,9 +27,6 @@ Subcommand contracts: module docstring / `--help`.
 
 ## Outcomes
 
-Use this subroutine only when open risks remain unresolved, an upstream
-conclusion may be wrong, or available information cannot support a decision.
-
 | User finding | Required outcome |
 |--------------|------------------|
 | An upstream conclusion is wrong | Identify the affected align gate and load RS. RS routes LoopA from that gate. |

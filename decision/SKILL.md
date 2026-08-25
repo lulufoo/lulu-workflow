@@ -122,11 +122,11 @@ When both trigger, complete S2 before handling S3.
 
 ### Operating rules
 
-**G1.** — Ask one question at a time. Apply the full [Ask Protocol](../shared/references/ask-protocol.md) only where the active runner binds it.
+**G1.** Ask one question at a time. Apply the full [Ask Protocol](../shared/references/ask-protocol.md) only where the active runner binds it.
 
 **G2.** Advance only when the active runner's map holds.
 
-**G3.** — Bypassing unclosed gates requires explicit user confirmation; confirmed exit ends incomplete.
+**G3.** Bypassing unclosed gates requires explicit user confirmation; confirmed exit ends incomplete.
 
 ---
 

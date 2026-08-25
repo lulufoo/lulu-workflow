@@ -67,9 +67,6 @@ Return `P_COMPLETE`.
 
 ## register-commit
 
-One or more operations per `$REGISTER_COMMIT` invocation. Subcommand contract:
-`$REGISTER_CONTROL --help` (`register-commit`).
-
 Append example:
 
 ```json

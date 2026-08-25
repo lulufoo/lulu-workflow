@@ -31,9 +31,7 @@ Subcommand contracts: module docstring / `--help`.
 |----|-----------|
 | `G-problem` | A clear problem definition: what triggered this decision, and what problem we are solving. |
 
-The problem statement is clear and unambiguous, and the user has confirmed it.
-A merely stated problem claim is not a pass. Evaluate from the conversation so
-far.
+A merely stated problem claim is not a pass. Evaluate from the conversation so far.
 
 ## Modes
 

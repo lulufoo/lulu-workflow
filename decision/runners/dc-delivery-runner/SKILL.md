@@ -33,24 +33,15 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 | `G-cleared` | Delivery preconditions hold: structural audit clean, Decision Eval pass, delivery `decision-doc.md` rendered. |
 | `G-confirm` | User confirms the decisions are correct to deliver (after any realign). |
 
-`G-confirm` requires explicit user confirmation and close payload
-`user_confirmed: true`.
-
 ## Present
 
-1. `$SESSION_INTEGRITY render` builds the doc once before `present`. Layout /
-   section filtering: `render --help`. Template:
-   `$SKILL_DIR/templates/decision-doc.template.md`.
-2. Show from the rendered doc (no file paths): Direction Readiness; Decision
-   Rationale; Scope (incl. exclusions); Assumptions & Risks (`RK#`
-   `risk_level`, `risk_class`, `risk_state`, `release_terms` where set).
+1. `$SESSION_INTEGRITY render` once before `present`. Layout / section set: `render --help`. Template: `$SKILL_DIR/templates/decision-doc.template.md`.
+2. Show the rendered doc; omit file paths.
 3. After close, do not announce stage Delivered or next stages.
 
 ## Eval
 
-Replaces AI Semantic Review. Eval owns probe-runner dispatch; Decision never
-dispatches Eval runners or remediation. Contracts: `eval/eval-profile.json`,
-`$DEC_EVAL` / `$EVAL_CONTROL` `--help`, `eval/methods/decision-consistency.md`.
+Eval owns probe-runner dispatch; Decision never dispatches Eval runners or remediation. Contracts: `eval/eval-profile.json`, `$DEC_EVAL` / `$EVAL_CONTROL` `--help`, `eval/methods/decision-consistency.md`.
 
 1. Load `$SKILL_ROOT/eval/SKILL.md` and execute its **Begin Eval** probe-only
    segment. Do not call `$SUBAGENT_TOOL`, load `dimension-probe-runner`, or run
@@ -65,7 +56,7 @@ dispatches Eval runners or remediation. Contracts: `eval/eval-profile.json`,
 | Mode | When | Behavior |
 |------|------|----------|
 | `prepare` | `G-cleared` unmet | `$GATE_CONTROL check-delivery-ready` (fix all errors) → Eval → `$SESSION_INTEGRITY render`. |
-| `present` | `G-cleared` met | Show the sections listed in Present. |
+| `present` | `G-cleared` met | Show the rendered doc. |
 | `confirm` | `G-cleared` met | Ask whether decisions are correct / any item to realign. |
 | `close` | User confirms | `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'` → `$GATE_CONTROL complete` |
 
@@ -75,9 +66,7 @@ Apply Decision [Signals](../../SKILL.md#signals) throughout DC.
 
 ## Routes
 
-- Eval fail → summarize issues → RS at `realign_gate`; do not present completion.
-- Confirm-time realign → load RS runner; after sync, `$GATE_CONTROL resolve-context`
-  (fresh `$CTX`); restore `G-cleared` / `G-confirm` before close.
+- Confirm-time realign → load RS runner; after sync, `$GATE_CONTROL resolve-context` (fresh `$CTX`); restore `G-cleared` / `G-confirm` before close.
 
 ## Act
 

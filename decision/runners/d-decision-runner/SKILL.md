@@ -33,8 +33,7 @@ Before discussing a decision:
 2. Compare GL confirmation and operational intents with the chosen E direction
    and intended scope.
 3. Compare every Prior with the chosen E direction and intended scope.
-4. Surface and resolve every GL or Prior conflict explicitly in the Decision
-   Rationale.
+4. Surface and resolve every GL or Prior conflict in `G-rationale`.
 
 ## Establish
 
