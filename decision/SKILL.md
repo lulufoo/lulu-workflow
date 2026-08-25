@@ -99,11 +99,13 @@ Dialogue semantics: each runner owns its map. This file only loads runners.
 
 ## Signals
 
+When both trigger, complete S2 before handling S3.
+
 | ID | Contract |
 |----|----------|
-| S1 | A register item appears in dialogue → load p-registers-runner (parallel) before the next user-visible reply; after `P_COMPLETE`, resume the current runner. |
-| S2 | After `$REGISTER_COMMIT`, `$RS_COMMIT`, `$BATCH_RECLOSE`, or a payload-writing `$GATE_CONTROL gate-close`: bind Diff from that stdout; load Scan in **incremental** mode; do not change `active_gate`. Skip S2 on `apply-r-assumptions`, `complete-assumption`, or `set-risk-state`. S2 is complete when Scan returns `SCAN_COMPLETE`; then S3. |
-| S3 | After S2, and on a user turn that revises or contradicts a closed conclusion: judge from the current conversation only; do not load persisted files. S3 → load RS. Miss ≠ Eval consistency (Eval loads files). |
+| S1 | Any new Register item in dialogue → load P in parallel before replying; resume the current runner on `P_COMPLETE`. |
+| S2 | Any new Register write or gate-payload write → use its stdout as Diff; run Scan incremental. |
+| S3 | Any new Register write, gate-payload write, or user input that conflicts with a closed conclusion → load RS. |
 
 ---
 
