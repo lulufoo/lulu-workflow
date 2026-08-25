@@ -68,12 +68,9 @@ Gap Check does not create a separate document section. Record its result in the
 If the user rejects the `present` draft, treat the denied point as that
 dimension's gap or contradiction → `probe` only that dimension.
 
-## Routes
+## Signals
 
-- S3: load RS runner.
-- `flag-gap`: load RS runner.
-- S1: load p-registers-runner immediately → `P_COMPLETE` → resume the current
-  mode (`probe` or `present`).
+Apply Decision [Signals](../../SKILL.md#signals) throughout X.
 
 ## Act
 
@@ -82,7 +79,7 @@ dimension's gap or contradiction → `probe` only that dimension.
    and skip the loop.
 2. Run `$GET_PAYLOAD --gates E,D`; pin `payloads.E` as `$E` and `payloads.D` as
    `$D`. If either is missing, stop and report the missing required input.
-3. Loop Modes (Routes as above) until `close` succeeds or `flag-gap` loads RS.
+3. Loop Modes (Signals as above) until `close` succeeds or `flag-gap` loads RS.
 
 ## gate-close payload
 

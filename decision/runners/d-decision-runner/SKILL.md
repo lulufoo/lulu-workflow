@@ -56,10 +56,9 @@ states that no such Prior exists); the user confirms.
 | `formulate` | Reconcile complete | Build or revise all three Establish rows. Ask only an uncovered goal (G1/G7). |
 | `confirm` | All three established | Present the rationale, scope, exclusions, and landing approach together. Rejection → `formulate`. Acceptance → `$GATE_CONTROL gate-close --gate D --payload '<json>'` |
 
-## Routes
+## Signals
 
-- S3: load RS runner.
-- S1: load p-registers-runner → `P_COMPLETE` → resume the current mode.
+Apply Decision [Signals](../../SKILL.md#signals) throughout D.
 
 ## Act
 
@@ -68,7 +67,7 @@ states that no such Prior exists); the user confirms.
    and skip the loop.
 2. Run `$GET_PAYLOAD --gate E`; pin `payloads.E` as `$E`. If E is missing,
    stop and report the missing required input.
-3. Loop Modes (Routes as above) until `confirm` acceptance succeeds.
+3. Loop Modes (Signals as above) until `confirm` acceptance succeeds.
 
 A missing required input or an unresolved conflict stops the gate until the user
 provides direction.

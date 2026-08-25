@@ -41,14 +41,13 @@ Subcommand contracts: module docstring / `--help`.
 | `confirm` | Ready to ask for Q | Ask whether they are ready to proceed to Q. |
 | `close` | User confirms ready | `$GATE_CONTROL gate-close --gate O --payload '{"user_confirmed": true}'` |
 
-## Routes
+## Signals
 
-- S3: load RS runner → after return, resume O dialogue.
-- S1: load p-registers-runner → `P_COMPLETE` → resume O dialogue.
+Apply Decision [Signals](../../SKILL.md#signals) throughout O.
 
 ## Act
 
-Loop Modes (Routes as above) until `close` succeeds.
+Loop Modes (Signals as above) until `close` succeeds.
 
 ## gate-close payload
 

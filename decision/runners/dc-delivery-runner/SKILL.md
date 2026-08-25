@@ -31,7 +31,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 | ID | Must hold |
 |----|-----------|
 | `G-cleared` | Delivery preconditions hold: structural audit clean, Decision Eval pass, delivery `decision-doc.md` rendered. |
-| `G-confirm` | User confirms the decisions are correct to deliver (after any realign in Routes). |
+| `G-confirm` | User confirms the decisions are correct to deliver (after any realign). |
 
 `G-confirm` requires explicit user confirmation and close payload
 `user_confirmed: true`.
@@ -69,13 +69,15 @@ dispatches Eval runners or remediation. Contracts: `eval/eval-profile.json`,
 | `confirm` | `G-cleared` met | Ask whether decisions are correct / any item to realign. |
 | `close` | User confirms | `$GATE_CONTROL gate-close --gate DC --payload '{"user_confirmed": true}'` → `$GATE_CONTROL complete` |
 
+## Signals
+
+Apply Decision [Signals](../../SKILL.md#signals) throughout DC.
+
 ## Routes
 
 - Eval fail → summarize issues → RS at `realign_gate`; do not present completion.
 - Confirm-time realign → load RS runner; after sync, `$GATE_CONTROL resolve-context`
   (fresh `$CTX`); restore `G-cleared` / `G-confirm` before close.
-- S3: load RS runner → after return, resume DC dialogue.
-- S1: load p-registers-runner → `P_COMPLETE` → resume DC dialogue.
 
 ## Act
 
@@ -83,7 +85,7 @@ dispatches Eval runners or remediation. Contracts: `eval/eval-profile.json`,
    `$SKILL_DIR/references/rs-stale-gate-update.md` **steps 1–3 only** (do **not**
    run that file’s step 4 `gate-close` or step 5 `GATE_COMPLETE`), then
    continue.
-2. Loop Modes (Routes as above) until `close` succeeds.
+2. Loop Modes (Signals and Routes as above) until `close` succeeds.
 
 ## gate-close payload
 

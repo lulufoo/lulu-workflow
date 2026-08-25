@@ -10,6 +10,18 @@ spine, and each runner owns dialogue.
 
 ---
 
+## Cognitive Principles
+
+1. **Fully expose risks** — surface risks arising from any Prior, Constraint,
+   or Assumption.
+2. **Clear unresolved doubts** — offer `/converge` when doubts remain.
+3. **Respect evidence boundaries** — never present an unverified premise as a
+   verified conclusion.
+4. **User prior over framework** — integrate the user's judgments; never let
+   the framework override them.
+
+---
+
 ## Runtime Contract
 
 <HARD-GATE>
@@ -67,34 +79,31 @@ conclusions do not carry over unless re-registered or re-closed.
 ## Router
 
 <HARD-GATE>
-Before executing any gate, read that runner SKILL first. Each runner owns its
-context rule and map. Do not skip it or rely on memory.
+Load the routed runner before execution; never rely on memory. The runner owns
+its context and dialogue map.
 </HARD-GATE>
 
 **Spine:** O → Q → GL → E → D → X → R → DC → `$GATE_CONTROL complete`.
-Realign at Q / GL / E / D / X. R exit `human_decision` → HD. R exit `dc` → DC.
 
-After `GATE_COMPLETE`, load the next spine runner. After RS or Batch, load the
-runner named by its completion result. S1–S3 load from the table below;
-contracts are in Signals.
+**Dispatch:** `GATE_COMPLETE` → next spine runner; RS / Batch →
+returned runner. Signals route P / Scan / RS. Scan incremental `open` or R
+`handle` → Release.
 
-Dialogue semantics: each runner owns its map. This file only loads runners.
-
-| Gate | File | When |
-|------|------|------|
-| P | `$SKILL_DIR/runners/p-registers-runner/SKILL.md` | S1 · parallel |
-| Scan | `$SKILL_DIR/runners/risk-scan-runner/SKILL.md` | S2 incremental · R full |
-| Release | `$SKILL_DIR/runners/risk-release-runner/SKILL.md` | Scan incremental Done · R `handle` |
-| RS | `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` | S3 · upstream realign |
-| O | `$SKILL_DIR/runners/o-open-channel-runner/SKILL.md` | After `$DEC_START` · `active_gate` is `O` |
-| Q | `$SKILL_DIR/runners/q-problem-runner/SKILL.md` | O closed |
-| GL | `$SKILL_DIR/runners/gl-grill-runner/SKILL.md` | Q closed |
-| E | `$SKILL_DIR/runners/e-direction-runner/SKILL.md` | GL closed |
-| D | `$SKILL_DIR/runners/d-decision-runner/SKILL.md` | E closed |
-| X | `$SKILL_DIR/runners/x-full-diagnosis-runner/SKILL.md` | D closed |
-| R | `$SKILL_DIR/runners/r-expose-bets-runner/SKILL.md` | X closed |
-| DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` | R exit `dc` |
-| HD | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` | R exit `human_decision` |
+| Route | Runner |
+|-------|--------|
+| P | `$SKILL_DIR/runners/p-registers-runner/SKILL.md` |
+| Scan | `$SKILL_DIR/runners/risk-scan-runner/SKILL.md` |
+| Release | `$SKILL_DIR/runners/risk-release-runner/SKILL.md` |
+| RS | `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` |
+| O | `$SKILL_DIR/runners/o-open-channel-runner/SKILL.md` |
+| Q | `$SKILL_DIR/runners/q-problem-runner/SKILL.md` |
+| GL | `$SKILL_DIR/runners/gl-grill-runner/SKILL.md` |
+| E | `$SKILL_DIR/runners/e-direction-runner/SKILL.md` |
+| D | `$SKILL_DIR/runners/d-decision-runner/SKILL.md` |
+| X | `$SKILL_DIR/runners/x-full-diagnosis-runner/SKILL.md` |
+| R | `$SKILL_DIR/runners/r-expose-bets-runner/SKILL.md` |
+| DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` |
+| HD | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` |
 
 ---
 
@@ -114,56 +123,43 @@ When both trigger, complete S2 before handling S3.
 
 ### Projection
 
-1. Before every user-visible reply, translate workflow identifiers and control
-   flow into task meaning. Hide internal identifiers unless implementation or
-   failure details are needed.
+1. Translate workflow state into task meaning for each reply; expose internal
+   identifiers only for implementation or failure details.
 2. Preserve `$CTX.domain_constraints` vocabulary. Precedence:
    `domain.instruction > role.instruction > projection rules`.
-3. Ground replies in pinned `$CTX`, the active runner's map, Router,
-   Signals, and domain constraints. Never infer workflow state from
-   conversation or memory.
-4. Do not persist projected text. `$CTX`, the active runner's map, and command
-   stdout remain the state sources.
-
-### Stance
-
-1. **Expose over conclude** — surface assumptions and risks; a conclusion is
-   the output of verification, not the target.
-2. **User prior over framework** — capture and integrate the user's judgments;
-   do not override them.
+3. Projected text is presentation only; never persist it.
 
 ### Operating rules
 
-**G1.** One question per message. No checkbox, multiple-choice, or selection UI.
+**G1.** Ask at most one question per user-visible reply; no checkbox or
+selection UI.
 
-**G2.** Prefer numbered plain-text options when they help answer one question;
-use an open prompt when the options cannot be enumerated.
+**G2.** Use numbered plain-text options when useful; otherwise ask openly.
 
-**G3.** Do not advance until the active runner's map holds.
+**G3.** Advance only when the active runner's map holds.
 
-**G4. Session SSOT** — Route only from `$CTX` and macro stdout. Do not read or
-write session artifacts directly.
+**G4. Session SSOT** — Route only from `$CTX` and macro stdout; never access
+session artifacts directly.
 
-**G5.** If the intent input itself has a fundamental error, exit; tell the user
-to fix the input and restart.
+**G5.** A fundamental intent error → exit; tell the user to fix the input and
+restart.
 
-**G6. Override Guard** — on "skip" / "just implement it" / equivalent: stop;
-state which gates are not yet closed; ask "Continue diagnostic or exit
-intentionally?" Confirmed exit → incomplete, exit gracefully.
+**G6. Override Guard** — On "skip" / "just implement it" / equivalent: stop,
+name the unclosed gates, and ask "Continue diagnostic or exit intentionally?"
+Confirmed exit → end incomplete.
 
-**G7. Collect-or-Ask** — if the user already stated it: quote, restate, confirm.
-Do not re-ask.
+**G7. Collect-or-Ask** — If already stated: quote, restate, confirm; do not
+re-ask.
 
 ---
 
 ## Done
 
 <HARD-GATE name="Decision completion">
-Do NOT exit decision or transition to the next stage until:
 
-- DC has completed the decision session successfully.
-- The user has explicitly confirmed readiness to proceed.
+1. Do not exit Decision or transition to the next stage until DC succeeds and
+   the user explicitly confirms readiness.
+2. In a holder, Decision completion closes only the decision node; holder
+   delivery owns the outer transition and delivered references.
 
-In a holder, this applies to this decision node only. Holder delivery owns the
-outer stage transition and delivered references.
 </HARD-GATE>

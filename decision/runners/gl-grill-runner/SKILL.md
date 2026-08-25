@@ -61,12 +61,9 @@ respected. CLI green ≠ framework pass.
 
 If the user rejects the summary: treat the denied point as a gap → `probe`.
 
-## Routes
+## Signals
 
-- S1: load p-registers-runner → `P_COMPLETE` → resume (register `source` is `GL`).
-- S3 / Q falsified: load RS; **do not** `gate-close` GL.
-- Persist intents only via GL `gate-close` payload — do not dual-write exchanges
-  to P.
+Apply Decision [Signals](../../SKILL.md#signals) throughout GL.
 
 ## Act
 
@@ -75,9 +72,10 @@ If the user rejects the summary: treat the denied point as a gap → `probe`.
    and skip the loop.
 2. Obtain locked Q via `$GATE_CONTROL get-payload` (or fields already on `$CTX`);
    do not start probes until Q payload is available.
-3. Loop Modes (Routes as above) until `close` succeeds. Do not call `gate-close`
+3. Loop Modes (Signals as above) until `close` succeeds. Do not call `gate-close`
    until both Intent rows hold, Q still holds, the user confirmed ready for E,
-   and Ask domain was respected.
+   and Ask domain was respected. On S1, register `source` is `GL`. Persist
+   intents only via GL `gate-close` payload — do not dual-write exchanges to P.
 
 ## gate-close payload
 

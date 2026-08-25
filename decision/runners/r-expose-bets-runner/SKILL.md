@@ -46,16 +46,18 @@ R `gate-close`).
 | `handle` | After persist, any `risk_state=open` remains and exit is still `dc` | H→M→L: load `$SKILL_DIR/runners/risk-release-runner/SKILL.md` for the next open row; one op; repeat or exit. Table changes → `present` / `revise`; upstream wrong → `rs`; cannot finish → `human_decision`. |
 | `close` | `G-handled` met | `$GATE_CONTROL gate-close --gate R` (`--help`). |
 
+## Signals
+
+Apply Decision [Signals](../../SKILL.md#signals) throughout R.
+
 ## Divert
 
 - If `$CTX.gates.R.status == stale`: follow
   `$SKILL_DIR/references/r-stale-review.md`, then Exit.
-- S1: load p-registers-runner → `P_COMPLETE` → resume `prepare` / `present`.
-- S3: load RS runner → after return, resume stale review when R is stale.
 - `exit=rs` → load RS runner. `exit=human_decision` → load HD runner.
 
 ## Run
 
-Loop Modes (Divert as above) until `close` succeeds.
+Loop Modes (Signals and Divert as above) until `close` succeeds.
 
 `GATE_COMPLETE R exit=dc` · `GATE_FAILED R reason=<brief description>`

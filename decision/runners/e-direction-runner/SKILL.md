@@ -54,17 +54,16 @@ proposed alternative → `define`, then `align`.
 | `align` | Closable candidate set ready; direction not yet settled; GL intents consulted | Apply ask-protocol, then present the set and ask the user to accept a candidate or propose an alternative (G1). Lead with the recommended option. Presenting the options **is** this mode — no separate display-only turn. |
 | `settle` | Direction settled (`user_choice` ready) | `$GATE_CONTROL gate-close --gate E --payload '<json>'`. Do **not** ask a separate close question after settle. |
 
-## Routes
+## Signals
 
-- S3: load RS runner → after return, resume `G-settled-direction`.
-- S1: load p-registers-runner → `P_COMPLETE` → resume `G-settled-direction`.
+Apply Decision [Signals](../../SKILL.md#signals) throughout E.
 
 ## Act
 
 1. If `$CTX.gates.E.status == stale`, follow
    `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE E`,
    and skip the loop.
-2. Confirm `$CTX.gl` is present. Loop Modes (Routes as above) until `settle`
+2. Confirm `$CTX.gl` is present. Loop Modes (Signals as above) until `settle`
    succeeds. Do not call `gate-close` until `G-settled-direction` holds and Ask
    domain was respected.
 
