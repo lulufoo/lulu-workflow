@@ -9,8 +9,7 @@ meta-skill-version: 1.0.0
 Classify risks. Incremental mode confirms and persists hits as `RK#`. Full mode
 returns a draft to the caller (R persists after pack confirm).
 
-Does not change `active_gate`. Does not write `completed` (Release does).
-Full mode does not persist.
+Does not change `active_gate`. Full mode does not persist.
 
 ## Prerequisites
 
@@ -72,8 +71,6 @@ into a Constraint.
 3. **full:** return the draft to the caller — no user confirm, no
    `apply-r-assumptions`. Return `SCAN_COMPLETE` with the draft; `open` is
    not persisted.
-
-No silent rewrite.
 
 ## Exit
 

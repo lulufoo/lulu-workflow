@@ -37,7 +37,7 @@ A merely stated problem claim is not a pass. Evaluate from the conversation so f
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `probe` | `G-problem` not yet clear | Apply ask-protocol; one question per turn (G1). |
+| `probe` | `G-problem` not yet clear | Apply ask-protocol. |
 | `summarize` | `G-problem` clear | Restate the problem once; ask if correct. |
 | `close` | User confirms summarize | `$GATE_CONTROL gate-close --gate Q --payload '<json>'` |
 

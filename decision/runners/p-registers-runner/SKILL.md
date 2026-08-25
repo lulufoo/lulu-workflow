@@ -43,8 +43,7 @@ Subcommand contracts: `$REGISTER_CONTROL --help` (`register-commit`).
 | Explicit or implicit unverified premise | Assumption | — |
 | Prior resting on an unverified premise | Prior (matching kind) | Assumption for the premise |
 
-Classify on intake. Unverified claims must not become Constraint. Do not write
-`risks[]`. Do not rewrite a scanned risk into a Constraint.
+Classify on intake. Unverified claims must not become Constraint. Do not rewrite a scanned risk into a Constraint.
 
 Constraint revise/remove uses `revise` / `remove` on `C#`. RS does not edit or
 delete `C#`.
