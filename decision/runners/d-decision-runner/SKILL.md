@@ -26,10 +26,10 @@ Before discussing a decision:
 3. Compare every Prior with the chosen E direction and intended scope.
 4. Surface and resolve every GL or Prior conflict in `G-rationale`.
 
-## Establish
+## Must hold
 
-| ID | Must establish |
-|----|----------------|
+| ID | Must hold |
+|----|-----------|
 | `G-rationale` | The chosen direction, its E trade-offs, and why alternatives are excluded. |
 | `G-scope` | What the decision covers and explicit exclusions. |
 | `G-landing` | The in-scope must-do chunks, their roles, dependencies, and order or parallelism. This is decision-level landing, not a work breakdown, schedule, or staffing plan. |
@@ -43,7 +43,7 @@ states that no such Prior exists); the user confirms.
 | Mode | When | Behavior |
 |------|------|----------|
 | `intake` | Entry | Complete Reconcile before discussing a decision. |
-| `formulate` | Reconcile complete | Build or revise all three Establish rows. Ask only an uncovered goal (G1). |
+| `formulate` | Reconcile complete | Build or revise all three Must hold rows. Ask only an uncovered row (G1). |
 | `confirm` | All three established | Present the rationale, scope, exclusions, and landing approach together. Rejection → `formulate`. Acceptance → `$GATE_CONTROL gate-close --gate D --payload '<json>'` |
 
 ## Signals

@@ -8,7 +8,7 @@ The goal is a delivered Diagnostic Decision Framework session the user has confi
 
 ---
 
-## Cognitive Principles
+## Principles
 
 1. **Fully expose risks** — surface risks arising from any Prior, Constraint, or Assumption.
 2. **Clear unresolved doubts** — offer `/converge` when doubts remain.
@@ -17,7 +17,7 @@ The goal is a delivered Diagnostic Decision Framework session the user has confi
 
 ---
 
-## Runtime Contract
+## Contract
 
 <HARD-GATE>
 Do NOT proceed until you have read `../_runtime.md` and loaded:

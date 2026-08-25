@@ -16,7 +16,7 @@ explicitly accepts it.
   `domain.instruction`) to the dialogue.
 - Apply `$SKILL_ROOT/shared/references/ask-protocol.md` to every E question.
 
-## Direction
+## Must hold
 
 | ID | Must hold |
 |----|-----------|

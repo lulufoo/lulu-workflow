@@ -25,7 +25,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 - Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
   `domain.instruction`) to the dialogue.
 
-## Delivery
+## Must hold
 
 | ID | Must hold |
 |----|-----------|

@@ -18,10 +18,10 @@ is legal.
 3. Run `$GET_PAYLOAD --gates D,X`; pin `payloads.D` as `$D` and `payloads.X`
    as `$X`. If either is missing, stop and report the missing required input.
 
-## Hold
+## Must hold
 
 | ID | Must hold |
-|----|----------------|
+|----|-----------|
 | `G-pack` | Expose pack ready and shown: `$CTX.registers` reviewed against `$D`, `$X`, and current dialogue; classified risk table; proposed exit. No undigested revise pending. |
 | `G-expose-confirm` | One user confirm covers sign-off, coverage, risk fields (incl. reclass), and intended exit (`rs` \| `dc` \| suspend). **`open` rows allowed** here. |
 | `G-handled` | No remaining `risk_state=open`, **or** user chose `rs` / `human_decision` to leave R. |

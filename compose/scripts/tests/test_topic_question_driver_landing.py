@@ -76,7 +76,7 @@ def test_shared_ask_protocol_is_single_runtime_ssot():
     assert shared_ref in e
     assert "| `probe` | `G-problem` not yet clear | Apply ask-protocol." in q
     assert "before the first probe in each GL entry, read" in gl
-    assert "| `probe` | Either Intent row not met | Apply ask-protocol" in gl
+    assert "| `probe` | Either Must hold row not met | Apply ask-protocol" in gl
     assert "| `define` | Candidate set incomplete |" in e
     assert "| `align` | Candidate set ready; acceptance missing |" in e
     assert "Apply `$SKILL_ROOT/shared/references/ask-protocol.md`" in e

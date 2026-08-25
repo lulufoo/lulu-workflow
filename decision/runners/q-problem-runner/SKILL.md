@@ -17,7 +17,7 @@ problem statement.
 - Before the first probe, read `$SKILL_ROOT/shared/references/ask-protocol.md`;
   apply it to every probe.
 
-## Problem
+## Must hold
 
 | ID | Must hold |
 |----|-----------|

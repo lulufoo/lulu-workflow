@@ -17,7 +17,7 @@ setting. Complete when the input is sufficient to enter E.
 - Probe questions: before the first probe in each GL entry, read
   `$SKILL_ROOT/shared/references/ask-protocol.md`; apply it to every probe.
 
-## Intent
+## Must hold
 
 Active X dimensions are preflight coverage labels, not diagnostic prompts.
 
@@ -37,8 +37,8 @@ Active X dimensions are preflight coverage labels, not diagnostic prompts.
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `probe` | Either Intent row not met | Apply ask-protocol, then ask only the gap. May pick next lens; order not fixed. |
-| `summarize` | Both Intent rows met | Restate key intents once; ask if ready for E. |
+| `probe` | Either Must hold row not met | Apply ask-protocol, then ask only the gap. May pick next lens; order not fixed. |
+| `summarize` | Both Must hold rows met | Restate key intents once; ask if ready for E. |
 | `close` | User confirms | `$GATE_CONTROL gate-close --gate GL --payload '<json>'` |
 
 If the user rejects the summary: treat the denied point as a gap → `probe`.

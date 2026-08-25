@@ -14,7 +14,7 @@ row) released — legal terms, confirmed check, recorded `completed` or
 
 Caller names the current `open` id. One call per that row.
 
-## Terms
+## Must hold
 
 | ID | Must hold |
 |----|-----------|

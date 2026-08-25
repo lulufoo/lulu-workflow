@@ -6,7 +6,7 @@ meta-skill-version: 1.0.0
 
 # o-open-channel-runner
 
-Open the channel for existing User Prior or Assumption context. Complete when the
+Open the channel for existing Prior, Constraint, or Assumption context. Complete when the
 user is ready to enter Q; empty capture is valid.
 
 ## Prerequisites
@@ -15,7 +15,7 @@ user is ready to enter Q; empty capture is valid.
 - Apply `$CTX.domain_constraints` (`objective`, `role.instruction`,
   `domain.instruction`) to the dialogue.
 
-## Channel
+## Must hold
 
 | ID | Must hold |
 |----|-----------|
