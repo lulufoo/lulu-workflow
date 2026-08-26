@@ -75,10 +75,10 @@ class TestResolveHookConfigPath:
         from hook_config_schema import resolve_hook_config_path
 
         assert resolve_hook_config_path(tmp_path, "cursor") == (
-            tmp_path / "skill-config/lulu-dev-workflow/workflow-guard-config.json"
+            tmp_path / ".cursor/lulu-dev-workflow/workflow-guard-config.json"
         )
 
-    def test_custom_path_from_platform_config(self, tmp_path: Path):
+    def test_leftover_pointer_is_ignored(self, tmp_path: Path):
         from hook_config_schema import resolve_hook_config_path
 
         cfg_path = tmp_path / ".cursor/lulu-dev-workflow/config.json"
@@ -88,7 +88,7 @@ class TestResolveHookConfigPath:
             encoding="utf-8",
         )
         assert resolve_hook_config_path(tmp_path, "cursor") == (
-            tmp_path / "custom/hook-config.json"
+            tmp_path / ".cursor/lulu-dev-workflow/workflow-guard-config.json"
         )
 
 
@@ -102,7 +102,7 @@ class TestLoadHookConfig:
     def test_reads_valid_file(self, tmp_path: Path):
         from hook_config_schema import load_hook_config
 
-        target = tmp_path / "skill-config/lulu-dev-workflow/workflow-guard-config.json"
+        target = tmp_path / ".cursor/lulu-dev-workflow/workflow-guard-config.json"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(
             json.dumps(
@@ -118,10 +118,29 @@ class TestLoadHookConfig:
         assert loaded["internalPathGuard"]["enable"] is False
         assert loaded["externalPathGuard"]["enabled"] is True
 
+    def test_skill_config_hook_is_not_read(self, tmp_path: Path):
+        from hook_config_schema import default_hook_config, is_logs_enabled, load_hook_config
+
+        leftover = tmp_path / "skill-config/lulu-dev-workflow/workflow-guard-config.json"
+        leftover.parent.mkdir(parents=True, exist_ok=True)
+        leftover.write_text(
+            json.dumps(
+                {
+                    "version": 2,
+                    "logs": {"enabled": True},
+                    "internalPathGuard": {"enable": True},
+                    "externalPathGuard": {},
+                }
+            ),
+            encoding="utf-8",
+        )
+        assert load_hook_config(tmp_path, "cursor") == default_hook_config()
+        assert is_logs_enabled(tmp_path, "cursor") is False
+
     def test_legacy_rw_guard_falls_back_to_default(self, tmp_path: Path):
         from hook_config_schema import default_hook_config, load_hook_config
 
-        target = tmp_path / "skill-config/lulu-dev-workflow/workflow-guard-config.json"
+        target = tmp_path / ".cursor/lulu-dev-workflow/workflow-guard-config.json"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(
             json.dumps({"version": 1, "rwGuard": {"enable": False}}),
@@ -143,7 +162,7 @@ class TestEnsureHookConfig:
     def test_does_not_overwrite_existing(self, tmp_path: Path):
         from hook_config_schema import ensure_hook_config
 
-        target = tmp_path / "skill-config/lulu-dev-workflow/workflow-guard-config.json"
+        target = tmp_path / ".cursor/lulu-dev-workflow/workflow-guard-config.json"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(
             json.dumps(

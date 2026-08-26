@@ -121,3 +121,14 @@ class TestRunInitProjectPlatformBranch:
             rc = run_init_project(tmp_path, "copilot")
         assert rc == 0
         assert (tmp_path / ".github" / "hooks" / "hooks.json").is_file()
+
+    def test_does_not_create_pointer_config(self, tmp_path):
+        from init_ops import run_init_project
+
+        with patch("init_ops.SUB_WORKFLOWS", []):
+            rc = run_init_project(tmp_path, "cursor")
+        assert rc == 0
+        assert not (tmp_path / ".cursor/lulu-dev-workflow/config.json").exists()
+        assert (
+            tmp_path / ".cursor/lulu-dev-workflow/workflow-guard-config.json"
+        ).is_file()

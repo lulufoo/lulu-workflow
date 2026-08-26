@@ -14,7 +14,7 @@ HOOK_PROMPT = _HOOK / "hook_prompt.py"
 
 
 def _write_config(tmp_path: Path, *, session_allow: bool) -> None:
-    cfg_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
+    cfg_dir = tmp_path / ".cursor" / "lulu-dev-workflow"
     cfg_dir.mkdir(parents=True)
     (cfg_dir / "workflow-guard-config.json").write_text(
         json.dumps(

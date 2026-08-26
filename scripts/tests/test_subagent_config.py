@@ -18,15 +18,22 @@ class TestDefaults:
 
         cfg = default_platform_config()
         assert cfg["version"] == 1
-        assert cfg["workflowConfig"] == "skill-config/lulu-dev-workflow/"
-        assert cfg["hookConfig"] == "skill-config/lulu-dev-workflow/workflow-guard-config.json"
+        assert "workflowConfig" not in cfg
+        assert "hookConfig" not in cfg
         assert "logsConfig" not in cfg
         assert "subagents" not in cfg
 
 
 class TestResolveSubagentModel:
-    def _write_workflow_config(self, tmp_path: Path, payload: dict) -> None:
-        cfg_path = tmp_path / "skill-config/lulu-dev-workflow/workflow-config.json"
+    def _write_workflow_config(
+        self, tmp_path: Path, payload: dict, platform: str = "cursor"
+    ) -> None:
+        rel = (
+            ".cursor/lulu-dev-workflow"
+            if platform == "cursor"
+            else ".github/lulu-dev-workflow"
+        )
+        cfg_path = tmp_path / rel / "workflow-config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(json.dumps(payload), encoding="utf-8")
 
@@ -47,9 +54,11 @@ class TestResolveSubagentModel:
     def test_returns_model_for_copilot(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
-        self._write_workflow_config(tmp_path, {
-            "lulu-code": {"subagent": {"cursor": "Auto", "copilot": "GPT-5.4"}}
-        })
+        self._write_workflow_config(
+            tmp_path,
+            {"lulu-code": {"subagent": {"cursor": "Auto", "copilot": "GPT-5.4"}}},
+            platform="copilot",
+        )
         assert resolve_subagent_model(tmp_path, "lulu-code", "copilot") == "GPT-5.4"
 
     def test_missing_platform_key_returns_none(self, tmp_path):
@@ -98,12 +107,12 @@ class TestResolveSubagentModel:
     def test_invalid_workflow_config_json_returns_none(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
-        cfg_path = tmp_path / "skill-config/lulu-dev-workflow/workflow-config.json"
+        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/workflow-config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text("{not json", encoding="utf-8")
         assert resolve_subagent_model(tmp_path, "lulu-code", "cursor") is None
 
-    def test_custom_workflow_config_path_from_platform_config(self, tmp_path):
+    def test_leftover_pointer_is_ignored(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
         self._write_platform_config(tmp_path, {
@@ -114,7 +123,7 @@ class TestResolveSubagentModel:
         cfg_path.write_text(json.dumps({
             "lulu-code": {"subagent": {"cursor": "Auto"}}
         }), encoding="utf-8")
-        assert resolve_subagent_model(tmp_path, "lulu-code", "cursor") == "Auto"
+        assert resolve_subagent_model(tmp_path, "lulu-code", "cursor") is None
 
 
 class TestPlatformConfigPath:
@@ -138,10 +147,10 @@ class TestResolveWorkflowConfigPath:
         from subagent_config import resolve_workflow_config_path
 
         assert resolve_workflow_config_path(tmp_path, "cursor") == (
-            tmp_path / "skill-config/lulu-dev-workflow"
+            tmp_path / ".cursor/lulu-dev-workflow"
         )
 
-    def test_custom_path_from_platform_config(self, tmp_path):
+    def test_leftover_pointer_does_not_change_root(self, tmp_path):
         from subagent_config import resolve_workflow_config_path
 
         cfg_path = tmp_path / ".cursor/lulu-dev-workflow/config.json"
@@ -151,7 +160,7 @@ class TestResolveWorkflowConfigPath:
             encoding="utf-8",
         )
         assert resolve_workflow_config_path(tmp_path, "cursor") == (
-            tmp_path / "custom/workflow-config.json"
+            tmp_path / ".cursor/lulu-dev-workflow"
         )
 
 
@@ -161,9 +170,10 @@ class TestEnsurePlatformConfig:
 
         ensure_platform_config(tmp_path, platform="cursor")
         cfg = read_platform_config(tmp_path, platform="cursor")
-        assert cfg["workflowConfig"] == "skill-config/lulu-dev-workflow/"
-        assert cfg["hookConfig"] == "skill-config/lulu-dev-workflow/workflow-guard-config.json"
-        assert "subagents" not in cfg
+        assert cfg == {}
+        assert not (
+            tmp_path / ".cursor/lulu-dev-workflow/config.json"
+        ).exists()
 
     def test_does_not_overwrite_existing_config(self, tmp_path):
         from subagent_config import ensure_platform_config, read_platform_config
@@ -181,7 +191,7 @@ class TestEnsurePlatformConfig:
 
 class TestResolveSubagentCli:
     def _write_workflow_config(self, tmp_path: Path, payload: dict) -> None:
-        cfg_path = tmp_path / "skill-config/lulu-dev-workflow/workflow-config.json"
+        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/workflow-config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(json.dumps(payload), encoding="utf-8")
 

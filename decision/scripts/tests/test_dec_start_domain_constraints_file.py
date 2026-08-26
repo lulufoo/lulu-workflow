@@ -35,7 +35,7 @@ _SUBPROCESS_ENV = {**os.environ}
 
 
 def _seed_decision_config(tmp_path: Path) -> None:
-    cfg_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
+    cfg_dir = tmp_path / ".cursor" / "lulu-dev-workflow"
     cfg_dir.mkdir(parents=True)
     local_template = tmp_path / "decision-doc.template.md"
     local_template.write_text(

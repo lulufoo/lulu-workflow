@@ -82,7 +82,7 @@ class TestParseBlobUrl:
 
 class TestFetchTemplate:
     def _write_config(self, tmp_path: Path, payload: dict) -> None:
-        cfg_path = tmp_path / "skill-config/lulu-dev-workflow/workflow-config.json"
+        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/workflow-config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(json.dumps(payload), encoding="utf-8")
 
@@ -344,7 +344,7 @@ class TestFetchTemplate:
 
 class TestMainCli:
     def test_cli_success_prints_stdout(self, tmp_path, capsys):
-        cfg_path = tmp_path / "skill-config/lulu-dev-workflow/workflow-config.json"
+        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/workflow-config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(json.dumps({
             "lulu-plan": {

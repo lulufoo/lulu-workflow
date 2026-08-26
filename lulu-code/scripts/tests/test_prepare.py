@@ -121,7 +121,7 @@ def _setup_full_preparing_session(tmp_path: Path) -> tuple[Path, Path]:
     init_preparing(ws_path, mode="work-order", task_list_ref=str(session_dir / "code-task-list.md"))
     (session_dir / "code-task-list.md").write_text("- [ ] t1 · task\n", encoding="utf-8")
 
-    config_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
+    config_dir = tmp_path / ".cursor" / "lulu-dev-workflow"
     config_dir.mkdir(parents=True)
     (config_dir / "workflow-config.json").write_text(
         json.dumps({

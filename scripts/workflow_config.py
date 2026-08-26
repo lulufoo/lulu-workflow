@@ -4,7 +4,7 @@
 Subcommands:
     get-model       Resolve subagent model for a workflow stage (JSON stdout)
     configure           Download workflow-config and write stages/ layout
-    resolve-path        Print resolved workflowConfig root path
+    resolve-path        Print resolved $WORKFLOW_DIR config root
     resolve-stage-path  Print resolved stages/{stage}.json path
 """
 
@@ -107,7 +107,7 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     sub.add_parser(
         _CMD_RESOLVE_PATH,
         parents=[parent],
-        help="Print resolved workflowConfig root path.",
+        help="Print resolved $WORKFLOW_DIR config root.",
     )
 
     resolve_stage = sub.add_parser(

@@ -330,7 +330,7 @@ def test_complete_biz_includes_body_path_and_mtime(
 
     monkeypatch.setenv("LULU_PLATFORM", "cursor")
     monkeypatch.chdir(tmp_path)
-    cfg = tmp_path / "skill-config/lulu-dev-workflow/workflow-guard-config.json"
+    cfg = tmp_path / ".cursor/lulu-dev-workflow/workflow-guard-config.json"
     cfg.parent.mkdir(parents=True, exist_ok=True)
     cfg.write_text(
         json.dumps(
@@ -354,19 +354,6 @@ def test_complete_biz_includes_body_path_and_mtime(
         ),
         encoding="utf-8",
     )
-    plat = tmp_path / ".cursor/lulu-dev-workflow/config.json"
-    plat.parent.mkdir(parents=True, exist_ok=True)
-    plat.write_text(
-        json.dumps(
-            {
-                "version": 1,
-                "workflowConfig": "skill-config/lulu-dev-workflow/",
-                "hookConfig": "skill-config/lulu-dev-workflow/workflow-guard-config.json",
-            }
-        ),
-        encoding="utf-8",
-    )
-
     rev = _rev(tmp_path)
     _seed_arc(rev)
     assert write_state_main(["sync", "--revision-dir", str(rev)]) == 0

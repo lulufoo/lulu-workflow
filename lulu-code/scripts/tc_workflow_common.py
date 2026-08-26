@@ -29,7 +29,7 @@ from subagent_config import (  # noqa: E402
     workflow_config_is_present,
 )
 
-SHARED_CONFIG_DEFAULT = Path("skill-config/lulu-dev-workflow/")
+SHARED_CONFIG_DEFAULT = WORKFLOW_DIR
 
 # ---------------------------------------------------------------------------
 # Path helpers

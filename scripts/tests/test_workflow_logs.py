@@ -15,7 +15,7 @@ if str(_SCRIPTS) not in sys.path:
 
 
 def _write_hook_config(project_root: Path, *, logs_enabled: bool) -> None:
-    path = project_root / "skill-config/lulu-dev-workflow/workflow-guard-config.json"
+    path = project_root / ".cursor/lulu-dev-workflow/workflow-guard-config.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(
@@ -43,29 +43,11 @@ def _write_hook_config(project_root: Path, *, logs_enabled: bool) -> None:
     )
 
 
-def _write_platform_config(project_root: Path) -> None:
-    path = project_root / ".cursor/lulu-dev-workflow/config.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(
-            {
-                "version": 1,
-                "workflowConfig": "skill-config/lulu-dev-workflow/",
-                "hookConfig": "skill-config/lulu-dev-workflow/workflow-guard-config.json",
-            },
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-
 class TestLogsConfig:
     def test_default_disabled_when_logs_missing(self, tmp_path: Path):
         from logs.logs_config_schema import is_logs_enabled, resolve_logs_dir
 
-        _write_platform_config(tmp_path)
-        path = tmp_path / "skill-config/lulu-dev-workflow/workflow-guard-config.json"
+        path = tmp_path / ".cursor/lulu-dev-workflow/workflow-guard-config.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
             json.dumps(
@@ -85,7 +67,6 @@ class TestLogsConfig:
     def test_enabled_flag(self, tmp_path: Path):
         from logs.logs_config_schema import is_logs_enabled
 
-        _write_platform_config(tmp_path)
         _write_hook_config(tmp_path, logs_enabled=True)
         assert is_logs_enabled(tmp_path, "cursor") is True
 
@@ -95,7 +76,6 @@ class TestEmitters:
         from logs.workflow_log import emit_io
 
         monkeypatch.setenv("LULU_PLATFORM", "cursor")
-        _write_platform_config(tmp_path)
         _write_hook_config(tmp_path, logs_enabled=False)
         emit_io(
             project_root=tmp_path,
@@ -129,7 +109,6 @@ class TestEmitters:
         from logs.workflow_log import emit_biz, emit_io
 
         monkeypatch.setenv("LULU_PLATFORM", "cursor")
-        _write_platform_config(tmp_path)
         _write_hook_config(tmp_path, logs_enabled=True)
         emit_io(
             project_root=tmp_path,
@@ -162,7 +141,6 @@ class TestHookDispatch:
         from logs.hook_dispatch import maybe_log_tool_io
 
         monkeypatch.setenv("LULU_PLATFORM", "cursor")
-        _write_platform_config(tmp_path)
         _write_hook_config(tmp_path, logs_enabled=True)
         maybe_log_tool_io(
             project_root=tmp_path,
@@ -196,6 +174,5 @@ class TestPlatformDefault:
 
         cfg = default_platform_config()
         assert "logsConfig" not in cfg
-        assert cfg["hookConfig"] == (
-            "skill-config/lulu-dev-workflow/workflow-guard-config.json"
-        )
+        assert "hookConfig" not in cfg
+        assert "workflowConfig" not in cfg

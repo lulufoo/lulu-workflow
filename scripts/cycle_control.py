@@ -3,8 +3,8 @@
 
 Subcommands:
     init-project          Project-level init (sub-workflows + hooks)
-    configure             Download workflow-config.json to workflowConfig path
-    resolve-config-path   Print resolved workflow-config.json path
+    configure             Download workflow-config.json to $WORKFLOW_DIR
+    resolve-config-path   Print resolved $WORKFLOW_DIR config root
     start                 Create a new cycle container; stdout last line: cycle_id
     archive               Prune old cycle dirs, keeping N most recent
     menu                  Feature Resolution menu (T#/F# rows + N/M)
@@ -253,7 +253,7 @@ def _cli(argv: Optional[list[str]] = None) -> int:
 
     configure = sub.add_parser(
         _CMD_CONFIGURE,
-        help="Download workflow-config.json to workflowConfig path.",
+        help="Download workflow-config.json to $WORKFLOW_DIR.",
     )
     configure.add_argument(
         "--url",
@@ -264,7 +264,7 @@ def _cli(argv: Optional[list[str]] = None) -> int:
 
     resolve_path = sub.add_parser(
         _CMD_RESOLVE_CONFIG_PATH,
-        help="Print resolved workflow-config.json path.",
+        help="Print resolved $WORKFLOW_DIR config root.",
     )
     resolve_path.set_defaults(handler=cmd_resolve_config_path)
 

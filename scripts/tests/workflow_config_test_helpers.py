@@ -4,7 +4,18 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
+
+_SCRIPTS = Path(__file__).resolve().parents[1]
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+
+from platform_schema import PLATFORM_PATHS  # noqa: E402
+
+
+def workflow_test_root(tmp_path: Path, platform: str = "cursor") -> Path:
+    return tmp_path / PLATFORM_PATHS[platform]["workflow_dir"]
 
 
 def write_stage_config(
@@ -13,9 +24,10 @@ def write_stage_config(
     payload: dict,
     *,
     legacy: bool = False,
+    platform: str = "cursor",
 ) -> Path:
     """Write workflow config for tests. Returns config root directory."""
-    root = tmp_path / "skill-config" / "lulu-dev-workflow"
+    root = workflow_test_root(tmp_path, platform)
     root.mkdir(parents=True, exist_ok=True)
 
     if legacy:
@@ -35,8 +47,13 @@ def write_stage_config(
     return root
 
 
-def write_monolith_config(tmp_path: Path, payload: dict) -> Path:
-    root = tmp_path / "skill-config" / "lulu-dev-workflow"
+def write_monolith_config(
+    tmp_path: Path,
+    payload: dict,
+    *,
+    platform: str = "cursor",
+) -> Path:
+    root = workflow_test_root(tmp_path, platform)
     root.mkdir(parents=True, exist_ok=True)
     monolith = root / "workflow-config.json"
     monolith.write_text(json.dumps(payload), encoding="utf-8")

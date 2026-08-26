@@ -14,9 +14,12 @@ SKILL_ROOT = SCRIPTS_DIR.parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from workflow_config_schema import detect_platform, read_platform_config  # noqa: E402
+from workflow_config_schema import (  # noqa: E402
+    detect_platform,
+    resolve_workflow_config_root,
+)
 
-_DEFAULT_HOOK_CONFIG_PATH = "skill-config/lulu-dev-workflow/workflow-guard-config.json"
+_HOOK_CONFIG_FILENAME = "workflow-guard-config.json"
 
 _DEFAULT_HOOK_CONFIG: dict[str, Any] = {
     "version": 2,
@@ -54,10 +57,8 @@ def resolve_hook_config_path(
     project_root: Path,
     platform: Optional[str] = None,
 ) -> Path:
-    """Return path to workflow-guard-config.json via platform config pointer."""
-    platform_cfg = read_platform_config(project_root, platform)
-    hook_config_rel = platform_cfg.get("hookConfig", _DEFAULT_HOOK_CONFIG_PATH)
-    return project_root / hook_config_rel
+    """Return path to workflow-guard-config.json under $WORKFLOW_DIR."""
+    return resolve_workflow_config_root(project_root, platform) / _HOOK_CONFIG_FILENAME
 
 
 def validate_hook_config(data: object) -> list[str]:

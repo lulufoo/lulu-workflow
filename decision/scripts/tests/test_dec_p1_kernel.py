@@ -69,7 +69,7 @@ def test_decision_control_clis_do_not_expose_stage() -> None:
 
 @pytest.fixture
 def template_config(tmp_path: Path) -> Path:
-    cfg_dir = tmp_path / "skill-config" / "lulu-dev-workflow"
+    cfg_dir = tmp_path / ".cursor" / "lulu-dev-workflow"
     cfg_dir.mkdir(parents=True)
     local_template = tmp_path / "decision-doc.template.md"
     local_template.write_text(_full_template(), encoding="utf-8")

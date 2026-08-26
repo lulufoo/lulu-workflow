@@ -13,8 +13,6 @@ SCRIPTS_DIR = SKILL_ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from subagent_config import ensure_platform_config  # noqa: E402
-
 HOOK_DIR = SCRIPTS_DIR / "hook"
 if str(HOOK_DIR) not in sys.path:
     sys.path.insert(0, str(HOOK_DIR))
@@ -22,10 +20,6 @@ from hook_config_schema import ensure_hook_config  # noqa: E402
 from platforms.init.register import register_hook  # noqa: E402
 
 SUB_WORKFLOWS = ["lulu-plan", "lulu-tasks", "lulu-code"]
-
-
-def ensure_copilot_platform_config(project_root: Path) -> None:
-    ensure_platform_config(project_root, platform="copilot")
 
 
 _INIT_SCRIPT = {
@@ -58,8 +52,6 @@ def run_init_project(project_root: Path, platform: str) -> int:
         if result.returncode != 0:
             print(f"[lulu-dev-workflow init] ERROR: {sub} init failed (exit {result.returncode}).")
             return result.returncode
-
-    ensure_platform_config(project_root, platform=platform)
 
     hook_command = register_hook(project_root, platform)
     print(f"\n[lulu-dev-workflow init] {platform} hook registered: {hook_command}")

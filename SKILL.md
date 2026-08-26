@@ -58,7 +58,7 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 | Platform vars | `$PLATFORM`, `$SKILL_ROOT`, `$CACHE_DIR`, `$WORKFLOW_DIR` |
 | Session | Read `_runtime.md` § Session Foundation when session variables are needed |
 | Session vars | `$CYCLE_ID`, `$CYCLE_TYPE` |
-| Project config | Workflow config at resolved `workflowConfig` root (see ## Command Semantics → configure); `hookConfig` JSON incl. `logs` switch (init if missing) |
+| Project config | `$WORKFLOW_DIR` (`stages/` + `workflow-guard-config.json`) |
 
 ## Command Flow
 
@@ -66,8 +66,7 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 
 1. **Machine install** — `lulu-meta-skill install`
 2. **Project init** — `$CYCLE_CONTROL init-project` (once per repo; safe to re-run)
-3. **Workflow config** — skip if workflow config is already present at resolved root; else `$CYCLE_CONTROL configure`
-4. **First work** — Enter any sub-SKILL (e.g. `/lulu-approach`). Cycle binding via `_runtime.md` § Session Foundation.
+3. **First work** — Enter any sub-SKILL (e.g. `/lulu-approach`). Cycle binding via `_runtime.md` § Session Foundation.
 
 ## Commands
 
@@ -83,15 +82,7 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 
 **Run:** `$CYCLE_CONTROL init-project`
 
-**Done:** Report success or stderr; bootstraps missing `hookConfig` file; does **not** create workflow config (use `configure`).
-
-### `configure` — When workflow-config is missing
-
-**When:** Workflow config is not present at resolved root (see ## Command Semantics → configure).
-
-**Run:** `$CYCLE_CONTROL configure` [`--url "<blob-url>"`]
-
-**Done:** stdout = absolute path written; announce path to user.
+**Done:** Report success or stderr; bootstraps missing hook file under `$WORKFLOW_DIR`.
 
 ### `archive [N]` — Prune old cycles
 
@@ -103,13 +94,6 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 
 ## Command Semantics
 
-### configure
-
-- **Target:** `workflowConfig` in platform config (default `skill-config/lulu-dev-workflow/`).
-- **Success stdout:** absolute path of config root written (`manifest.json` + `stages/`).
-- **Anti-pattern:** Do not write workflow config under `$WORKFLOW_DIR/` unless `workflowConfig` points there.
-- **Inspect only:** `$CYCLE_CONTROL resolve-config-path` (no download).
-
 ### archive
 
 - **Retention rule:** Keep N most recent by timestamp embedded in `cycle_id` (default N=5).
@@ -117,9 +101,9 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 
 ### init
 
-- **Creates:** platform `config.json` pointer(s) if missing; missing file at resolved `hookConfig` (skill default; no overwrite).
-- **Does not:** create workflow config (use `configure`).
-- **Safe:** re-run allowed (idempotent hooks + `hookConfig` bootstrap).
+- **Creates:** missing `$WORKFLOW_DIR/workflow-guard-config.json` (skill default; no overwrite).
+- **Does not:** create pointer `config.json`.
+- **Safe:** re-run allowed (idempotent hooks + hook-file bootstrap).
 
 ## Script Macros
 

@@ -36,7 +36,7 @@ class TestStageConfigLoader:
         write_stage_config(tmp_path, "lulu-code", {"test_command": "npm test"})
         assert load_stage_config(tmp_path, "lulu-code") == {"test_command": "npm test"}
 
-    def test_load_stage_from_legacy_monolith_pointer(self, tmp_path: Path) -> None:
+    def test_leftover_pointer_does_not_redirect(self, tmp_path: Path) -> None:
         monolith = tmp_path / "custom" / "workflow-config.json"
         monolith.parent.mkdir(parents=True)
         monolith.write_text(
@@ -49,7 +49,7 @@ class TestStageConfigLoader:
             json.dumps({"workflowConfig": "custom/workflow-config.json"}),
             encoding="utf-8",
         )
-        assert load_stage_config(tmp_path, "lulu-code", "cursor") == {
+        assert load_stage_config(tmp_path, "lulu-code", "cursor") != {
             "test_command": "pnpm test",
         }
 
@@ -66,10 +66,10 @@ class TestStageConfigLoader:
         write_stage_config(tmp_path, "lulu-code", {"test_command": "npm test"})
         assert load_stage_config(tmp_path, "lulu-plan") == {}
 
-    def test_legacy_pointer_falls_back_to_stages_dir(self, tmp_path: Path) -> None:
+    def test_leftover_pointer_ignored_when_stages_present(self, tmp_path: Path) -> None:
         write_stage_config(tmp_path, "lulu-code", {"test_command": "npm test"})
         cfg_path = tmp_path / ".cursor/lulu-dev-workflow/config.json"
-        cfg_path.parent.mkdir(parents=True)
+        cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(
             json.dumps(
                 {"workflowConfig": "skill-config/lulu-dev-workflow/workflow-config.json"}
@@ -80,6 +80,18 @@ class TestStageConfigLoader:
         assert load_stage_config(tmp_path, "lulu-code", "cursor") == {
             "test_command": "npm test",
         }
+
+    def test_skill_config_dir_is_not_read(self, tmp_path: Path) -> None:
+        leftover = tmp_path / "skill-config/lulu-dev-workflow/stages"
+        leftover.mkdir(parents=True)
+        (leftover / "lulu-code.json").write_text(
+            json.dumps({"test_command": "UNIQUE_SKILL_CONFIG"}),
+            encoding="utf-8",
+        )
+        assert load_stage_config(tmp_path, "lulu-code", "cursor") != {
+            "test_command": "UNIQUE_SKILL_CONFIG",
+        }
+        assert not workflow_config_is_present(tmp_path, "cursor")
 
 
 class TestSplitMonolithPayload:
@@ -214,7 +226,7 @@ class TestConfigureWorkflowConfig:
             check=False,
         )
         assert result.returncode == 0
-        assert result.stdout.strip().endswith("skill-config/lulu-dev-workflow")
+        assert result.stdout.strip().endswith(".cursor/lulu-dev-workflow")
 
     def test_cli_resolve_path(self, tmp_path: Path) -> None:
         result = subprocess.run(
@@ -232,7 +244,7 @@ class TestConfigureWorkflowConfig:
             check=False,
         )
         assert result.returncode == 0
-        assert result.stdout.strip().endswith("skill-config/lulu-dev-workflow")
+        assert result.stdout.strip().endswith(".cursor/lulu-dev-workflow")
 
     def test_cli_resolve_stage_path(self, tmp_path: Path) -> None:
         write_stage_config(tmp_path, "lulu-code", {"test_command": "npm test"})
@@ -254,7 +266,7 @@ class TestConfigureWorkflowConfig:
         )
         assert result.returncode == 0
         assert result.stdout.strip().endswith(
-            "skill-config/lulu-dev-workflow/stages/lulu-code.json"
+            ".cursor/lulu-dev-workflow/stages/lulu-code.json"
         )
         assert resolve_stage_config_path(tmp_path, "lulu-code", "cursor").exists()
 

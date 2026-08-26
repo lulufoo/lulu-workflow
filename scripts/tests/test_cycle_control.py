@@ -81,7 +81,7 @@ class TestCycleControlResolveConfigPath:
             "resolve-config-path",
         )
         assert result.returncode == 0
-        assert "skill-config/lulu-dev-workflow" in result.stdout
+        assert ".cursor/lulu-dev-workflow" in result.stdout
 
 
 class TestCycleControlMenu:

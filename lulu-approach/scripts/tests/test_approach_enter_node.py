@@ -63,7 +63,7 @@ def _full_template() -> str:
 
 
 def _write_template_config(project_root: Path) -> None:
-    config_dir = project_root / "skill-config" / "lulu-dev-workflow"
+    config_dir = project_root / ".cursor" / "lulu-dev-workflow"
     config_dir.mkdir(parents=True)
     template = project_root / "decision-doc.template.md"
     template.write_text(_full_template(), encoding="utf-8")

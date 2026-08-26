@@ -67,7 +67,7 @@ _REQUIRED_KEYS = {
 
 
 def _write_workflow_config(project_root: Path, extra: dict | None = None) -> None:
-    config_dir = project_root / "skill-config" / "lulu-dev-workflow"
+    config_dir = project_root / ".cursor" / "lulu-dev-workflow"
     config_dir.mkdir(parents=True, exist_ok=True)
     payload = {
         "lulu-code": {
@@ -200,16 +200,18 @@ class TestResolveTaskContext:
         result = resolve_task_context(cycle_dir, "t1", project_root, include_model=True)
         assert result["model"] == "Auto"
 
-    def test_custom_workflow_config_path_missing_returns_none(self, tmp_path: Path):
+    def test_leftover_pointer_is_ignored(self, tmp_path: Path):
         cycle_dir, project_root, _ = _setup_happy_path(tmp_path)
         _write_platform_config(project_root, "custom/missing-config.json")
         result = resolve_task_context(cycle_dir, "t1", project_root)
-        assert result["test_command"] == ""
-        assert result["commit_message_template"] == ""
+        assert result["test_command"] == "npm test"
+        assert result["commit_message_template"] == "feat({scope}): {task_id} {summary}"
 
     def test_missing_workflow_config(self, tmp_path: Path):
         cycle_dir, project_root, _ = _setup_happy_path(tmp_path)
-        config_path = project_root / "skill-config" / "lulu-dev-workflow" / "workflow-config.json"
+        config_path = (
+            project_root / ".cursor" / "lulu-dev-workflow" / "workflow-config.json"
+        )
         config_path.unlink()
         result = resolve_task_context(cycle_dir, "t1", project_root)
         assert result["test_command"] == ""
