@@ -2,8 +2,10 @@
 
 # Gate 3 — Open-point Loop
 
-Expose and resolve unresolved questions after the Topic Loop. Work in
-human-started batches until the human closes G3 through a validated exit.
+## Goal
+
+Expose and dispose unresolved questions that matter to the current slice after
+the Topic Loop. Complete when the human closes G3 through a validated exit.
 
 ## Script Macros
 
@@ -14,70 +16,44 @@ human-started batches until the human closes G3 through a validated exit.
 
 Use each control's `--help` as the command and stdout contract.
 
-## Goal
+## Principles
 
-- Detect one coherent batch across every lens when the human requests it.
-- Process one active open at a time.
-- Preserve discussion as an equal path while G3 is active.
-
-## Dialogue cognition
-
-| Role | Authority |
-|---|---|
-| Human | Starts Detect, disposes each registered open, and chooses whether to close |
-| Parent Agent | Dispatches analysis, invokes controls, then presents Process output |
-| Analysis sub-agent | Returns read-only analysis for one requested scope |
-| Control | Performs mechanical state changes |
-
-The Parent Agent may recommend. It never substitutes Land, Ignore, Skip,
-or Reject.
-
-## Session boundaries
-
-- Open registry status: `open` unresolved; `settled` conclusion in facts
-  (Land); `deferred` not landed now (Ignore); `rejected` false or outside
-  the slice (Reject). Skip keeps `open`.
-- Resolve position through `$OPEN_POINT_CTL resolve-context`.
-- Detect runner fetches `$OPEN_POINT_CTL detect-context`. Parent does not.
-- Process context is `$OPEN_POINT_CTL process-context`.
-- Initial position is `idle`; entry never starts detection.
-- `processing` has one active batch and at most one active open.
-- Free dialogue remains available in both positions.
-- Route only from control stdout or a resolved context.
-
-## Tool boundaries
-
-- `../open-point-detect-runner/SKILL.md` owns full-lens batch analysis.
-- `../open-point-process-runner/SKILL.md` owns analysis of one active open.
-- `fact-store-runner` owns fact preview, acknowledgement, and consumption.
-- `$OPEN_POINT_CTL` owns open, batch, receipt, and loop transitions.
-- `$INDUCTIVE_GATE_CTL` owns G3 closure.
-- Sub-agents do not interact with the human or mutate session state.
-- On timeout, exception, or invalid output, write no state. The Parent Agent
-  reports the failure or retries with the same `process-context`.
+1. The human starts Detect, disposes each registered Open, and chooses
+   whether to close. The Parent Agent may recommend. It never
+   substitutes Land, Ignore, Skip, or Reject.
+2. Discussion remains available beside Detect and Process; it is not a
+   third control state.
+3. Process at most one active Open. Never overlap Detect and Process
+   dispatches.
+4. Route only from control stdout or `$OPEN_POINT_CTL resolve-context`.
+   Do not read session data files.
+5. Registry status: `open` unresolved; `settled` landed in facts;
+   `deferred` not landed now; `rejected` false or outside the slice.
+   Skip keeps `open`.
 
 ## Routing
 
-Detect writes the batch. Process disposes one registered open. Idle waits
-for the next human start.
+Detect analyzes one human-started candidate batch. Process analyzes one active
+Open; the Parent Agent applies its human-selected disposition. Entry and `idle`
+never start Detect automatically.
 
-Heading = phase; first line = after which action; rest = paths (what, not
-a script).
-
-### Detect a batch
+### Detect
 
 After an explicit human Detect request from `idle`:
 
-1. `$OPEN_POINT_CTL ensure-frontier` — only Detect-path frontier init write.
+1. `$OPEN_POINT_CTL ensure-frontier`.
 2. Dispatch `../open-point-detect-runner/SKILL.md` with `--out-dir` and
-   `--project-root` only.
-3. `$OPEN_POINT_CTL add-opens --opens-json --detect-json` with that return.
-   Contract in `--help`.
-4. Route from the control: a registered batch → Process; otherwise `idle`.
+   `--project-root` only. The runner fetches
+   `$OPEN_POINT_CTL detect-context`. Parent does not.
+3. Review the candidates with the human, then call
+   `$OPEN_POINT_CTL add-opens --opens-json --detect-json`. Contract in
+   `--help`.
+4. Route from its stdout: a registered batch → Process; otherwise
+   `idle`.
 
-### Process the batch
+### Process
 
-After `$OPEN_POINT_CTL process-context` names the active open:
+Call `$OPEN_POINT_CTL process-context`. When it names the active Open:
 
 1. Dispatch `../open-point-process-runner/SKILL.md` with the
    `process-context` stdout only. Do not prescribe how the runner
@@ -87,38 +63,51 @@ After `$OPEN_POINT_CTL process-context` names the active open:
      and re-dispatch; otherwise wait.
    - **`open`** — present its analysis for disposition.
 3. For `open`, wait for one human action:
-   - **Land** — `fact-store-runner` `propose --kind settle_open` → ack →
-     consume.
+   - **Land** — run `fact-store-runner`'s public `settle_open` protocol.
    - **Ignore** — `$OPEN_POINT_CTL defer-open`.
    - **Skip** — `$OPEN_POINT_CTL skip-open`.
    - **Reject** — `$OPEN_POINT_CTL reject-open`.
 4. Apply only the named control for that action.
 5. Resolve `$OPEN_POINT_CTL process-context` or `resolve-context` before
-   selecting the next open.
-6. Dialogue exposes another open → `$OPEN_POINT_CTL add-opens`. Append to
-   the active batch tail; create a batch when none is active.
+   selecting the next Open.
+6. Dialogue exposes another Open → `$OPEN_POINT_CTL add-opens`. Append
+   to the active batch tail; create a batch when none is active.
 7. Re-dispatch when substantive inputs change.
 
-### Batch done
+### Idle
 
-After control returns to `idle` (registered opens no longer remain open):
+After control returns to `idle` (registered Opens no longer remain
+open):
 
-1. Offer: detect another batch; continue discussion; request G3 closure.
-2. Human asks to change a lens start X, or to mark a required lens as not
-   blocking `cleared` → `$OPEN_POINT_CTL set-frontier` or `frontier-skip`;
-   then Detect again before `cleared`. Details in `--help`.
+1. Offer another Detect, continued discussion, or a G3 closure request.
+2. On a human request to override a lens start X or exempt a required
+   lens from blocking `cleared`, call `$OPEN_POINT_CTL set-frontier` or
+   `frontier-skip`; then Detect again before `cleared`. Details in
+   `--help`.
 3. Do not start another detection automatically.
 
-## Close
+### Close
 
 After the human chooses `cleared` or `hard-skip`, call
 `$INDUCTIVE_GATE_CTL gate-close --gate G3 --mode <cleared|hard-skip> --confirm`
-once. The control validates the exit. On success, resolve a fresh `$CTX`
-and load the gate it names. Do not close G3 through `$OPEN_POINT_CTL`.
+once for that confirmed choice. The control validates the exit. On rejection,
+report the reason and remain in G3. On success, resolve a fresh `$CTX` and load
+the gate it names.
 
-## Hard cuts
+## Boundaries
 
-- Do not overlap Detect and Process dispatches.
-- After Detect, route only to Process or `idle`.
+| Owner | Owns |
+|---|---|
+| `../open-point-detect-runner/SKILL.md` | Full-lens batch analysis |
+| `../open-point-process-runner/SKILL.md` | Analysis of one active Open |
+| `fact-store-runner` | Fact landing through its public protocol |
+| `$OPEN_POINT_CTL` | Open, batch, receipt, and loop transitions |
+| `$INDUCTIVE_GATE_CTL` | G3 closure |
+
+- Sub-agents do not interact with the human or mutate session state.
+- On dispatch timeout, exception, or invalid output, record no runner
+  result. Report, or retry while the relevant control context remains
+  current.
+- Do not close G3 through `$OPEN_POINT_CTL`.
 - Do not paste Detect measurement, Process analysis, `--detect-json`
   fields, or close predicates into this gate.
