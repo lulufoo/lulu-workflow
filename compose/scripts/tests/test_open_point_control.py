@@ -158,7 +158,30 @@ def test_add_opens_json_round_trip(tmp_path: Path):
     assert ctx["state"]["active_open_id"] == "O-1"
 
 
-def test_disposition_stale_digest_rejected(tmp_path: Path):
+def test_process_context_omits_digests_and_scope_without_project_root(tmp_path: Path):
+    add_opens(tmp_path, opens=[_human_open()])
+    code, payload = _run(tmp_path, "process-context")
+    assert code == 0, payload
+    assert payload["ok"] is True
+    assert payload["open"]["id"] == "O-1"
+    assert payload["facts_path"] == str((tmp_path / "_facts.json").resolve())
+    assert "facts" not in payload
+    assert "facts_digest" not in payload
+    assert "open_digest" not in payload
+    assert "batch_digest" not in payload
+    assert "project_evidence_scope" not in payload
+
+
+def test_process_context_includes_scope_when_project_root(tmp_path: Path):
+    add_opens(tmp_path, opens=[_human_open()])
+    root = tmp_path / "proj"
+    root.mkdir()
+    code, payload = _run(tmp_path, "process-context", project_root=str(root))
+    assert code == 0, payload
+    assert payload["project_evidence_scope"]["project_root"] == str(root.resolve())
+
+
+def test_defer_open_without_digest_flags(tmp_path: Path):
     add_opens(tmp_path, opens=[_human_open()])
     code, payload = _run(
         tmp_path,
@@ -167,15 +190,22 @@ def test_disposition_stale_digest_rejected(tmp_path: Path):
         "O-1",
         "--note",
         "later",
-        "--facts-digest",
-        canonical_digest(["stale"]),
-        "--open-digest",
-        canonical_digest(["stale"]),
-        "--batch-digest",
-        canonical_digest(["stale"]),
     )
-    assert code == 1
-    assert payload == {"ok": False, "error": "stale"}
+    assert code == 0, payload
+    assert payload["ok"] is True
+
+
+def test_settle_resolved_is_not_a_subcommand(tmp_path: Path):
+    code, payload = _run(
+        tmp_path,
+        "settle-resolved",
+        "--open-id",
+        "O-1",
+        "--resolved-by",
+        "F-1",
+    )
+    assert code != 0
+    assert "settle-resolved" in payload.get("stderr", "")
 
 
 def test_check_close_is_predicate_only(tmp_path: Path):

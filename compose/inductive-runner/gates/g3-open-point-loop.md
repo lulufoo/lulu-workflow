@@ -27,7 +27,7 @@ Use each control's `--help` as the command and stdout contract.
 | Human | Starts Detect, disposes each registered open, and chooses whether to close |
 | Parent Agent | Dispatches analysis, invokes controls, then presents Process output |
 | Analysis sub-agent | Returns read-only analysis for one requested scope |
-| Control | Validates freshness and performs mechanical state changes |
+| Control | Performs mechanical state changes |
 
 The Parent Agent may recommend. It never substitutes Land, Ignore, Skip,
 or Reject.
@@ -52,7 +52,7 @@ or Reject.
 - `$INDUCTIVE_GATE_CTL` owns G3 closure.
 - Sub-agents do not interact with the human or mutate session state.
 - On timeout, exception, or invalid output, write no state. The Parent Agent
-  reports the failure or retries with the same inputs while they remain fresh.
+  reports the failure or retries with the same `process-context`.
 
 ## Routing
 
@@ -78,21 +78,16 @@ After an explicit human Detect request from `idle`:
 
 After `$OPEN_POINT_CTL process-context` names the active open:
 
-1. Dispatch `../open-point-process-runner/SKILL.md` for that open only.
-2. Present the runner return. Route its `validity`:
-   - **`null`** — present the blocker; keep the Open active. Refresh
-     available input and re-dispatch; otherwise wait.
-   - **`changed`** — present the replacement question; after human
-     confirmation, `$OPEN_POINT_CTL update-open`, resolve
-     `process-context`, and re-dispatch.
-   - **`resolved`** — present the cited fact links; after human
-     confirmation, `$OPEN_POINT_CTL settle-resolved`.
-   - **`invalid`** — present the reason; after human confirmation,
-     `$OPEN_POINT_CTL reject-open`.
-   - **`valid`** — present its analysis for disposition.
-3. For `valid`, wait for one human action:
+1. Dispatch `../open-point-process-runner/SKILL.md` with the
+   `process-context` stdout only. Do not prescribe how the runner
+   investigates.
+2. Present the runner return. Route its `status`:
+   - **`blocked`** — present the reason; no disposition. Recover input
+     and re-dispatch; otherwise wait.
+   - **`open`** — present its analysis for disposition.
+3. For `open`, wait for one human action:
    - **Land** — `fact-store-runner` `propose --kind settle_open` → ack →
-     consume. Do not call `$OPEN_POINT_CTL settle-resolved`.
+     consume.
    - **Ignore** — `$OPEN_POINT_CTL defer-open`.
    - **Skip** — `$OPEN_POINT_CTL skip-open`.
    - **Reject** — `$OPEN_POINT_CTL reject-open`.
@@ -101,8 +96,7 @@ After `$OPEN_POINT_CTL process-context` names the active open:
    selecting the next open.
 6. Dialogue exposes another open → `$OPEN_POINT_CTL add-opens`. Append to
    the active batch tail; create a batch when none is active.
-7. Re-dispatch when substantive inputs change. Never act on a stale
-   analysis.
+7. Re-dispatch when substantive inputs change.
 
 ### Batch done
 

@@ -42,7 +42,7 @@ from open_point_store import (  # noqa: E402
     check_close,
     defer_open,
     ensure_frontier,
-    facts_digest,
+    FACTS_BASENAME,
     facts_snapshot,
     frontier_digest,
     frontier_skip,
@@ -56,7 +56,6 @@ from open_point_store import (  # noqa: E402
     require_detect_ruler,
     reject_open,
     set_frontier,
-    settle_open,
     skip_open,
     update_open,
 )
@@ -80,32 +79,11 @@ def _parse_json(raw: str, label: str) -> Any:
     raise AssertionError("unreachable")
 
 
-def _parse_id_list(raw: str) -> list[str]:
-    text = raw.strip()
-    if text.startswith("["):
-        data = _parse_json(text, "--resolved-by")
-        if not isinstance(data, list):
-            _fail("--resolved-by JSON must be a list")
-        return [str(item).strip() for item in data if str(item).strip()]
-    return [part.strip() for part in text.split(",") if part.strip()]
-
-
 def _active_open(bundle: dict[str, Any]) -> dict[str, Any] | None:
     open_id = bundle["state"].get("active_open_id")
     if not open_id:
         return None
     return next((item for item in bundle["opens"] if item["id"] == open_id), None)
-
-
-def _require_fresh(slice_dir: Path, args: argparse.Namespace, bundle: dict[str, Any]) -> None:
-    current_open = _active_open(bundle)
-    current_batch = active_batch_of(bundle)
-    if (
-        args.facts_digest != facts_digest(slice_dir)
-        or args.open_digest != (canonical_digest(current_open) if current_open else "")
-        or args.batch_digest != (canonical_digest(current_batch) if current_batch else "")
-    ):
-        raise StaleError()
 
 
 def cmd_resolve_context(slice_dir: Path, _args: argparse.Namespace) -> None:
@@ -174,22 +152,20 @@ def cmd_detect_context(slice_dir: Path, args: argparse.Namespace) -> None:
     _ok(payload)
 
 
-def cmd_process_context(slice_dir: Path, _args: argparse.Namespace) -> None:
+def cmd_process_context(slice_dir: Path, args: argparse.Namespace) -> None:
     bundle = load_bundle(slice_dir)
     current_open = _active_open(bundle)
     if current_open is None:
         raise ValueError("no active open")
-    current_batch = active_batch_of(bundle)
-    facts = facts_snapshot(slice_dir)
-    _ok(
-        {
-            "open": current_open,
-            "facts": facts,
-            "facts_digest": canonical_digest(facts),
-            "open_digest": canonical_digest(current_open),
-            "batch_digest": canonical_digest(current_batch) if current_batch else "",
+    payload: dict[str, Any] = {
+        "open": current_open,
+        "facts_path": str((slice_dir / FACTS_BASENAME).resolve()),
+    }
+    if args.project_root:
+        payload["project_evidence_scope"] = {
+            "project_root": str(Path(args.project_root).resolve())
         }
-    )
+    _ok(payload)
 
 
 def cmd_add_opens(slice_dir: Path, args: argparse.Namespace) -> None:
@@ -214,33 +190,19 @@ def cmd_update_open(slice_dir: Path, args: argparse.Namespace) -> None:
     patch = _parse_json(args.patch_json, "--patch-json")
     if not isinstance(patch, dict):
         raise ValueError("--patch-json must be a JSON object")
-    bundle = load_bundle(slice_dir)
-    _require_fresh(slice_dir, args, bundle)
     _ok(update_open(slice_dir, args.open_id, patch))
 
 
 def cmd_defer_open(slice_dir: Path, args: argparse.Namespace) -> None:
-    bundle = load_bundle(slice_dir)
-    _require_fresh(slice_dir, args, bundle)
     _ok(defer_open(slice_dir, args.open_id, args.note))
 
 
 def cmd_reject_open(slice_dir: Path, args: argparse.Namespace) -> None:
-    bundle = load_bundle(slice_dir)
-    _require_fresh(slice_dir, args, bundle)
     _ok(reject_open(slice_dir, args.open_id, args.reason))
 
 
 def cmd_skip_open(slice_dir: Path, args: argparse.Namespace) -> None:
-    bundle = load_bundle(slice_dir)
-    _require_fresh(slice_dir, args, bundle)
     _ok(skip_open(slice_dir, args.open_id))
-
-
-def cmd_settle_resolved(slice_dir: Path, args: argparse.Namespace) -> None:
-    bundle = load_bundle(slice_dir)
-    _require_fresh(slice_dir, args, bundle)
-    _ok(settle_open(slice_dir, args.open_id, _parse_id_list(args.resolved_by)))
 
 
 def cmd_attach_code_refs(slice_dir: Path, args: argparse.Namespace) -> None:
@@ -273,12 +235,6 @@ def cmd_frontier_unskip(slice_dir: Path, args: argparse.Namespace) -> None:
     _ok({"frontier": frontier_unskip(slice_dir, args.lens)})
 
 
-def _add_freshness_flags(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--facts-digest", required=True)
-    parser.add_argument("--open-digest", required=True)
-    parser.add_argument("--batch-digest", required=True)
-
-
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -288,7 +244,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--project-root",
         default="",
-        help="Session root for KW / intent / code_grounding on detect-context",
+        help="Session root for detect-context materials and process-context scope",
     )
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
@@ -301,7 +257,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "detect-context",
         help="Read-only facts/lens/opens/frontier snapshots, KW slices, and means materials. frontier_kw is the last found gap KW (resume start).",
     )
-    sub.add_parser("process-context", help="Active open + facts + freshness digests")
+    sub.add_parser(
+        "process-context",
+        help="Active open + facts_path; project scope when --project-root",
+    )
 
     add = sub.add_parser(
         "add-opens",
@@ -321,26 +280,17 @@ def _build_parser() -> argparse.ArgumentParser:
     update = sub.add_parser("update-open", help="Patch question/basis/blocking")
     update.add_argument("--open-id", required=True)
     update.add_argument("--patch-json", required=True)
-    _add_freshness_flags(update)
 
     defer = sub.add_parser("defer-open", help="Defer the active open")
     defer.add_argument("--open-id", required=True)
     defer.add_argument("--note", required=True)
-    _add_freshness_flags(defer)
 
     reject = sub.add_parser("reject-open", help="Reject the active open")
     reject.add_argument("--open-id", required=True)
     reject.add_argument("--reason", required=True)
-    _add_freshness_flags(reject)
 
     skip = sub.add_parser("skip-open", help="Move the active open to the batch tail")
     skip.add_argument("--open-id", required=True)
-    _add_freshness_flags(skip)
-
-    settle = sub.add_parser("settle-resolved", help="Settle an already-resolved open")
-    settle.add_argument("--open-id", required=True)
-    settle.add_argument("--resolved-by", required=True)
-    _add_freshness_flags(settle)
 
     attach = sub.add_parser("attach-code-refs", help="Attach code refs to an open")
     attach.add_argument("--open-id", required=True)
@@ -401,7 +351,6 @@ def main(argv: list[str] | None = None) -> int:
         "defer-open": cmd_defer_open,
         "reject-open": cmd_reject_open,
         "skip-open": cmd_skip_open,
-        "settle-resolved": cmd_settle_resolved,
         "attach-code-refs": cmd_attach_code_refs,
         "check-close": cmd_check_close,
         "set-frontier": cmd_set_frontier,
