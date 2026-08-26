@@ -26,7 +26,7 @@ The parent supplies only invoke arguments:
 - `--out-dir`
 - `--project-root` (empty is legal)
 
-Do not accept snapshot fields. Fetch the current snapshot through `$OPEN_POINT_CTL detect-context`. Use `../references/open-point-model.md` as the shared semantic contract. Load `references/detect-means.md` before forming candidates.
+Do not accept snapshot fields. Fetch the current snapshot through `$OPEN_POINT_CTL detect-context`. Load `references/detect-model.md` and `references/detect-means.md` before forming candidates.
 
 ## Detection
 

@@ -34,7 +34,9 @@ or Reject.
 
 ## Session boundaries
 
-- Read `../references/open-point-model.md` before entering the loop.
+- Open registry status: `open` unresolved; `settled` conclusion in facts
+  (Land); `deferred` not landed now (Ignore); `rejected` false or outside
+  the slice (Reject). Skip keeps `open`.
 - Resolve position through `$OPEN_POINT_CTL resolve-context`.
 - Detect runner fetches `$OPEN_POINT_CTL detect-context`. Parent does not.
 - Process context is `$OPEN_POINT_CTL process-context`.

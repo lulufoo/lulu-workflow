@@ -7,11 +7,13 @@ description: Validates and analyzes one registered Open against current evidence
 
 ## Goal
 
-Decide whether the Open is still unresolved work. If `open`, give decision support for that Open only. Investigate until the Return is complete; do not over-search.
+Give decision support for one Open. Investigate until the Return is complete; do not over-search.
 
 ## Preconditions
 
-- Read `../references/open-point-model.md`.
+- An Open is one unresolved question that matters to the current slice.
+- It belongs to one registry lens. Blocking says whether unresolved work
+  prevents closure.
 
 ## Inputs
 
@@ -30,7 +32,7 @@ Analyze only the input Open.
 
 - `blocked`: exception. Cases: missing input; missing evidence.
   `reason` is free text.
-- `open`: still unresolved; `issue`, `evidence`, 2–5 `options`, `lean`.
+- `open`: `issue`, `evidence`, 2–5 `options`, `lean`.
 - Use one of the two shapes below.
 
 ```json
