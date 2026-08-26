@@ -29,58 +29,63 @@ ALL_X_DIMENSIONS: tuple[str, ...] = (
     "gap_check",
 )
 
-_PROFILE_FIELDS: tuple[str, ...] = ("question", "depth", "goal")
+_PROFILE_FIELDS: tuple[str, ...] = ("question", "completion", "goal")
+_LEGACY_COMPLETION_FIELD = "depth"
 
-_KERNEL_DEPTH = (
-    "Stop before a deeper level would change who decides or require "
-    "implementation detail. No concrete file paths, individual tests, or UI element IDs."
+_KERNEL_COMPLETION = (
+    "Complete when the answer is restatable, names the required facts, "
+    "and stops before implementation detail, file paths, individual tests, "
+    "or UI element IDs."
 )
 
 DEFAULT_DIMENSION_PROFILE: dict[str, dict[str, str]] = {
     "acceptance_criteria": {
+        "goal": "Implementation completion can be determined objectively.",
         "question": (
             "How do we know it is done? Which observable, verifiable "
             "indicators show that?"
         ),
-        "depth": _KERNEL_DEPTH,
-        "goal": "Criteria are observable and verifiable, not subjective.",
+        "completion": _KERNEL_COMPLETION,
     },
     "impact_surface": {
+        "goal": "All affected technical change surfaces are explicit.",
         "question": (
             "What does this decision affect, including outside-system parties?"
         ),
-        "depth": _KERNEL_DEPTH,
-        "goal": "Impact domains, including external ones, are enumerated.",
+        "completion": _KERNEL_COMPLETION,
     },
     "external_dependencies": {
+        "goal": (
+            "Dependencies outside the change set have explicit and "
+            "verifiable commitments."
+        ),
         "question": (
             "Who owns what this depends on? What are the contract, "
             "authoritative source, and confirmation mechanism?"
         ),
-        "depth": _KERNEL_DEPTH,
-        "goal": (
-            "Every dependency has a contract, source, and confirmation "
-            "mechanism; unknowns are logged as Assumptions."
-        ),
+        "completion": _KERNEL_COMPLETION,
     },
     "implementation_sketch": {
+        "goal": (
+            "The decision has a coherent technical shape, with constraints "
+            "and reversibility understood."
+        ),
         "question": (
             "What are the key changes, critical constraints or complexity, "
             "and reversibility?"
         ),
-        "depth": _KERNEL_DEPTH,
-        "goal": (
-            "Key changes, critical constraints, and reversibility are all "
-            "established; unknown constraints are logged as Assumptions."
-        ),
+        "completion": _KERNEL_COMPLETION,
     },
     "gap_check": {
+        "goal": (
+            "No mismatch between expected output and acceptance criteria "
+            "remains hidden."
+        ),
         "question": (
             "Does the expected implementation output meet the Acceptance "
             "Criteria? Where does it fall short?"
         ),
-        "depth": _KERNEL_DEPTH,
-        "goal": "The gap is recorded, or explicitly confirmed as none.",
+        "completion": _KERNEL_COMPLETION,
     },
 }
 
@@ -104,8 +109,22 @@ def _normalize_role(data: dict[str, Any]) -> dict[str, str] | None:
     return None
 
 
+def _coerce_profile_entry(value: dict[str, Any]) -> dict[str, str]:
+    """Canonical ``{question, completion, goal}``; ``depth`` aliases ``completion``."""
+    entry: dict[str, str] = {}
+    for field in _PROFILE_FIELDS:
+        text = str(value.get(field, "")).strip()
+        if text:
+            entry[field] = text
+    if "completion" not in entry:
+        legacy = str(value.get(_LEGACY_COMPLETION_FIELD, "")).strip()
+        if legacy:
+            entry["completion"] = legacy
+    return entry
+
+
 def _normalize_dimension_profile(raw: Any) -> dict[str, dict[str, str]]:
-    """Canonical per-dimension ``{question, depth, goal}`` map."""
+    """Canonical per-dimension ``{question, completion, goal}`` map."""
     profile: dict[str, dict[str, str]] = {}
     if not isinstance(raw, dict):
         return profile
@@ -113,11 +132,7 @@ def _normalize_dimension_profile(raw: Any) -> dict[str, dict[str, str]]:
         dim = str(key)
         if dim not in ALL_X_DIMENSIONS or not isinstance(value, dict):
             continue
-        entry: dict[str, str] = {}
-        for field in _PROFILE_FIELDS:
-            text = str(value.get(field, "")).strip()
-            if text:
-                entry[field] = text
+        entry = _coerce_profile_entry(value)
         if entry:
             profile[dim] = entry
     return profile

@@ -280,17 +280,19 @@ def render_execution_analysis_body(
             [
                 "### 7.2 Impact Surface",
                 "",
-                "| Layer | Affected Area | Change Type | Notes |",
-                "|-------|--------------|-------------|-------|",
+                "| Responsibility | Stack | Affected Area | Change Type | Notes |",
+                "|---------------|-------|--------------|-------------|-------|",
             ]
         )
         if impact_surface:
             for row in impact_surface:
+                stack = str(row.get("stack", "")).strip() or str(row.get("layer", ""))
                 lines.append(
                     "| "
                     + " | ".join(
                         [
-                            _escape_cell(str(row.get("layer", ""))),
+                            _escape_cell(str(row.get("responsibility", ""))),
+                            _escape_cell(stack),
                             _escape_cell(str(row.get("area", ""))),
                             _escape_cell(str(row.get("change_type", ""))),
                             _escape_cell(str(row.get("notes", ""))),
@@ -299,7 +301,7 @@ def render_execution_analysis_body(
                     + " |"
                 )
         else:
-            lines.append("| | | | |")
+            lines.append("| | | | | |")
         lines.append("")
 
     if "external_dependencies" in dims:
@@ -307,8 +309,8 @@ def render_execution_analysis_body(
             [
                 "### 7.3 External Dependencies",
                 "",
-                "| Dependency | Contract | Authoritative Source | Confirmation Mechanism |",
-                "|------------|----------|---------------------|------------------------|",
+                "| Dependency | Owner | Required State | Contract | Authoritative Source | Confirmation Mechanism |",
+                "|------------|-------|----------------|----------|---------------------|------------------------|",
             ]
         )
         if external_dependencies:
@@ -318,6 +320,8 @@ def render_execution_analysis_body(
                     + " | ".join(
                         [
                             _escape_cell(str(row.get("dependency", ""))),
+                            _escape_cell(str(row.get("owner", ""))),
+                            _escape_cell(str(row.get("required_state", ""))),
                             _escape_cell(str(row.get("contract", ""))),
                             _escape_cell(str(row.get("source", ""))),
                             _escape_cell(str(row.get("confirmation", ""))),
@@ -326,7 +330,7 @@ def render_execution_analysis_body(
                     + " |"
                 )
         else:
-            lines.append("| | | | |")
+            lines.append("| | | | | | |")
         lines.append("")
 
     if "implementation_sketch" in dims:

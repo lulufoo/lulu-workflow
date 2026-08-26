@@ -176,6 +176,71 @@ def test_x_gate_close_respects_x_dimensions(template_config: Path, monkeypatch: 
     assert "**Gap (if any):** None" in doc
 
 
+def test_x_close_renders_completion_payload_columns(
+    template_config: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-domain-002b"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    cmd_init_session(project_root, cycle_id, stage)
+    _close_qe(project_root, cycle_id, stage)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "D",
+        {
+            "decision_rationale": "r",
+            "applies_to": "s",
+            "excludes": "n",
+            "execution_approach": "e",
+        },
+    )
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "X",
+            {
+                "acceptance_criteria": "done",
+                "gap": "None",
+                "impact_surface": [
+                    {
+                        "responsibility": "show bind code",
+                        "stack": "UI",
+                        "area": "host bind overlay",
+                        "change_type": "add",
+                        "notes": "",
+                    }
+                ],
+                "external_dependencies": [
+                    {
+                        "dependency": "Android scan",
+                        "owner": "mobile team",
+                        "required_state": "must scan Mac QR",
+                        "contract": "bind token",
+                        "source": "android plan",
+                        "confirmation": "later cycle",
+                    }
+                ],
+                "key_changes": "k",
+                "critical_constraints": "c",
+                "reversibility": "easy",
+            },
+        )
+        == 0
+    )
+    doc = load_rendered_doc(project_root, cycle_id, stage)
+    assert "| Responsibility | Stack | Affected Area | Change Type | Notes |" in doc
+    assert "show bind code" in doc
+    assert "| Dependency | Owner | Required State | Contract |" in doc
+    assert "must scan Mac QR" in doc
+
+
 def test_risk_state_column_in_assumptions_table(
     template_config: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -331,8 +396,9 @@ def test_load_constraints_config_from_explicit_path() -> None:
         assert set(holder["domain"]["dimension_profile"]) == set(ALL_X_DIMENSIONS)
         for entry in holder["domain"]["dimension_profile"].values():
             assert entry["question"]
-            assert entry["depth"]
+            assert entry["completion"]
             assert entry["goal"]
+            assert "depth" not in entry
 
 
 def test_holder_constraints_require_objective_and_domain() -> None:
@@ -439,6 +505,8 @@ def test_holder_topic_constraints_include_goal() -> None:
         assert set(loaded["domain"]["dimension_profile"]) == set(ALL_X_DIMENSIONS)
         for entry in loaded["domain"]["dimension_profile"].values():
             assert entry["goal"]
+            assert entry["completion"]
+            assert "depth" not in entry
 
 
 def test_default_kernel_constraints_includes_dimension_profile() -> None:
@@ -453,8 +521,26 @@ def test_default_kernel_constraints_includes_dimension_profile() -> None:
     assert set(profile) == set(ALL_X_DIMENSIONS)
     for dim, entry in DEFAULT_DIMENSION_PROFILE.items():
         assert profile[dim]["question"] == entry["question"]
-        assert profile[dim]["depth"] == entry["depth"]
+        assert profile[dim]["completion"] == entry["completion"]
         assert profile[dim]["goal"] == entry["goal"]
+
+
+def test_dimension_profile_requires_completion() -> None:
+    data = json.loads(_holder_constraints("lulu-approach").read_text(encoding="utf-8"))
+    data["domain"]["dimension_profile"]["acceptance_criteria"].pop("completion")
+    with pytest.raises(
+        ValueError, match=r"dimension_profile\['acceptance_criteria'\]\.completion"
+    ):
+        load_constraints_config_from_dict(data)
+
+
+def test_legacy_depth_aliases_to_completion() -> None:
+    from dec_domain_constraints_schema import load_constraints_config
+
+    loaded = load_constraints_config(_WORKFLOW_ROOT / "lulu-bet" / "constraints-feature.json")
+    for entry in loaded["domain"]["dimension_profile"].values():
+        assert entry["completion"]
+        assert "depth" not in entry
 
 
 def test_dimension_profile_requires_goal() -> None:

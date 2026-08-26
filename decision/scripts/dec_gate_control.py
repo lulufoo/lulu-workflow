@@ -4,7 +4,8 @@
 Subcommands:
     init-session           Bootstrap gate-state, registers (no decision-doc at init)
     resolve-context        JSON session context for runners (gates, registers, constraints)
-    get-payload            Read persisted gate-payloads (by gate list or --stale-only)
+    get-payload            Read persisted gate-payloads (by gate list,
+                           --stale-only, or --preceding-of)
     gate-activate          Activate a gate (e.g. re-activate Q after RS)
     gate-close             Close active gate, write gate-payload, advance pointer
     batch-reclose          Atomically re-close consecutive stale align gates (Q/GL/E/D/X)
@@ -755,6 +756,50 @@ def _validate_gate_close_prereqs(state: dict[str, Any], gate: str) -> str | None
     return None
 
 
+def _validate_x_impact_surface(raw: Any) -> None:
+    if raw is None:
+        return
+    if not isinstance(raw, list):
+        raise ValueError("impact_surface must be a list")
+    for index, row in enumerate(raw):
+        if not isinstance(row, dict):
+            raise ValueError(f"impact_surface[{index}] must be an object")
+        if not str(row.get("area", "")).strip():
+            raise ValueError(f"impact_surface[{index}].area is required")
+        if not str(row.get("change_type", "")).strip():
+            raise ValueError(f"impact_surface[{index}].change_type is required")
+        has_axes = bool(
+            str(row.get("responsibility", "")).strip()
+            and str(row.get("stack", "")).strip()
+        )
+        has_legacy_layer = bool(str(row.get("layer", "")).strip())
+        if not has_axes and not has_legacy_layer:
+            raise ValueError(
+                f"impact_surface[{index}] needs responsibility+stack, or layer"
+            )
+
+
+def _validate_x_external_dependencies(raw: Any) -> None:
+    if raw is None:
+        return
+    if not isinstance(raw, list):
+        raise ValueError("external_dependencies must be a list")
+    required = (
+        "dependency",
+        "owner",
+        "required_state",
+        "contract",
+        "source",
+        "confirmation",
+    )
+    for index, row in enumerate(raw):
+        if not isinstance(row, dict):
+            raise ValueError(f"external_dependencies[{index}] must be an object")
+        for field in required:
+            if not str(row.get(field, "")).strip():
+                raise ValueError(f"external_dependencies[{index}].{field} is required")
+
+
 def _validate_gate_close_payload(gate: str, payload: dict[str, Any], *, constraints: dict[str, Any]) -> None:
     if gate == "O":
         if not payload.get("user_confirmed"):
@@ -790,6 +835,10 @@ def _validate_gate_close_payload(gate: str, payload: dict[str, Any], *, constrai
             for field in ("key_changes", "critical_constraints", "reversibility"):
                 if not str(payload.get(field, "")).strip():
                     raise ValueError(f"{field} is required")
+        if is_x_dimension_active(constraints, "impact_surface"):
+            _validate_x_impact_surface(payload.get("impact_surface"))
+        if is_x_dimension_active(constraints, "external_dependencies"):
+            _validate_x_external_dependencies(payload.get("external_dependencies"))
         if not dims:
             raise ValueError("at least one X dimension must be active")
         return
@@ -1495,12 +1544,18 @@ def cmd_get_payload(
     *,
     gates: list[str] | None = None,
     stale_only: bool = False,
+    preceding_of: str = "",
     constraints_path: Path | None = None,
     session_dir: Path | None = None,
 ) -> int:
     """Read persisted gate-payloads; never invent from memory."""
-    if not stale_only and not gates:
-        return _emit_error("get-payload requires --gate/--gates or --stale-only")
+    preceding = str(preceding_of or "").strip()
+    modes = sum(bool(item) for item in (bool(gates), stale_only, bool(preceding)))
+    if modes != 1:
+        return _emit_error(
+            "get-payload requires exactly one of --gate/--gates, "
+            "--stale-only, or --preceding-of"
+        )
     paths = _paths(
         project_root,
         cycle_id,
@@ -1519,6 +1574,10 @@ def cmd_get_payload(
             for gate in GATE_ORDER
             if str(state["gates"].get(gate, {}).get("status", "")).lower() == "stale"
         ]
+    elif preceding:
+        if preceding not in GATE_ORDER:
+            return _emit_error(f"invalid gate: {preceding!r}")
+        requested = list(GATE_ORDER[: GATE_ORDER.index(preceding)])
     else:
         requested = list(gates or [])
         for gate in requested:
@@ -1986,7 +2045,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     get_payload = sub.add_parser(
         "get-payload",
-        help="Read persisted gate-payloads by gate list or --stale-only.",
+        help=(
+            "Read persisted gate-payloads by gate list, --stale-only, "
+            "or --preceding-of."
+        ),
     )
     get_payload.add_argument("--gate", default="", help="Single gate id.")
     get_payload.add_argument(
@@ -1998,6 +2060,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--stale-only",
         action="store_true",
         help="Return payloads for all gates currently marked stale.",
+    )
+    get_payload.add_argument(
+        "--preceding-of",
+        default="",
+        dest="preceding_of",
+        help="Return payloads for all GATE_ORDER ids before this gate.",
     )
 
     activate = sub.add_parser("gate-activate", help="Activate a gate.")
@@ -2152,6 +2220,7 @@ def main(argv: list[str] | None = None) -> int:
             stage,
             gates=ordered_gates or None,
             stale_only=bool(getattr(args, "stale_only", False)),
+            preceding_of=str(getattr(args, "preceding_of", "") or ""),
             **common,
         )
     if args.command == "gate-activate":

@@ -13,29 +13,29 @@
     "instruction": "Frame all gate dialogue and decision-doc content from the perspective of system design and engineering trade-offs for implementing this feature. Technical identifiers, architecture terms, and implementation references are appropriate in this domain.",
     "dimension_profile": {
       "acceptance_criteria": {
-        "question": "How do we know the implementation is done? What observable, verifiable technical indicators confirm success?",
-        "depth": "Outcome-level, observable behaviors, 3–6 items — not individual unit-test names or assertions.",
-        "goal": "Observable, verifiable technical indicators show the implementation is done — not subjective judgment."
+        "goal": "Implementation completion can be determined objectively against the decision.",
+        "question": "What observable and verifiable technical outcomes would demonstrate that this decision has been implemented successfully?",
+        "completion": "Complete when 3–6 outcome-level criteria cover the intended behavior and critical constraints, each verifiable through observable system behavior or evidence—not subjective judgment, implementation steps, individual test names, or assertions."
       },
       "impact_surface": {
-        "question": "What systems, modules, interfaces, and external parties does this decision affect?",
-        "depth": "Layer/module or directory level (storage, service, host, UI, MCP, tests) — not individual file paths.",
-        "goal": "Affected systems, modules, interfaces, and external parties are enumerated."
+        "goal": "All technical change surfaces required to implement and verify the decision are made explicit.",
+        "question": "Which responsibility surfaces and implementation-stack layers does this decision affect, and how do they map to each other?",
+        "completion": "Complete when all affected systems, modules, interfaces, and external parties are identified and mapped to the relevant implementation areas—such as storage, services, UI, MCP, and tests; granularity stops at layer, module, directory, or interface boundaries—not individual files or test cases."
       },
       "external_dependencies": {
-        "question": "Who owns the components this depends on? What is the contract, authoritative source, and confirmation mechanism for each dependency?",
-        "depth": "Only dependencies genuinely outside this feature's own change set, each with contract + authoritative source + confirmation mechanism — no deeper.",
-        "goal": "Every dependency outside this feature's change set has a contract, authoritative source, and confirmation mechanism; unknowns are Assumptions."
+        "goal": "Dependencies outside the feature’s change set have explicit and verifiable commitments.",
+        "question": "Which external capabilities or components does the decision rely on, who owns them, and what must each dependency provide, change, or preserve?",
+        "completion": "Complete when every genuine external dependency specifies its owner, required behavior or state—including changes such as upgrades—contract, authoritative source, and confirmation mechanism; unresolved facts are recorded as Assumptions."
       },
       "implementation_sketch": {
-        "question": "What are the key technical changes? What non-obvious constraints or complexity exist? How reversible is this change?",
-        "depth": "A few sentences on the shape of the key change, non-obvious constraints, and reversibility — not a file-by-file change list.",
-        "goal": "Key technical changes, non-obvious constraints, and reversibility are established; unknown constraints are Assumptions."
+        "goal": "The decision has a coherent and implementable technical shape, with its constraints and reversibility understood.",
+        "question": "What key technical changes realize this decision, how do they work together, what non-obvious constraints or complexity shape them, and how can they be reversed?",
+        "completion": "Complete when the key changes and their interactions are described, critical constraints or complexity and reversibility are explicit, and unresolved constraints are recorded as Assumptions; remain at change-shape level—not individual files, tasks, or patches."
       },
       "gap_check": {
-        "question": "Does the expected implementation output meet the acceptance criteria? Where does it fall short?",
-        "depth": "One-line verdict — no separate breakdown.",
-        "goal": "The expected implementation output meets the acceptance criteria, or the shortfall is recorded."
+        "goal": "No mismatch between the expected implementation output and the acceptance criteria remains hidden.",
+        "question": "Does the expected implementation output satisfy every acceptance criterion, and where does it fall short?",
+        "completion": "Complete when all acceptance criteria have been checked against the expected implementation output and a one-line verdict records either full coverage or any shortfall—without a separate breakdown."
       }
     }
   },

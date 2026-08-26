@@ -109,6 +109,26 @@ def test_get_payload_by_gate(
     assert out["missing"] == []
 
 
+def test_get_payload_preceding_of(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-batch-001b"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+    _close_through_x(project_root, cycle_id, stage)
+
+    capsys.readouterr()
+    assert cmd_get_payload(project_root, cycle_id, stage, preceding_of="X") == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["ok"] is True
+    assert "X" not in out["payloads"]
+    assert "X" not in out["requested"]
+    assert set(out["requested"]) == {"O", "Q", "GL", "E", "D"}
+    assert set(out["payloads"]) == {"O", "Q", "GL", "E", "D"}
+    assert out["missing"] == []
+
+
 def test_get_payload_stale_only(
     template_config: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
