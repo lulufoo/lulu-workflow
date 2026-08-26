@@ -8,6 +8,7 @@ This module never takes the lock. Extra txn targets may include
 
 Design rationale:
 docs/domain/archive/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
+docs/domain/archive/compose/compose-g3-detect-context-slim-design.md
 """
 
 from __future__ import annotations
@@ -157,10 +158,6 @@ def facts_digest(slice_dir: Path) -> str:
     return canonical_digest(facts_snapshot(slice_dir))
 
 
-def lens_digest(slice_dir: Path) -> str:
-    return canonical_digest(lens_snapshot(slice_dir))
-
-
 def registry_lens_keys(snapshot: Any) -> list[str]:
     if not isinstance(snapshot, dict):
         return []
@@ -171,6 +168,44 @@ def registry_lens_keys(snapshot: Any) -> list[str]:
     if isinstance(sections, dict) and sections:
         return [str(item).strip().upper() for item in sections if str(item).strip()]
     return []
+
+
+def detect_lens_registry(snapshot: Any) -> list[dict[str, str]]:
+    """Project registry entries to Detect-needed fields, registry order."""
+    sections = snapshot.get("sections") if isinstance(snapshot, dict) else {}
+    if not isinstance(sections, dict):
+        sections = {}
+    out: list[dict[str, str]] = []
+    for key in registry_lens_keys(snapshot):
+        entry = sections.get(key) or sections.get(key.lower()) or {}
+        if not isinstance(entry, dict):
+            entry = {}
+        item = {"lens": key}
+        for field in ("heading", "intent", "intent_boundary"):
+            value = entry.get(field)
+            item[field] = value.strip() if isinstance(value, str) else ""
+        out.append(item)
+    return out
+
+
+def detect_opens_snapshot(opens: Any) -> list[dict[str, str]]:
+    """Project opens to Detect duplicate-check fields."""
+    if not isinstance(opens, list):
+        return []
+    out: list[dict[str, str]] = []
+    for item in opens:
+        if not isinstance(item, dict):
+            continue
+        out.append(
+            {
+                "id": str(item.get("id", "")).strip(),
+                "status": str(item.get("status", "")).strip(),
+                "question": str(item.get("question", "")).strip(),
+                "basis": str(item.get("basis", "")).strip(),
+                "lens": str(item.get("lens", "")).strip().upper(),
+            }
+        )
+    return out
 
 
 def registry_presence(snapshot: Any, lens: str) -> str:
@@ -577,10 +612,6 @@ def _active_batch(bundle: dict[str, Any]) -> dict[str, Any] | None:
     )
 
 
-def _expected_digest(detect: dict[str, Any], name: str) -> Any:
-    return detect.get(f"expected_{name}") or detect.get(name)
-
-
 def _frontier_kw(frontier: dict[str, Any], lens: str) -> int:
     entry = (frontier.get("lenses") or {}).get(lens) or {}
     return int(entry.get("frontier_kw") or 0)
@@ -611,10 +642,6 @@ def _build_receipt(
     existing: list[dict[str, Any]],
     *,
     checked_lenses: list[Any],
-    facts_d: str,
-    lens_d: str,
-    opens_d: str,
-    frontier_d: str,
     raw_candidates: list[Any],
     final_open_ids: list[str],
     lens_measurements: list[dict[str, Any]],
@@ -622,10 +649,6 @@ def _build_receipt(
     return {
         "id": mint_receipt_id(next_receipt_seq(existing)),
         "checked_lenses": list(checked_lenses),
-        "facts_digest": facts_d,
-        "lens_digest": lens_d,
-        "opens_digest": opens_d,
-        "frontier_digest": frontier_d,
         "raw_candidate_count": len(raw_candidates),
         "raw_candidate_digest": canonical_digest(raw_candidates),
         "final_open_ids": list(final_open_ids),
@@ -643,26 +666,15 @@ def prepare_add_opens(
 ) -> dict[str, Any]:
     """Compute add-opens after-state without writing."""
     bundle = load_bundle(slice_dir)
-    current_facts = facts_digest(slice_dir)
-    current_lens = lens_digest(slice_dir)
-    current_opens = canonical_digest(bundle["opens"])
     allowed = registry_lens_keys(lens_snapshot(slice_dir))
 
     if detect is not None:
         if not lens_frontier_path(slice_dir).is_file():
             raise ValueError("lens-frontier missing")
-        current_frontier = frontier_digest(slice_dir)
         if bundle["state"]["phase"] != "idle":
             raise ValueError("detect is only legal from idle")
         if _active_batch(bundle) is not None:
             raise ValueError("detect refused: active batch exists")
-        if (
-            _expected_digest(detect, "facts_digest") != current_facts
-            or _expected_digest(detect, "lens_digest") != current_lens
-            or _expected_digest(detect, "opens_digest") != current_opens
-            or _expected_digest(detect, "frontier_digest") != current_frontier
-        ):
-            raise StaleError()
         raw_candidates = detect.get("raw_candidates")
         if not isinstance(raw_candidates, list):
             raise ValueError("detect.raw_candidates must be a list")
@@ -691,12 +703,6 @@ def prepare_add_opens(
                 )
         intent_refs, code_grounding = load_detect_materials(slice_dir, project_root)
         current_inert = compute_inert_means(intent_refs, code_grounding)
-        echoed = detect.get("inert_means")
-        if not isinstance(echoed, list):
-            raise ValueError("detect.inert_means must be a list")
-        echoed_norm = [str(item).strip().lower() for item in echoed]
-        if sorted(echoed_norm) != sorted(current_inert):
-            raise ValueError("inert_means mismatch")
         for raw in opens:
             if not isinstance(raw, dict):
                 raise ValueError("open must be an object")
@@ -719,10 +725,6 @@ def prepare_add_opens(
         receipt = _build_receipt(
             bundle["receipts"]["receipts"],
             checked_lenses=checked,
-            facts_d=current_facts,
-            lens_d=current_lens,
-            opens_d=current_opens,
-            frontier_d=current_frontier,
             raw_candidates=raw_candidates,
             final_open_ids=[item["id"] for item in registered],
             lens_measurements=measurements,
@@ -1082,14 +1084,6 @@ def check_close(
             latest = receipts[-1]
             if latest.get("zero_result") is not True:
                 reasons.append("latest receipt is not zero_result")
-            if latest.get("facts_digest") != facts_digest(slice_dir):
-                reasons.append("facts digest mismatch")
-            if latest.get("lens_digest") != lens_digest(slice_dir):
-                reasons.append("lens digest mismatch")
-            if latest.get("opens_digest") != canonical_digest(bundle["opens"]):
-                reasons.append("opens digest mismatch")
-            if latest.get("frontier_digest") != canonical_digest(frontier):
-                reasons.append("frontier digest mismatch")
         if any(item.get("status") == "open" for item in bundle["opens"]):
             reasons.append("open items remain")
         snapshot = lens_snapshot(slice_dir)

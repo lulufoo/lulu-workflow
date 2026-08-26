@@ -77,10 +77,6 @@ def _receipt(**overrides):
     base = {
         "id": "R-1",
         "checked_lenses": ["I", "FL"],
-        "facts_digest": _DIGEST,
-        "lens_digest": _DIGEST,
-        "opens_digest": _DIGEST,
-        "frontier_digest": _DIGEST,
         "raw_candidate_count": 0,
         "raw_candidate_digest": _DIGEST,
         "final_open_ids": [],

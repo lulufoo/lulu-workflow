@@ -5,6 +5,7 @@ Receipts are immutable once written; this module only validates shape.
 
 Design rationale:
 docs/domain/archive/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
+docs/domain/archive/compose/compose-g3-detect-context-slim-design.md
 """
 
 from __future__ import annotations
@@ -28,10 +29,6 @@ _RECEIPT_KEYS = frozenset(
     {
         "id",
         "checked_lenses",
-        "facts_digest",
-        "lens_digest",
-        "opens_digest",
-        "frontier_digest",
         "raw_candidate_count",
         "raw_candidate_digest",
         "final_open_ids",
@@ -184,14 +181,7 @@ def _validate_receipt(entry: Any, index: int) -> list[str]:
         errors.append(f"{prefix}.checked_lenses must be a non-empty string list")
     elif any(not isinstance(item, str) or not item.strip() for item in lenses):
         errors.append(f"{prefix}.checked_lenses entries must be non-empty strings")
-    for field in (
-        "facts_digest",
-        "lens_digest",
-        "opens_digest",
-        "frontier_digest",
-        "raw_candidate_digest",
-    ):
-        errors.extend(_validate_digest(prefix, field, entry.get(field)))
+    errors.extend(_validate_digest(prefix, "raw_candidate_digest", entry.get("raw_candidate_digest")))
     count = entry.get("raw_candidate_count")
     if not isinstance(count, int) or isinstance(count, bool) or count < 0:
         errors.append(f"{prefix}.raw_candidate_count must be an int >= 0")
@@ -256,10 +246,6 @@ def normalize_receipt(entry: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": str(entry["id"]).strip(),
         "checked_lenses": [str(item).strip() for item in entry.get("checked_lenses") or []],
-        "facts_digest": str(entry["facts_digest"]).strip(),
-        "lens_digest": str(entry["lens_digest"]).strip(),
-        "opens_digest": str(entry["opens_digest"]).strip(),
-        "frontier_digest": str(entry["frontier_digest"]).strip(),
         "raw_candidate_count": int(entry["raw_candidate_count"]),
         "raw_candidate_digest": str(entry["raw_candidate_digest"]).strip(),
         "final_open_ids": [str(item).strip() for item in entry.get("final_open_ids") or []],

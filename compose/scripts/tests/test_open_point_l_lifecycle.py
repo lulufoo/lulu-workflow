@@ -307,10 +307,6 @@ def test_enter_inductive_l2_does_not_copy_l1_open_point(tmp_path: Path):
                 {
                     "id": "R-1",
                     "checked_lenses": ["I"],
-                    "facts_digest": canonical_digest([]),
-                    "lens_digest": canonical_digest([]),
-                    "opens_digest": canonical_digest([]),
-                    "frontier_digest": canonical_digest([]),
                     "raw_candidate_count": 1,
                     "raw_candidate_digest": canonical_digest([_finding()]),
                     "final_open_ids": ["O-1"],

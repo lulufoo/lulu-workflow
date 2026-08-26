@@ -31,12 +31,7 @@ from lens_frontier_schema import (  # noqa: E402
     lens_frontier_path,
     load_lens_frontier,
 )
-from open_point_store import (  # noqa: E402
-    add_opens,
-    ensure_frontier,
-    frontier_digest,
-    load_bundle,
-)
+from open_point_store import add_opens, ensure_frontier, load_bundle  # noqa: E402
 from opens_schema import load_opens, opens_path  # noqa: E402
 
 _PARENT_CONV = "11111111-1111-4111-8111-111111111111"
@@ -176,14 +171,7 @@ def _ready_cleared(slice_dir: Path) -> None:
 
 
 def _detect_meta(slice_dir: Path, raw_candidates, **overrides):
-    facts = _json_or_empty(slice_dir / "_facts.json")
-    lenses = _json_or_empty(slice_dir / "section-registry.json")
-    opens = _json_or_empty(slice_dir / "inductive-opens.json")
-    facts_d = canonical_digest(facts)
-    lens_d = canonical_digest(lenses)
-    opens_d = canonical_digest(opens)
     ensure_frontier(slice_dir)
-    frontier_d = frontier_digest(slice_dir)
     path = lens_frontier_path(slice_dir)
     frontier_lenses = load_lens_frontier(path)["lenses"] if path.is_file() else {}
     raw = list(raw_candidates)
@@ -203,16 +191,7 @@ def _detect_meta(slice_dir: Path, raw_candidates, **overrides):
         )
     meta = {
         "checked_lenses": checked,
-        "facts_digest": facts_d,
-        "lens_digest": lens_d,
-        "opens_digest": opens_d,
-        "frontier_digest": frontier_d,
         "raw_candidates": raw,
-        "expected_facts_digest": facts_d,
-        "expected_lens_digest": lens_d,
-        "expected_opens_digest": opens_d,
-        "expected_frontier_digest": frontier_d,
-        "inert_means": ["intent", "scan"],
         "lens_measurements": measurements,
     }
     meta.update(overrides)

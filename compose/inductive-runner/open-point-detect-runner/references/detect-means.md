@@ -7,8 +7,8 @@ makes that method inert. Do not invent gaps to fill a method. Do not
 restore a capability catalog.
 
 AI candidates must leave the coarsest remaining KW predicate false for
-their `lens`, measuring from that lens's frontier start. Finer rows are
-dropped. Human-pointed gaps skip this filter.
+their `lens`, measuring from that lens's `frontiers` start. Finer rows
+are dropped. Human-pointed gaps skip this filter.
 
 When more than one method hits the same gap, register one Open. Stamp the
 primary method. Other hits may appear in `basis`.
@@ -19,16 +19,15 @@ Ask whether design or facts at the coarsest remaining KW match code
 reality: paths the change touches, caller assumptions, and cross-module
 contracts.
 
-Evidence is the project evidence scope (symbols and necessary lines, not
-whole files). Run only when `code_grounding` is true and
-`project_evidence_scope` is present. Otherwise this method is inert.
+Evidence is `project_evidence_scope` (symbols and necessary lines, not
+whole files). Missing `project_evidence_scope` makes this method inert.
 
 Stamp `actor=ai`, `means=scan`.
 
 ## `intent`
 
 Ask whether classified intent-baseline items that map to this lens are
-still unfulfilled by current facts or Opens.
+still unfulfilled by `facts_snapshot` or `opens_snapshot`.
 
 Evidence is `intent_baseline_refs`. An empty array makes this method
 inert. Do not use norm constraints.
@@ -40,7 +39,7 @@ Stamp `actor=ai`, `means=intent`.
 Ask whether the coarsest remaining KW is silent or unresolved on
 failure, boundary, assumption, or seam.
 
-Evidence is the slice facts plus registry Intent, boundary, and facets.
+Evidence is `facts_snapshot` plus `lens_registry` Intent and boundary.
 No extra material. Missing facts or registry fails the whole Detect
 pass, not this method alone.
 

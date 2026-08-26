@@ -22,12 +22,12 @@ from lens_frontier_schema import (  # noqa: E402
 )
 from open_point_store import (  # noqa: E402
     RepairRequired,
-    StaleError,
     add_opens,
     check_close,
     defer_open,
+    detect_lens_registry,
+    detect_opens_snapshot,
     ensure_frontier,
-    frontier_digest,
     load_bundle,
     reconcile,
     reject_open,
@@ -78,26 +78,10 @@ def _lens_measurements(slice_dir: Path, checked, raw_candidates):
 
 
 def _detect_meta(slice_dir: Path, raw_candidates, **overrides):
-    facts = _json_or_empty(slice_dir / "_facts.json")
-    lenses = _json_or_empty(slice_dir / "section-registry.json")
-    opens = _json_or_empty(slice_dir / "inductive-opens.json")
-    facts_d = canonical_digest(facts)
-    lens_d = canonical_digest(lenses)
-    opens_d = canonical_digest(opens)
     ensure_frontier(slice_dir)
-    frontier_d = frontier_digest(slice_dir)
     meta = {
         "checked_lenses": ["I", "FL"],
-        "facts_digest": facts_d,
-        "lens_digest": lens_d,
-        "opens_digest": opens_d,
-        "frontier_digest": frontier_d,
         "raw_candidates": list(raw_candidates),
-        "expected_facts_digest": facts_d,
-        "expected_lens_digest": lens_d,
-        "expected_opens_digest": opens_d,
-        "expected_frontier_digest": frontier_d,
-        "inert_means": ["intent", "scan"],
     }
     meta.update(overrides)
     if "lens_measurements" not in overrides:
@@ -107,10 +91,57 @@ def _detect_meta(slice_dir: Path, raw_candidates, **overrides):
     return meta
 
 
-def _json_or_empty(path: Path):
-    if not path.is_file():
-        return []
-    return json.loads(path.read_text(encoding="utf-8"))
+def test_detect_projections_keep_only_needed_fields():
+    registry = detect_lens_registry(
+        {
+            "section_order": ["I", "ST"],
+            "sections": {
+                "I": {
+                    "heading": "Intent",
+                    "intent": "constraints",
+                    "intent_boundary": "not tasks",
+                    "presence": "required",
+                    "aliases": ["invariants"],
+                },
+                "ST": {"heading": "Structure"},
+            },
+        }
+    )
+    assert registry == [
+        {
+            "lens": "I",
+            "heading": "Intent",
+            "intent": "constraints",
+            "intent_boundary": "not tasks",
+        },
+        {
+            "lens": "ST",
+            "heading": "Structure",
+            "intent": "",
+            "intent_boundary": "",
+        },
+    ]
+    assert detect_opens_snapshot(
+        [
+            {
+                "id": "O-1",
+                "status": "open",
+                "question": "q",
+                "basis": "b",
+                "lens": "i",
+                "blocking": True,
+                "source": {"actor": "human", "means": "direct"},
+            }
+        ]
+    ) == [
+        {
+            "id": "O-1",
+            "status": "open",
+            "question": "q",
+            "basis": "b",
+            "lens": "I",
+        }
+    ]
 
 
 def test_empty_detect_writes_receipt_only_and_stays_idle(tmp_path: Path):
@@ -279,13 +310,6 @@ def test_deleted_detect_candidates_write_nonzero_receipt_no_batch(tmp_path: Path
     assert receipt["final_open_ids"] == []
 
 
-def test_stale_expected_digest_rejected(tmp_path: Path):
-    meta = _detect_meta(tmp_path, [_candidate()])
-    meta["expected_facts_digest"] = canonical_digest(["stale"])
-    with pytest.raises(StaleError):
-        add_opens(tmp_path, opens=[_candidate()], detect=meta)
-
-
 def test_cleared_and_hard_skip_predicates(tmp_path: Path):
     _write_registry_and_kw(tmp_path)
     ensure_frontier(tmp_path)
@@ -301,7 +325,7 @@ def test_cleared_and_hard_skip_predicates(tmp_path: Path):
 
     defer_open(tmp_path, "O-1", "later")
     assert check_close(tmp_path, mode="hard-skip")["ok"] is True
-    assert check_close(tmp_path, mode="cleared")["ok"] is False
+    assert check_close(tmp_path, mode="cleared")["ok"] is True
 
 
 def test_crash_after_digest_complete_deletes_txn(tmp_path: Path):
@@ -475,17 +499,12 @@ def test_cleared_ok_at_kw0_when_no_gap(tmp_path: Path):
     assert check_close(tmp_path, mode="hard-skip")["ok"] is True
 
 
-def test_cleared_requires_fresh_frontier(tmp_path: Path):
+def test_cleared_does_not_require_frontier_digest_match(tmp_path: Path):
     _write_registry_and_kw(tmp_path)
     add_opens(tmp_path, opens=[], detect=_detect_meta(tmp_path, []))
     assert check_close(tmp_path, mode="cleared")["ok"] is True
 
     set_frontier(tmp_path, "I", 3)
-    stale = check_close(tmp_path, mode="cleared")
-    assert stale["ok"] is False
-    assert any("frontier digest" in item for item in stale["reasons"])
-
-    add_opens(tmp_path, opens=[], detect=_detect_meta(tmp_path, []))
     assert check_close(tmp_path, mode="cleared")["ok"] is True
 
 
@@ -505,7 +524,7 @@ def test_detect_writes_last_gap_kw(tmp_path: Path):
     assert frontier["lenses"]["I"]["frontier_kw"] == 1
     receipt = load_bundle(tmp_path)["receipts"]["receipts"][0]
     assert receipt["lens_measurements"][0]["gap_kw"] == 1
-    assert receipt["frontier_digest"] != frontier_digest(tmp_path)
+    assert "frontier_digest" not in receipt
 
 
 def test_detect_rejects_start_kw_mismatch(tmp_path: Path):

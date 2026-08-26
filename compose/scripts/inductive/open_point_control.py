@@ -10,6 +10,7 @@ validation / stale / invariant errors.
 Design rationale:
 docs/domain/archive/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
 docs/domain/archive/compose/archive-43.0/compose-g3-gate-phase-map-design.md
+docs/domain/archive/compose/compose-g3-detect-context-slim-design.md
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ for _path in (_HERE, _SCHEMA, _SESSION, _SECTION, _IO, _CORE):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
-from compose_state_lock import canonical_digest, compose_state_lock  # noqa: E402
+from compose_state_lock import compose_state_lock  # noqa: E402
 from l_ledger_schema import working_slice_dir  # noqa: E402
 from open_point_store import (  # noqa: E402
     RepairRequired,
@@ -48,11 +49,11 @@ from open_point_store import (  # noqa: E402
     frontier_skip,
     frontier_snapshot,
     frontier_unskip,
-    lens_digest,
+    detect_lens_registry,
+    detect_opens_snapshot,
     lens_snapshot,
     load_bundle,
     load_detect_materials,
-    compute_inert_means,
     require_detect_ruler,
     reject_open,
     set_frontier,
@@ -135,17 +136,11 @@ def cmd_detect_context(slice_dir: Path, args: argparse.Namespace) -> None:
     intent_refs, code_grounding = load_detect_materials(slice_dir, project_root)
     payload: dict[str, Any] = {
         "facts_snapshot": facts,
-        "facts_digest": canonical_digest(facts),
-        "lens_registry": lenses,
-        "lens_digest": canonical_digest(lenses),
-        "opens_snapshot": bundle["opens"],
-        "opens_digest": canonical_digest(bundle["opens"]),
+        "lens_registry": detect_lens_registry(lenses),
+        "opens_snapshot": detect_opens_snapshot(bundle["opens"]),
         "frontiers": frontiers,
-        "frontier_digest": frontier_digest(slice_dir),
         "kw_criteria": kw_criteria,
         "intent_baseline_refs": intent_refs,
-        "code_grounding": code_grounding,
-        "inert_means": compute_inert_means(intent_refs, code_grounding),
     }
     if code_grounding and project_root is not None:
         payload["project_evidence_scope"] = {"project_root": str(project_root)}
@@ -255,7 +250,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     sub.add_parser(
         "detect-context",
-        help="Read-only facts/lens/opens/frontier snapshots, KW slices, and means materials. frontier_kw is the last found gap KW (resume start).",
+        help="Read-only facts, slim lens/opens, frontiers, KW slices, and means materials. frontier_kw is the last found gap KW (resume start).",
     )
     sub.add_parser(
         "process-context",
@@ -266,8 +261,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "add-opens",
         help=(
             "Register 0..N opens. Detect must pass --detect-json "
-            "(checked_lenses, facts/lens/opens/frontier digests or expected_*, "
-            "raw_candidates, inert_means, lens_measurements). Empty "
+            "(checked_lenses, raw_candidates, lens_measurements). Empty "
             "--opens-json is legal only with detect metadata. "
             "zero_result is raw_candidates length == 0. "
             "AI Detect means must be scan|intent|probe and not inert. "
@@ -309,8 +303,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
     _SET_FRONTIER = (
         "Human override of one lens resume start X. Not for Detect gaps "
-        "(those write via add-opens measurements). Stales the previous "
-        "receipt; Detect again before cleared."
+        "(those write via add-opens measurements). Detect again before "
+        "cleared."
     )
     frontier = sub.add_parser(
         "set-frontier",
@@ -322,7 +316,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     _FRONTIER_SKIP = (
         "Mark a required lens as not blocking cleared. Not for Detect "
-        "gaps. Stales the previous receipt; Detect again before cleared."
+        "gaps. Detect again before cleared."
     )
     skip_f = sub.add_parser(
         "frontier-skip",

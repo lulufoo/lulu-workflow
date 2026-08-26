@@ -74,7 +74,6 @@ After an explicit human Detect request from `idle`:
 3. `$OPEN_POINT_CTL add-opens --opens-json --detect-json` with that return.
    Contract in `--help`.
 4. Route from the control: a registered batch → Process; otherwise `idle`.
-5. Freshness failure → discard and repeat Detect from fresh context.
 
 ### Process the batch
 
