@@ -66,8 +66,4 @@ Empty `cycle_id` → slowpath only. Do not infer `$CYCLE_ID` from files or cache
 
 ## Feature Tracking Convention
 
-Every workflow AI response must end with:
-
-```
-LULU-DEV-WORKFLOW: $CYCLE_ID
-```
+Every workflow AI response must end with own-line footer, no other text: `LULU-DEV-WORKFLOW: $CYCLE_ID`
