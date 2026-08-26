@@ -12,29 +12,29 @@
     "instruction": "All dialogue and decision-doc content must remain in product language, scoped to the topic's overall direction rather than a single feature. Technical identifiers (file paths, API names, module names, DOM IDs) must not appear in user-facing output or decision-doc body. When the user asks implementation questions verbally, answer accurately but do not carry technical terms into gate conclusions or doc sections.",
     "dimension_profile": {
       "acceptance_criteria": {
-        "question": "How will we know this topic direction is validated? What observable, verifiable signals indicate this direction is worth pursuing?",
-        "depth": "Strategic validation signals for the direction — not single-feature success metrics.",
-        "goal": "Observable, verifiable signals show the topic direction is worth pursuing."
+        "goal": "Whether this topic direction is worth pursuing can be determined objectively.",
+        "question": "What observable and verifiable signals would show that this topic direction is validated and worth pursuing?",
+        "completion": "Complete when 3–6 direction-level criteria cover the intended strategic outcomes and critical constraints, each verifiable through observable user or business evidence—not subjective judgment or single-feature success metrics."
       },
       "impact_surface": {
-        "question": "Which users, workflows, teams, or future features would be affected by committing to this direction?",
-        "depth": "User-segment/market/future-feature-family level — not individual feature impacts.",
-        "goal": "Affected users, workflows, teams, and future feature families are named."
+        "goal": "All product change surfaces required to commit to and verify this direction are made explicit.",
+        "question": "Which user, workflow, team, and future-feature surfaces does this direction affect, and how do they map to each other?",
+        "completion": "Complete when all affected users, workflows, teams, and future feature families are identified and mapped to the relevant product areas—such as segments, markets, journeys, and owning teams—at segment, market, or feature-family level, without descending into individual feature impacts or screens."
       },
       "external_dependencies": {
-        "question": "What capabilities or commitments does this direction rely on, and what promise does it make to users or the business?",
-        "depth": "Strategic-level capabilities or commitments — not feature-specific dependencies.",
-        "goal": "Every strategic capability or commitment this direction relies on has a promise and a confirmation mechanism; unknowns are Assumptions."
+        "goal": "Strategic capabilities this direction relies on have explicit and verifiable commitments.",
+        "question": "Which strategic capabilities or commitments does this direction rely on, who owns them, and what must each provide, change, or preserve?",
+        "completion": "Complete when every genuine strategic dependency specifies its owner, required behavior or state—including changes such as a new commitment—user-facing promise, authoritative source, and confirmation mechanism; unresolved facts are recorded as Assumptions. Exclude feature-specific dependencies."
       },
       "implementation_sketch": {
-        "question": "What is the shape of this direction, what are its product constraints, and how reversible is committing to it?",
-        "depth": "The shape of the direction and its strategic constraints — not a feature roadmap.",
-        "goal": "The shape of the direction, its strategic constraints, and reversibility of committing to it are established."
+        "goal": "The topic direction has a coherent product shape, with its strategic constraints and reversibility understood.",
+        "question": "What key directional moves realize this commitment, how do they work together, what non-obvious product constraints shape them, and how reversible is committing to it?",
+        "completion": "Complete when the direction's shape, key interactions, critical strategic constraints, and reversibility are explicit, and unresolved constraints are recorded as Assumptions; remain at direction-shape level—not a feature roadmap, screens, or tasks."
       },
       "gap_check": {
-        "question": "Does the proposed direction fully address the strategic need? Where does it fall short from the user's or business's perspective?",
-        "depth": "One-line verdict.",
-        "goal": "The proposed direction addresses the strategic need from the user or business perspective, or the shortfall is recorded."
+        "goal": "No mismatch between the proposed direction and the strategic need remains hidden.",
+        "question": "Does the proposed direction satisfy every acceptance criterion from the user or business perspective, and where does it fall short?",
+        "completion": "Complete when all acceptance criteria have been checked against the proposed direction and a one-line verdict records either full coverage or any shortfall—without a separate breakdown."
       }
     }
   },

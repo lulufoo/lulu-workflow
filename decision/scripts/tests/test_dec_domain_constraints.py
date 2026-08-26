@@ -535,12 +535,13 @@ def test_dimension_profile_requires_completion() -> None:
 
 
 def test_legacy_depth_aliases_to_completion() -> None:
-    from dec_domain_constraints_schema import load_constraints_config
-
-    loaded = load_constraints_config(_WORKFLOW_ROOT / "lulu-bet" / "constraints-feature.json")
-    for entry in loaded["domain"]["dimension_profile"].values():
-        assert entry["completion"]
-        assert "depth" not in entry
+    data = json.loads(_holder_constraints("lulu-approach").read_text(encoding="utf-8"))
+    row = data["domain"]["dimension_profile"]["acceptance_criteria"]
+    row["depth"] = row.pop("completion")
+    loaded = load_constraints_config_from_dict(data)
+    entry = loaded["domain"]["dimension_profile"]["acceptance_criteria"]
+    assert entry["completion"]
+    assert "depth" not in entry
 
 
 def test_dimension_profile_requires_goal() -> None:

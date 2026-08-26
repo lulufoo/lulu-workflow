@@ -1,8 +1,8 @@
 ---
-
-## name: decision/x-full-diagnosis-runner
+name: decision/x-full-diagnosis-runner
 description: Internal runner for the Decision X gate.
 meta-skill-version: 1.0.0
+---
 
 # x-full-diagnosis-runner
 
@@ -36,13 +36,11 @@ For each active dimension:
 3. **Validate** — evaluate answer sufficiency against `completion`.
 4. **Classify** — assign exactly one state:
 
-
-| State         | When                                                                                                                   |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Covered       | A restatable answer to `question` satisfies `completion` and has no contradiction.                                     |
-| Gap           | The answer is missing, not restatable, or fails `completion`.                                                          |
+| State | When |
+|-------|------|
+| Covered | A restatable answer to `question` satisfies `completion` and has no contradiction. |
+| Gap | The answer is missing, not restatable, or fails `completion`. |
 | Contradiction | The answer conflicts with another dimension or with a locked preceding-gate conclusion. Mark every involved dimension. |
-
 
 ## Session Loop
 
@@ -53,17 +51,18 @@ For each active dimension:
 3. Take one mode below. `probe` may repeat. Loop until `close` succeeds or
   `flag-gap` loads RS.
 
-
-| Mode       | When                                                                          | Behavior                                                                                                                                                                         |
-| ---------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `probe`    | Any active dimension is a gap or contradiction                                | Pick only one (G1). Ask its `question`, or narrow it to the unmet part of `completion` or the contradiction; update the answer and rerun Dimension Diagnosis for that dimension. |
-| `flag-gap` | All active dimensions Covered, no Contradiction, and `gap` is non-empty       | Show the packed draft including the gap. Do not ask for confirm. Do not `gate-close`. Load RS.                                                                                   |
-| `present`  | All active dimensions Covered, no Contradiction, and `gap` is empty or `None` | Show the packed draft. Ask for one confirm. |
-| `close`    | User confirms the packed draft                                                | `$GATE_CONTROL gate-close --gate X --payload '<json>'` (active-dimension fields only)                                                                                            |
+| Mode | When | Behavior |
+|------|------|----------|
+| `probe` | Any active dimension is a gap or contradiction | Pick only one (G1). Ask its `question`, or narrow it to the unmet part of `completion` or the contradiction; update the answer and rerun Dimension Diagnosis for that dimension. |
+| `flag-gap` | All active dimensions Covered, no Contradiction, and `gap` is non-empty | Show the packed draft including the gap. Do not ask for confirm. Do not `gate-close`. Load RS. |
+| `present` | All active dimensions Covered, no Contradiction, and `gap` is empty or `None` | Show the packed draft. Ask for one confirm. |
+| `close` | User confirms the packed draft | `$GATE_CONTROL gate-close --gate X --payload '<json>'` (active-dimension fields only) |
 
 ## Output Contract
 
-Submit only fields for active dimensions.
+Submit only fields for active dimensions. Product domain: write user /
+workflow / team mapping in `responsibility` and `stack`; write the
+user-facing promise in `contract`.
 
 ```json
 {

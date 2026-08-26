@@ -13,29 +13,29 @@
     "instruction": "Frame all gate dialogue and decision-doc content from the perspective of system design and engineering trade-offs for this architecture topic, which may span multiple future features. Technical identifiers, architecture terms, and implementation references are appropriate in this domain.",
     "dimension_profile": {
       "acceptance_criteria": {
-        "question": "How do we know this architecture direction is sound? What observable, verifiable technical indicators confirm it can support follow-on architecture work?",
-        "depth": "Direction-level signals that validate the architecture direction — not feature-level implementation details.",
-        "goal": "Observable, verifiable signals show the architecture direction can support follow-on work."
+        "goal": "Whether this architecture direction can support follow-on work can be determined objectively.",
+        "question": "What observable and verifiable technical signals would show that this architecture direction is sound enough to support follow-on work?",
+        "completion": "Complete when 3–6 direction-level criteria cover the intended architectural outcomes and critical constraints, each verifiable through observable system behavior or evidence—not subjective judgment, feature-level implementation details, individual test names, or assertions."
       },
       "impact_surface": {
-        "question": "What systems, modules, interfaces, and external parties does this architecture decision affect?",
-        "depth": "Subsystem/architecture-domain level, spanning potential future features — not module or file level.",
-        "goal": "Affected systems, modules, interfaces, and external parties are enumerated."
+        "goal": "All technical change surfaces required to realize and verify this architecture direction are made explicit.",
+        "question": "Which responsibility surfaces and implementation-stack layers does this architecture decision affect, and how do they map to each other?",
+        "completion": "Complete when all affected systems, interfaces, and external parties are identified and mapped at subsystem or architecture-domain level, spanning potential future features—not modules, files, or test cases."
       },
       "external_dependencies": {
-        "question": "Who owns the components this depends on? What is the contract, authoritative source, and confirmation mechanism for each dependency?",
-        "depth": "Cross-cutting dependencies/contracts this direction commits to — not feature-specific integration details.",
-        "goal": "Every cross-cutting dependency this direction commits to has a contract, source, and confirmation mechanism; unknowns are Assumptions."
+        "goal": "Cross-cutting dependencies this direction commits to have explicit and verifiable commitments.",
+        "question": "Which cross-cutting capabilities or components does this direction rely on, who owns them, and what must each dependency provide, change, or preserve?",
+        "completion": "Complete when every genuine cross-cutting dependency specifies its owner, required behavior or state—including changes such as upgrades—contract, authoritative source, and confirmation mechanism; unresolved facts are recorded as Assumptions. Exclude feature-specific integration details."
       },
       "implementation_sketch": {
-        "question": "What is the shape of this architecture direction? What non-obvious constraints or complexity exist? How reversible is committing to it?",
-        "depth": "The shape of the direction and its structural constraints — not a concrete implementation plan.",
-        "goal": "The shape of the direction, its structural constraints, and reversibility of committing to it are established."
+        "goal": "The architecture direction has a coherent shape, with its structural constraints and reversibility understood.",
+        "question": "What key architectural changes realize this direction, how do they work together, what non-obvious constraints or complexity shape them, and how reversible is committing to it?",
+        "completion": "Complete when the direction's shape, key structural interactions, critical constraints or complexity, and reversibility are explicit, and unresolved constraints are recorded as Assumptions; remain at direction-shape level—not a concrete implementation plan, files, tasks, or patches."
       },
       "gap_check": {
-        "question": "Does the proposed architecture direction meet the acceptance criteria? Where does it fall short?",
-        "depth": "One-line verdict against the direction's acceptance criteria.",
-        "goal": "The proposed architecture direction meets the acceptance criteria, or the shortfall is recorded."
+        "goal": "No mismatch between the proposed architecture direction and the acceptance criteria remains hidden.",
+        "question": "Does the proposed architecture direction satisfy every acceptance criterion, and where does it fall short?",
+        "completion": "Complete when all acceptance criteria have been checked against the proposed architecture direction and a one-line verdict records either full coverage or any shortfall—without a separate breakdown."
       }
     }
   },
