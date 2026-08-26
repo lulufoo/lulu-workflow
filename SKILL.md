@@ -82,7 +82,7 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 
 **Run:** `$CYCLE_CONTROL init-project`
 
-**Done:** Report success or stderr; bootstraps missing hook file under `$WORKFLOW_DIR`.
+**Done:** Report success or stderr; bootstraps missing hook file and missing project stage seeds under `$WORKFLOW_DIR`.
 
 ### `archive [N]` — Prune old cycles
 
@@ -101,9 +101,9 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 
 ### init
 
-- **Creates:** missing `$WORKFLOW_DIR/workflow-guard-config.json` (skill default; no overwrite).
+- **Creates:** missing `$WORKFLOW_DIR/workflow-guard-config.json`; missing `stages/lulu-code.json`; missing `manifest.json` (no overwrite). Skill-owned stage defaults stay in `{stage}/config.json`.
 - **Does not:** create pointer `config.json`.
-- **Safe:** re-run allowed (idempotent hooks + hook-file bootstrap).
+- **Safe:** re-run allowed (idempotent hooks + missing-file bootstrap).
 
 ## Script Macros
 

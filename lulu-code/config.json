@@ -1,0 +1,13 @@
+{
+  "test_command": "npm test",
+  "git": {
+    "worktree_base": ".cache/worktrees",
+    "branch_pattern": "wt/{type}-{slug}",
+    "default_type": "feat",
+    "commit_message_template": "feat({scope}): {task_id} {summary}"
+  },
+  "subagent": {
+    "cursor": "Auto",
+    "copilot": "GPT-5.4"
+  }
+}

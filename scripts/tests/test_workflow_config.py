@@ -14,6 +14,7 @@ if str(_SCRIPTS) not in sys.path:
 
 from workflow_config_schema import (  # noqa: E402
     apply_workflow_config_from_url,
+    ensure_builtin_stage_configs,
     get_stage_config_bucket,
     get_stage_config_value,
     load_stage_config,
@@ -289,3 +290,18 @@ class TestConfigureWorkflowConfig:
         assert json.loads((root / "stages" / "lulu-code.json").read_text())[
             "test_command"
         ] == "make test"
+
+
+class TestEnsureBuiltinStageConfigs:
+    def test_writes_missing_builtin_stages(self, tmp_path: Path) -> None:
+        created = ensure_builtin_stage_configs(tmp_path, "cursor")
+        root = tmp_path / ".cursor/lulu-dev-workflow"
+        names = {path.name for path in created}
+        assert "lulu-code.json" in names
+        assert "lulu-tasks.json" not in names
+        assert not (root / "stages/lulu-tasks.json").exists()
+        assert json.loads((root / "manifest.json").read_text())["layout"] == "stages"
+        assert load_stage_config(tmp_path, "lulu-code", "cursor")["test_command"] == (
+            "npm test"
+        )
+        assert "eval" in load_stage_config(tmp_path, "lulu-tasks", "cursor")

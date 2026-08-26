@@ -441,6 +441,70 @@ def write_stage_configs(
         atomic_write(stages_dir / f"{stage}.json", stage_text)
 
 
+def iter_builtin_stage_configs() -> list[tuple[str, dict]]:
+    """Return (stage, payload) for each skill-root ``{stage}/config.json``."""
+    found: list[tuple[str, dict]] = []
+    for child in sorted(_WORKFLOW_ROOT.iterdir()):
+        if not child.is_dir() or not _STAGE_NAME_RE.fullmatch(child.name):
+            continue
+        stage_path = child / "config.json"
+        if not stage_path.is_file():
+            continue
+        found.append(
+            (
+                child.name,
+                _read_json_object(stage_path, label=f"built-in stage config [{child.name}]"),
+            )
+        )
+    return found
+
+
+# Skill-root `{stage}/config.json` is the default. Init copies only project-local
+# seeds into $WORKFLOW_DIR/stages/. Skill-owned defaults (e.g. lulu-tasks) stay
+# in the skill package and are read via `_load_stage_from_skill_root`.
+_INIT_SEEDED_STAGES = frozenset({"lulu-code"})
+
+
+def ensure_builtin_stage_configs(
+    project_root: Path,
+    platform: Optional[str] = None,
+) -> list[Path]:
+    """Write missing project-seeded $WORKFLOW_DIR/stages/{stage}.json.
+
+    Copies only `_INIT_SEEDED_STAGES`. Does not overwrite existing stage files.
+    Creates manifest.json when missing.
+    """
+    from fetch_template import atomic_write  # noqa: WPS433
+
+    stages = [
+        (name, payload)
+        for name, payload in iter_builtin_stage_configs()
+        if name in _INIT_SEEDED_STAGES
+    ]
+    if not stages:
+        return []
+
+    root = resolve_workflow_config_root(project_root, platform)
+    root.mkdir(parents=True, exist_ok=True)
+    stages_dir = root / _STAGES_SUBDIR
+    stages_dir.mkdir(parents=True, exist_ok=True)
+
+    manifest_path = root / _MANIFEST_FILENAME
+    if not manifest_path.exists():
+        manifest_text = json.dumps({"version": 1, "layout": "stages"}, indent=2) + "\n"
+        atomic_write(manifest_path, manifest_text)
+
+    created: list[Path] = []
+    for stage, payload in stages:
+        dest = _stage_file_in_root(root, stage)
+        if dest.exists():
+            continue
+        stage_text = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+        atomic_write(dest, stage_text)
+        created.append(dest)
+    return created
+
+
 def apply_workflow_config_from_url(
     project_root: Path,
     url: str,

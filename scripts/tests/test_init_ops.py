@@ -128,7 +128,20 @@ class TestRunInitProjectPlatformBranch:
         with patch("init_ops.SUB_WORKFLOWS", []):
             rc = run_init_project(tmp_path, "cursor")
         assert rc == 0
-        assert not (tmp_path / ".cursor/lulu-dev-workflow/config.json").exists()
-        assert (
-            tmp_path / ".cursor/lulu-dev-workflow/workflow-guard-config.json"
-        ).is_file()
+        root = tmp_path / ".cursor/lulu-dev-workflow"
+        assert not (root / "config.json").exists()
+        assert (root / "workflow-guard-config.json").is_file()
+        assert (root / "manifest.json").is_file()
+        assert (root / "stages/lulu-code.json").is_file()
+        assert not (root / "stages/lulu-tasks.json").exists()
+
+    def test_does_not_overwrite_existing_stage_config(self, tmp_path):
+        from init_ops import run_init_project
+
+        dest = tmp_path / ".cursor/lulu-dev-workflow/stages/lulu-code.json"
+        dest.parent.mkdir(parents=True)
+        dest.write_text('{"test_command": "KEEP"}\n', encoding="utf-8")
+        with patch("init_ops.SUB_WORKFLOWS", []):
+            rc = run_init_project(tmp_path, "cursor")
+        assert rc == 0
+        assert dest.read_text(encoding="utf-8") == '{"test_command": "KEEP"}\n'

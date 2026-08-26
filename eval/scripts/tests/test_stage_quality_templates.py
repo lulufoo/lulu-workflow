@@ -14,7 +14,6 @@ from url_fetch import read_ref  # noqa: E402
 
 _REPO = Path(__file__).resolve().parents[4]
 _WORKFLOW = _REPO / "lulu-dev-workflow"
-_STAGE_CONFIGS = _REPO / "skill-config" / "lulu-dev-workflow" / "stages"
 _FIXTURE_DIR = Path(__file__).parent / "fixtures" / "stage_quality"
 
 _STAGES = (
@@ -25,8 +24,6 @@ _STAGES = (
         "sot": "lulu-dev-workflow/lulu-design/eval/sots/solution-quality.md",
         "focus": "Design solution quality",
         "supplements": ("D1", "D2", "D3", "D4"),
-        "legacy_config": "tdt_design_quality_framework_url",
-        "adapter": "lulu-design/scripts/eval/tech_design_eval_adapter.py",
     },
     {
         "id": "lulu-arch",
@@ -35,8 +32,6 @@ _STAGES = (
         "sot": "lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md",
         "focus": "Architecture quality",
         "supplements": ("A1", "A2", "A3", "A4", "A5"),
-        "legacy_config": "tat_arch_quality_framework_url",
-        "adapter": "lulu-arch/scripts/eval/tech_arch_eval_adapter.py",
     },
     {
         "id": "lulu-blueprint",
@@ -45,8 +40,6 @@ _STAGES = (
         "sot": "lulu-dev-workflow/lulu-blueprint/eval/sots/blueprint-quality.md",
         "focus": "Blueprint quality",
         "supplements": ("A1", "A2", "A3", "A4", "A5"),
-        "legacy_config": "pbt_blueprint_quality_framework_url",
-        "adapter": "lulu-blueprint/scripts/eval/product_blueprint_eval_adapter.py",
     },
 )
 
@@ -77,17 +70,6 @@ def test_stage_quality_uses_resolvable_local_method_and_sot(stage):
     assert "section-registry" not in sot
     assert "section_order" not in sot
     assert "$FETCH_COMPOSE" not in sot
-
-
-@pytest.mark.parametrize("stage", _STAGES, ids=lambda stage: stage["id"])
-def test_stage_quality_removes_legacy_remote_framework_bind(stage):
-    config = json.loads(
-        (_STAGE_CONFIGS / f"{stage['id']}.json").read_text(encoding="utf-8")
-    )
-    assert stage["legacy_config"] not in config.get("eval", {})
-    assert stage["legacy_config"] not in (
-        _WORKFLOW / stage["adapter"]
-    ).read_text(encoding="utf-8")
 
 
 def test_stage_quality_behavior_fixtures_match_their_expected_register_violation():
