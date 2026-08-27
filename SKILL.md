@@ -53,7 +53,6 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 
 | Layer | Requirement |
 |-------|-------------|
-| Machine | [`lulu-meta-skill install`](../lulu-meta-skill/install/SKILL.md) (once per machine) |
 | Runtime | Read `_runtime.md` § Script Macros + § Platform Context when platform vars are needed |
 | Platform vars | `$PLATFORM`, `$SKILL_ROOT`, `$CACHE_DIR`, `$WORKFLOW_DIR` |
 | Session | Read `_runtime.md` § Session Foundation when session variables are needed |
@@ -64,9 +63,8 @@ Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_ru
 
 ### Bootstrap — first time in a repo
 
-1. **Machine install** — `lulu-meta-skill install`
-2. **Project init** — `$CYCLE_CONTROL init-project` (once per repo; safe to re-run)
-3. **First work** — Enter any sub-SKILL (e.g. `/lulu-approach`). Cycle binding via `_runtime.md` § Session Foundation.
+1. **Project init** — `$CYCLE_CONTROL init-project` (once per repo; safe to re-run)
+2. **First work** — Enter any sub-SKILL (e.g. `/lulu-approach`). Cycle binding via `_runtime.md` § Session Foundation.
 
 ## Commands
 

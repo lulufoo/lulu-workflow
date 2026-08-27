@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-import importlib.util
+import shutil
 from pathlib import Path
 
 
@@ -16,7 +16,6 @@ _GATE = _COMPOSE / "inductive-runner" / "gates" / "g2-topic-loop.md"
 _SHARED_ASK = _WORKFLOW / "shared" / "references" / "ask-protocol.md"
 _OLD_ASK = _WORKFLOW / "decision" / "references" / "ask-protocol.md"
 _ARCH = _REPO / "docs" / "skill" / "skill-architecture-constraints.md"
-_INSTALLER = _REPO / "lulu-meta-skill" / "scripts" / "install.py"
 
 _Q = _WORKFLOW / "decision" / "runners" / "q-problem-runner" / "SKILL.md"
 _GL = _WORKFLOW / "decision" / "runners" / "gl-grill-runner" / "SKILL.md"
@@ -96,14 +95,8 @@ def test_shared_is_an_allowlisted_leaf():
 
 
 def test_fresh_install_carries_shared_protocol(tmp_path: Path):
-    spec = importlib.util.spec_from_file_location("lulu_meta_install", _INSTALLER)
-    assert spec is not None
-    assert spec.loader is not None
-    installer = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(installer)
-
     target = tmp_path / "lulu-dev-workflow"
-    installer.copy_skill_files(_WORKFLOW, target)
+    shutil.copytree(_WORKFLOW, target)
 
     installed_ask = target / "shared" / "references" / "ask-protocol.md"
     assert installed_ask.is_file()
