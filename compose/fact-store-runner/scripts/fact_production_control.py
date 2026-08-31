@@ -29,8 +29,7 @@ _RUNNER_SCRIPTS = Path(__file__).resolve().parent
 _COMPOSE = _RUNNER_SCRIPTS.parents[1]
 _SCRIPTS = _COMPOSE / "scripts"
 _INDUCTIVE = _SCRIPTS / "inductive"
-_INDUCTIVE_SCHEMA = _INDUCTIVE / "schema"
-for _p in (_SCRIPTS, _INDUCTIVE, _INDUCTIVE_SCHEMA, _RUNNER_SCRIPTS):
+for _p in (_SCRIPTS, _INDUCTIVE, _RUNNER_SCRIPTS):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 import kernel_bootstrap  # noqa: E402

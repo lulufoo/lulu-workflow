@@ -8,6 +8,8 @@ from pathlib import Path
 
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 sys.path.insert(0, str(_INDUCTIVE_DIR))
+for _name in ("gate", "g2", "g3", "g4"):
+    sys.path.insert(0, str(_INDUCTIVE_DIR / "schema" / _name))
 
 from compose_state_lock import canonical_digest  # noqa: E402
 from opens_schema import (  # noqa: E402

@@ -6,7 +6,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "writing"))
+_WRITING = Path(__file__).resolve().parent.parent / "writing"
+sys.path.insert(0, str(_WRITING))
+sys.path.insert(0, str(_WRITING / "schema"))
 
 from chapter_doc_schema import (  # noqa: E402
     chapter_anchor_present,

@@ -9,7 +9,9 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "writing"))
+_WRITING = Path(__file__).resolve().parent.parent / "writing"
+sys.path.insert(0, str(_WRITING))
+sys.path.insert(0, str(_WRITING / "schema"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_kernel"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 

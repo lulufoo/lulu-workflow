@@ -12,7 +12,7 @@ import pytest
 _SECTION = Path(__file__).resolve().parents[1] / "writing"
 _SCRIPTS = Path(__file__).resolve().parents[1]
 _NARRATIVE = Path(__file__).resolve().parents[2] / "narrative-arc-runner" / "scripts"
-for _p in (_SECTION, _SCRIPTS, _NARRATIVE):
+for _p in (_SECTION, _SECTION / "schema", _SCRIPTS, _NARRATIVE):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 

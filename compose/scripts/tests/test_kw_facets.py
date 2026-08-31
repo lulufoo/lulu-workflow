@@ -3,18 +3,13 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
+from typing import Any
 
 import pytest
 
-_INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
-sys.path.insert(0, str(_INDUCTIVE_DIR))
+import bootstrap  # noqa: F401
 
-from kw_facets import (  # noqa: E402
-    parse_section_registry_facets,
-    validate_facets_list,
-)
+from section_registry_schema import validate_facets_list  # noqa: E402
 
 _OPS_REGISTRY = {
     "version": "1",
@@ -41,8 +36,20 @@ _OPS_REGISTRY = {
 }
 
 
+def _parse_section_registry_facets(data: dict[str, Any]) -> dict[str, list[str]]:
+    sections = data.get("sections")
+    assert isinstance(sections, dict)
+    out: dict[str, list[str]] = {}
+    for key, entry in sections.items():
+        if not isinstance(entry, dict) or "facets" not in entry:
+            continue
+        lens = str(key).strip().upper()
+        out[lens] = validate_facets_list(entry.get("facets"), lens=lens)
+    return out
+
+
 def test_parse_ops_seeds_only():
-    reg = parse_section_registry_facets(_OPS_REGISTRY)
+    reg = _parse_section_registry_facets(_OPS_REGISTRY)
     assert "I" not in reg
     assert reg["OPS"] == [
         "runtime degradation",
@@ -64,5 +71,5 @@ def test_rejects_empty_string():
 
 
 def test_parse_round_trip_same_seeds():
-    loaded = parse_section_registry_facets(_OPS_REGISTRY)
+    loaded = _parse_section_registry_facets(_OPS_REGISTRY)
     assert loaded["OPS"][0] == "runtime degradation"

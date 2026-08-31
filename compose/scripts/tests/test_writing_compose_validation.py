@@ -12,6 +12,7 @@ import pytest
 _COMPOSE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_COMPOSE / "scripts" / "_kernel"))
 sys.path.insert(0, str(_COMPOSE / "scripts" / "writing"))
+sys.path.insert(0, str(_COMPOSE / "scripts" / "writing" / "schema"))
 sys.path.insert(0, str(_COMPOSE / "narrative-arc-runner" / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 

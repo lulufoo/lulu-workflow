@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-_SECTION = Path(__file__).resolve().parent.parent / "_kernel"
+_SECTION = Path(__file__).resolve().parents[3] / "_kernel"
 if str(_SECTION) not in sys.path:
     sys.path.insert(0, str(_SECTION))
 

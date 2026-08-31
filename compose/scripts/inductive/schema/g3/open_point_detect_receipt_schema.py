@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-_SECTION = Path(__file__).resolve().parents[2] / "_kernel"
+_SECTION = Path(__file__).resolve().parents[3] / "_kernel"
 if str(_SECTION) not in sys.path:
     sys.path.insert(0, str(_SECTION))
 

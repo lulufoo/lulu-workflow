@@ -12,10 +12,10 @@ from pathlib import Path
 import pytest
 
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
-_SCHEMA_DIR = _INDUCTIVE_DIR / "schema"
 _SCRIPTS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_INDUCTIVE_DIR))
-sys.path.insert(0, str(_SCHEMA_DIR))
+for _name in ("gate", "g2", "g3", "g4"):
+    sys.path.insert(0, str(_INDUCTIVE_DIR / "schema" / _name))
 sys.path.insert(0, str(_SCRIPTS / "templates"))
 sys.path.insert(0, str(_SCRIPTS / "_kernel"))
 

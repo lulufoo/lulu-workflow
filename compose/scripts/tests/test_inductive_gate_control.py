@@ -18,11 +18,11 @@ _DESIGN_DOMAIN = (
     _REPO / "lulu-dev-workflow" / "lulu-design" / "templates" / "domain-instance.json"
 )
 _G4_CTL = _INDUCTIVE_DIR / "inductive_g4_control.py"
-_SCHEMA_DIR = _INDUCTIVE_DIR / "schema"
 _KERNEL = Path(__file__).resolve().parent.parent / "_kernel"
 
 sys.path.insert(0, str(_INDUCTIVE_DIR))
-sys.path.insert(0, str(_SCHEMA_DIR))
+for _name in ("gate", "g2", "g3", "g4"):
+    sys.path.insert(0, str(_INDUCTIVE_DIR / "schema" / _name))
 sys.path.insert(0, str(_KERNEL))
 
 from compose_state_lock import canonical_digest  # noqa: E402

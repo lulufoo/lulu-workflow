@@ -259,8 +259,7 @@ def _inductive_out(cycle_id: str, project_root: Path, profile_id: str) -> Path:
 
 def _ensure_inductive_imports() -> None:
     inductive = _SCRIPTS / "inductive"
-    schema = inductive / "schema"
-    for path in (inductive, schema):
+    for path in (inductive, *kernel_bootstrap.inductive_schema_dirs()):
         if str(path) not in sys.path:
             sys.path.insert(0, str(path))
 

@@ -21,9 +21,9 @@ from workflow_profile_paths import state_path
 from workflow_state_schema import init_compose_session, save_workflow_state
 
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
-_SCHEMA_DIR = _INDUCTIVE_DIR / "schema"
 sys.path.insert(0, str(_INDUCTIVE_DIR))
-sys.path.insert(0, str(_SCHEMA_DIR))
+for _name in ("gate", "g2", "g3", "g4"):
+    sys.path.insert(0, str(_INDUCTIVE_DIR / "schema" / _name))
 
 import open_point_store  # noqa: E402
 from compose_state_lock import canonical_digest  # noqa: E402

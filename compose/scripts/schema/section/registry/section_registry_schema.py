@@ -14,15 +14,11 @@ from typing import Any
 _SCRIPTS = Path(__file__).resolve().parents[3]
 _KERNEL = _SCRIPTS / "_kernel"
 _TEMPLATES = _SCRIPTS / "templates"
-_INDUCTIVE = _SCRIPTS / "inductive"
 if str(_KERNEL) not in sys.path:
     sys.path.insert(0, str(_KERNEL))
 if str(_TEMPLATES) not in sys.path:
     sys.path.insert(0, str(_TEMPLATES))
-if str(_INDUCTIVE) not in sys.path:
-    sys.path.insert(0, str(_INDUCTIVE))
 from workflow_paths import WORKFLOW_SCRIPTS  # noqa: E402
-from kw_facets import validate_facets_list  # noqa: E402
 
 
 def _ensure_workflow_scripts() -> None:
@@ -45,6 +41,36 @@ _PRESENCE_VALUES = frozenset({"required", "optional"})
 _PRESENCE_DEFAULT = "required"
 # Optional co-location key for Writing chapter clustering (not a lens / not coverage).
 _CLUSTER_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+def validate_facets_list(
+    raw: Any,
+    *,
+    lens: str,
+) -> list[str]:
+    """Validate and normalize one lens ``facets`` string array."""
+    if not isinstance(raw, list):
+        raise ValueError(f"{lens}: facets must be an array of strings")
+    if not raw:
+        raise ValueError(f"{lens}: facets array must not be empty when present")
+
+    out: list[str] = []
+    seen: set[str] = set()
+    for i, item in enumerate(raw):
+        where = f"{lens}.facets[{i}]"
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError(f"{where} must be a non-empty string")
+        if item.strip().startswith("{"):
+            raise ValueError(
+                f"{where}: object-shaped facets are not allowed; use short strings"
+            )
+        text = " ".join(item.split())
+        key = text.lower()
+        if key in seen:
+            raise ValueError(f"{where}: duplicate facet seed {text!r}")
+        seen.add(key)
+        out.append(text)
+    return out
 
 
 def _normalize_contract(raw: Any) -> dict[str, list[str]]:

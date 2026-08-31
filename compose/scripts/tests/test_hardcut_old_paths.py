@@ -27,6 +27,7 @@ _DELETED_MODULES = (
     "compose/scripts/section/_title_map_io.py",
     "compose/scripts/inductive/inductive_subagent_guard.py",
     "compose/scripts/section/display_layer_gates.py",
+    "compose/scripts/inductive/kw_facets.py",
 )
 
 _DELETED_DATA = (

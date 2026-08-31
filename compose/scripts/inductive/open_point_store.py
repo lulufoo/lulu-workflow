@@ -22,12 +22,17 @@ from pathlib import Path
 from typing import Any
 
 _HERE = Path(__file__).resolve().parent
-_SCHEMA = _HERE / "schema"
 _KERNEL = _HERE.parent / "_kernel"
 _SESSION = _HERE.parent / "schema" / "session"
 _REGISTRY = _HERE.parent / "schema" / "section" / "registry"
 _TEMPLATES = _HERE.parent / "templates"
-for _path in (_HERE, _SCHEMA, _KERNEL, _SESSION, _REGISTRY, _TEMPLATES):
+_SCHEMA_DIRS = (
+    _HERE / "schema" / "gate",
+    _HERE / "schema" / "g2",
+    _HERE / "schema" / "g3",
+    _HERE / "schema" / "g4",
+)
+for _path in (_HERE, *_SCHEMA_DIRS, _KERNEL, _SESSION, _REGISTRY, _TEMPLATES):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 

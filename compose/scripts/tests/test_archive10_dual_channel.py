@@ -21,7 +21,7 @@ _VIEWER_CTL = _VIEWER / "compose_viewer_control.py"
 _HTML = _COMPOSE / "compose-viewer" / "assets" / "compose-viewer.html"
 
 _KERNEL = _SCRIPTS / "_kernel"
-for _p in (_WRITING, _NARRATIVE, _SCRIPTS, _KERNEL):
+for _p in (_WRITING, _WRITING / "schema", _NARRATIVE, _SCRIPTS, _KERNEL):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 

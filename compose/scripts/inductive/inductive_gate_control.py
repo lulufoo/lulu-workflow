@@ -54,9 +54,14 @@ if str(_SCRIPTS) not in sys.path:
 _COMPOSE_SCRIPTS = Path(__file__).resolve().parents[1]
 _SESSION = _COMPOSE_SCRIPTS / "schema" / "session"
 _KERNEL = _COMPOSE_SCRIPTS / "_kernel"
-_SCHEMA = _HERE / "schema"
 _SCOPE = _COMPOSE_SCRIPTS / "schema" / "section" / "scope"
-for _p in (_COMPOSE_SCRIPTS, _SESSION, _KERNEL, _SCHEMA, _SCOPE):
+_SCHEMA_DIRS = (
+    _HERE / "schema" / "gate",
+    _HERE / "schema" / "g2",
+    _HERE / "schema" / "g3",
+    _HERE / "schema" / "g4",
+)
+for _p in (_COMPOSE_SCRIPTS, _SESSION, _KERNEL, *_SCHEMA_DIRS, _SCOPE):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 

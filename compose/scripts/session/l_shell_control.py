@@ -230,8 +230,7 @@ def _open_point_txn_block(slice_dir: Path) -> str | None:
     from compose_state_lock import compose_state_lock  # noqa: WPS433
 
     inductive = _SCRIPTS / "inductive"
-    schema = inductive / "schema"
-    for path in (inductive, schema):
+    for path in (inductive, *kernel_bootstrap.inductive_schema_dirs()):
         if str(path) not in sys.path:
             sys.path.insert(0, str(path))
     from open_point_store import RepairRequired, reconcile  # noqa: WPS433
