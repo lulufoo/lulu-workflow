@@ -377,8 +377,6 @@ def test_normalize_dependency_graph_lowercases_relations():
 
 def test_planish_e2e_append_c1_pass_with_source():
     """§7.3 mechanical e2e: Step 2 T=0 → Step 3 append → C1 pass + source preserved."""
-    from display_layer_gates import check_c1
-
     g = _planish_graph()
     order = ["AR", "SK", "T", "GO"]
     presence = {"AR": "required", "SK": "required", "T": "required", "GO": "optional"}
@@ -388,13 +386,6 @@ def test_planish_e2e_append_c1_pass_with_source():
     ]
     assert derive_triggers(order, presence, step2_facts, g) == ["T"]
     assert true_coverage_gaps(order, presence, step2_facts, g) == []
-    c1_before = check_c1(
-        step2_facts,
-        presence_map=presence,
-        section_order=order,
-        dependency_graph=g,
-    )
-    assert any("T" in e and "derivation lens" in e for e in c1_before)
     after = append_derived_facts(
         step2_facts,
         [
@@ -408,12 +399,5 @@ def test_planish_e2e_append_c1_pass_with_source():
     assert after[-1]["id"] == "F-3"
     assert after[-1]["source"] == ["F-2", "按 AR 契约"]
     assert check_derive_nonempty_self_audit(step2_facts, after, ["T"], g) == []
-    assert (
-        check_c1(
-            after,
-            presence_map=presence,
-            section_order=order,
-            dependency_graph=g,
-        )
-        == []
-    )
+    assert derive_triggers(order, presence, after, g) == []
+    assert true_coverage_gaps(order, presence, after, g) == []

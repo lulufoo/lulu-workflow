@@ -412,7 +412,7 @@ def section_presence_map(project_root: Path | None = None) -> dict[str, str]:
 
     Design rationale (source repo, why-only): docs/domain/ssot/compose/mechanism-ssot/compose-lens-architecture.md;
     process how archive: docs/domain/archive/compose/archive-2.0/compose-fact-first-display-layer-design.md §3.2, §11.3
-    (M3, 需求2). Feeds ``display_layer_gates.check_c1``'s ``presence_map`` param.
+    (M3, 需求2). Feeds derive coverage helpers (``derive_triggers`` / ``true_coverage_gaps``).
     """
     registry = _active_registry(project_root)
     return {

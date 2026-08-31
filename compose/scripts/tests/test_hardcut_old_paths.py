@@ -21,6 +21,12 @@ _DELETED_MODULES = (
     "compose/scripts/core/session_evaluating.py",
     "compose/scripts/core/start_adapter.py",
     "compose/scripts/schema/session/split_intake_schema.py",
+    "compose/scripts/section/chapters_control.py",
+    "compose/scripts/inductive/inductive_facts_projection.py",
+    "compose/scripts/core/init.py",
+    "compose/scripts/section/_title_map_io.py",
+    "compose/scripts/inductive/inductive_subagent_guard.py",
+    "compose/scripts/section/display_layer_gates.py",
 )
 
 _DELETED_TESTS = (
@@ -32,11 +38,15 @@ _DELETED_TESTS = (
     "compose/scripts/tests/test_start_dynamic_adapter.py",
     "compose/scripts/tests/test_active_slice_dir.py",
     "compose/scripts/tests/test_multi_slice_control.py",
+    "compose/scripts/tests/test_chapters_control.py",
+    "compose/scripts/tests/test_inductive_facts_projection.py",
+    "compose/scripts/tests/test_display_layer_gates.py",
 )
 
 _FORBIDDEN_SKILL_TOKENS = (
     "$MULTI_SLICE",
     "$L_SLICE",
+    "$INDUCTIVE_FACTS_PROJ",
     "lock-tree",
     "begin-inductive",
     "begin-deductive",
