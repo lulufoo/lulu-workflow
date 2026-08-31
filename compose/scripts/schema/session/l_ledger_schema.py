@@ -48,16 +48,6 @@ STATES = frozenset(
 _ON_DISK_KEYS = frozenset({"version", "order", "focus", "by_id"})
 _CELL_KEYS = frozenset({"state", "frozen"})
 _L_ID = re.compile(r"^L([1-9][0-9]*)$")
-_IN_PROGRESS = frozenset(
-    {
-        "FactIntake",
-        "Inductive",
-        "Deductive",
-        "Writing",
-        "FreeEdit",
-        "Evaluating",
-    }
-)
 
 
 def l_ledger_path(revision_dir: Path) -> Path:
@@ -281,7 +271,3 @@ def load_l_ledger(revision_dir: Path) -> dict[str, Any]:
     if errors:
         raise ValueError("; ".join(errors))
     return _canonical_payload(data)
-
-
-def in_progress_states() -> frozenset[str]:
-    return _IN_PROGRESS

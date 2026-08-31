@@ -23,8 +23,6 @@ if str(_CORE) not in sys.path:
     sys.path.insert(0, str(_CORE))
 
 from workflow_common import parse_frontmatter_fields
-from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID
-from workflow_profile_paths import approval_path
 
 _SCHEMA: list[dict] = [
     {"field": "approved", "type": "string", "required": True,
@@ -135,16 +133,6 @@ def write_approved(path: Path, *, note: str = "") -> None:
     if note:
         data["note"] = note
     save_delivery_gate(path, data, merge=False)
-
-
-def resolve_delivery_gate_path(
-    cycle_id: str,
-    doc_round: int,
-    project_root: Path,
-    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
-) -> Path:
-    """Return revision{N}/human-delivery-gate.md path."""
-    return project_root / approval_path(cycle_id, doc_round, profile_id)
 
 
 def _cli() -> int:

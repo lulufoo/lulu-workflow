@@ -25,11 +25,9 @@ from compose_state_lock import durable_write_json  # noqa: E402
 
 FRONTIER_BASENAME = "lens-frontier.json"
 FRONTIER_VERSION = 1
-DEFAULT_TARGET_KW = 3
 _ENVELOPE_KEYS = frozenset({"version", "lenses"})
 _LENS_KEYS = frozenset({"frontier_kw", "skipped"})
 _H2_RE = re.compile(r"(?m)^##[ \t]+(\S+)[ \t]*$")
-_KW_ROW_RE = re.compile(r"(?m)^\|\s*KW([0-4])\s*\|")
 
 
 def lens_frontier_path(slice_dir: Path) -> Path:
@@ -55,17 +53,6 @@ def slice_kw_criteria(kw_raw: str, lens: str) -> str | None:
         end = matches[index + 1].start() if index + 1 < len(matches) else len(kw_raw)
         return kw_raw[start:end].strip("\n")
     return None
-
-
-def max_published_kw(kw_slice: str) -> int:
-    found = [int(match.group(1)) for match in _KW_ROW_RE.finditer(kw_slice)]
-    if not found:
-        raise ValueError("KW criteria slice has no KW rows")
-    return max(found)
-
-
-def target_kw_for_slice(kw_slice: str) -> int:
-    return min(DEFAULT_TARGET_KW, max_published_kw(kw_slice))
 
 
 def _validate_lens_entry(prefix: str, entry: Any) -> list[str]:

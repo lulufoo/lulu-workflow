@@ -94,23 +94,3 @@ def resolve_template_ref(
             f"in profile {profile.get('profile_id')!r}",
         )
     return str(template_ref).strip()
-
-
-def resolve_config_key(
-    scheme_key: str,
-    profile_id: str | None = None,
-    *,
-    project_root: Path | None = None,
-    cycle_id: str | None = None,
-    conversation_id: str | None = None,
-    profile_path: Path | None = None,
-) -> str:
-    """Backward-compatible alias for legacy config-key callers."""
-    return resolve_template_ref(
-        scheme_key,
-        profile_id,
-        project_root=project_root,
-        cycle_id=cycle_id,
-        conversation_id=conversation_id,
-        profile_path=profile_path,
-    )

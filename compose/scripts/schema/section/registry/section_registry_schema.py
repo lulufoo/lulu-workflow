@@ -115,11 +115,6 @@ def resolve_section_registry_path(
     )
 
 
-def project_root_from_cycle_dir(cycle_dir: Path) -> Path:
-    """Derive project root from `.cache/{platform}/lulu-dev-workflow/{cycle_id}`."""
-    return cycle_dir.resolve().parent.parent.parent.parent
-
-
 def registry_from_data(data: Any) -> dict[str, Any]:
     """Validate and normalize an in-memory section-registry object."""
     if not isinstance(data, dict):

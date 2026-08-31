@@ -38,11 +38,6 @@ from scope_package_schema import (  # noqa: E402
     write_source_path_mirrors,
 )
 
-_SLICE_MUTATION_BLOCK = (
-    "scope-package convert froze the L set; mutating slices/topology is forbidden "
-    "(start a new compose revision)"
-)
-
 
 class ScopePackageConvertError(ValueError):
     """scope-package convert failed or refused (C5)."""
@@ -138,13 +133,6 @@ def seed_source_path_for_out_dir(out_dir: Path) -> str | None:
         # out_dir is Lx under a converted revision — mirror required.
         return resolve_l_seed_source_path(parent, out.name)
 
-    return None
-
-
-def slice_mutation_block_reason(revision_dir: Path) -> str | None:
-    """Return hard-reject message when slice-mutation commands must be blocked."""
-    if revision_uses_scope_package(revision_dir):
-        return _SLICE_MUTATION_BLOCK
     return None
 
 

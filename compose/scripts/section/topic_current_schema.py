@@ -116,11 +116,3 @@ def save_topic_current(path: Path, data: dict[str, Any]) -> dict[str, Any]:
         encoding="utf-8",
     )
     return normalized
-
-
-def has_unconfirmed_conclusion(data: dict[str, Any]) -> bool:
-    """True when a conclusion text exists but human has not confirmed."""
-    conclusion = data.get("conclusion")
-    if not (isinstance(conclusion, str) and conclusion.strip()):
-        return False
-    return not bool(data.get("conclusion_confirmed"))

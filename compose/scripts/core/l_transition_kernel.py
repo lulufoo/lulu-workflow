@@ -50,10 +50,6 @@ class ShellAdvance:
     next_action: str | None = None
 
 
-def validate_global_invariants(ledger: dict[str, Any]) -> list[str]:
-    return validate_l_ledger(ledger)
-
-
 def _clone(ledger: dict[str, Any]) -> dict[str, Any]:
     return copy.deepcopy(ledger)
 

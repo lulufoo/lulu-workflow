@@ -64,29 +64,6 @@ def g4_report_path(out_dir: Path) -> Path:
     return Path(out_dir) / REPORT_BASENAME
 
 
-def init_report(
-    *,
-    facts_digest: str,
-    opens_digest: str,
-) -> dict[str, Any]:
-    return {
-        "version": REPORT_VERSION,
-        "facts_digest": facts_digest,
-        "opens_digest": opens_digest,
-        "findings": [],
-        "buildable": True,
-        "reversible": True,
-        "verifiable": True,
-        "evidence": {
-            "buildable": "current set looks buildable",
-            "reversible": "reversal paths look present",
-            "verifiable": "settled claims look checkable",
-        },
-        "produced_by": "subagent",
-        "created_at": _now_iso(),
-    }
-
-
 def _validate_finding(finding: Any, index: int) -> list[str]:
     prefix = f"findings[{index}]"
     if not isinstance(finding, dict):

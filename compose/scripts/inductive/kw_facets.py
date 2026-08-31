@@ -64,16 +64,3 @@ def parse_section_registry_facets(
         lens = str(key).strip().upper()
         out[lens] = validate_facets_list(entry.get("facets"), lens=lens)
     return out
-
-
-def facets_for_lens(
-    registry: dict[str, list[str]],
-    lens: str | None,
-) -> list[str] | None:
-    """Return seed list for lens, or None when undeclared."""
-    if not lens:
-        return None
-    key = str(lens).strip().upper()
-    if key not in registry:
-        return None
-    return registry[key]

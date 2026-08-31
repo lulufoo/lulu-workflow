@@ -46,10 +46,6 @@ class ComposeCommonEvalError(ValueError):
     """Common-dimension bind or merge failed."""
 
 
-def common_dimension_defs_dir() -> Path:
-    return _DEFS_DIR
-
-
 def load_common_dimension_def(dim_id: str) -> dict[str, Any]:
     if dim_id not in COMMON_DIMENSION_IDS:
         raise ComposeCommonEvalError(f"unknown common dimension: {dim_id!r}")

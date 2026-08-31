@@ -101,22 +101,6 @@ def load_profile_json(path: Path) -> dict[str, Any]:
     return copy.deepcopy(_profile_cache[key])
 
 
-def _relative_to_project_root(project_root: Path, target: Path) -> str:
-    root = project_root.resolve()
-    resolved = target.resolve()
-    try:
-        return resolved.relative_to(root).as_posix()
-    except ValueError:
-        return resolved.as_posix()
-
-
-def _resolve_from_project_root(project_root: Path, raw: str) -> Path:
-    path = Path(raw.strip())
-    if path.is_absolute():
-        return path.resolve()
-    return (project_root.resolve() / path).resolve()
-
-
 def cache_subdir_for_profile(profile_id: str) -> str:
     data = load_profile_json(compose_profile_path(profile_id))
     subdir = str(data.get("cache_subdir", "")).strip()

@@ -114,15 +114,6 @@ def evaluate_state_path(
     return doc_dir(cycle_id, active_doc, profile_id, project_root) / "evaluate-state.md"
 
 
-def _root_eval_status(path: Path) -> str:
-    if not path.is_file():
-        return ""
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.startswith("eval_status:"):
-            return line.split(":", 1)[1].strip()
-    return ""
-
-
 def eval_layout_for_revision(revision_dir: Path) -> str:
     """Always per-L. ``revision_dir`` is unused (hard-cut: no legacy-root)."""
     del revision_dir
