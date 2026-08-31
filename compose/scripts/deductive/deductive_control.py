@@ -71,6 +71,7 @@ from load_compose_template import (  # noqa: E402
     ComposeTemplateLoadError,
     load_compose_template,
 )
+from section_registry_schema import fetch_section_registry, lens_key_sequence  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 _SCOPE = _SCRIPTS / "schema" / "section" / "scope"
@@ -355,17 +356,12 @@ def _section_order(
     *,
     profile_path: Path | None = None,
 ) -> list[str]:
-    raw = load_compose_template(
-        "section-registry",
+    data = fetch_section_registry(
         project_root,
         profile_id=profile.strip() or None,
         profile_path=profile_path,
     )
-    data = json.loads(raw)
-    sections = data.get("sections") or {}
-    if isinstance(sections, dict) and sections:
-        return [str(key).upper() for key in sections]
-    return [str(key).upper() for key in data.get("section_order") or []]
+    return lens_key_sequence(data)
 
 
 def cmd_consume_policy_check(args: argparse.Namespace) -> int:

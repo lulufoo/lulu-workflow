@@ -35,7 +35,7 @@ from domain_instance_schema import (  # noqa: E402
     DOMAIN_SCHEME_KEY,
     load_and_validate_domain_instance,
 )
-from load_compose_template import load_compose_template  # noqa: E402
+from section_registry_schema import fetch_section_registry  # noqa: E402
 from role_instance_schema import (  # noqa: E402
     ROLE_SCHEME_KEY,
     load_and_validate_role_instance,
@@ -185,16 +185,12 @@ def _registry_preamble(
     cycle_id: str,
     profile_path: Path | None = None,
 ) -> str:
-    raw = load_compose_template(
-        "section-registry",
+    data = fetch_section_registry(
         project_root,
         profile_id=profile,
         cycle_id=cycle_id or None,
         profile_path=profile_path,
     )
-    data = json.loads(raw)
-    if not isinstance(data, dict):
-        raise ValueError("section-registry must be a JSON object")
     preamble = data.get("document_preamble")
     if not isinstance(preamble, str) or not preamble.strip():
         raise ValueError("section-registry.document_preamble must be a non-empty string")

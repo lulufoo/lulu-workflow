@@ -45,6 +45,7 @@ from load_compose_template import (  # noqa: E402
     ComposeTemplateLoadError,
     load_compose_template,
 )
+from section_registry_schema import fetch_section_registry, lens_key_sequence  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 _H2_RE = re.compile(r"^##\s+(\S+)\s*$", re.MULTILINE)
@@ -86,8 +87,7 @@ def _fetch_registry_and_kw(
     profile_path: Path | None = None,
 ) -> tuple[dict[str, Any] | None, str | None, str | None]:
     try:
-        reg_raw = load_compose_template(
-            "section-registry",
+        reg = fetch_section_registry(
             root,
             profile_id=profile,
             cycle_id=cycle_id,
@@ -100,22 +100,15 @@ def _fetch_registry_and_kw(
             cycle_id=cycle_id,
             profile_path=profile_path,
         )
-        reg = json.loads(reg_raw)
     except (ComposeTemplateLoadError, OSError, ValueError, json.JSONDecodeError) as exc:
         return None, None, str(exc)
-    if not isinstance(reg, dict):
-        return None, None, "section-registry must be a JSON object"
     if not isinstance(kw_raw, str) or not kw_raw.strip():
         return None, None, "section-kw-criteria must be non-empty text"
     return reg, kw_raw, None
 
 
 def _section_order(reg: dict[str, Any]) -> list[str]:
-    return [
-        str(x).strip().upper()
-        for x in (reg.get("section_order") or [])
-        if str(x).strip()
-    ]
+    return lens_key_sequence(reg)
 
 
 def slice_kw_criteria(kw_raw: str, lens: str) -> str | None:

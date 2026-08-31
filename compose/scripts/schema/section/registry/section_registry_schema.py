@@ -96,8 +96,6 @@ def resolve_section_registry_path(
     profile_id: str | None = None,
     cycle_id: str | None = None,
     conversation_id: str | None = None,
-    platform: str | None = None,
-    force: bool = False,
     profile_path: Path | None = None,
 ) -> Path:
     """Return the SKILL install path for the section-registry template."""
@@ -122,17 +120,25 @@ def project_root_from_cycle_dir(cycle_dir: Path) -> Path:
     return cycle_dir.resolve().parent.parent.parent.parent
 
 
+def registry_from_data(data: Any) -> dict[str, Any]:
+    """Validate and normalize an in-memory section-registry object."""
+    if not isinstance(data, dict):
+        raise ValueError("section-registry must be a JSON object")
+    errors = validate_section_registry(data)
+    if errors:
+        raise ValueError("; ".join(errors))
+    return normalize_section_registry(data)
+
+
 def fetch_section_registry(
     project_root: Path,
     *,
-    platform: str | None = None,
-    force: bool = False,
     profile_id: str | None = None,
     cycle_id: str | None = None,
     conversation_id: str | None = None,
     profile_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Fetch and validate a section registry through its template ref."""
+    """Load and validate section-registry from the SKILL install."""
     _ensure_workflow_scripts()
     from compose_profile_context import get_active_profile  # noqa: WPS433
     from load_compose_template import load_compose_template  # noqa: WPS433
@@ -146,11 +152,7 @@ def fetch_section_registry(
         conversation_id=conversation_id,
         profile_path=profile_path,
     )
-    data = json.loads(content)
-    errors = validate_section_registry(data)
-    if errors:
-        raise ValueError("; ".join(errors))
-    return normalize_section_registry(data)
+    return registry_from_data(json.loads(content))
 
 
 def lens_key_sequence(data: dict[str, Any]) -> list[str]:
@@ -340,24 +342,26 @@ def normalize_section_registry(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_section_registry(
-    path: Path | None = None,
     *,
     project_root: Path | None = None,
+    profile_id: str | None = None,
+    cycle_id: str | None = None,
+    conversation_id: str | None = None,
+    profile_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Load section registry from explicit path, fetch cache, or bundled template."""
-    target = path or resolve_section_registry_path(project_root)
-    if not target.exists():
-        raise FileNotFoundError(f"section registry not found: {target}")
-    data = json.loads(target.read_text(encoding="utf-8"))
-    errors = validate_section_registry(data)
-    if errors:
-        raise ValueError("; ".join(errors))
-    return normalize_section_registry(data)
+    """Load section-registry from the SKILL install. No arbitrary path."""
+    return fetch_section_registry(
+        _effective_project_root(project_root),
+        profile_id=profile_id,
+        cycle_id=cycle_id,
+        conversation_id=conversation_id,
+        profile_path=profile_path,
+    )
 
 
 @lru_cache(maxsize=8)
 def _registry_for_path(path_str: str) -> dict[str, Any]:
-    return load_section_registry(Path(path_str))
+    return registry_from_data(json.loads(Path(path_str).read_text(encoding="utf-8")))
 
 
 def _active_registry(project_root: Path | None = None) -> dict[str, Any]:
@@ -580,7 +584,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         registry = (
-            load_section_registry(args.path)
+            registry_from_data(json.loads(args.path.read_text(encoding="utf-8")))
             if args.path
             else load_section_registry(project_root=project_root)
         )

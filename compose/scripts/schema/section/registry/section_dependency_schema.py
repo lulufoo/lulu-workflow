@@ -25,12 +25,18 @@ def normalize_dependency_graph(data: dict[str, Any]) -> dict[str, Any]:
     return dependency_graph_subset(data)
 
 
+def dependency_graph_from_data(data: dict[str, Any]) -> dict[str, Any]:
+    """Project an in-memory section-registry object to the upstream graph."""
+    from section_registry_schema import registry_from_data
+
+    return dependency_graph_subset(registry_from_data(data))
+
+
 def load_dependency_graph(
-    path: Path | None = None,
     *,
     project_root: Path | None = None,
 ) -> dict[str, Any]:
-    """Load dependency graph from section registry template."""
+    """Load dependency graph from the SKILL section-registry. No arbitrary path."""
     return dependency_graph_subset(
-        load_section_registry(path, project_root=project_root),
+        load_section_registry(project_root=project_root),
     )

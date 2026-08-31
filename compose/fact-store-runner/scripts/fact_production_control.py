@@ -284,95 +284,13 @@ def cmd_cancel(args: argparse.Namespace) -> int:
 
 
 def cmd_update(args: argparse.Namespace) -> int:
-    """Patch an existing fact by F-n (replaces G3 update-decision write path)."""
     del args
     return _fail("update is retired; use propose --kind update → ack → consume")
-    if not args.confirm:
-        return _fail("update requires --confirm (human confirm gate)")
-    fact_id = str(args.id or "").strip()
-    if not fact_id:
-        return _fail("update requires --id (F-n)")
-    if not fact_id.startswith("F-"):
-        return _fail(f"update id must be F-n, got {fact_id!r}")
-    text = str(args.text or "").strip()
-    if not text:
-        return _fail("update requires non-empty --text")
-
-    slice_dir = _slice(args.revision_dir)
-    path = facts_path(slice_dir)
-    if not path.is_file():
-        return _fail(f"facts not found: {path}")
-    facts = load_facts(path)
-    fact = next((f for f in facts if isinstance(f, dict) and f.get("id") == fact_id), None)
-    if fact is None:
-        return _fail(f"fact not found: {fact_id!r}")
-    fact["text"] = text
-    try:
-        save_facts(path, facts, allowed_lenses=_allowed_lenses(slice_dir) or None)
-    except ValueError as exc:
-        return _fail(str(exc))
-    return _ok(
-        {
-            "ok": True,
-            "command": "update",
-            "updated": fact_id,
-            "fact": fact,
-            "stale_signal": True,
-            "suggest_check": True,
-            "message": "fact updated; collab arc may be stale — suggest check / optional semantic rebuild",
-        }
-    )
 
 
 def cmd_delete(args: argparse.Namespace) -> int:
-    """Delete one fact without renumbering any surviving stable IDs."""
     del args
     return _fail("delete is retired; use propose --kind delete → ack → consume")
-    if not args.confirm:
-        return _fail("delete requires --confirm (human confirm gate)")
-    fact_id = str(args.id or "").strip()
-    if not fact_id:
-        return _fail("delete requires --id (F-n)")
-
-    slice_dir = _slice(args.revision_dir)
-    path = facts_path(slice_dir)
-    if not path.is_file():
-        return _fail(f"facts not found: {path}")
-    facts = load_facts(path)
-    deleted = next(
-        (fact for fact in facts if isinstance(fact, dict) and fact.get("id") == fact_id),
-        None,
-    )
-    if deleted is None:
-        return _fail(f"fact not found: {fact_id!r}")
-    remaining = [fact for fact in facts if fact is not deleted]
-
-    try:
-        if remaining:
-            save_facts(
-                path,
-                remaining,
-                allowed_lenses=_allowed_lenses(slice_dir) or None,
-            )
-        else:
-            path.unlink()
-    except (OSError, ValueError) as exc:
-        return _fail(str(exc))
-
-    return _ok(
-        {
-            "ok": True,
-            "command": "delete",
-            "deleted": fact_id,
-            "facts_total": len(remaining),
-            "stale_signal": True,
-            "suggest_check": True,
-            "message": (
-                "fact deleted without renumbering; collab and Formal arcs may "
-                "reference it — suggest check / optional semantic rebuild"
-            ),
-        }
-    )
 
 
 def cmd_settle_open(args: argparse.Namespace) -> int:

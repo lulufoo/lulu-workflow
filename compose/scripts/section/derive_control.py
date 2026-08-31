@@ -37,7 +37,6 @@ from facts_schema import (  # noqa: E402
     save_facts,
 )
 from compose_state_lock import compose_state_lock  # noqa: E402
-from load_compose_template import load_compose_template  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 from derive_shell import (  # noqa: E402
     DeriveCycleError,
@@ -54,7 +53,8 @@ from derive_shell import (  # noqa: E402
 )
 from section_registry_schema import (  # noqa: E402
     dependency_graph_subset,
-    normalize_section_registry,
+    fetch_section_registry,
+    lens_key_sequence,
 )
 
 _INTAKE_EVAL_SCRIPTS = (
@@ -122,13 +122,11 @@ def _load_registry(
     *,
     profile_path: Path | None = None,
 ) -> dict[str, Any]:
-    raw = load_compose_template(
-        "section-registry",
+    return fetch_section_registry(
         project_root,
         profile_id=profile_id,
         profile_path=profile_path,
     )
-    return normalize_section_registry(json.loads(raw))
 
 
 def _graph_and_maps(
@@ -143,7 +141,7 @@ def _graph_and_maps(
         profile_path=profile_path,
     )
     graph = normalize_dependency_graph(dependency_graph_subset(registry))
-    section_order = [str(k).upper() for k in registry.get("section_order") or []]
+    section_order = lens_key_sequence(registry)
     presence_map = {
         str(k).upper(): str(
             (registry.get("sections") or {}).get(k, {}).get("presence", "required")
@@ -290,7 +288,7 @@ def cmd_append(args: argparse.Namespace) -> int:
             runtime.profile_id,
             profile_path=runtime.profile_path,
         )
-        allowed = [str(k).upper() for k in registry.get("section_order") or []]
+        allowed = lens_key_sequence(registry)
         save_facts(facts_path(revision_dir), out, allowed_lenses=allowed)
     except (ValueError, FileNotFoundError, OSError) as exc:
         return _fail(str(exc))

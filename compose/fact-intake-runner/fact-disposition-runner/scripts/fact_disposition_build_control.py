@@ -30,6 +30,7 @@ from load_compose_template import (  # noqa: E402
     ComposeTemplateLoadError,
     load_compose_template,
 )
+from section_registry_schema import fetch_section_registry, lens_key_sequence  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 
@@ -69,8 +70,7 @@ def cmd_context(args: argparse.Namespace) -> int:
             f"intake eval not done (eval_status={data.get('eval_status')!r})"
         )
     try:
-        reg_raw = load_compose_template(
-            "section-registry",
+        reg = fetch_section_registry(
             root,
             profile_id=runtime.profile_id,
             cycle_id=cycle_id,
@@ -83,23 +83,18 @@ def cmd_context(args: argparse.Namespace) -> int:
             cycle_id=cycle_id,
             profile_path=runtime.profile_path,
         )
-        reg = json.loads(reg_raw)
         role = json.loads(role_raw)
     except (ComposeTemplateLoadError, OSError, ValueError, json.JSONDecodeError) as exc:
         return _fail(str(exc))
-    if not isinstance(reg, dict) or not isinstance(role, dict):
-        return _fail("section-registry / role-instance must be JSON objects")
+    if not isinstance(role, dict):
+        return _fail("role-instance must be a JSON object")
     rules = (role.get("consume_policy") or {}).get("rules") or []
     return _ok(
         {
             "ok": True,
             "command": "context",
             "eval_status": data.get("eval_status"),
-            "section_order": [
-                str(x).strip().upper()
-                for x in (reg.get("section_order") or [])
-                if str(x).strip()
-            ],
+            "section_order": lens_key_sequence(reg),
             "consume_policy_rule_ids": [
                 str(r.get("id", "")).strip()
                 for r in rules

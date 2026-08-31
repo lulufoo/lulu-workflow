@@ -11,6 +11,7 @@ docs/domain/archive/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
 docs/domain/archive/compose/compose-g3-detect-context-slim-design.md
 docs/domain/archive/compose/archive-49.0/compose-g3-section-registry-skill-fetch-design.md
 docs/domain/archive/compose/archive-50.0/compose-g3-detect-lens-context-design.md
+docs/domain/archive/compose/archive-52.0/compose-script-layer-contract-lock-design.md
 """
 
 from __future__ import annotations
@@ -24,9 +25,10 @@ _HERE = Path(__file__).resolve().parent
 _SCHEMA = _HERE / "schema"
 _SECTION = _HERE.parent / "section"
 _SESSION = _HERE.parent / "schema" / "session"
+_REGISTRY = _HERE.parent / "schema" / "section" / "registry"
 _IO = _HERE.parent / "io"
 _CORE = _HERE.parent / "core"
-for _path in (_HERE, _SCHEMA, _SECTION, _SESSION, _IO, _CORE):
+for _path in (_HERE, _SCHEMA, _SECTION, _SESSION, _REGISTRY, _IO, _CORE):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
@@ -156,8 +158,14 @@ def facts_snapshot(slice_dir: Path) -> Any:
     return _json_or_list(Path(slice_dir) / FACTS_BASENAME)
 
 
-def _skill_template_error(role: str) -> ValueError:
-    return ValueError(_SKILL_TEMPLATE_ERRORS.get(role, f"{role} missing from SKILL"))
+def _skill_template_error(
+    role: str, cause: BaseException | None = None
+) -> ValueError:
+    base = _SKILL_TEMPLATE_ERRORS.get(role, f"{role} missing from SKILL")
+    detail = str(cause).strip() if cause is not None else ""
+    if detail and detail != base:
+        return ValueError(f"{base}: {detail}")
+    return ValueError(base)
 
 
 def _skill_profile_binding(
@@ -220,7 +228,7 @@ def _skill_template_text(
         FileNotFoundError,
         ComposeTemplateLoadError,
     ) as exc:
-        raise _skill_template_error(role) from exc
+        raise _skill_template_error(role, exc) from exc
     if not str(text).strip():
         raise _skill_template_error(role)
     return text
@@ -230,12 +238,18 @@ def lens_snapshot(
     slice_dir: Path, project_root: Path | str | None = None
 ) -> dict[str, Any]:
     try:
-        data = json.loads(
-            _skill_template_text("section-registry", slice_dir, project_root)
+        from section_registry_schema import registry_from_data  # noqa: WPS433
+
+        data = registry_from_data(
+            json.loads(
+                _skill_template_text("section-registry", slice_dir, project_root)
+            )
         )
     except json.JSONDecodeError as exc:
-        raise _skill_template_error("section-registry") from exc
-    if not isinstance(data, dict) or not registry_lens_keys(data):
+        raise _skill_template_error("section-registry", exc) from exc
+    except ValueError as exc:
+        raise _skill_template_error("section-registry", exc) from exc
+    if not registry_lens_keys(data):
         raise _skill_template_error("section-registry")
     return data
 
@@ -247,13 +261,9 @@ def facts_digest(slice_dir: Path) -> str:
 def registry_lens_keys(snapshot: Any) -> list[str]:
     if not isinstance(snapshot, dict):
         return []
-    order = snapshot.get("section_order")
-    if isinstance(order, list) and order:
-        return [str(item).strip().upper() for item in order if str(item).strip()]
-    sections = snapshot.get("sections")
-    if isinstance(sections, dict) and sections:
-        return [str(item).strip().upper() for item in sections if str(item).strip()]
-    return []
+    from section_registry_schema import lens_key_sequence  # noqa: WPS433
+
+    return [str(item).strip().upper() for item in lens_key_sequence(snapshot) if str(item).strip()]
 
 
 def detect_lens_registry(snapshot: Any) -> list[dict[str, str]]:
@@ -388,19 +398,26 @@ def load_detect_materials(
     """Load intent refs and code_grounding. Missing project_root is true inert."""
     if not project_root:
         return [], False
-    try:
-        from resolved_refs_schema import intent_baseline_from_workflow  # noqa: WPS433
-        from workflow_paths import resolve_revision_runtime_profile  # noqa: WPS433
+    from resolved_refs_schema import intent_baseline_from_workflow  # noqa: WPS433
+    from workflow_paths import resolve_revision_runtime_profile  # noqa: WPS433
 
+    try:
         runtime = resolve_revision_runtime_profile(Path(slice_dir), Path(project_root))
+    except (OSError, ValueError, FileNotFoundError):
+        return [], False
+    try:
         cycle_id = runtime.session_base.parent.name
         refs = intent_baseline_from_workflow(
             cycle_id, Path(project_root), runtime.profile_id
         )
         pipeline = runtime.profile_data.get("pipeline") or {}
         return [item.to_dict() for item in refs], bool(pipeline.get("code_grounding"))
-    except (OSError, ValueError, FileNotFoundError, ImportError, KeyError):
+    except FileNotFoundError:
         return [], False
+    except ImportError:
+        raise
+    except (OSError, ValueError, KeyError) as exc:
+        raise ValueError(f"detect materials: intent baseline unavailable: {exc}") from exc
 
 
 def compute_inert_means(

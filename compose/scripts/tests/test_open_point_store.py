@@ -643,10 +643,7 @@ def test_lens_snapshot_reads_skill_not_slice(
     import load_compose_template as lct
     import workflow_paths as wp
 
-    fetched = {
-        "section_order": ["I"],
-        "sections": {"I": {"heading": "Intent", "intent": "constraints"}},
-    }
+    fetched = _FIXTURE_REGISTRY
     (tmp_path / "section-registry.json").write_text(
         json.dumps({"section_order": ["NOPE"]}), encoding="utf-8"
     )
@@ -664,7 +661,8 @@ def test_lens_snapshot_reads_skill_not_slice(
         )(),
     )
     snapshot = lens_snapshot(tmp_path, tmp_path)
-    assert snapshot == fetched
+    assert snapshot["section_order"] == fetched["section_order"]
+    assert "I" in snapshot["sections"]
 
 
 def test_lens_snapshot_raises_when_skill_missing(tmp_path: Path):

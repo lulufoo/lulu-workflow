@@ -289,8 +289,6 @@ def resolve_section_form_registry_path(
     profile_id: str | None = None,
     cycle_id: str | None = None,
     conversation_id: str | None = None,
-    platform: str | None = None,
-    force: bool = False,
     profile_path: Path | None = None,
 ) -> Path | None:
     """Return a direct form template path, or None when the role is omitted."""
@@ -316,17 +314,34 @@ def resolve_section_form_registry_path(
         return None
 
 
+def form_registry_from_data(
+    data: Any,
+    *,
+    intent_registry: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Validate and normalize an in-memory section-form-registry object."""
+    if not isinstance(data, dict):
+        raise ValueError("section-form-registry must be a JSON object")
+    errors = validate_section_form_registry(data)
+    if errors:
+        raise ValueError("; ".join(errors))
+    normalized = normalize_section_form_registry(data)
+    if intent_registry is not None:
+        errors = validate_section_form_alignment(normalized, intent_registry)
+        if errors:
+            raise ValueError("; ".join(errors))
+    return normalized
+
+
 def fetch_section_form_registry(
     project_root: Path,
     *,
-    platform: str | None = None,
-    force: bool = False,
     profile_id: str | None = None,
     cycle_id: str | None = None,
     conversation_id: str | None = None,
     profile_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Fetch and validate a section form registry through its template ref."""
+    """Load and validate section-form-registry from the SKILL install."""
     _ensure_workflow_scripts()
     from compose_profile_context import get_active_profile  # noqa: WPS433
     from load_compose_template import load_compose_template  # noqa: WPS433
@@ -342,54 +357,37 @@ def fetch_section_form_registry(
         profile_path=profile_path,
     )
     data = json.loads(content)
-    errors = validate_section_form_registry(data)
-    if errors:
-        raise ValueError("; ".join(errors))
     intent_registry = fetch_section_registry(
         project_root,
-        platform=platform,
-        force=False,
         profile_id=pid,
         cycle_id=cycle_id,
         conversation_id=conversation_id,
+        profile_path=profile_path,
     )
-    errors = validate_section_form_alignment(data, intent_registry)
-    if errors:
-        raise ValueError("; ".join(errors))
-    return normalize_section_form_registry(data)
+    return form_registry_from_data(data, intent_registry=intent_registry)
 
 
 def load_section_form_registry(
-    path: Path | None = None,
     *,
     project_root: Path | None = None,
-    intent_registry: dict[str, Any] | None = None,
+    profile_id: str | None = None,
+    cycle_id: str | None = None,
+    conversation_id: str | None = None,
+    profile_path: Path | None = None,
 ) -> dict[str, Any]:
-    """Load section form registry from explicit path or fetch cache."""
-    if path is not None:
-        target = path
-    else:
-        resolved = resolve_section_form_registry_path(project_root)
-        if resolved is None:
-            raise FileNotFoundError("section form registry not configured for active profile")
-        target = resolved
-    if not target.exists():
-        raise FileNotFoundError(f"section form registry not found: {target}")
-    data = json.loads(target.read_text(encoding="utf-8"))
-    errors = validate_section_form_registry(data)
-    if errors:
-        raise ValueError("; ".join(errors))
-    normalized = normalize_section_form_registry(data)
-    if intent_registry is not None:
-        errors = validate_section_form_alignment(normalized, intent_registry)
-        if errors:
-            raise ValueError("; ".join(errors))
-    return normalized
+    """Load section-form-registry from the SKILL install. No arbitrary path."""
+    return fetch_section_form_registry(
+        _effective_project_root(project_root),
+        profile_id=profile_id,
+        cycle_id=cycle_id,
+        conversation_id=conversation_id,
+        profile_path=profile_path,
+    )
 
 
 @lru_cache(maxsize=8)
 def _form_registry_for_path(path_str: str) -> dict[str, Any]:
-    return load_section_form_registry(Path(path_str))
+    return form_registry_from_data(json.loads(Path(path_str).read_text(encoding="utf-8")))
 
 
 def _optional_form_registry(project_root: Path | None = None) -> dict[str, Any] | None:
@@ -477,7 +475,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         registry = (
-            load_section_form_registry(args.path)
+            form_registry_from_data(json.loads(args.path.read_text(encoding="utf-8")))
             if args.path
             else load_section_form_registry(project_root=args.project_root.resolve())
         )

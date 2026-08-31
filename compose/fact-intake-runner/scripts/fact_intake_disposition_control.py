@@ -29,6 +29,7 @@ from load_compose_template import (  # noqa: E402
     ComposeTemplateLoadError,
     load_compose_template,
 )
+from section_registry_schema import fetch_section_registry, lens_key_sequence  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 DISPOSITION_PATCH_BASENAME = "fact-intake-disposition-review.patch"
@@ -68,20 +69,13 @@ def _section_order(
     *,
     profile_path: Path | None = None,
 ) -> list[str]:
-    raw = load_compose_template(
-        "section-registry",
-        project_root,
-        profile_id=profile,
-        profile_path=profile_path,
+    return lens_key_sequence(
+        fetch_section_registry(
+            project_root,
+            profile_id=profile,
+            profile_path=profile_path,
+        )
     )
-    reg = json.loads(raw)
-    if not isinstance(reg, dict):
-        raise ValueError("section-registry must be a JSON object")
-    return [
-        str(x).strip().upper()
-        for x in (reg.get("section_order") or [])
-        if str(x).strip()
-    ]
 
 
 def _consume_rule_ids(

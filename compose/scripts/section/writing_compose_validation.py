@@ -29,7 +29,7 @@ from chapter_doc_schema import chapter_anchor_present, chapter_body_by_id  # noq
 from chapter_fc_gates import check_chapter_write_artifacts  # noqa: E402
 from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
-from load_compose_template import load_compose_template  # noqa: E402
+from section_registry_schema import fetch_section_registry, lens_key_sequence  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 
@@ -39,17 +39,12 @@ def section_order_for_profile(
     *,
     profile_path: Path | None = None,
 ) -> list[str]:
-    raw = load_compose_template(
-        "section-registry",
+    data = fetch_section_registry(
         project_root,
         profile_id=profile_id,
         profile_path=profile_path,
     )
-    data = json.loads(raw)
-    sections = data.get("sections") or {}
-    if isinstance(sections, dict) and sections:
-        return [str(key).upper() for key in sections]
-    return [str(key).upper() for key in data.get("section_order") or []]
+    return lens_key_sequence(data)
 
 def _fact_anchor_covered(anchor: dict[str, Any], body: str) -> bool:
     """True when an ``{kind, value}`` fact anchor survives into the body text.

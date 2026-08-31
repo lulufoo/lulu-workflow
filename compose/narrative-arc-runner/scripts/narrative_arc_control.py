@@ -35,7 +35,7 @@ kernel_bootstrap.ensure_kernel_paths()
 from compose_state_lock import canonical_digest  # noqa: E402
 from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
-from load_compose_template import load_compose_template  # noqa: E402
+from section_registry_schema import fetch_section_registry, lens_key_sequence  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 from narrative_arc_schema import (  # noqa: E402
     NARRATIVE_ARC_BASENAME,
@@ -55,18 +55,15 @@ def _allowed_lenses(
     *,
     profile_path: Path | None = None,
 ) -> set[str]:
-    raw = load_compose_template(
-        "section-registry",
-        project_root,
-        profile_id=profile_id,
-        profile_path=profile_path,
+    return set(
+        lens_key_sequence(
+            fetch_section_registry(
+                project_root,
+                profile_id=profile_id,
+                profile_path=profile_path,
+            )
+        )
     )
-    data = json.loads(raw)
-    sections = data.get("sections") or {}
-    if isinstance(sections, dict) and sections:
-        return {str(k).strip().upper() for k in sections}
-    order = data.get("section_order") or []
-    return {str(k).strip().upper() for k in order if str(k).strip()}
 
 
 def _lenses_for_revision(args: argparse.Namespace) -> set[str]:

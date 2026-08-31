@@ -48,6 +48,8 @@ from chapter_write_state_schema import (  # noqa: E402
 from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from load_compose_template import load_compose_template  # noqa: E402
+from section_form_registry_schema import fetch_section_form_registry  # noqa: E402
+from section_registry_schema import fetch_section_registry  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 from logs.workflow_log import emit_biz  # noqa: E402
 from narrative_arc_schema import (  # noqa: E402
@@ -154,6 +156,20 @@ def _fetch_json_role(
     cycle_id: str,
     profile_path: Path | None = None,
 ) -> dict[str, Any]:
+    if role == "section-registry":
+        return fetch_section_registry(
+            project_root,
+            profile_id=profile,
+            cycle_id=cycle_id or None,
+            profile_path=profile_path,
+        )
+    if role == "section-form-registry":
+        return fetch_section_form_registry(
+            project_root,
+            profile_id=profile,
+            cycle_id=cycle_id or None,
+            profile_path=profile_path,
+        )
     raw = load_compose_template(
         role,
         project_root,

@@ -9,8 +9,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from section_form_registry_schema import (  # noqa: E402
+    form_registry_from_data,
     get_schema,
-    load_section_form_registry,
     merge_section_form_into_registry,
     normalize_section_form_registry,
     validate_section_form_alignment,
@@ -113,12 +113,8 @@ def test_merge_section_form_into_registry():
     assert "presentation" not in intent["sections"]["CTX"]
 
 
-def test_load_form_registry_with_alignment(tmp_path: Path):
-    intent_path = tmp_path / "intent.json"
-    form_path = tmp_path / "form.json"
-    intent_path.write_text(json.dumps(TECH_DESIGN_INTENT), encoding="utf-8")
-    form_path.write_text(json.dumps(TECH_DESIGN_FORM), encoding="utf-8")
+def test_load_form_registry_with_alignment():
     intent = normalize_section_registry(TECH_DESIGN_INTENT)
-    loaded = load_section_form_registry(form_path, intent_registry=intent)
+    loaded = form_registry_from_data(TECH_DESIGN_FORM, intent_registry=intent)
     assert loaded["sections"]["GOAL"]["expression"]["required"]
     assert "when" in loaded["sections"]["GOAL"]["presentation"]["allowed"][0]

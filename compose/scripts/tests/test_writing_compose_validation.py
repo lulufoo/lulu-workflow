@@ -164,8 +164,18 @@ def _seed_happy_path(
 def revision_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     import workflow_paths
 
-    monkeypatch.setattr("writing_compose_validation.load_compose_template", _load_role)
-    monkeypatch.setattr("chapter_write_state_control.load_compose_template", _load_role)
+    monkeypatch.setattr(
+        "writing_compose_validation.fetch_section_registry",
+        lambda *_a, **_k: _SECTION_REGISTRY,
+    )
+    monkeypatch.setattr(
+        "chapter_write_state_control.fetch_section_registry",
+        lambda *_a, **_k: _SECTION_REGISTRY,
+    )
+    monkeypatch.setattr(
+        "chapter_write_state_control.fetch_section_form_registry",
+        lambda *_a, **_k: _FORM_REGISTRY,
+    )
     monkeypatch.setattr(
         workflow_paths,
         "compose_profile_path",

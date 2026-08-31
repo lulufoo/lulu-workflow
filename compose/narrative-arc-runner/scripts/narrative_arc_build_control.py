@@ -36,7 +36,7 @@ from domain_instance_schema import (  # noqa: E402
     load_and_validate_domain_instance,
 )
 from facts_schema import facts_path, load_facts  # noqa: E402
-from load_compose_template import load_compose_template  # noqa: E402
+from section_registry_schema import fetch_section_registry, lens_key_sequence  # noqa: E402
 from narrative_arc_schema import validate_narrative_arc  # noqa: E402
 from role_instance_schema import (  # noqa: E402
     ROLE_SCHEME_KEY,
@@ -83,25 +83,13 @@ def _registry(
     cycle_id: str,
     profile_path: Path | None = None,
 ) -> tuple[dict[str, Any], set[str]]:
-    raw = load_compose_template(
-        "section-registry",
+    data = fetch_section_registry(
         project_root,
         profile_id=profile,
         cycle_id=cycle_id or None,
         profile_path=profile_path,
     )
-    data = json.loads(raw)
-    if not isinstance(data, dict):
-        raise ValueError("section-registry must be a JSON object")
-    sections = data.get("sections")
-    if isinstance(sections, dict) and sections:
-        lenses = {str(key).strip().upper() for key in sections if str(key).strip()}
-    else:
-        lenses = {
-            str(key).strip().upper()
-            for key in (data.get("section_order") or [])
-            if str(key).strip()
-        }
+    lenses = {key for key in lens_key_sequence(data) if key}
     if not lenses:
         raise ValueError("section-registry has no allowed lenses")
     return data, lenses

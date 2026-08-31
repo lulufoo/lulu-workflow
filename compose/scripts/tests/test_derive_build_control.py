@@ -161,22 +161,23 @@ def test_lens_bundle_cli_stdout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         encoding="utf-8",
     )
 
-    def _fake_fetch(kind: str, _root, profile_id=None, cycle_id=None, **_kwargs):
-        if kind == "section-registry":
-            return json.dumps(
-                {
-                    "section_order": ["CTX", "GO"],
-                    "sections": {
-                        "CTX": {"presence": "required"},
-                        "GO": {"presence": "required"},
-                    },
-                }
-            )
+    def _fake_kw(kind: str, _root, profile_id=None, cycle_id=None, **_kwargs):
         if kind == "section-kw-criteria":
             return "## CTX\n\nkw-body-ctx\n\n## GO\n\nkw-body-go\n"
         raise AssertionError(kind)
 
-    monkeypatch.setattr(mod, "load_compose_template", _fake_fetch)
+    monkeypatch.setattr(
+        mod,
+        "fetch_section_registry",
+        lambda *_a, **_k: {
+            "section_order": ["CTX", "GO"],
+            "sections": {
+                "CTX": {"presence": "required"},
+                "GO": {"presence": "required"},
+            },
+        },
+    )
+    monkeypatch.setattr(mod, "load_compose_template", _fake_kw)
     monkeypatch.setattr(
         mod,
         "_require_intake_eval",
@@ -212,19 +213,20 @@ def test_lens_bundle_fails_missing_kw_heading(tmp_path: Path, monkeypatch: pytes
     rev = _revision(tmp_path)
     (rev / "L1" / "_facts.json").write_text("[]", encoding="utf-8")
 
-    def _fake_fetch(kind: str, _root, profile_id=None, cycle_id=None, **_kwargs):
-        if kind == "section-registry":
-            return json.dumps(
-                {
-                    "section_order": ["CTX"],
-                    "sections": {"CTX": {"presence": "required"}},
-                }
-            )
+    def _fake_kw(kind: str, _root, profile_id=None, cycle_id=None, **_kwargs):
         if kind == "section-kw-criteria":
             return "## GO\n\nonly go\n"
         raise AssertionError(kind)
 
-    monkeypatch.setattr(mod, "load_compose_template", _fake_fetch)
+    monkeypatch.setattr(
+        mod,
+        "fetch_section_registry",
+        lambda *_a, **_k: {
+            "section_order": ["CTX"],
+            "sections": {"CTX": {"presence": "required"}},
+        },
+    )
+    monkeypatch.setattr(mod, "load_compose_template", _fake_kw)
     monkeypatch.setattr(
         mod,
         "_require_intake_eval",

@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -13,9 +12,7 @@ _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 sys.path.insert(0, str(_INDUCTIVE_DIR))
 
 from kw_facets import (  # noqa: E402
-    materialize_section_registry,
     parse_section_registry_facets,
-    section_registry_path,
     validate_facets_list,
 )
 
@@ -66,8 +63,6 @@ def test_rejects_empty_string():
         validate_facets_list(["runtime degradation", "  "], lens="OPS")
 
 
-def test_materialize_section_registry(tmp_path):
-    path = materialize_section_registry(tmp_path, _OPS_REGISTRY)
-    assert path == section_registry_path(tmp_path)
-    loaded = json.loads(path.read_text(encoding="utf-8"))
-    assert parse_section_registry_facets(loaded)["OPS"][0] == "runtime degradation"
+def test_parse_round_trip_same_seeds():
+    loaded = parse_section_registry_facets(_OPS_REGISTRY)
+    assert loaded["OPS"][0] == "runtime degradation"

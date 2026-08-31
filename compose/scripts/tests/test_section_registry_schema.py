@@ -12,16 +12,16 @@ import bootstrap  # noqa: F401
 from section_registry_schema import (  # noqa: E402
     document_preamble,
     initial_fill_results,
-    load_section_registry,
     normalize_section,
     normalize_section_registry,
+    registry_from_data,
     section_heading,
     section_keys,
     section_order,
     upstream_edges,
     validate_section_registry,
 )
-from section_dependency_schema import load_dependency_graph  # noqa: E402
+from section_dependency_schema import dependency_graph_from_data  # noqa: E402
 from test_template_data import legacy_section_registry_normalized  # noqa: E402
 
 
@@ -75,12 +75,10 @@ def test_initial_fill_results():
     assert fills[first_heading]["status"] == "X"
 
 
-def test_upstream_edges_from_registry(tmp_path: Path):
+def test_upstream_edges_from_registry():
     reg = _load_fixture_registry()
     kd_key = reg["section_order"][3]
-    registry_path = tmp_path / "section-registry.json"
-    registry_path.write_text(json.dumps(reg), encoding="utf-8")
-    graph = load_dependency_graph(registry_path)
+    graph = dependency_graph_from_data(reg)
     edges = upstream_edges(kd_key, graph)
     assert {e["upstream_section"] for e in edges} == set(reg["sections"][kd_key]["upstream"])
 
@@ -309,16 +307,12 @@ def test_section_cluster_map(monkeypatch):
 
 def test_section_guidance_and_contract_accessors(tmp_path: Path):
     from section_form_registry_schema import (  # noqa: E402
-        load_section_form_registry,
+        form_registry_from_data,
         merge_section_form_into_registry,
     )
 
-    intent_path = tmp_path / "section-registry.json"
-    form_path = tmp_path / "section-form-registry.json"
-    intent_path.write_text(json.dumps(TECH_DESIGN_INTENT), encoding="utf-8")
-    form_path.write_text(json.dumps(TECH_DESIGN_FORM), encoding="utf-8")
-    intent = load_section_registry(intent_path)
-    form = load_section_form_registry(form_path, intent_registry=intent)
+    intent = registry_from_data(TECH_DESIGN_INTENT)
+    form = form_registry_from_data(TECH_DESIGN_FORM, intent_registry=intent)
     merged = merge_section_form_into_registry(intent, form)
     assert merged["sections"]["CTX"]["presentation"]["guidance"]
     assert merged["sections"]["CTX"]["expression"]["required"]
