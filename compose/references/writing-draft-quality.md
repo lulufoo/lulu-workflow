@@ -5,7 +5,7 @@
 
 ## Purpose
 
-Chapter body artifacts make Writing synthesis inspectable and gate-able without replacing Round probe. Section-key I2 derive / `_title-display.json` / Partition retired (K3-d).
+Chapter body artifacts make Writing synthesis inspectable and gate-able. Section-key I2 derive / `_title-display.json` / Partition retired (K3-d).
 
 **Narrative-arc Writing (archive-5.0):** visible titles come from `_narrative-arc.json` + `assemble-arc`. Archive-3.0 themes/framework/placement files are **retired** (presence is a Writing validation error).
 
@@ -19,7 +19,7 @@ Chapter body artifacts make Writing synthesis inspectable and gate-able without 
 | Preserve each placed fact's `anchors` into its chapter body (§ Anchor fidelity) | Abstract away a discovered fact's anchors (paths / symbols) |
 | Load lens writing cognition as Write input (What) | Invent beyond ticket facts; empty shell chapters |
 
-Round still owns formal KW / upstream / intent gap closure.
+Inductive Detect owns formal KW gaps. Intent fidelity and parent continuity are Eval dimensions. Writing does not close those gaps.
 
 ## Per-chapter artifacts (fact-first)
 

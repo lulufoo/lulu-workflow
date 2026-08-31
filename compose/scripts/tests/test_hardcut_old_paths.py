@@ -29,6 +29,12 @@ _DELETED_MODULES = (
     "compose/scripts/section/display_layer_gates.py",
 )
 
+_DELETED_DATA = (
+    "compose/scripts/writing/form_structure_body_probes.json",
+    "compose/scripts/section/form_structure_body_probes.json",
+    "compose/templates/anchor-ledger.template.md",
+)
+
 _DELETED_TESTS = (
     "compose/scripts/tests/test_discussion_pointer_schema.py",
     "compose/scripts/tests/test_dependency_tree_schema.py",
@@ -58,6 +64,11 @@ _FORBIDDEN_SKILL_TOKENS = (
 
 def test_deleted_production_modules_absent() -> None:
     for rel in _DELETED_MODULES:
+        assert not (_WORKFLOW_ROOT / rel).exists(), rel
+
+
+def test_deleted_data_files_absent() -> None:
+    for rel in _DELETED_DATA:
         assert not (_WORKFLOW_ROOT / rel).exists(), rel
 
 
