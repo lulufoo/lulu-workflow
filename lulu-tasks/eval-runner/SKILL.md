@@ -57,11 +57,9 @@ Received via the invocation prompt from `lulu-tasks/SKILL.md` Rule E2:
 | `session_dir` | path | Absolute path to `r{N}/` session directory |
 | `tech_doc_path` | path | Absolute path to `tech-doc.md` |
 | `task_list_path` | path | Absolute path to `task-list.md` |
-| `TEMPLATE_SECTION` | string | Always `lulu-tasks` |
-| `TEMPLATE_KEY_TDA` | string | Always `tda_url` |
-| `TEMPLATE_KEY_TWCA` | string | Always `twca_url` |
-| `TEMPLATE_KEY_WOQA` | string | Always `woqa_url` |
-| `PROJECT_ROOT` | path | Project root for `$FETCH_TEMPLATE` |
+| `framework_tda` | path | `$SKILL_DIR/templates/34-tech-doc-admission-framework.md` |
+| `framework_twca` | path | `$SKILL_DIR/templates/33-tech-workorder-crosscheck.md` |
+| `framework_woqa` | path | `$SKILL_DIR/templates/32-work-order-evaluation-framework.md` |
 | evaluate-state.md | file content | Pasted in prompt under `## Current Evaluation State` section; used for resume |
 
 All report files are written to `{session_dir}/evaluate{M}/`.
@@ -179,12 +177,12 @@ any work-order edit. Do not ignore it.
 ## Phase TDA — Tech-doc Admission
 
 **Inputs:** `tech-doc.md` only. No task files needed.  
-**Framework:** `TEMPLATE_KEY_TDA` (34-tech-doc-admission-framework.md)  
+**Framework:** `framework_tda` (`34-tech-doc-admission-framework.md`)  
 **Report:** `{session_dir}/evaluate{M}/wo-review-e{M}-tda.md`
 
 ### Steps
 
-1. **Load framework.** `$FETCH_TEMPLATE --section {TEMPLATE_SECTION} --key {TEMPLATE_KEY_TDA}`; read stdout as the TDA framework in full.
+1. **Load framework.** Read `{framework_tda}` in full. Do not `$FETCH_TEMPLATE`.
 
 2. **Identify functional units.** From `tech-doc.md`, enumerate the functional units that would need to be implemented (deliverable behaviors, not design elements).
 
@@ -261,12 +259,12 @@ w0_status: passed | failed
 ## Phase W1 — Compliance Cross-check (TWCA)
 
 **Inputs:** `tech-doc.md` + `task-list.md` + all `task.md` files.  
-**Framework:** `TEMPLATE_KEY_TWCA` (33-tech-workorder-crosscheck.md)  
+**Framework:** `framework_twca` (`33-tech-workorder-crosscheck.md`)  
 **Report:** `{session_dir}/evaluate{M}/wo-review-e{M}-w1.md`
 
 ### Steps
 
-1. **Load framework.** `$FETCH_TEMPLATE --section {TEMPLATE_SECTION} --key {TEMPLATE_KEY_TWCA}`; read stdout as the TWCA framework in full.
+1. **Load framework.** Read `{framework_twca}` in full. Do not `$FETCH_TEMPLATE`.
 
 2. **Direction 1 — Coverage.** For each deliverable unit in `tech-doc.md`, verify at least one task in `task-list.md` implements it. Flag gaps as `WO-MISS`.
 
@@ -295,12 +293,12 @@ w0_status: passed | failed
 ## Phase W2 — Execution Admission (WOQA)
 
 **Inputs:** All `task.md` files.  
-**Framework:** `TEMPLATE_KEY_WOQA` (32-work-order-evaluation-framework.md)  
+**Framework:** `framework_woqa` (`32-work-order-evaluation-framework.md`)  
 **Report:** `{session_dir}/evaluate{M}/wo-review-e{M}-w2.md`
 
 ### Steps
 
-1. **Load framework.** `$FETCH_TEMPLATE --section {TEMPLATE_SECTION} --key {TEMPLATE_KEY_WOQA}`; read stdout as the WOQA framework in full.
+1. **Load framework.** Read `{framework_woqa}` in full. Do not `$FETCH_TEMPLATE`.
 
 2. **Per-task evaluation.** For each task file, check all 6 dimensions:
    - **Dim 1 — Granularity:** 1–3 function changes per task; completable in one TDD session

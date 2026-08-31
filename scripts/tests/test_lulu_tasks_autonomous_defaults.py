@@ -47,3 +47,19 @@ def test_lulu_tasks_feature_autonomous_defaults():
 def test_lulu_tasks_sot_askquestion_preserved():
     content = _LULU_TASKS_SKILL.read_text(encoding="utf-8")
     assert "SOT issues always require AskQuestion" in content
+
+
+def test_lulu_tasks_reads_skill_templates_not_fetch_cli():
+    content = _LULU_TASKS_SKILL.read_text(encoding="utf-8")
+    assert "$FETCH_TEMPLATE" not in content
+    assert "templates/31-work-order-tasklist-template.md" in content
+    assert "templates/30-work-order-task-template.md" in content
+    assert "templates/34-tech-doc-admission-framework.md" in content
+
+
+def test_eval_runner_reads_skill_templates_not_fetch_cli():
+    path = Path(__file__).resolve().parents[2] / "lulu-tasks" / "eval-runner" / "SKILL.md"
+    content = path.read_text(encoding="utf-8")
+    assert "$FETCH_TEMPLATE --section" not in content
+    assert "{framework_tda}" in content
+    assert "34-tech-doc-admission-framework.md" in content

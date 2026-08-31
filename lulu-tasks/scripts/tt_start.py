@@ -166,7 +166,7 @@ def main() -> int:
 tech_ref：   {tech_ref}
 
 进入 Drafting 后：
-1. 使用 `$FETCH_TEMPLATE lulu-tasks <key>` 加载模板（tasklist_template_url、task_template_url）
+1. 读 `$SKILL_DIR/templates/31-work-order-tasklist-template.md` 与 `30-work-order-task-template.md`
 2. 读 tech-doc.md（全文）
 3. 第一步：生成 task-list.md（等待用户确认任务拆分）
 4. 用户确认后，逐个生成 tasks/t{{N}}/task.md

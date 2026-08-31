@@ -108,7 +108,7 @@ Hook enforces all transition pre-conditions. Denial messages are self-explanator
 
 ### General
 
-1. Do not read workflow-config files directly; load framework templates via `$FETCH_TEMPLATE` when entering Drafting (Rule D1).
+1. Do not read workflow-config files to load templates. Read files under `$SKILL_DIR/templates/` (Rule D1, Rule E2).
 2. Read `session-state.md` → `active_doc: N` to determine current work-order round.
 3. `r{N}/workflow-state.md` is the authoritative current state — write it to request a transition.
 4. Never infer state from document body or file existence; always read `workflow-state.md`.
@@ -122,12 +122,12 @@ Hook enforces all transition pre-conditions. Denial messages are self-explanator
 
 On entering Drafting, read:
 1. `workflow-state.md` → `tech_ref`, `evaluate_round`
-2. Load work-order templates via `$FETCH_TEMPLATE` (see `../_runtime.md` → Script Macros):
-   - `$FETCH_TEMPLATE --section lulu-tasks --key tasklist_template_url`
-   - `$FETCH_TEMPLATE --section lulu-tasks --key task_template_url`
+2. Read work-order templates (stop if a file is missing):
+   - `$SKILL_DIR/templates/31-work-order-tasklist-template.md`
+   - `$SKILL_DIR/templates/30-work-order-task-template.md`
 3. `tech-doc.md` (full content, from `tech_ref`)
 
-Read stdout from each invocation for format definitions. On failure, report error and stop current step.
+Use those template files as format definitions.
 
 **Rule D2 — Two-step generation (evaluate_round == 0, first entry)**
 
@@ -202,8 +202,7 @@ Read code files on demand (only what's needed to understand existing types and f
 
 On entering Evaluating:
 1. Increment `evaluate_round` in `workflow-state.md` (write `current_state: Evaluating, evaluate_round: M`)
-2. Note evaluation framework keys for eval-runner dispatch: `tda_url`, `twca_url`, `woqa_url` (section `lulu-tasks`)
-3. Initialize `evaluate-state.md` (version: 2 schema; `current_dimension: TDA`):
+2. Initialize `evaluate-state.md` (version: 2 schema; `current_dimension: TDA`):
 
 ```yaml
 ---
@@ -252,11 +251,9 @@ evaluate_round: {M}
 session_dir: {abs_path_to r{N}/}
 tech_doc_path: {abs_path_to tech-doc.md, from workflow-state.md tech_ref}
 task_list_path: {abs_path_to task-list.md}
-TEMPLATE_SECTION: lulu-tasks
-TEMPLATE_KEY_TDA:  tda_url
-TEMPLATE_KEY_TWCA: twca_url
-TEMPLATE_KEY_WOQA: woqa_url
-PROJECT_ROOT: {project root absolute path}
+framework_tda:  {actual $SKILL_DIR}/templates/34-tech-doc-admission-framework.md
+framework_twca: {actual $SKILL_DIR}/templates/33-tech-workorder-crosscheck.md
+framework_woqa: {actual $SKILL_DIR}/templates/32-work-order-evaluation-framework.md
 
 ## Current Evaluation State
 {full content of evaluate-state.md}
