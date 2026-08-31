@@ -20,8 +20,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-_SECTION = Path(__file__).resolve().parent
-_SCRIPTS = _SECTION.parent
+_TOPIC = Path(__file__).resolve().parent
+_SCRIPTS = _TOPIC.parents[1]
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 import kernel_bootstrap  # noqa: E402

@@ -8,10 +8,10 @@ from pathlib import Path
 
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 sys.path.insert(0, str(_INDUCTIVE_DIR))
-for _name in ("gate", "g2", "g3", "g4"):
+for _name in ("gate", "topic", "open-point", "recompose"):
     sys.path.insert(0, str(_INDUCTIVE_DIR / "schema" / _name))
 
-from g4_recompose_report_schema import (  # noqa: E402
+from recompose_report_schema import (  # noqa: E402
     check_report_readable,
     normalize_report,
     validate_finding_lens_sources,

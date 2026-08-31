@@ -30,31 +30,33 @@ from pathlib import Path
 from typing import Any
 
 _HERE = Path(__file__).resolve().parent
+_INDUCTIVE = _HERE.parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-_SCRIPTS = Path(__file__).resolve().parents[3] / "scripts"
+_SCRIPTS = Path(__file__).resolve().parents[4] / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-_COMPOSE_SCRIPTS = _HERE.parent
+_COMPOSE_SCRIPTS = _INDUCTIVE.parent
+_OPEN_POINT = _INDUCTIVE / "open-point"
 _SESSION = _COMPOSE_SCRIPTS / "schema" / "session"
 _KERNEL = _COMPOSE_SCRIPTS / "_kernel"
 _SCHEMA_DIRS = (
-    _HERE / "schema" / "gate",
-    _HERE / "schema" / "g2",
-    _HERE / "schema" / "g3",
-    _HERE / "schema" / "g4",
+    _INDUCTIVE / "schema" / "gate",
+    _INDUCTIVE / "schema" / "topic",
+    _INDUCTIVE / "schema" / "open-point",
+    _INDUCTIVE / "schema" / "recompose",
 )
-for _path in (_SESSION, _KERNEL, *_SCHEMA_DIRS):
+for _path in (_OPEN_POINT, _SESSION, _KERNEL, *_SCHEMA_DIRS):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
 from compose_state_lock import canonical_digest, compose_state_lock  # noqa: E402
-from g4_recompose_report_schema import (  # noqa: E402
+from recompose_report_schema import (  # noqa: E402
     check_report_readable,
     delete_report,
-    g4_report_path,
+    recompose_report_path,
     load_report,
     save_report,
     validate_finding_lens_sources,
@@ -153,12 +155,12 @@ def cmd_record_recompose_report(out_dir: Path, args: argparse.Namespace) -> None
         if source_errors:
             _fail("; ".join(source_errors))
         try:
-            saved = save_report(g4_report_path(slice_dir), report)
+            saved = save_report(recompose_report_path(slice_dir), report)
         except ValueError as exc:
             _fail(str(exc))
     _ok(
         {
-            "written": g4_report_path(slice_dir).name,
+            "written": recompose_report_path(slice_dir).name,
             "findings": saved["findings"],
             "facts_digest": saved["facts_digest"],
             "opens_digest": saved["opens_digest"],
@@ -168,7 +170,7 @@ def cmd_record_recompose_report(out_dir: Path, args: argparse.Namespace) -> None
 
 
 def cmd_check_recompose_report(out_dir: Path, _args: argparse.Namespace) -> None:
-    path = g4_report_path(_slice_dir(out_dir))
+    path = recompose_report_path(_slice_dir(out_dir))
     if not path.exists():
         _fail("g4-recompose-report.json missing; dispatch recompose-runner first")
     try:
@@ -193,7 +195,7 @@ def cmd_check_recompose_report(out_dir: Path, _args: argparse.Namespace) -> None
 
 
 def cmd_list_recompose_report(out_dir: Path, _args: argparse.Namespace) -> None:
-    path = g4_report_path(_slice_dir(out_dir))
+    path = recompose_report_path(_slice_dir(out_dir))
     if not path.exists():
         _fail("g4-recompose-report.json missing; dispatch recompose-runner first")
     try:

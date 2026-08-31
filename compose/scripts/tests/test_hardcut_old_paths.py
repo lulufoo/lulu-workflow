@@ -35,6 +35,32 @@ _DELETED_MODULES = (
     "compose/scripts/session/holder_finalize.py",
     "compose/scripts/writing/chapter_fc_gates.py",
     "compose/scripts/section/chapter_fc_gates.py",
+    "compose/scripts/deductive/derive_control.py",
+    "compose/scripts/deductive/derive_shell.py",
+    "compose/scripts/deductive/deductive_pending_schema.py",
+    "compose/scripts/inductive/open_point_control.py",
+    "compose/scripts/inductive/open_point_store.py",
+    "compose/scripts/inductive/topic_current_control.py",
+    "compose/scripts/inductive/inductive_g4_control.py",
+    "compose/scripts/inductive/recompose/inductive_g4_control.py",
+    "compose/scripts/inductive/schema/g2/topic_current_schema.py",
+    "compose/scripts/inductive/schema/g2/g2_topic_exit_schema.py",
+    "compose/scripts/inductive/schema/g2/g2_topic_landscape_schema.py",
+    "compose/scripts/inductive/schema/g3/open_point_transaction_schema.py",
+    "compose/scripts/inductive/schema/g3/open_point_detect_receipt_schema.py",
+    "compose/scripts/inductive/schema/g3/open_point_batch_schema.py",
+    "compose/scripts/inductive/schema/g3/lens_frontier_schema.py",
+    "compose/scripts/inductive/schema/g3/opens_schema.py",
+    "compose/scripts/inductive/schema/g3/open_point_state_schema.py",
+    "compose/scripts/inductive/schema/g4/g4_recompose_report_schema.py",
+    "compose/scripts/inductive/open_point/open_point_control.py",
+    "compose/scripts/inductive/open_point/open_point_store.py",
+    "compose/scripts/inductive/schema/open_point/open_point_transaction_schema.py",
+    "compose/scripts/inductive/schema/open_point/open_point_detect_receipt_schema.py",
+    "compose/scripts/inductive/schema/open_point/open_point_batch_schema.py",
+    "compose/scripts/inductive/schema/open_point/lens_frontier_schema.py",
+    "compose/scripts/inductive/schema/open_point/opens_schema.py",
+    "compose/scripts/inductive/schema/open_point/open_point_state_schema.py",
 )
 
 _DELETED_DATA = (
@@ -60,6 +86,8 @@ _DELETED_TESTS = (
     "compose/scripts/tests/test_load_compose_template.py",
     "compose/scripts/tests/test_compose_template.py",
     "compose/scripts/tests/test_chapter_fc_gates.py",
+    "compose/scripts/tests/test_inductive_g4_control.py",
+    "compose/scripts/tests/test_g4_recompose_report_schema.py",
 )
 
 _FORBIDDEN_SKILL_TOKENS = (

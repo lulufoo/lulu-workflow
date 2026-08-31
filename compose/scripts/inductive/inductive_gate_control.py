@@ -15,8 +15,8 @@ Subcommands:
     gate-reopen         Reopen a gate; downstream gates reset to pending
                         (also deletes the stale g4 report where applicable).
                         G3 reopen requires --from-report --report-digest.
-    g4-check-report     Facade: subprocess to inductive_g4_control check-recompose-report
-    g4-list-report      Facade: subprocess to inductive_g4_control list-recompose-report
+    g4-check-report     Facade: subprocess to inductive_recompose_control check-recompose-report
+    g4-list-report      Facade: subprocess to inductive_recompose_control list-recompose-report
     record-topic-landscape  Persist single-slot _topic-landscape.json (new run_id)
     record-g2-topic-exit    Persist _g2-topic-exit.json referencing a landscape run_id
 
@@ -52,24 +52,26 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 _COMPOSE_SCRIPTS = Path(__file__).resolve().parents[1]
+_OPEN_POINT = _HERE / "open-point"
+_RECOMPOSE = _HERE / "recompose"
 _SESSION = _COMPOSE_SCRIPTS / "schema" / "session"
 _KERNEL = _COMPOSE_SCRIPTS / "_kernel"
 _SCOPE = _COMPOSE_SCRIPTS / "schema" / "section" / "scope"
 _SCHEMA_DIRS = (
     _HERE / "schema" / "gate",
-    _HERE / "schema" / "g2",
-    _HERE / "schema" / "g3",
-    _HERE / "schema" / "g4",
+    _HERE / "schema" / "topic",
+    _HERE / "schema" / "open-point",
+    _HERE / "schema" / "recompose",
 )
-for _p in (_COMPOSE_SCRIPTS, _SESSION, _KERNEL, *_SCHEMA_DIRS, _SCOPE):
+for _p in (_COMPOSE_SCRIPTS, _OPEN_POINT, _SESSION, _KERNEL, *_SCHEMA_DIRS, _SCOPE):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
 from active_context_schema import resolve_conversation_id  # noqa: E402
 from compose_state_lock import canonical_digest, compose_state_lock  # noqa: E402
-from g4_recompose_report_schema import (  # noqa: E402
+from recompose_report_schema import (  # noqa: E402
     delete_report,
-    g4_report_path,
+    recompose_report_path,
     load_report,
     validate_finding_lens_sources,
 )
@@ -106,12 +108,12 @@ from inductive_gate_state_schema import (  # noqa: E402
     routing_index,
     save_gate_state,
 )
-from g2_topic_exit_schema import (  # noqa: E402
-    g2_topic_exit_path,
-    load_g2_topic_exit,
-    save_g2_topic_exit,
+from topic_exit_schema import (  # noqa: E402
+    topic_exit_path,
+    load_topic_exit,
+    save_topic_exit,
 )
-from g2_topic_landscape_schema import (  # noqa: E402
+from topic_landscape_schema import (  # noqa: E402
     LANDSCAPE_PURPOSES,
     load_topic_landscape,
     new_run_id,
@@ -138,7 +140,7 @@ def _dqi_path(out_dir: Path) -> Path:
 
 
 def _g4_ctl(out_dir: Path) -> list[str]:
-    script = _HERE / "inductive_g4_control.py"
+    script = _RECOMPOSE / "inductive_recompose_control.py"
     return [sys.executable, str(script), "--out-dir", str(out_dir)]
 
 
@@ -392,7 +394,7 @@ def _validate_g2_close(out_dir: Path, payload: dict[str, Any]) -> None:
     slice_dir = working_slice_dir(Path(out_dir))
     try:
         landscape = load_topic_landscape(topic_landscape_path(slice_dir))
-        exit_receipt = load_g2_topic_exit(g2_topic_exit_path(slice_dir))
+        exit_receipt = load_topic_exit(topic_exit_path(slice_dir))
     except ValueError as exc:
         _fail(f"G2 close blocked: invalid landscape/exit receipt: {exc}")
 
@@ -522,7 +524,7 @@ def cmd_record_g2_topic_exit(out_dir: Path, args: argparse.Namespace) -> None:
     if result == "cleared" and gap != 0:
         _fail("record-g2-topic-exit result=cleared requires landscape.gap_remaining=0")
 
-    path = g2_topic_exit_path(slice_dir)
+    path = topic_exit_path(slice_dir)
     data = {
         "version": "1",
         "landscape_run_id": run_id,
@@ -532,7 +534,7 @@ def cmd_record_g2_topic_exit(out_dir: Path, args: argparse.Namespace) -> None:
         "purpose": "pre_close",
     }
     try:
-        saved = save_g2_topic_exit(path, data)
+        saved = save_topic_exit(path, data)
     except ValueError as exc:
         _fail(str(exc))
     _ok({"ok": True, "path": str(path), "exit": saved, "landscape": landscape})
@@ -561,7 +563,7 @@ def _validate_g3_close(slice_dir: Path, args: argparse.Namespace) -> dict[str, A
 
 
 def _validate_g4_close(slice_dir: Path) -> dict[str, Any]:
-    path = g4_report_path(slice_dir)
+    path = recompose_report_path(slice_dir)
     if not path.exists():
         _fail("g4 recompose report missing; dispatch recompose-runner first")
     try:
@@ -597,7 +599,7 @@ def _reopen_g3_from_report(out_dir: Path, args: argparse.Namespace, state: dict[
         _fail("gate-reopen --gate G3 --from-report requires --report-digest")
     slice_dir = working_slice_dir(out_dir)
     with compose_state_lock(slice_dir):
-        path = g4_report_path(slice_dir)
+        path = recompose_report_path(slice_dir)
         if not path.exists():
             _fail("g4 recompose report missing; cannot reopen G3 from report")
         try:
@@ -658,7 +660,7 @@ def _reopen_g3_from_report(out_dir: Path, args: argparse.Namespace, state: dict[
             "batch": prepared["batch"],
             "receipt": prepared["receipt"],
         }
-        deleted = not g4_report_path(slice_dir).exists()
+        deleted = not recompose_report_path(slice_dir).exists()
     _ok({
         "reopened": "G3",
         "active_gate": updated["active_gate"],

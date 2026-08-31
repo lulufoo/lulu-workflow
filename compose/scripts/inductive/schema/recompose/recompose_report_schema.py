@@ -60,7 +60,7 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def g4_report_path(out_dir: Path) -> Path:
+def recompose_report_path(out_dir: Path) -> Path:
     return Path(out_dir) / REPORT_BASENAME
 
 
@@ -194,7 +194,7 @@ def save_report(path: Path, data: dict[str, Any]) -> dict[str, Any]:
 
 
 def delete_report(out_dir: Path) -> bool:
-    path = g4_report_path(out_dir)
+    path = recompose_report_path(out_dir)
     if path.exists():
         path.unlink()
         return True

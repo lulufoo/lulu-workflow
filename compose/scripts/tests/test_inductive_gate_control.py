@@ -17,16 +17,17 @@ _GATE_CTL = _INDUCTIVE_DIR / "inductive_gate_control.py"
 _DESIGN_DOMAIN = (
     _REPO / "lulu-dev-workflow" / "lulu-design" / "templates" / "domain-instance.json"
 )
-_G4_CTL = _INDUCTIVE_DIR / "inductive_g4_control.py"
+_G4_CTL = _INDUCTIVE_DIR / "recompose" / "inductive_recompose_control.py"
 _KERNEL = Path(__file__).resolve().parent.parent / "_kernel"
 
+sys.path.insert(0, str(_INDUCTIVE_DIR / "open-point"))
 sys.path.insert(0, str(_INDUCTIVE_DIR))
-for _name in ("gate", "g2", "g3", "g4"):
+for _name in ("gate", "topic", "open-point", "recompose"):
     sys.path.insert(0, str(_INDUCTIVE_DIR / "schema" / _name))
 sys.path.insert(0, str(_KERNEL))
 
 from compose_state_lock import canonical_digest  # noqa: E402
-from g4_recompose_report_schema import g4_report_path, load_report  # noqa: E402
+from recompose_report_schema import recompose_report_path, load_report  # noqa: E402
 from lens_frontier_schema import (  # noqa: E402
     default_lens_entry,
     lens_frontier_path,
@@ -288,7 +289,7 @@ def _record_ok_recompose_report(out_dir: Path, **overrides) -> tuple[int, dict]:
 
 
 def _report_digest(out_dir: Path) -> str:
-    return canonical_digest(load_report(g4_report_path(out_dir)))
+    return canonical_digest(load_report(recompose_report_path(out_dir)))
 
 
 def test_init_session_fills_gate_stage_from_revision_pointer(tmp_path: Path) -> None:
@@ -472,7 +473,7 @@ def test_gate_reopen_g3_from_report_registers_findings_and_deletes_report(
     )
     assert code == 0, recorded
     digest = recorded.get("report_digest") or _report_digest(tmp_path)
-    report_path = g4_report_path(tmp_path)
+    report_path = recompose_report_path(tmp_path)
     assert report_path.is_file()
 
     code, result = _run_gate(
@@ -503,7 +504,7 @@ def test_gate_reopen_g2_deletes_g4_report(tmp_path: Path) -> None:
     _drive_to_g4(tmp_path)
     code, recorded = _record_ok_recompose_report(tmp_path)
     assert code == 0, recorded
-    report_path = g4_report_path(tmp_path)
+    report_path = recompose_report_path(tmp_path)
     assert report_path.is_file()
     code, result = _run_gate(tmp_path, "gate-reopen", "--gate", "G2")
     assert code == 0, result

@@ -10,17 +10,19 @@ import sys
 from pathlib import Path
 
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
-_G4_CTL = _INDUCTIVE_DIR / "inductive_g4_control.py"
+_G4_CTL = _INDUCTIVE_DIR / "recompose" / "inductive_recompose_control.py"
 _GATE_CTL = _INDUCTIVE_DIR / "inductive_gate_control.py"
 _KERNEL = Path(__file__).resolve().parent.parent / "_kernel"
 
+sys.path.insert(0, str(_INDUCTIVE_DIR / "open-point"))
+sys.path.insert(0, str(_INDUCTIVE_DIR / "recompose"))
 sys.path.insert(0, str(_INDUCTIVE_DIR))
-for _name in ("gate", "g2", "g3", "g4"):
+for _name in ("gate", "topic", "open-point", "recompose"):
     sys.path.insert(0, str(_INDUCTIVE_DIR / "schema" / _name))
 sys.path.insert(0, str(_KERNEL))
 
 from compose_state_lock import canonical_digest  # noqa: E402
-from g4_recompose_report_schema import g4_report_path  # noqa: E402
+from recompose_report_schema import recompose_report_path  # noqa: E402
 from lens_frontier_schema import (  # noqa: E402
     default_lens_entry,
     lens_frontier_path,
@@ -367,7 +369,7 @@ def test_audit_context_returns_snapshots_and_digests(tmp_path: Path):
 def test_delete_recompose_report_removes_file(tmp_path: Path):
     _drive_to_g4(tmp_path)
     _record_ok_recompose_report(tmp_path)
-    report_path = g4_report_path(tmp_path)
+    report_path = recompose_report_path(tmp_path)
     assert report_path.exists()
 
     code, result = _run_g4(tmp_path, "delete-recompose-report")

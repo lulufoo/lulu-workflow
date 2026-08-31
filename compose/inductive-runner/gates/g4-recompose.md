@@ -10,7 +10,7 @@ back through G3; G4 performs no repair.
 | Macro | Command |
 |---|---|
 | `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR" --project-root "$PROJECT_ROOT"` |
-| `$INDUCTIVE_G4_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_g4_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
+| `$INDUCTIVE_RECOMPOSE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/recompose/inductive_recompose_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 
 Use each control's `--help` as the command and stdout contract.
 
@@ -25,7 +25,7 @@ Require the current facts and Opens to be:
 
 ## Boundaries
 
-- `$INDUCTIVE_G4_CTL` owns digest-bound audit context and report recording.
+- `$INDUCTIVE_RECOMPOSE_CTL` owns digest-bound audit context and report recording.
 - `../recompose-runner/SKILL.md` owns the read-only whole-set analysis.
 - The Parent Agent owns dispatch, report handoff, presentation, and routing.
 - `$INDUCTIVE_GATE_CTL` owns Gate transitions and report-driven closure.
@@ -36,11 +36,11 @@ Require the current facts and Opens to be:
 Run only when `$INDUCTIVE_GATE_CTL resolve-context` reports `active_gate=G4`.
 
 1. Obtain a fresh facts-and-Opens audit context through
-   `$INDUCTIVE_G4_CTL audit-context`.
+   `$INDUCTIVE_RECOMPOSE_CTL audit-context`.
 2. Dispatch `../recompose-runner/SKILL.md` through `$SUBAGENT_TOOL` with
    `$SUBAGENT_AWAIT_SYNC`, supplying that complete context.
 3. Record the runner return through
-   `$INDUCTIVE_G4_CTL record-recompose-report`. The parent records; the
+   `$INDUCTIVE_RECOMPOSE_CTL record-recompose-report`. The parent records; the
    runner does not.
 4. Route from the recorded report returned by the control.
 

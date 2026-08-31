@@ -61,7 +61,7 @@ _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
     "/scripts/cycle_control.py",
     "/compose/scripts/session/start.py",
     "/compose/scripts/inductive/inductive_gate_control.py",
-    "/compose/scripts/inductive/inductive_g4_control.py",
+    "/compose/scripts/inductive/recompose/inductive_recompose_control.py",
     # Stage scripts: short form so "$SKILL_DIR/scripts/..." also matches.
     "/scripts/tc_start.py",
     "/scripts/tc_task_control.py",
@@ -77,7 +77,7 @@ _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
 # Inductive grounding controls: always bind to the hook conversation id (override agent typos).
 _INDUCTIVE_CONV_OVERRIDE_SUFFIXES = (
     "/compose/scripts/inductive/inductive_gate_control.py",
-    "/compose/scripts/inductive/inductive_g4_control.py",
+    "/compose/scripts/inductive/recompose/inductive_recompose_control.py",
 )
 
 _CONV_ID_ARG = re.compile(

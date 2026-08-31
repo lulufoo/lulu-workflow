@@ -10,9 +10,10 @@ import sys
 from pathlib import Path
 
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
-_CTL = _INDUCTIVE_DIR / "open_point_control.py"
+_CTL = _INDUCTIVE_DIR / "open-point" / "open_point_control.py"
+sys.path.insert(0, str(_INDUCTIVE_DIR / "open-point"))
 sys.path.insert(0, str(_INDUCTIVE_DIR))
-for _name in ("gate", "g2", "g3", "g4"):
+for _name in ("gate", "topic", "open-point", "recompose"):
     sys.path.insert(0, str(_INDUCTIVE_DIR / "schema" / _name))
 
 from lens_frontier_schema import (  # noqa: E402

@@ -23,15 +23,16 @@ from pathlib import Path
 from typing import Any
 
 _HERE = Path(__file__).resolve().parent
-_COMPOSE_SCRIPTS = _HERE.parent
+_INDUCTIVE = _HERE.parent
+_COMPOSE_SCRIPTS = _INDUCTIVE.parent
 _SESSION = _COMPOSE_SCRIPTS / "schema" / "session"
 _KERNEL = _COMPOSE_SCRIPTS / "_kernel"
 _TEMPLATES = _COMPOSE_SCRIPTS / "templates"
 _SCHEMA_DIRS = (
-    _HERE / "schema" / "gate",
-    _HERE / "schema" / "g2",
-    _HERE / "schema" / "g3",
-    _HERE / "schema" / "g4",
+    _INDUCTIVE / "schema" / "gate",
+    _INDUCTIVE / "schema" / "topic",
+    _INDUCTIVE / "schema" / "open-point",
+    _INDUCTIVE / "schema" / "recompose",
 )
 for _path in (_HERE, *_SCHEMA_DIRS, _SESSION, _KERNEL, _TEMPLATES):
     if str(_path) not in sys.path:

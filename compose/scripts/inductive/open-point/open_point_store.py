@@ -22,22 +22,24 @@ from pathlib import Path
 from typing import Any
 
 _HERE = Path(__file__).resolve().parent
-_KERNEL = _HERE.parent / "_kernel"
-_SESSION = _HERE.parent / "schema" / "session"
-_REGISTRY = _HERE.parent / "schema" / "section" / "registry"
-_TEMPLATES = _HERE.parent / "templates"
+_INDUCTIVE = _HERE.parent
+_COMPOSE_SCRIPTS = _INDUCTIVE.parent
+_KERNEL = _COMPOSE_SCRIPTS / "_kernel"
+_SESSION = _COMPOSE_SCRIPTS / "schema" / "session"
+_REGISTRY = _COMPOSE_SCRIPTS / "schema" / "section" / "registry"
+_TEMPLATES = _COMPOSE_SCRIPTS / "templates"
 _SCHEMA_DIRS = (
-    _HERE / "schema" / "gate",
-    _HERE / "schema" / "g2",
-    _HERE / "schema" / "g3",
-    _HERE / "schema" / "g4",
+    _INDUCTIVE / "schema" / "gate",
+    _INDUCTIVE / "schema" / "topic",
+    _INDUCTIVE / "schema" / "open-point",
+    _INDUCTIVE / "schema" / "recompose",
 )
 for _path in (_HERE, *_SCHEMA_DIRS, _KERNEL, _SESSION, _REGISTRY, _TEMPLATES):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
 from compose_state_lock import canonical_digest, durable_unlink, durable_write_json  # noqa: E402
-from g4_recompose_report_schema import normalize_report, validate_report  # noqa: E402
+from recompose_report_schema import normalize_report, validate_report  # noqa: E402
 from inductive_gate_state_schema import normalize_gate_state, validate_gate_state  # noqa: E402
 from l_ledger_schema import l_ledger_path, load_l_ledger  # noqa: E402
 from open_point_batch_schema import (  # noqa: E402

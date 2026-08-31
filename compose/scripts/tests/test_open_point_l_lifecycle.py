@@ -21,13 +21,14 @@ from workflow_profile_paths import state_path
 from workflow_state_schema import init_compose_session, save_workflow_state
 
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
+sys.path.insert(0, str(_INDUCTIVE_DIR / "open-point"))
 sys.path.insert(0, str(_INDUCTIVE_DIR))
-for _name in ("gate", "g2", "g3", "g4"):
+for _name in ("gate", "topic", "open-point", "recompose"):
     sys.path.insert(0, str(_INDUCTIVE_DIR / "schema" / _name))
 
 import open_point_store  # noqa: E402
 from compose_state_lock import canonical_digest  # noqa: E402
-from g4_recompose_report_schema import g4_report_path, save_report  # noqa: E402
+from recompose_report_schema import recompose_report_path, save_report  # noqa: E402
 from inductive_gate_control import _reopen_g3_from_report, cmd_gate_close  # noqa: E402
 from inductive_gate_state_schema import (  # noqa: E402
     close_gate,
@@ -104,7 +105,7 @@ def _finding_report(out_dir: Path) -> tuple[dict, str]:
         },
         "produced_by": "subagent",
     }
-    saved = save_report(g4_report_path(out_dir), report)
+    saved = save_report(recompose_report_path(out_dir), report)
     return saved, canonical_digest(saved)
 
 
@@ -201,7 +202,7 @@ def test_from_report_crash_after_opens_restores_before(
     _, digest = _finding_report(tmp_path)
     before_opens = load_opens(opens_path(tmp_path))
     before_gate = load_gate_state(tmp_path / "inductive-gate-state.json")
-    report_path = g4_report_path(tmp_path)
+    report_path = recompose_report_path(tmp_path)
     assert report_path.is_file()
 
     original = open_point_store.durable_write_json
@@ -234,7 +235,7 @@ def test_from_report_success_deletes_report_and_reopens_g3(tmp_path: Path):
     assert gate["active_gate"] == "G3"
     assert gate["gates"]["G3"]["status"] == "reopened"
     assert gate["gates"]["G4"]["status"] == "pending"
-    assert not g4_report_path(tmp_path).exists()
+    assert not recompose_report_path(tmp_path).exists()
     opens = load_opens(opens_path(tmp_path))
     assert len(opens) == 1
     assert opens[0]["question"] == "Who owns retry?"
