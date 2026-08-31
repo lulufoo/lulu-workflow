@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -51,9 +52,74 @@ def _run_g4(out_dir: Path, *args: str) -> tuple[int, dict]:
     return res.returncode, payload
 
 
+def _bind_skill_fixture(out_dir: Path) -> str:
+    templates = Path(out_dir) / "_templates"
+    profile_path = templates / "compose-profile.json"
+    if not profile_path.is_file():
+        templates.mkdir(parents=True, exist_ok=True)
+        (templates / "section-registry.json").write_text(
+            json.dumps(
+                {
+                    "version": "1",
+                    "document_preamble": "test",
+                    "section_order": ["I"],
+                    "sections": {
+                        "I": {
+                            "heading": "Intent",
+                            "intent": "constraints",
+                            "presence": "required",
+                        }
+                    },
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (templates / "section-kw-criteria.md").write_text(
+            "## I\n\n| KW | x |\n|----|---|\n| KW0 | n |\n| KW1 | r |\n| KW3 | b |\n",
+            encoding="utf-8",
+        )
+        profile_path.write_text(
+            json.dumps(
+                {
+                    "profile_id": "lulu-design",
+                    "framework_section": "lulu-design",
+                    "framework_templates": {
+                        "section-registry": (
+                            templates / "section-registry.json"
+                        ).resolve().as_uri(),
+                        "section-kw-criteria": (
+                            templates / "section-kw-criteria.md"
+                        ).resolve().as_uri(),
+                    },
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    digest = hashlib.sha256(profile_path.read_bytes()).hexdigest()
+    (Path(out_dir) / "session-state.md").write_text(
+        "---\n"
+        "version: 2\n"
+        "active_doc: 2\n"
+        f"profile_path: {profile_path.resolve()}\n"
+        f"profile_digest: {digest}\n"
+        "start_id: test\n"
+        "holder_finalized: true\n"
+        "updated_at: 2024-01-01T00:00:00+00:00\n"
+        "---\n",
+        encoding="utf-8",
+    )
+    return str(Path(out_dir).resolve())
+
+
 def _run_gate(out_dir: Path, *args: str) -> tuple[int, dict]:
+    argv = [sys.executable, str(_GATE_CTL), "--out-dir", str(out_dir)]
+    if "G3" in args and "--project-root" not in args:
+        argv.extend(["--project-root", _bind_skill_fixture(out_dir)])
+    argv.extend(args)
     res = subprocess.run(
-        [sys.executable, str(_GATE_CTL), "--out-dir", str(out_dir), *args],
+        argv,
         capture_output=True,
         text=True,
     )
@@ -98,29 +164,7 @@ def _current_digests(slice_dir: Path) -> tuple[str, str]:
 
 
 def _ready_cleared(slice_dir: Path) -> None:
-    (slice_dir / "section-registry.json").write_text(
-        json.dumps(
-            {
-                "version": "1",
-                "document_preamble": "test",
-                "section_order": ["I"],
-                "sections": {
-                    "I": {
-                        "heading": "Intent",
-                        "intent": "constraints",
-                        "presence": "required",
-                    }
-                },
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    (slice_dir / "section-kw-criteria.md").write_text(
-        "## I\n\n| KW | x |\n|----|---|\n| KW0 | n |\n| KW1 | r |\n| KW3 | b |\n",
-        encoding="utf-8",
-    )
-    ensure_frontier(slice_dir)
+    ensure_frontier(slice_dir, _bind_skill_fixture(slice_dir))
     (slice_dir / "_facts.json").write_text(
         json.dumps(
             [{"id": "F-seed", "text": "g4 lens source", "lens_tags": ["I"]}]
@@ -131,7 +175,7 @@ def _ready_cleared(slice_dir: Path) -> None:
 
 
 def _detect_meta(slice_dir: Path, raw_candidates):
-    ensure_frontier(slice_dir)
+    ensure_frontier(slice_dir, _bind_skill_fixture(slice_dir))
     path = lens_frontier_path(slice_dir)
     frontier_lenses = load_lens_frontier(path)["lenses"] if path.is_file() else {}
     raw = list(raw_candidates)
@@ -200,7 +244,12 @@ def _drive_to_g4(tmp_path: Path) -> None:
     )
     assert code == 0, result
     _ready_cleared(tmp_path)
-    add_opens(tmp_path, opens=[], detect=_detect_meta(tmp_path, []))
+    add_opens(
+        tmp_path,
+        opens=[],
+        detect=_detect_meta(tmp_path, []),
+        project_root=_bind_skill_fixture(tmp_path),
+    )
     code, result = _run_gate(
         tmp_path, "gate-close", "--gate", "G3", "--mode", "cleared", "--confirm"
     )

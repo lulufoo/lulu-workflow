@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -21,31 +22,38 @@ from lens_frontier_schema import (  # noqa: E402
 )
 from open_point_store import add_opens, ensure_frontier  # noqa: E402
 
-_REGISTRY = {
-    "version": "1",
-    "document_preamble": "test",
-    "section_order": ["I"],
-    "sections": {
-        "I": {"heading": "Intent", "intent": "constraints", "presence": "required"}
-    },
-}
-_KW = "## I\n\n| KW | x |\n|----|---|\n| KW0 | n |\n| KW1 | r |\n| KW3 | b |\n"
+_PLAN_PROFILE = (
+    Path(__file__).resolve().parents[3] / "lulu-plan" / "compose-profile.json"
+)
+_PLAN_LENSES = ["CTX", "GO", "SC", "AR", "I", "SK", "T", "VF"]
 
 
-def _write_registry(out_dir: Path) -> None:
-    (out_dir / "section-registry.json").write_text(
-        json.dumps(_REGISTRY) + "\n", encoding="utf-8"
+def _bind_session(session_base: Path, profile_path: Path) -> None:
+    digest = hashlib.sha256(profile_path.read_bytes()).hexdigest()
+    session_base.mkdir(parents=True, exist_ok=True)
+    (session_base / "session-state.md").write_text(
+        "---\n"
+        "version: 2\n"
+        "active_doc: 2\n"
+        f"profile_path: {profile_path.resolve()}\n"
+        f"profile_digest: {digest}\n"
+        "start_id: test\n"
+        "holder_finalized: true\n"
+        "updated_at: 2024-01-01T00:00:00+00:00\n"
+        "---\n",
+        encoding="utf-8",
     )
 
 
-def _write_kw(out_dir: Path) -> None:
-    (out_dir / "section-kw-criteria.md").write_text(_KW, encoding="utf-8")
+def _slice_env(tmp_path: Path) -> tuple[Path, str]:
+    _bind_session(tmp_path, _PLAN_PROFILE)
+    slice_dir = tmp_path / "revision1" / "L1"
+    slice_dir.mkdir(parents=True)
+    return slice_dir, str(tmp_path)
 
 
-def _ready_cleared(out_dir: Path) -> None:
-    _write_registry(out_dir)
-    _write_kw(out_dir)
-    ensure_frontier(out_dir)
+def _ready_cleared(slice_dir: Path, project_root: str) -> None:
+    ensure_frontier(slice_dir, project_root)
 
 
 def _run(out_dir: Path, *args: str, project_root: str | None = None) -> tuple[int, dict]:
@@ -96,9 +104,9 @@ def _lens_measurements(out_dir: Path, checked, raw_candidates):
     return out
 
 
-def _detect_json(out_dir: Path, raw_candidates):
-    ensure_frontier(out_dir)
-    checked = ["I"]
+def _detect_json(out_dir: Path, raw_candidates, project_root: str):
+    ensure_frontier(out_dir, project_root)
+    checked = list(_PLAN_LENSES)
     return json.dumps(
         {
             "checked_lenses": checked,
@@ -109,16 +117,24 @@ def _detect_json(out_dir: Path, raw_candidates):
 
 
 def test_detect_context_refused_when_processing(tmp_path: Path):
-    add_opens(tmp_path, opens=[_human_open()])
-    code, payload = _run(tmp_path, "detect-context")
+    slice_dir, root = _slice_env(tmp_path)
+    add_opens(slice_dir, opens=[_human_open()], project_root=root)
+    code, payload = _run(slice_dir, "detect-context", project_root=root)
     assert code == 1
     assert payload["ok"] is False
     assert "idle" in payload["error"] or "processing" in payload["error"]
 
 
 def test_add_opens_json_round_trip(tmp_path: Path):
+    slice_dir, root = _slice_env(tmp_path)
     opens = [_human_open(), _human_open(question="second", blocking=False)]
-    code, payload = _run(tmp_path, "add-opens", "--opens-json", json.dumps(opens))
+    code, payload = _run(
+        slice_dir,
+        "add-opens",
+        "--opens-json",
+        json.dumps(opens),
+        project_root=root,
+    )
     assert code == 0, payload
     assert payload["ok"] is True
     registered = payload.get("opens") or payload.get("added")
@@ -127,19 +143,20 @@ def test_add_opens_json_round_trip(tmp_path: Path):
         "second",
     ]
     assert [item["id"] for item in registered] == ["O-1", "O-2"]
-    code, ctx = _run(tmp_path, "resolve-context")
+    code, ctx = _run(slice_dir, "resolve-context", project_root=root)
     assert code == 0, ctx
     assert ctx["state"]["phase"] == "processing"
     assert ctx["state"]["active_open_id"] == "O-1"
 
 
 def test_process_context_omits_digests_and_scope_without_project_root(tmp_path: Path):
-    add_opens(tmp_path, opens=[_human_open()])
-    code, payload = _run(tmp_path, "process-context")
+    slice_dir, root = _slice_env(tmp_path)
+    add_opens(slice_dir, opens=[_human_open()], project_root=root)
+    code, payload = _run(slice_dir, "process-context")
     assert code == 0, payload
     assert payload["ok"] is True
     assert payload["open"]["id"] == "O-1"
-    assert payload["facts_path"] == str((tmp_path / "_facts.json").resolve())
+    assert payload["facts_path"] == str((slice_dir / "_facts.json").resolve())
     assert "facts" not in payload
     assert "facts_digest" not in payload
     assert "open_digest" not in payload
@@ -148,23 +165,24 @@ def test_process_context_omits_digests_and_scope_without_project_root(tmp_path: 
 
 
 def test_process_context_includes_scope_when_project_root(tmp_path: Path):
-    add_opens(tmp_path, opens=[_human_open()])
-    root = tmp_path / "proj"
-    root.mkdir()
-    code, payload = _run(tmp_path, "process-context", project_root=str(root))
+    slice_dir, root = _slice_env(tmp_path)
+    add_opens(slice_dir, opens=[_human_open()], project_root=root)
+    code, payload = _run(slice_dir, "process-context", project_root=root)
     assert code == 0, payload
-    assert payload["project_evidence_scope"]["project_root"] == str(root.resolve())
+    assert payload["project_evidence_scope"]["project_root"] == str(Path(root).resolve())
 
 
 def test_defer_open_without_digest_flags(tmp_path: Path):
-    add_opens(tmp_path, opens=[_human_open()])
+    slice_dir, root = _slice_env(tmp_path)
+    add_opens(slice_dir, opens=[_human_open()], project_root=root)
     code, payload = _run(
-        tmp_path,
+        slice_dir,
         "defer-open",
         "--open-id",
         "O-1",
         "--note",
         "later",
+        project_root=root,
     )
     assert code == 0, payload
     assert payload["ok"] is True
@@ -184,111 +202,103 @@ def test_settle_resolved_is_not_a_subcommand(tmp_path: Path):
 
 
 def test_check_close_is_predicate_only(tmp_path: Path):
-    _ready_cleared(tmp_path)
-    add_opens(tmp_path, opens=[], detect=json.loads(_detect_json(tmp_path, [])))
-    code, payload = _run(tmp_path, "check-close", "--mode", "cleared")
+    slice_dir, root = _slice_env(tmp_path)
+    _ready_cleared(slice_dir, root)
+    add_opens(
+        slice_dir,
+        opens=[],
+        detect=json.loads(_detect_json(slice_dir, [], root)),
+        project_root=root,
+    )
+    code, payload = _run(slice_dir, "check-close", "--mode", "cleared", project_root=root)
     assert code == 0, payload
     assert payload["ok"] is True
-    add_opens(tmp_path, opens=[
-        {
-            "question": "q",
-            "basis": "b",
-            "blocking": False,
-            "source": {"actor": "human", "means": "direct"},
-            "lens": "I",
-        }
-    ])
-    code, payload = _run(tmp_path, "check-close", "--mode", "hard-skip")
+    add_opens(
+        slice_dir,
+        opens=[
+            {
+                "question": "q",
+                "basis": "b",
+                "blocking": False,
+                "source": {"actor": "human", "means": "direct"},
+                "lens": "I",
+            }
+        ],
+        project_root=root,
+    )
+    code, payload = _run(
+        slice_dir, "check-close", "--mode", "hard-skip", project_root=root
+    )
     assert code == 0, payload
     bundle_opens = json.loads(
-        (tmp_path / "inductive-opens.json").read_text(encoding="utf-8")
+        (slice_dir / "inductive-opens.json").read_text(encoding="utf-8")
     )
     assert any(item.get("status") == "open" for item in bundle_opens)
     state = json.loads(
-        (tmp_path / "open-point-state.json").read_text(encoding="utf-8")
+        (slice_dir / "open-point-state.json").read_text(encoding="utf-8")
     )
     assert state["phase"] == "processing"
 
 
 def test_check_close_cleared_ignores_facts_mutation_after_zero_result(tmp_path: Path):
-    _ready_cleared(tmp_path)
+    slice_dir, root = _slice_env(tmp_path)
+    _ready_cleared(slice_dir, root)
     code, payload = _run(
-        tmp_path,
+        slice_dir,
         "add-opens",
         "--opens-json",
         "[]",
         "--detect-json",
-        _detect_json(tmp_path, []),
+        _detect_json(slice_dir, [], root),
+        project_root=root,
     )
     assert code == 0, payload
-    (tmp_path / "_facts.json").write_text(
+    (slice_dir / "_facts.json").write_text(
         json.dumps([{"id": "F-1", "text": "moved"}], indent=2) + "\n",
         encoding="utf-8",
     )
     code, payload = _run(
-        tmp_path, "check-close", "--mode", "cleared", "--confirm"
+        slice_dir, "check-close", "--mode", "cleared", "--confirm", project_root=root
     )
     assert code == 0, payload
     assert payload["ok"] is True
 
 
-def test_detect_context_requires_kw_when_registry_present(tmp_path: Path):
-    _write_registry(tmp_path)
-    code, payload = _run(tmp_path, "ensure-frontier")
-    assert code == 0, payload
-    code, payload = _run(tmp_path, "detect-context")
+def test_detect_context_fails_without_project_root(tmp_path: Path):
+    slice_dir, _root = _slice_env(tmp_path)
+    code, payload = _run(slice_dir, "detect-context")
     assert code == 1
     assert payload["ok"] is False
-    assert "KW" in payload["error"]
+    assert "SKILL" in payload["error"]
 
 
 def test_detect_context_fails_without_frontier_and_does_not_write(tmp_path: Path):
-    _write_registry(tmp_path)
-    _write_kw(tmp_path)
-    code, payload = _run(tmp_path, "detect-context")
+    slice_dir, root = _slice_env(tmp_path)
+    code, payload = _run(slice_dir, "detect-context", project_root=root)
     assert code == 1
     assert payload["ok"] is False
     assert "frontier" in payload["error"]
-    assert not (tmp_path / "lens-frontier.json").is_file()
+    assert not (slice_dir / "lens-frontier.json").is_file()
 
 
-def test_detect_context_fails_without_registry(tmp_path: Path):
-    _write_kw(tmp_path)
-    code, payload = _run(tmp_path, "ensure-frontier")
-    assert code == 0, payload
-    code, payload = _run(tmp_path, "detect-context")
-    assert code == 1
-    assert "section-registry" in payload["error"]
-
-
-def test_detect_context_fails_when_project_root_cannot_resolve(tmp_path: Path):
-    _write_registry(tmp_path)
-    _write_kw(tmp_path)
-    code, payload = _run(tmp_path, "ensure-frontier")
-    assert code == 0, payload
+def test_detect_context_fails_when_skill_cannot_resolve(tmp_path: Path):
+    (tmp_path / "section-registry.json").write_text("{}", encoding="utf-8")
     code, payload = _run(tmp_path, "detect-context", project_root=str(tmp_path))
     assert code == 1
     assert payload["ok"] is False
-    assert "session" in payload["error"] or "resolve" in payload["error"]
+    assert "SKILL" in payload["error"]
 
 
 def test_detect_context_emits_slim_snapshots(tmp_path: Path):
-    _write_registry(tmp_path)
-    _write_kw(tmp_path)
-    code, payload = _run(tmp_path, "ensure-frontier")
+    slice_dir, root = _slice_env(tmp_path)
+    code, payload = _run(slice_dir, "ensure-frontier", project_root=root)
     assert code == 0, payload
-    before = (tmp_path / "lens-frontier.json").read_text(encoding="utf-8")
-    code, payload = _run(tmp_path, "detect-context")
+    before = (slice_dir / "lens-frontier.json").read_text(encoding="utf-8")
+    code, payload = _run(slice_dir, "detect-context", project_root=root)
     assert code == 0, payload
     assert payload["facts_snapshot"] == []
-    assert payload["lens_registry"] == [
-        {
-            "lens": "I",
-            "heading": "Intent",
-            "intent": "constraints",
-            "intent_boundary": "",
-        }
-    ]
+    assert [item["lens"] for item in payload["lens_registry"]] == _PLAN_LENSES
+    assert payload["lens_registry"][0]["heading"] == "Context"
     assert payload["opens_snapshot"] == []
     assert "facts" not in payload
     assert "lenses" not in payload
@@ -302,13 +312,14 @@ def test_detect_context_emits_slim_snapshots(tmp_path: Path):
     assert "inert_means" not in payload
     assert "I" in payload["kw_criteria"]
     assert payload["intent_baseline_refs"] == []
-    assert "project_evidence_scope" not in payload
-    assert (tmp_path / "lens-frontier.json").read_text(encoding="utf-8") == before
+    assert payload["project_evidence_scope"]["project_root"] == str(Path(root).resolve())
+    assert (slice_dir / "lens-frontier.json").read_text(encoding="utf-8") == before
+    assert not (slice_dir / "section-registry.json").exists()
+    assert not (slice_dir / "section-kw-criteria.md").exists()
 
 
 def test_add_opens_rejects_inert_intent_means(tmp_path: Path):
-    _write_registry(tmp_path)
-    _write_kw(tmp_path)
+    slice_dir, root = _slice_env(tmp_path)
     raw = [
         {
             "question": "q",
@@ -318,33 +329,49 @@ def test_add_opens_rejects_inert_intent_means(tmp_path: Path):
             "source": {"actor": "ai", "means": "intent"},
         }
     ]
-    detect = json.loads(_detect_json(tmp_path, raw))
+    detect = json.loads(_detect_json(slice_dir, raw, root))
     code, payload = _run(
-        tmp_path,
+        slice_dir,
         "add-opens",
         "--opens-json",
         json.dumps(detect["raw_candidates"]),
         "--detect-json",
         json.dumps(detect),
+        project_root=root,
     )
     assert code == 1
     assert "inert" in payload["error"]
 
 
 def test_set_frontier_does_not_block_cleared(tmp_path: Path):
-    _write_registry(tmp_path)
-    _write_kw(tmp_path)
+    slice_dir, root = _slice_env(tmp_path)
     code, payload = _run(
-        tmp_path,
+        slice_dir,
         "add-opens",
         "--opens-json",
         "[]",
         "--detect-json",
-        _detect_json(tmp_path, []),
+        _detect_json(slice_dir, [], root),
+        project_root=root,
     )
     assert code == 0, payload
-    code, payload = _run(tmp_path, "set-frontier", "--lens", "I", "--kw", "3")
+    code, payload = _run(
+        slice_dir, "set-frontier", "--lens", "I", "--kw", "3", project_root=root
+    )
     assert code == 0, payload
-    code, payload = _run(tmp_path, "check-close", "--mode", "cleared")
+    code, payload = _run(slice_dir, "check-close", "--mode", "cleared", project_root=root)
     assert code == 0, payload
     assert payload["ok"] is True
+
+
+def test_detect_context_fetches_registry_from_skill_without_slice_file(
+    tmp_path: Path,
+):
+    slice_dir, root = _slice_env(tmp_path)
+    code, payload = _run(slice_dir, "ensure-frontier", project_root=root)
+    assert code == 0, payload
+    code, payload = _run(slice_dir, "detect-context", project_root=root)
+    assert code == 0, payload
+    assert [item["lens"] for item in payload["lens_registry"]] == _PLAN_LENSES
+    assert not (slice_dir / "section-registry.json").exists()
+    assert not (slice_dir / "section-kw-criteria.md").exists()

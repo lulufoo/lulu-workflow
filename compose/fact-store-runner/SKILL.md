@@ -18,7 +18,7 @@ Use when a compose caller **declares** this skill for writing `_facts.json`
 
 | Macro | Command |
 |-------|---------|
-| `$FACT_STORE_CTL` | `python3 "$SKILL_ROOT/compose/fact-store-runner/scripts/fact_production_control.py"` |
+| `$FACT_STORE_CTL` | `python3 "$SKILL_ROOT/compose/fact-store-runner/scripts/fact_production_control.py" --project-root "$PROJECT_ROOT"` |
 
 Subcommands: `--help` · `propose` · `ack` · `consume` · `revoke` · `reconcile` · `recover`.
 

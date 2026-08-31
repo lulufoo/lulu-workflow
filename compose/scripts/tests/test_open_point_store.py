@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -11,8 +13,11 @@ import pytest
 
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 _SCHEMA_DIR = _INDUCTIVE_DIR / "schema"
+_SCRIPTS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_INDUCTIVE_DIR))
 sys.path.insert(0, str(_SCHEMA_DIR))
+sys.path.insert(0, str(_SCRIPTS / "io"))
+sys.path.insert(0, str(_SCRIPTS / "core"))
 
 from compose_state_lock import canonical_digest, durable_write_json  # noqa: E402
 from lens_frontier_schema import (  # noqa: E402
@@ -28,6 +33,7 @@ from open_point_store import (  # noqa: E402
     detect_lens_registry,
     detect_opens_snapshot,
     ensure_frontier,
+    lens_snapshot,
     load_bundle,
     reconcile,
     reject_open,
@@ -37,6 +43,44 @@ from open_point_store import (  # noqa: E402
 )
 from open_point_transaction_schema import open_point_txn_path  # noqa: E402
 from opens_schema import opens_path  # noqa: E402
+
+_FIXTURE_REGISTRY = {
+    "version": "1",
+    "document_preamble": "test",
+    "section_order": ["I"],
+    "sections": {
+        "I": {"heading": "Intent", "intent": "constraints", "presence": "required"}
+    },
+}
+_FIXTURE_KW = (
+    "## I\n\n| KW | Verifiable intent attributes |\n|----|------------------------------|\n"
+    "| KW0 | unnamed |\n| KW1 | readable |\n| KW2 | traceable |\n| KW3 | boundary-clear |\n"
+)
+_PLAN_PROFILE = (
+    Path(__file__).resolve().parents[3] / "lulu-plan" / "compose-profile.json"
+)
+
+
+_LIVE_SKILL_TESTS = {
+    "test_lens_snapshot_reads_skill_not_slice",
+    "test_lens_snapshot_raises_when_skill_missing",
+    "test_lens_snapshot_fetches_installed_lulu_plan",
+}
+
+
+@pytest.fixture(autouse=True)
+def _patch_skill_templates(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch):
+    if request.node.name in _LIVE_SKILL_TESTS:
+        return
+
+    def _text(role: str, _slice_dir: Path, _project_root: object = None) -> str:
+        if role == "section-registry":
+            return json.dumps(_FIXTURE_REGISTRY)
+        if role == "section-kw-criteria":
+            return _FIXTURE_KW
+        raise ValueError(f"{role} missing from SKILL")
+
+    monkeypatch.setattr("open_point_store._skill_template_text", _text)
 
 
 def _candidate(**overrides):
@@ -428,29 +472,7 @@ def test_crash_neither_sets_repair_required(tmp_path: Path):
 
 
 def _write_registry_and_kw(slice_dir: Path) -> None:
-    (slice_dir / "section-registry.json").write_text(
-        json.dumps(
-            {
-                "version": "1",
-                "document_preamble": "test",
-                "section_order": ["I"],
-                "sections": {
-                    "I": {
-                        "heading": "Intent",
-                        "intent": "constraints",
-                        "presence": "required",
-                    }
-                },
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    (slice_dir / "section-kw-criteria.md").write_text(
-        "## I\n\n| KW | Verifiable intent attributes |\n|----|------------------------------|\n"
-        "| KW0 | unnamed |\n| KW1 | readable |\n| KW2 | traceable |\n| KW3 | boundary-clear |\n",
-        encoding="utf-8",
-    )
+    del slice_dir
 
 
 def test_detect_rejects_legacy_detect_means(tmp_path: Path):
@@ -593,9 +615,90 @@ def test_add_opens_detect_requires_frontier_file(tmp_path: Path):
         add_opens(tmp_path, opens=[], detect=meta)
 
 
-def test_cleared_fails_without_registry(tmp_path: Path):
+def test_cleared_fails_without_skill_templates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     add_opens(tmp_path, opens=[], detect=_detect_meta(tmp_path, []))
+
+    def _boom(role: str, *_args: object, **_kwargs: object) -> str:
+        raise ValueError(
+            "section-registry missing from SKILL"
+            if role == "section-registry"
+            else "KW criteria missing from SKILL"
+        )
+
+    monkeypatch.setattr("open_point_store._skill_template_text", _boom)
     cleared = check_close(tmp_path, mode="cleared")
     assert cleared["ok"] is False
     assert any("section-registry" in item for item in cleared["reasons"])
     assert any("KW criteria missing" in item for item in cleared["reasons"])
+
+
+def test_lens_snapshot_reads_skill_not_slice(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    import fetch_compose_framework as fcf
+    import workflow_paths as wp
+
+    fetched = {
+        "section_order": ["I"],
+        "sections": {"I": {"heading": "Intent", "intent": "constraints"}},
+    }
+    (tmp_path / "section-registry.json").write_text(
+        json.dumps({"section_order": ["NOPE"]}), encoding="utf-8"
+    )
+
+    def _fake_fetch(name: str, _root: Path, **_kwargs: object) -> str:
+        assert name == "section-registry"
+        return json.dumps(fetched)
+
+    monkeypatch.setattr(fcf, "fetch_compose_framework", _fake_fetch)
+    monkeypatch.setattr(
+        wp,
+        "resolve_revision_runtime_profile",
+        lambda *_args, **_kwargs: type(
+            "R", (), {"profile_id": "lulu-plan", "profile_path": tmp_path / "p.json"}
+        )(),
+    )
+    snapshot = lens_snapshot(tmp_path, tmp_path)
+    assert snapshot == fetched
+
+
+def test_lens_snapshot_raises_when_skill_missing(tmp_path: Path):
+    (tmp_path / "section-registry.json").write_text(
+        json.dumps(_FIXTURE_REGISTRY), encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="section-registry missing from SKILL"):
+        lens_snapshot(tmp_path)
+    with pytest.raises(ValueError, match="section-registry missing from SKILL"):
+        lens_snapshot(tmp_path, tmp_path)
+
+
+def test_lens_snapshot_fetches_installed_lulu_plan(tmp_path: Path):
+    digest = hashlib.sha256(_PLAN_PROFILE.read_bytes()).hexdigest()
+    (tmp_path / "session-state.md").write_text(
+        "---\n"
+        "version: 2\n"
+        "active_doc: 2\n"
+        f"profile_path: {_PLAN_PROFILE.resolve()}\n"
+        f"profile_digest: {digest}\n"
+        "start_id: test\n"
+        "holder_finalized: true\n"
+        "updated_at: 2024-01-01T00:00:00+00:00\n"
+        "---\n",
+        encoding="utf-8",
+    )
+    slice_dir = tmp_path / "revision1" / "L1"
+    slice_dir.mkdir(parents=True)
+    snapshot = lens_snapshot(slice_dir, tmp_path)
+    assert snapshot.get("section_order") == [
+        "CTX",
+        "GO",
+        "SC",
+        "AR",
+        "I",
+        "SK",
+        "T",
+        "VF",
+    ]
+    assert not (slice_dir / "section-registry.json").exists()

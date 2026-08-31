@@ -634,7 +634,11 @@ def _reopen_g3_from_report(out_dir: Path, args: argparse.Namespace, state: dict[
                 }
             )
         try:
-            prepared = prepare_add_opens(slice_dir, opens=incoming)
+            prepared = prepare_add_opens(
+                slice_dir,
+                opens=incoming,
+                project_root=getattr(args, "project_root", "") or None,
+            )
             updated = reopen_gate(state, "G3")
             files = dict(prepared["files"])
             files["inductive-gate-state.json"] = updated

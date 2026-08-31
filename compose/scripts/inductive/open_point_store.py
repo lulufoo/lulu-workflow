@@ -9,6 +9,7 @@ This module never takes the lock. Extra txn targets may include
 Design rationale:
 docs/domain/archive/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
 docs/domain/archive/compose/compose-g3-detect-context-slim-design.md
+docs/domain/archive/compose/archive-49.0/compose-g3-section-registry-skill-fetch-design.md
 """
 
 from __future__ import annotations
@@ -90,7 +91,10 @@ from opens_schema import (  # noqa: E402
 )
 
 FACTS_BASENAME = "_facts.json"
-LENS_BASENAME = "section-registry.json"
+_SKILL_TEMPLATE_ERRORS = {
+    "section-registry": "section-registry missing from SKILL",
+    "section-kw-criteria": "KW criteria missing from SKILL",
+}
 
 _WRITERS = {
     "inductive-opens.json": save_opens,
@@ -150,8 +154,88 @@ def facts_snapshot(slice_dir: Path) -> Any:
     return _json_or_list(Path(slice_dir) / FACTS_BASENAME)
 
 
-def lens_snapshot(slice_dir: Path) -> Any:
-    return _json_or_list(Path(slice_dir) / LENS_BASENAME)
+def _skill_template_error(role: str) -> ValueError:
+    return ValueError(_SKILL_TEMPLATE_ERRORS.get(role, f"{role} missing from SKILL"))
+
+
+def _skill_profile_binding(
+    slice_dir: Path, project_root: Path
+) -> tuple[str, Path]:
+    """Resolve session profile so framework templates load from that mapping."""
+    from workflow_paths import (  # noqa: WPS433
+        load_profile_json,
+        read_session_profile_path,
+        resolve_revision_runtime_profile,
+    )
+
+    root = Path(project_root).resolve()
+    try:
+        runtime = resolve_revision_runtime_profile(Path(slice_dir), root)
+        return runtime.profile_id, Path(runtime.profile_path)
+    except (OSError, ValueError, FileNotFoundError):
+        pass
+    candidate = Path(slice_dir).resolve()
+    for _ in range(8):
+        if (candidate / "session-state.md").is_file():
+            profile_path = read_session_profile_path(candidate)
+            data = load_profile_json(profile_path)
+            profile_id = str(data.get("profile_id") or "").strip()
+            if profile_id:
+                return profile_id, Path(profile_path)
+            break
+        parent = candidate.parent
+        if parent == candidate:
+            break
+        candidate = parent
+    raise FileNotFoundError("session-state.md not found for SKILL template fetch")
+
+
+def _skill_template_text(
+    role: str, slice_dir: Path, project_root: Path | str | None
+) -> str:
+    """Read a compose framework template from the SKILL install. Never the slice."""
+    if not project_root:
+        raise _skill_template_error(role)
+    try:
+        from fetch_compose_framework import (  # noqa: WPS433
+            FetchComposeFrameworkError,
+            fetch_compose_framework,
+        )
+    except ImportError as exc:
+        raise _skill_template_error(role) from exc
+    try:
+        root = Path(project_root).resolve()
+        profile_id, profile_path = _skill_profile_binding(Path(slice_dir), root)
+        text = fetch_compose_framework(
+            role,
+            root,
+            profile_id=profile_id,
+            profile_path=profile_path,
+        )
+    except (
+        OSError,
+        ValueError,
+        FileNotFoundError,
+        FetchComposeFrameworkError,
+    ) as exc:
+        raise _skill_template_error(role) from exc
+    if not str(text).strip():
+        raise _skill_template_error(role)
+    return text
+
+
+def lens_snapshot(
+    slice_dir: Path, project_root: Path | str | None = None
+) -> dict[str, Any]:
+    try:
+        data = json.loads(
+            _skill_template_text("section-registry", slice_dir, project_root)
+        )
+    except json.JSONDecodeError as exc:
+        raise _skill_template_error("section-registry") from exc
+    if not isinstance(data, dict) or not registry_lens_keys(data):
+        raise _skill_template_error("section-registry")
+    return data
 
 
 def facts_digest(slice_dir: Path) -> str:
@@ -247,36 +331,8 @@ def frontier_digest(slice_dir: Path) -> str:
 
 def load_published_kw_raw(
     slice_dir: Path, project_root: Path | str | None = None
-) -> str | None:
-    roots: list[Path] = []
-    if project_root:
-        roots.append(Path(project_root))
-    roots.append(Path(slice_dir))
-    roots.append(Path(slice_dir).parent)
-    for root in roots:
-        path = root / "section-kw-criteria.md"
-        if path.is_file():
-            return path.read_text(encoding="utf-8")
-    if not project_root:
-        return None
-    root = Path(project_root).resolve()
-    try:
-        from fetch_compose_framework import (  # noqa: WPS433
-            FetchComposeFrameworkError,
-            fetch_compose_framework,
-        )
-        from workflow_paths import resolve_revision_runtime_profile  # noqa: WPS433
-    except ImportError:
-        return None
-    try:
-        runtime = resolve_revision_runtime_profile(Path(slice_dir), root)
-        return fetch_compose_framework(
-            "section-kw-criteria",
-            root,
-            profile_id=runtime.profile_id,
-        )
-    except (OSError, ValueError, FileNotFoundError, FetchComposeFrameworkError):
-        return None
+) -> str:
+    return _skill_template_text("section-kw-criteria", slice_dir, project_root)
 
 
 def load_detect_materials(
@@ -296,8 +352,8 @@ def load_detect_materials(
         )
         pipeline = runtime.profile_data.get("pipeline") or {}
         return [item.to_dict() for item in refs], bool(pipeline.get("code_grounding"))
-    except (OSError, ValueError, FileNotFoundError, ImportError, KeyError) as exc:
-        raise ValueError(f"detect session resolve failed: {exc}") from exc
+    except (OSError, ValueError, FileNotFoundError, ImportError, KeyError):
+        return [], False
 
 
 def compute_inert_means(
@@ -315,19 +371,16 @@ def require_detect_ruler(
     slice_dir: Path, project_root: Path | str | None = None
 ) -> tuple[list[str], str]:
     """Return registry keys and KW raw text, or raise if the ruler is missing."""
-    keys = registry_lens_keys(lens_snapshot(slice_dir))
-    if not keys:
-        raise ValueError("section-registry missing")
+    keys = registry_lens_keys(lens_snapshot(slice_dir, project_root))
     if not lens_frontier_path(slice_dir).is_file():
         raise ValueError("lens-frontier missing")
-    kw_raw = load_published_kw_raw(slice_dir, project_root)
-    if not kw_raw:
-        raise ValueError("KW criteria missing")
-    return keys, kw_raw
+    return keys, load_published_kw_raw(slice_dir, project_root)
 
 
-def ensure_frontier(slice_dir: Path) -> dict[str, Any]:
-    keys = registry_lens_keys(lens_snapshot(slice_dir))
+def ensure_frontier(
+    slice_dir: Path, project_root: Path | str | None = None
+) -> dict[str, Any]:
+    keys = registry_lens_keys(lens_snapshot(slice_dir, project_root))
     path = lens_frontier_path(slice_dir)
     if path.is_file():
         current = load_lens_frontier(path)
@@ -544,9 +597,7 @@ def ensure_idle_bundle(slice_dir: Path) -> None:
     if not open_point_receipts_path(slice_dir).is_file():
         files["open-point-detect-receipts.json"] = empty_open_point_receipts()
     if not lens_frontier_path(slice_dir).is_file():
-        files[FRONTIER_BASENAME] = init_frontier_from_keys(
-            registry_lens_keys(lens_snapshot(slice_dir))
-        )
+        files[FRONTIER_BASENAME] = init_frontier_from_keys([])
     if files:
         _commit(slice_dir, "init-idle", files)
 
@@ -666,7 +717,7 @@ def prepare_add_opens(
 ) -> dict[str, Any]:
     """Compute add-opens after-state without writing."""
     bundle = load_bundle(slice_dir)
-    allowed = registry_lens_keys(lens_snapshot(slice_dir))
+    allowed = registry_lens_keys(lens_snapshot(slice_dir, project_root))
 
     if detect is not None:
         if not lens_frontier_path(slice_dir).is_file():
@@ -682,7 +733,7 @@ def prepare_add_opens(
         if not isinstance(checked, list) or not checked:
             raise ValueError("detect.checked_lenses must be a non-empty list")
         checked_norm = [str(item).strip().upper() for item in checked if str(item).strip()]
-        registry_keys = registry_lens_keys(lens_snapshot(slice_dir))
+        registry_keys = registry_lens_keys(lens_snapshot(slice_dir, project_root))
         missing_checked = [key for key in registry_keys if key not in checked_norm]
         if missing_checked:
             raise ValueError(
@@ -1086,13 +1137,18 @@ def check_close(
                 reasons.append("latest receipt is not zero_result")
         if any(item.get("status") == "open" for item in bundle["opens"]):
             reasons.append("open items remain")
-        snapshot = lens_snapshot(slice_dir)
-        keys = registry_lens_keys(snapshot)
-        if not keys:
-            reasons.append("section-registry missing")
-        kw_raw = load_published_kw_raw(slice_dir, project_root)
-        if not kw_raw:
-            reasons.append("KW criteria missing")
+        try:
+            snapshot = lens_snapshot(slice_dir, project_root)
+            keys = registry_lens_keys(snapshot)
+        except ValueError as exc:
+            reasons.append(str(exc))
+            snapshot = {}
+            keys = []
+        try:
+            kw_raw = load_published_kw_raw(slice_dir, project_root)
+        except ValueError as exc:
+            reasons.append(str(exc))
+            kw_raw = ""
         payable = payable_lenses(snapshot, frontier)
         latest_measurements = {}
         if receipts:
@@ -1116,16 +1172,21 @@ def check_close(
     return {"ok": not reasons, "reasons": reasons}
 
 
-def set_frontier(slice_dir: Path, lens: str, kw: int) -> dict[str, Any]:
+def set_frontier(
+    slice_dir: Path,
+    lens: str,
+    kw: int,
+    project_root: Path | str | None = None,
+) -> dict[str, Any]:
     if not isinstance(kw, int) or isinstance(kw, bool) or kw < 0 or kw > 4:
         raise ValueError("frontier_kw must be an int 0..4")
     key = str(lens).strip().upper()
     if not key:
         raise ValueError("lens is required")
-    allowed = registry_lens_keys(lens_snapshot(slice_dir))
+    allowed = registry_lens_keys(lens_snapshot(slice_dir, project_root))
     if allowed and key not in allowed:
         raise ValueError(f"lens {key!r} is not in section-registry")
-    data = ensure_frontier(slice_dir)
+    data = ensure_frontier(slice_dir, project_root)
     lenses = dict(data["lenses"])
     current = dict(lenses.get(key) or default_lens_entry())
     current["frontier_kw"] = kw
@@ -1135,16 +1196,21 @@ def set_frontier(slice_dir: Path, lens: str, kw: int) -> dict[str, Any]:
     return updated
 
 
-def frontier_skip(slice_dir: Path, lens: str, note: str) -> dict[str, Any]:
+def frontier_skip(
+    slice_dir: Path,
+    lens: str,
+    note: str,
+    project_root: Path | str | None = None,
+) -> dict[str, Any]:
     if not isinstance(note, str) or not note.strip():
         raise ValueError("--note is required")
     key = str(lens).strip().upper()
     if not key:
         raise ValueError("lens is required")
-    allowed = registry_lens_keys(lens_snapshot(slice_dir))
+    allowed = registry_lens_keys(lens_snapshot(slice_dir, project_root))
     if allowed and key not in allowed:
         raise ValueError(f"lens {key!r} is not in section-registry")
-    data = ensure_frontier(slice_dir)
+    data = ensure_frontier(slice_dir, project_root)
     lenses = dict(data["lenses"])
     current = dict(lenses.get(key) or default_lens_entry())
     current["skipped"] = True
@@ -1154,11 +1220,15 @@ def frontier_skip(slice_dir: Path, lens: str, note: str) -> dict[str, Any]:
     return updated
 
 
-def frontier_unskip(slice_dir: Path, lens: str) -> dict[str, Any]:
+def frontier_unskip(
+    slice_dir: Path,
+    lens: str,
+    project_root: Path | str | None = None,
+) -> dict[str, Any]:
     key = str(lens).strip().upper()
     if not key:
         raise ValueError("lens is required")
-    data = ensure_frontier(slice_dir)
+    data = ensure_frontier(slice_dir, project_root)
     lenses = dict(data["lenses"])
     current = dict(lenses.get(key) or default_lens_entry())
     current["skipped"] = False

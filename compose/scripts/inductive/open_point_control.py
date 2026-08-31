@@ -110,11 +110,12 @@ def cmd_resolve_context(slice_dir: Path, _args: argparse.Namespace) -> None:
     )
 
 
-def cmd_ensure_frontier(slice_dir: Path, _args: argparse.Namespace) -> None:
+def cmd_ensure_frontier(slice_dir: Path, args: argparse.Namespace) -> None:
     bundle = load_bundle(slice_dir)
     if bundle["state"]["phase"] != "idle":
         raise ValueError("ensure-frontier requires idle (currently processing)")
-    frontiers = ensure_frontier(slice_dir)
+    project_root = Path(args.project_root).resolve() if args.project_root else None
+    frontiers = ensure_frontier(slice_dir, project_root)
     _ok({"frontiers": frontiers, "frontier_digest": frontier_digest(slice_dir)})
 
 
@@ -125,7 +126,7 @@ def cmd_detect_context(slice_dir: Path, args: argparse.Namespace) -> None:
     project_root = Path(args.project_root).resolve() if args.project_root else None
     keys, kw_raw = require_detect_ruler(slice_dir, project_root)
     facts = facts_snapshot(slice_dir)
-    lenses = lens_snapshot(slice_dir)
+    lenses = lens_snapshot(slice_dir, project_root)
     frontiers = frontier_snapshot(slice_dir)
     kw_criteria: dict[str, str] = {}
     for lens in keys:
@@ -219,15 +220,36 @@ def cmd_check_close(slice_dir: Path, args: argparse.Namespace) -> None:
 
 
 def cmd_set_frontier(slice_dir: Path, args: argparse.Namespace) -> None:
-    _ok({"frontier": set_frontier(slice_dir, args.lens, args.kw)})
+    project_root = Path(args.project_root).resolve() if args.project_root else None
+    _ok(
+        {
+            "frontier": set_frontier(
+                slice_dir, args.lens, args.kw, project_root=project_root
+            )
+        }
+    )
 
 
 def cmd_frontier_skip(slice_dir: Path, args: argparse.Namespace) -> None:
-    _ok({"frontier": frontier_skip(slice_dir, args.lens, args.note)})
+    project_root = Path(args.project_root).resolve() if args.project_root else None
+    _ok(
+        {
+            "frontier": frontier_skip(
+                slice_dir, args.lens, args.note, project_root=project_root
+            )
+        }
+    )
 
 
 def cmd_frontier_unskip(slice_dir: Path, args: argparse.Namespace) -> None:
-    _ok({"frontier": frontier_unskip(slice_dir, args.lens)})
+    project_root = Path(args.project_root).resolve() if args.project_root else None
+    _ok(
+        {
+            "frontier": frontier_unskip(
+                slice_dir, args.lens, project_root=project_root
+            )
+        }
+    )
 
 
 def _build_parser() -> argparse.ArgumentParser:

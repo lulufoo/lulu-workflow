@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -9,16 +10,39 @@ from pathlib import Path
 
 _COMPOSE = Path(__file__).resolve().parents[2]
 _FACT_CTL = _COMPOSE / "fact-store-runner" / "scripts" / "fact_production_control.py"
+_PLAN_PROFILE = _COMPOSE.parent / "lulu-plan" / "compose-profile.json"
+
+
+def _bind_session(session_base: Path, profile_path: Path) -> None:
+    digest = hashlib.sha256(profile_path.read_bytes()).hexdigest()
+    session_base.mkdir(parents=True, exist_ok=True)
+    (session_base / "session-state.md").write_text(
+        "---\n"
+        "version: 2\n"
+        "active_doc: 2\n"
+        f"profile_path: {profile_path.resolve()}\n"
+        f"profile_digest: {digest}\n"
+        "start_id: test\n"
+        "holder_finalized: true\n"
+        "updated_at: 2024-01-01T00:00:00+00:00\n"
+        "---\n",
+        encoding="utf-8",
+    )
 
 
 def _run(*args: str) -> tuple[int, dict, str]:
-    if "--revision-dir" in args:
-        idx = list(args).index("--revision-dir")
+    argv = list(args)
+    if "--revision-dir" in argv:
+        idx = argv.index("--revision-dir")
         from init_working_helpers import ensure_l1_revision  # noqa: WPS433
 
-        ensure_l1_revision(Path(args[idx + 1]))
+        revision = Path(argv[idx + 1])
+        ensure_l1_revision(revision)
+        _bind_session(revision, _PLAN_PROFILE)
+        if "--project-root" not in argv:
+            argv = ["--project-root", str(revision.resolve()), *argv]
     result = subprocess.run(
-        [sys.executable, str(_FACT_CTL), *args],
+        [sys.executable, str(_FACT_CTL), *argv],
         capture_output=True,
         text=True,
     )
@@ -110,7 +134,7 @@ def test_delete_preserves_surviving_stable_ids(tmp_path: Path):
             [
                 {"id": "F-1", "text": "one", "lens_tags": ["I"]},
                 {"id": "F-2", "text": "remove", "lens_tags": ["I"]},
-                {"id": "F-3", "text": "three", "lens_tags": ["ST"]},
+                {"id": "F-3", "text": "three", "lens_tags": ["SK"]},
             ]
         ),
         encoding="utf-8",

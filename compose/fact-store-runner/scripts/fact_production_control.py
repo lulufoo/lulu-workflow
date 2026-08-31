@@ -48,8 +48,10 @@ from opens_schema import load_opens, opens_path, save_opens, validate_opens  # n
 from open_point_store import (  # noqa: E402
     apply_loop_after,
     assert_slice_writable,
+    lens_snapshot,
     load_bundle,
     preview_settle,
+    registry_lens_keys,
 )
 from open_point_batch_schema import (  # noqa: E402
     load_open_point_batches,
@@ -112,23 +114,10 @@ def _load_entries(args: argparse.Namespace) -> list[dict[str, Any]]:
     return data
 
 
-def _allowed_lenses(slice_dir: Path) -> list[str]:
-    path = slice_dir / "section-registry.json"
-    if not path.is_file():
-        return []
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return []
-    if not isinstance(raw, dict):
-        return []
-    order = raw.get("section_order")
-    if isinstance(order, list) and order:
-        return [str(key).strip().upper() for key in order if str(key).strip()]
-    sections = raw.get("sections")
-    if isinstance(sections, dict):
-        return [str(key).strip().upper() for key in sections if str(key).strip()]
-    return []
+def _allowed_lenses(
+    slice_dir: Path, project_root: Path | str | None = None
+) -> list[str]:
+    return registry_lens_keys(lens_snapshot(slice_dir, project_root))
 
 
 def _find_open(
@@ -163,11 +152,15 @@ def _distribute_code_refs(
                     anchors.append(anchor)
 
 
-def _save_facts_inductive(slice_dir: Path, facts: list[dict[str, Any]]) -> None:
+def _save_facts_inductive(
+    slice_dir: Path,
+    facts: list[dict[str, Any]],
+    project_root: Path | str | None = None,
+) -> None:
     save_facts(
         facts_path(slice_dir),
         facts,
-        allowed_lenses=_allowed_lenses(slice_dir) or None,
+        allowed_lenses=_allowed_lenses(slice_dir, project_root) or None,
     )
 
 
@@ -177,12 +170,13 @@ def _commit_facts_then_opens(
     facts_before: list[dict[str, Any]],
     facts_after: list[dict[str, Any]],
     opens_after: list[dict[str, Any]],
+    project_root: Path | str | None = None,
 ) -> str | None:
     """Validate both stores, write facts then opens; roll back facts if opens fails.
 
     Returns error message or None on success.
     """
-    allowed = _allowed_lenses(slice_dir)
+    allowed = _allowed_lenses(slice_dir, project_root)
     ferrs = validate_facts(facts_after, allowed_lenses=allowed or None)
     if ferrs:
         return "; ".join(ferrs)
@@ -191,7 +185,7 @@ def _commit_facts_then_opens(
         return "; ".join(oerrs)
 
     try:
-        _save_facts_inductive(slice_dir, facts_after)
+        _save_facts_inductive(slice_dir, facts_after, project_root)
     except (ValueError, OSError) as exc:
         return str(exc)
 
@@ -201,7 +195,7 @@ def _commit_facts_then_opens(
         try:
             fpath = facts_path(slice_dir)
             if facts_before:
-                _save_facts_inductive(slice_dir, facts_before)
+                _save_facts_inductive(slice_dir, facts_before, project_root)
             elif fpath.is_file():
                 fpath.unlink()
         except (ValueError, OSError) as rollback_exc:
@@ -533,6 +527,7 @@ def _entry_facts(
     facts_before: list[dict[str, Any]],
     origin_ref: list[str],
     slice_dir: Path,
+    project_root: Path | str | None = None,
 ) -> tuple[list[dict[str, Any]], list[str], list[dict[str, Any]]]:
     facts = copy.deepcopy(facts_before)
     fact_ids: list[str] = []
@@ -563,7 +558,9 @@ def _entry_facts(
         facts.append(fact)
         fact_ids.append(fact["id"])
         next_id += 1
-    errors = validate_facts(facts, allowed_lenses=_allowed_lenses(slice_dir) or None)
+    errors = validate_facts(
+        facts, allowed_lenses=_allowed_lenses(slice_dir, project_root) or None
+    )
     if errors:
         raise ValueError("; ".join(errors))
     return facts, fact_ids, undeclared
@@ -577,6 +574,7 @@ def _build_proposal(
     opens_before: list[dict[str, Any]] | None = None
     opens_before_exists: bool | None = None
     kind = str(args.kind)
+    project_root = getattr(args, "project_root", None) or None
 
     if kind == "append":
         entries = _load_entries(args)
@@ -585,6 +583,7 @@ def _build_proposal(
             facts_before=facts_before,
             origin_ref=["fact-production"],
             slice_dir=slice_dir,
+            project_root=project_root,
         )
         payload = {
             "kind": kind,
@@ -605,7 +604,10 @@ def _build_proposal(
             raise ValueError(f"fact not found: {fact_id!r}")
         before = copy.deepcopy(fact)
         fact["text"] = text
-        errors = validate_facts(facts_after, allowed_lenses=_allowed_lenses(slice_dir) or None)
+        errors = validate_facts(
+            facts_after,
+            allowed_lenses=_allowed_lenses(slice_dir, project_root) or None,
+        )
         if errors:
             raise ValueError("; ".join(errors))
         payload = {
@@ -659,6 +661,7 @@ def _build_proposal(
             facts_before=facts_before,
             origin_ref=[open_id],
             slice_dir=slice_dir,
+            project_root=project_root,
         )
         _distribute_code_refs(
             undeclared,
@@ -780,13 +783,14 @@ def _write_facts_exact(
     facts: list[dict[str, Any]],
     *,
     exists_after: bool,
+    project_root: Path | str | None = None,
 ) -> None:
     path = facts_path(slice_dir)
     if not exists_after:
         if path.is_file():
             durable_unlink(path)
         return
-    _save_facts_inductive(slice_dir, facts)
+    _save_facts_inductive(slice_dir, facts, project_root)
 
 
 def _reconcile_permit(slice_dir: Path, store: dict[str, Any], permit: dict[str, Any]) -> str:
@@ -894,6 +898,7 @@ def cmd_ack(args: argparse.Namespace) -> int:
 
 
 def cmd_consume(args: argparse.Namespace) -> int:
+    project_root = getattr(args, "project_root", None) or None
     try:
         _, slice_dir, slice_key = _slice_context(args.revision_dir, args.slice_key)
         with exclusive_lock(permit_lock_path(slice_dir)):
@@ -951,6 +956,7 @@ def cmd_consume(args: argparse.Namespace) -> int:
                         slice_dir,
                         payload["facts_after"],
                         exists_after=bool(payload["facts_file_exists_after"]),
+                        project_root=project_root,
                     )
                     if payload["kind"] == "settle_open":
                         apply_loop_after(
@@ -978,6 +984,7 @@ def cmd_consume(args: argparse.Namespace) -> int:
                                 exists_after=bool(
                                     snapshot["facts_file_exists_before"]
                                 ),
+                                project_root=project_root,
                             )
                         except (OSError, ValueError):
                             pass
@@ -1085,7 +1092,12 @@ def cmd_recover(args: argparse.Namespace) -> int:
                         payload.get("batches_after"),
                         payload.get("batches_file_exists_after"),
                     )
-                _write_facts_exact(slice_dir, facts, exists_after=facts_exists)
+                _write_facts_exact(
+                    slice_dir,
+                    facts,
+                    exists_after=facts_exists,
+                    project_root=getattr(args, "project_root", None) or None,
+                )
                 if payload.get("kind") == "settle_open":
                     apply_loop_after(
                         slice_dir,
@@ -1131,6 +1143,11 @@ def cmd_recover(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--project-root",
+        default="",
+        help="Session root so section-registry loads from the SKILL install",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("propose", help="Persist an exact fact mutation preview")
