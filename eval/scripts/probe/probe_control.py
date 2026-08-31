@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import Any
 
 import eval_control as ec
+import evaluate_context
+import operation_recovery
+import review_binding
+import session_binding
 from eval_target_units import units_from_eval_target
 
 _PROBE_PAYLOAD_KEYS = frozenset({"dimension_token", "findings"})
@@ -56,21 +60,21 @@ def _load_authorized_target(
     """Load a token-authorized B snapshot, or a failure payload."""
     if not dimension_token.strip():
         return ec._failure(command, "invalid dimension_token: empty string")
-    ctx = ec._load_evaluating_context(cycle_id, project_root)
+    ctx = evaluate_context._load_evaluating_context(cycle_id, project_root)
     if isinstance(ctx, dict):
         ctx["command"] = command
         return ctx
     _state, _ws_path, eval_data, evaluate_round, active_doc, _mode = ctx
-    paths = ec._eval_paths(
+    paths = session_binding._eval_paths(
         cycle_id,
         project_root,
         active_doc=active_doc,
         evaluate_round=evaluate_round,
-        es_path=ec._evaluate_state_path(cycle_id, project_root),
+        es_path=session_binding._evaluate_state_path(cycle_id, project_root),
     )
     try:
         snapshot = ec.read_target_snapshot(
-            operations_path=ec._operations_path(paths),
+            operations_path=session_binding._operations_path(paths),
             dimension_token=dimension_token,
         )
     except ValueError as exc:
@@ -95,13 +99,13 @@ def begin_dimension(
             "invalid dim: empty string",
         )
 
-    ctx = ec._load_evaluating_context(cycle_id, project_root)
+    ctx = evaluate_context._load_evaluating_context(cycle_id, project_root)
     if isinstance(ctx, dict):
         ctx["command"] = ec._CMD_BEGIN_DIMENSION
         return ctx
 
     state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    if not ec._dispatch_dim_allowed(cycle_id, project_root, dim):
+    if not session_binding._dispatch_dim_allowed(cycle_id, project_root, dim):
         return ec._failure(
             ec._CMD_BEGIN_DIMENSION,
             f"invalid dim: {dim!r} (not in corpus for mode {mode!r}).",
@@ -114,8 +118,8 @@ def begin_dimension(
             current_state=state["current_state"],
         )
 
-    es_path = ec._evaluate_state_path(cycle_id, project_root)
-    paths = ec._eval_paths(
+    es_path = session_binding._evaluate_state_path(cycle_id, project_root)
+    paths = session_binding._eval_paths(
         cycle_id,
         project_root,
         active_doc=active_doc,
@@ -123,8 +127,8 @@ def begin_dimension(
         es_path=es_path,
     )
 
-    corpus = ec._load_corpus(cycle_id, project_root)
-    canonical_dim = ec._canonical_dim(cycle_id, project_root, dim)
+    corpus = session_binding._load_corpus(cycle_id, project_root)
+    canonical_dim = session_binding._canonical_dim(cycle_id, project_root, dim)
     dimension_status = ec.parse_dimension_status(eval_data["dimension_status"])
     if dimension_status.get(canonical_dim) == "skipped":
         reasons = ec.parse_skip_reason(eval_data.get("skip_reason", "{}"))
@@ -142,17 +146,17 @@ def begin_dimension(
             dim=dim,
         )
 
-    expanded = ec._expanded_corpus(
+    expanded = session_binding._expanded_corpus(
         cycle_id,
         state,
         paths,
         evaluate_round,
         project_root=project_root,
     )
-    dim_def = ec._dimension_def(expanded, dim)
+    dim_def = session_binding._dimension_def(expanded, dim)
     try:
         operation_ctx = ec.issue_probe_context(
-            operations_path=ec._operations_path(paths),
+            operations_path=session_binding._operations_path(paths),
             write_staging_dir=Path(
                 paths.get("write_staging_dir") or paths["evaluate_dir"],
             ),
@@ -172,7 +176,7 @@ def begin_dimension(
         updated["evaluate_round"] = str(evaluate_round)
         return updated
 
-    error = ec._commit_staged_evaluate_state(
+    error = evaluate_context._commit_staged_evaluate_state(
         cycle_id,
         project_root,
         update=_patch,
@@ -180,7 +184,7 @@ def begin_dimension(
     if error is not None:
         try:
             ec.discard_operation_context(
-                operations_path=ec._operations_path(paths),
+                operations_path=session_binding._operations_path(paths),
                 dimension_token=operation_ctx["dimension_token"],
             )
         except (OSError, ValueError):
@@ -267,21 +271,21 @@ def read_evidence_snapshot_cmd(
             ec._CMD_READ_EVIDENCE_SNAPSHOT,
             "invalid evidence_ref: empty string",
         )
-    ctx = ec._load_evaluating_context(cycle_id, project_root)
+    ctx = evaluate_context._load_evaluating_context(cycle_id, project_root)
     if isinstance(ctx, dict):
         ctx["command"] = ec._CMD_READ_EVIDENCE_SNAPSHOT
         return ctx
     _state, _ws_path, _eval_data, evaluate_round, active_doc, _mode = ctx
-    paths = ec._eval_paths(
+    paths = session_binding._eval_paths(
         cycle_id,
         project_root,
         active_doc=active_doc,
         evaluate_round=evaluate_round,
-        es_path=ec._evaluate_state_path(cycle_id, project_root),
+        es_path=session_binding._evaluate_state_path(cycle_id, project_root),
     )
     try:
         snapshot = ec.read_evidence_snapshot(
-            operations_path=ec._operations_path(paths),
+            operations_path=session_binding._operations_path(paths),
             dimension_token=dimension_token,
             evidence_ref=evidence_ref,
         )
@@ -372,7 +376,7 @@ def _render_probe_review(
     for finding in findings:
         row = {
             **finding,
-            "handling_mode": ec.handling_mode_for_issue(
+            "handling_mode": review_binding.handling_mode_for_issue(
                 str(finding["root_cause"]),
                 handling_policy,
             ),
@@ -394,6 +398,46 @@ def _render_probe_review(
     return content
 
 
+def _publish_probe_review(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    paths: dict[str, str],
+    evaluate_round: int,
+    formal_review_path: Path,
+    content: str,
+) -> str | None:
+    """Publish a control-generated review to its formal Eval location."""
+    if formal_review_path.exists():
+        return f"formal review already exists: {formal_review_path.as_posix()}"
+    lease_id = str(paths.get("lease_id", "")).strip()
+    if not lease_id:
+        ec._atomic_write_text(formal_review_path, content)
+        return None
+
+    staging = Path(str(paths["write_staging_dir"]))
+    staged = staging / formal_review_path.name
+    ec._atomic_write_text(staged, content)
+    digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    manifest = ec.build_artifact_manifest_v2(
+        lease_id=lease_id,
+        session_key=str(paths.get("session_key", "")),
+        evaluate_round=evaluate_round,
+        staged_relative_path=formal_review_path.name,
+        final_relative_path=formal_review_path.name,
+        artifact_digest=digest,
+    )
+    result = ec._adapter().commit_eval_artifacts(
+        cycle_id,
+        project_root,
+        manifest=manifest,
+    )
+    if not result.get("ok"):
+        staged.unlink(missing_ok=True)
+        return str(result.get("error") or "commit-artifacts failed")
+    return None
+
+
 def submit_probe_findings(
     cycle_id: str,
     project_root: Path,
@@ -406,20 +450,20 @@ def submit_probe_findings(
     except ValueError as exc:
         return ec._failure(ec._CMD_SUBMIT_PROBE_FINDINGS, str(exc))
 
-    ctx = ec._load_evaluating_context(cycle_id, project_root)
+    ctx = evaluate_context._load_evaluating_context(cycle_id, project_root)
     if isinstance(ctx, dict):
         ctx["command"] = ec._CMD_SUBMIT_PROBE_FINDINGS
         return ctx
     state, _ws_path, eval_data, evaluate_round, active_doc, _mode = ctx
     dimension_token = str(payload["dimension_token"])
-    paths = ec._eval_paths(
+    paths = session_binding._eval_paths(
         cycle_id,
         project_root,
         active_doc=active_doc,
         evaluate_round=evaluate_round,
-        es_path=ec._evaluate_state_path(cycle_id, project_root),
+        es_path=session_binding._evaluate_state_path(cycle_id, project_root),
     )
-    operations_path = ec._operations_path(paths)
+    operations_path = session_binding._operations_path(paths)
     try:
         record = ec.get_operation_record(operations_path, dimension_token)
     except ValueError as exc:
@@ -445,7 +489,7 @@ def submit_probe_findings(
     canonical_findings = [
         {
             **finding,
-            "handling_mode": ec.handling_mode_for_issue(
+            "handling_mode": review_binding.handling_mode_for_issue(
                 str(finding["root_cause"]),
                 handling_policy,
             ),
@@ -481,7 +525,7 @@ def submit_probe_findings(
                 "conflict: different submission for operation_token",
                 dimension_token=dimension_token,
             )
-        recovered = ec._forward_recover_to_committed(
+        recovered = operation_recovery._forward_recover_to_committed(
             cycle_id,
             project_root,
             command=ec._CMD_SUBMIT_PROBE_FINDINGS,
@@ -495,7 +539,7 @@ def submit_probe_findings(
             return recovered
         record = recovered["record"]
         review_path = Path(str(record.get("review_path") or ""))
-        corpus = ec._load_corpus(cycle_id, project_root)
+        corpus = session_binding._load_corpus(cycle_id, project_root)
         total_issues = len(record.get("canonical_findings") or [])
 
         def _recover_patch(data: dict[str, str]) -> dict[str, str]:
@@ -506,11 +550,11 @@ def submit_probe_findings(
                 next_status,
                 corpus=corpus or None,
             )
-            return ec._recompute_aggregate_counts(
+            return session_binding._recompute_aggregate_counts(
                 ec.patch_issue_count(updated, dimension_id, total=str(total_issues)),
             )
 
-        error = ec._commit_staged_evaluate_state(
+        error = evaluate_context._commit_staged_evaluate_state(
             cycle_id,
             project_root,
             update=_recover_patch,
@@ -543,14 +587,14 @@ def submit_probe_findings(
             "operation_token does not own a probing dimension",
         )
 
-    expanded = ec._expanded_corpus(
+    expanded = session_binding._expanded_corpus(
         cycle_id,
         state,
         paths,
         evaluate_round,
         project_root=project_root,
     )
-    dim_def = ec._dimension_def(expanded, dimension_id)
+    dim_def = session_binding._dimension_def(expanded, dimension_id)
     try:
         review_content = _render_probe_review(
             dimension_label=str(dim_def["label"]),
@@ -564,7 +608,7 @@ def submit_probe_findings(
         )
     except (OSError, ValueError) as exc:
         return ec._failure(ec._CMD_SUBMIT_PROBE_FINDINGS, str(exc))
-    review_path = ec._review_path_for_dim(
+    review_path = review_binding._review_path_for_dim(
         Path(paths["evaluate_dir"]),
         cycle_id=cycle_id,
         state=state,
@@ -589,10 +633,10 @@ def submit_probe_findings(
         "review_path": review_path.resolve().as_posix(),
     }
     try:
-        record = ec._advance_phase(operations_path, prepared, "prepared")
+        record = operation_recovery._advance_phase(operations_path, prepared, "prepared")
     except ValueError as exc:
         return ec._failure(ec._CMD_SUBMIT_PROBE_FINDINGS, str(exc))
-    recovered = ec._forward_recover_to_committed(
+    recovered = operation_recovery._forward_recover_to_committed(
         cycle_id,
         project_root,
         command=ec._CMD_SUBMIT_PROBE_FINDINGS,
@@ -606,7 +650,7 @@ def submit_probe_findings(
         return recovered
     record = recovered["record"]
 
-    corpus = ec._load_corpus(cycle_id, project_root)
+    corpus = session_binding._load_corpus(cycle_id, project_root)
     total_issues = len(canonical_findings)
 
     def _patch(data: dict[str, str]) -> dict[str, str]:
@@ -617,11 +661,11 @@ def submit_probe_findings(
             next_status,
             corpus=corpus,
         )
-        return ec._recompute_aggregate_counts(
+        return session_binding._recompute_aggregate_counts(
             ec.patch_issue_count(updated, dimension_id, total=str(total_issues)),
         )
 
-    error = ec._commit_staged_evaluate_state(cycle_id, project_root, update=_patch)
+    error = evaluate_context._commit_staged_evaluate_state(cycle_id, project_root, update=_patch)
     if error is not None:
         return ec._failure(
             ec._CMD_SUBMIT_PROBE_FINDINGS,
@@ -646,7 +690,7 @@ def check_dimension(
     dim: str,
 ) -> dict[str, Any]:
     """Read-only verify a dimension after dimension-probe-runner."""
-    ctx = ec._load_evaluating_context(cycle_id, project_root)
+    ctx = evaluate_context._load_evaluating_context(cycle_id, project_root)
     if isinstance(ctx, dict):
         ctx["command"] = ec._CMD_CHECK_DIMENSION
         ctx["dim"] = dim
@@ -655,7 +699,7 @@ def check_dimension(
         return ctx
 
     state, _ws_path, eval_data, evaluate_round, active_doc, mode = ctx
-    if not ec._dispatch_dim_allowed(cycle_id, project_root, dim):
+    if not session_binding._dispatch_dim_allowed(cycle_id, project_root, dim):
         return ec._failure(
             ec._CMD_CHECK_DIMENSION,
             f"invalid dim: {dim!r} (not in corpus for mode {mode!r}).",
@@ -676,12 +720,12 @@ def check_dimension(
             eval_status=eval_status,
         )
 
-    corpus = ec._load_corpus(cycle_id, project_root)
+    corpus = session_binding._load_corpus(cycle_id, project_root)
     dim_map = ec.dimension_status_legacy_map(eval_data, corpus=corpus)
     dim_status = dim_map.get(dim, "pending")
-    dim_id = ec._canonical_dim(cycle_id, project_root, dim)
+    dim_id = session_binding._canonical_dim(cycle_id, project_root, dim)
 
-    review_path = ec._review_path_from_context(
+    review_path = review_binding._review_path_from_context(
         cycle_id,
         project_root,
         state=state,

@@ -10,13 +10,19 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from eval_control import (  # noqa: E402
+from probe_control import (  # noqa: E402
     _load_probe_payload,
     _render_probe_review,
-    allowed_decisions_for_issue,
-    build_parser,
-    handling_mode_for_issue,
+)
+from remediation_control import (  # noqa: E402
     prepare_remediation_at,
+)
+from review_binding import (  # noqa: E402
+    allowed_decisions_for_issue,
+    handling_mode_for_issue,
+)
+from eval_control import (  # noqa: E402
+    build_parser,
 )
 from eval_operation_record_schema import (  # noqa: E402
     cancel_operation_record,

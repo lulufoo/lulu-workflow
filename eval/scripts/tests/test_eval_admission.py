@@ -31,6 +31,10 @@ from evaluate_state_schema import (  # noqa: E402
     validate_evaluate_state,
 )
 import eval_control  # noqa: E402
+import evaluate_context  # noqa: E402
+import remediation_control  # noqa: E402
+import review_binding  # noqa: E402
+import session_binding  # noqa: E402
 
 
 def test_reserve_journal_is_create_if_absent(tmp_path: Path) -> None:
@@ -187,7 +191,7 @@ def test_begin_dimension_returns_skip_without_operation(monkeypatch, tmp_path: P
         pass
 
     monkeypatch.setattr(
-        eval_control,
+        evaluate_context,
         "_load_evaluating_context",
         lambda *_args, **_kwargs: (
             {"current_state": "Working"},
@@ -198,16 +202,16 @@ def test_begin_dimension_returns_skip_without_operation(monkeypatch, tmp_path: P
             "tech",
         ),
     )
-    monkeypatch.setattr(eval_control, "_dispatch_dim_allowed", lambda *_a, **_k: True)
-    monkeypatch.setattr(eval_control, "_canonical_dim", lambda *_a, **_k: "skip")
-    monkeypatch.setattr(eval_control, "_load_corpus", lambda *_a, **_k: {})
+    monkeypatch.setattr(session_binding, "_dispatch_dim_allowed", lambda *_a, **_k: True)
+    monkeypatch.setattr(session_binding, "_canonical_dim", lambda *_a, **_k: "skip")
+    monkeypatch.setattr(session_binding, "_load_corpus", lambda *_a, **_k: {})
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_eval_paths",
         lambda *_a, **_k: {"evaluate_dir": tmp_path.as_posix()},
     )
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_evaluate_state_path",
         lambda *_a, **_k: tmp_path / "evaluate-state.md",
     )
@@ -572,7 +576,7 @@ def test_remediation_complete_ignores_skipped_dimensions(
     review = tmp_path / "keep.md"
     review.write_text("review", encoding="utf-8")
     monkeypatch.setattr(
-        eval_control,
+        remediation_control,
         "_remediation_command_context",
         lambda *_args, **_kwargs: (
             {"current_state": "Working"},
@@ -583,12 +587,12 @@ def test_remediation_complete_ignores_skipped_dimensions(
         ),
     )
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_dispatch_canonical",
         lambda *_args, **_kwargs: ["keep", "intent-fidelity"],
     )
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_operations_for_round",
         lambda *_args, **_kwargs: [
             {
@@ -599,32 +603,32 @@ def test_remediation_complete_ignores_skipped_dimensions(
         ],
     )
     monkeypatch.setattr(
-        eval_control,
+        review_binding,
         "_review_path_from_context",
         lambda *_args, **_kwargs: review,
     )
     monkeypatch.setattr(eval_control, "parse_review_file", lambda *_a, **_k: [])
     monkeypatch.setattr(
-        eval_control,
+        review_binding,
         "validate_review_against_probe_record",
         lambda *_a, **_k: None,
     )
     monkeypatch.setattr(
-        eval_control,
+        review_binding,
         "validate_review_completion",
         lambda *_a, **_k: None,
     )
-    monkeypatch.setattr(eval_control, "_load_corpus", lambda *_a, **_k: {})
+    monkeypatch.setattr(session_binding, "_load_corpus", lambda *_a, **_k: {})
     monkeypatch.setattr(
         eval_control,
         "merge_current_dimension",
         lambda data, *_a, **_k: data,
     )
     monkeypatch.setattr(eval_control, "patch_issue_count", lambda data, *_a, **_k: data)
-    monkeypatch.setattr(eval_control, "_recompute_aggregate_counts", lambda data: data)
+    monkeypatch.setattr(session_binding, "_recompute_aggregate_counts", lambda data: data)
     monkeypatch.setattr(eval_control, "count_resolved", lambda _rows: 0)
     monkeypatch.setattr(
-        eval_control,
+        evaluate_context,
         "_commit_staged_evaluate_state",
         lambda *_a, **_k: None,
     )

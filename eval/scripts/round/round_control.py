@@ -11,17 +11,20 @@ from pathlib import Path
 from typing import Any
 
 import eval_control as ec
+import evaluate_context
+import review_binding
+import session_binding
 
 def build_eval_loop_payload(cycle_id: str, project_root: Path) -> dict[str, Any]:
     """Build eval loop context (requires Working + focus evaluating + evaluate-state)."""
-    ctx = ec._load_evaluating_context(cycle_id, project_root)
+    ctx = evaluate_context._load_evaluating_context(cycle_id, project_root)
     if isinstance(ctx, dict):
         ctx['command'] = ec._CMD_BEGIN_EVAL_ROUND
         return ctx
     (state, _ws_path, eval_data, evaluate_round, active_doc, mode) = ctx
-    es_path = ec._evaluate_state_path(cycle_id, project_root)
-    paths = ec._eval_paths(cycle_id, project_root, active_doc=active_doc, evaluate_round=evaluate_round, es_path=es_path)
-    return ec._success(ec._CMD_BEGIN_EVAL_ROUND, current_state=state['current_state'], mode=mode, dispatch=ec.dispatch_list(cycle_id, project_root), corpus_ref=eval_data.get('corpus_ref', ''), dimension_dispatch=eval_data.get('dimension_dispatch', 'parallel'), evaluate_round=evaluate_round, M=evaluate_round, active_doc=active_doc, N=active_doc, cycle_type=ec._adapter().detect_cycle_type(cycle_id), upstream_baseline_ref=ec._upstream_baseline_ref(cycle_id, project_root), project_root=project_root.resolve().as_posix(), paths=paths)
+    es_path = session_binding._evaluate_state_path(cycle_id, project_root)
+    paths = session_binding._eval_paths(cycle_id, project_root, active_doc=active_doc, evaluate_round=evaluate_round, es_path=es_path)
+    return ec._success(ec._CMD_BEGIN_EVAL_ROUND, current_state=state['current_state'], mode=mode, dispatch=session_binding.dispatch_list(cycle_id, project_root), corpus_ref=eval_data.get('corpus_ref', ''), dimension_dispatch=eval_data.get('dimension_dispatch', 'parallel'), evaluate_round=evaluate_round, M=evaluate_round, active_doc=active_doc, N=active_doc, cycle_type=ec._adapter().detect_cycle_type(cycle_id), upstream_baseline_ref=ec._upstream_baseline_ref(cycle_id, project_root), project_root=project_root.resolve().as_posix(), paths=paths)
 
 def _start_next_eval_round(cycle_id: str, project_root: Path, *, state: dict[str, str], ws_path: Path, mode: str) -> dict[str, Any]:
     """Admit the next evaluate round and return the loop payload."""
@@ -60,7 +63,7 @@ def _admit_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any] | Non
     es_path = adapter.resolve_evaluate_state_path(cycle_id, project_root)
     evaluate_dir = Path(adapter.eval_paths(cycle_id, project_root, active_doc=adapter.session_context(cycle_id, project_root).active_doc, evaluate_round=ctx.candidate_round, es_path=es_path)['evaluate_dir'])
     try:
-        recovery = ec.recover_admission(ctx, evaluate_state_path=es_path, evaluate_dir=evaluate_dir, focus_phase=ec._focus_phase(cycle_id, project_root))
+        recovery = ec.recover_admission(ctx, evaluate_state_path=es_path, evaluate_dir=evaluate_dir, focus_phase=session_binding._focus_phase(cycle_id, project_root))
     except ValueError as exc:
         return ec._failure(ec._CMD_BEGIN_EVAL_ROUND, str(exc))
     if recovery['action'] == 'committed':
@@ -82,7 +85,7 @@ def _admit_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any] | Non
                 return ec._failure(ec._CMD_BEGIN_EVAL_ROUND, str(prepared.get('error') or 'prepare_eval_admission failed'))
             token = str(prepared['token'])
         entered = False
-        if ec._focus_phase(cycle_id, project_root) != ec._EXPECTED_FOCUS_PHASE:
+        if session_binding._focus_phase(cycle_id, project_root) != ec._EXPECTED_FOCUS_PHASE:
             entry = adapter.enter_evaluating(cycle_id, project_root, admission_token=token)
             if not entry.get('ok'):
                 adapter.abort_eval_admission(cycle_id, project_root, token=token)
@@ -100,7 +103,7 @@ def _admit_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any] | Non
             adapter_capability = str(getattr(adapter, name, '') or '').strip()
             if adapter_capability in {'full-remediation', 'probe-only'}:
                 break
-        validate_adapter_protocol(adapter, eval_capability=adapter_capability or ec._eval_capability(), handoff=handoff)
+        validate_adapter_protocol(adapter, eval_capability=adapter_capability or session_binding._eval_capability(), handoff=handoff)
         context = handoff['context']
         journal = ec.load_journal(ctx.admission_root)
         if journal is None:
@@ -128,8 +131,8 @@ def _admit_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any] | Non
             existing_done = False
             if es_path.is_file():
                 existing_done = str(ec.parse_frontmatter_fields(es_path.read_text(encoding='utf-8')).get('eval_status') or '') == 'done'
-            initial = ec.build_initial_evaluate_state_for_corpus(prepared['corpus'], eval_capability=ec._eval_capability(), cycle_type=adapter.detect_cycle_type(cycle_id), evaluate_round=int(context['evaluate_round']), focus_l=str(context.get('session_key') or ''), corpus_digest=digest, corpus_snapshot_ref=str(prepared.get('snapshot_ref') or ec.SNAPSHOT_REF), skipped_ids=list(skip_reasons), skip_reasons=skip_reasons)
-            error = ec._commit_staged_evaluate_state(cycle_id, project_root, state=initial, set_phase_evaluating=True, previous_done_required=existing_done)
+            initial = ec.build_initial_evaluate_state_for_corpus(prepared['corpus'], eval_capability=session_binding._eval_capability(), cycle_type=adapter.detect_cycle_type(cycle_id), evaluate_round=int(context['evaluate_round']), focus_l=str(context.get('session_key') or ''), corpus_digest=digest, corpus_snapshot_ref=str(prepared.get('snapshot_ref') or ec.SNAPSHOT_REF), skipped_ids=list(skip_reasons), skip_reasons=skip_reasons)
+            error = evaluate_context._commit_staged_evaluate_state(cycle_id, project_root, state=initial, set_phase_evaluating=True, previous_done_required=existing_done)
             if error is not None:
                 adapter.abort_eval_admission(cycle_id, project_root, token=token)
                 return ec._failure(ec._CMD_BEGIN_EVAL_ROUND, error)
@@ -150,7 +153,7 @@ def _validate_evaluate_state_for_session(eval_data: dict[str, str], cycle_id: st
     if eval_data.get('phase') != 'evaluate':
         return f"phase is {eval_data.get('phase')!r}, expected 'evaluate'."
     try:
-        expected = ec.build_initial_evaluate_state_for_corpus(ec._load_corpus(cycle_id, project_root), eval_capability=ec._eval_capability(), cycle_type=ec._adapter().detect_cycle_type(cycle_id))
+        expected = ec.build_initial_evaluate_state_for_corpus(session_binding._load_corpus(cycle_id, project_root), eval_capability=session_binding._eval_capability(), cycle_type=ec._adapter().detect_cycle_type(cycle_id))
     except ValueError as exc:
         return str(exc)
     for key in ec._ENTRY_V7_KEYS:
@@ -170,15 +173,15 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
     state = ec._adapter().load_workflow_state(cycle_id, project_root)
     current = state['current_state']
     mode = state['mode']
-    es_path = ec._evaluate_state_path(cycle_id, project_root)
+    es_path = session_binding._evaluate_state_path(cycle_id, project_root)
     if current != ec._EXPECTED_SESSION_STATE:
         return ec._failure(ec._CMD_BEGIN_EVAL_ROUND, f'cannot enter evaluating from state {current!r} (expected {ec._EXPECTED_SESSION_STATE!r}).', current_state=current)
-    if ec._focus_phase(cycle_id, project_root) == ec._EXPECTED_FOCUS_PHASE:
+    if session_binding._focus_phase(cycle_id, project_root) == ec._EXPECTED_FOCUS_PHASE:
         if not es_path.exists():
             admitted = _admit_eval_round(cycle_id, project_root)
             if admitted is not None:
                 return admitted
-            es_path = ec._evaluate_state_path(cycle_id, project_root)
+            es_path = session_binding._evaluate_state_path(cycle_id, project_root)
             if not es_path.exists():
                 return ec._failure(ec._CMD_BEGIN_EVAL_ROUND, 'incompatible_round: evaluating without EvalState or admission journal', current_state=current)
         raw_state = ec.parse_frontmatter_fields(es_path.read_text(encoding='utf-8'))
@@ -210,7 +213,7 @@ def begin_eval_round(cycle_id: str, project_root: Path) -> dict[str, Any]:
     if admitted is not None:
         return admitted
     state = ec._adapter().load_workflow_state(cycle_id, project_root)
-    es_path = ec._evaluate_state_path(cycle_id, project_root)
+    es_path = session_binding._evaluate_state_path(cycle_id, project_root)
     try:
         eval_data = ec.load_evaluate_state(es_path)
     except ValueError as exc:
@@ -227,7 +230,7 @@ def init_round(cycle_id: str, project_root: Path, *, mode: str | None=None) -> d
 
 def complete_probe_only(cycle_id: str, project_root: Path) -> dict[str, Any]:
     """Finish a probe-only round while preserving pending findings."""
-    ctx = ec._load_evaluating_context(cycle_id, project_root)
+    ctx = evaluate_context._load_evaluating_context(cycle_id, project_root)
     if isinstance(ctx, dict):
         ctx['command'] = ec._CMD_COMPLETE_PROBE_ONLY
         return ctx
@@ -241,8 +244,8 @@ def complete_probe_only(cycle_id: str, project_root: Path) -> dict[str, Any]:
         return ec._failure(ec._CMD_COMPLETE_PROBE_ONLY, 'eval_phase must be probe or done')
     if any((status not in {'probed', 'complete'} for status in active_dimensions.values())):
         return ec._failure(ec._CMD_COMPLETE_PROBE_ONLY, 'not all dimensions are probed')
-    paths = ec._eval_paths(cycle_id, project_root, active_doc=active_doc, evaluate_round=evaluate_round, es_path=ec._evaluate_state_path(cycle_id, project_root))
-    operations = ec._operations_for_round(paths, eval_data['round_token'])
+    paths = session_binding._eval_paths(cycle_id, project_root, active_doc=active_doc, evaluate_round=evaluate_round, es_path=session_binding._evaluate_state_path(cycle_id, project_root))
+    operations = session_binding._operations_for_round(paths, eval_data['round_token'])
     if any((record.get('operation_kind') == 'probe' and record.get('phase') != 'committed' for record in operations)):
         return ec._failure(ec._CMD_COMPLETE_PROBE_ONLY, 'open probe operation remains')
     committed_probe_dimensions = {str(record.get('dimension_id')) for record in operations if record.get('operation_kind') == 'probe' and record.get('phase') == 'committed'}
@@ -251,7 +254,7 @@ def complete_probe_only(cycle_id: str, project_root: Path) -> dict[str, Any]:
     rows_by_dimension: dict[str, list[dict[str, str]]] = {}
     review_paths: list[str] = []
     for dimension_id in active_dimensions:
-        review_path = ec._review_path_from_context(cycle_id, project_root, state=state, evaluate_round=evaluate_round, active_doc=active_doc, dim=dimension_id)
+        review_path = review_binding._review_path_from_context(cycle_id, project_root, state=state, evaluate_round=evaluate_round, active_doc=active_doc, dim=dimension_id)
         if not review_path.is_file():
             return ec._failure(ec._CMD_COMPLETE_PROBE_ONLY, f'ReviewFile missing for dimension {dimension_id!r}')
         try:
@@ -260,12 +263,12 @@ def complete_probe_only(cycle_id: str, project_root: Path) -> dict[str, Any]:
             return ec._failure(ec._CMD_COMPLETE_PROBE_ONLY, str(exc))
         review_paths.append(review_path.as_posix())
     try:
-        issues = ec.canonical_probe_findings_from_reviews(rows_by_dimension, operations, expected_dimensions=list(active_dimensions))
+        issues = review_binding.canonical_probe_findings_from_reviews(rows_by_dimension, operations, expected_dimensions=list(active_dimensions))
     except ValueError as exc:
         return ec._failure(ec._CMD_COMPLETE_PROBE_ONLY, str(exc))
     if terminal_replay:
         return ec._success(ec._CMD_COMPLETE_PROBE_ONLY, eval_phase='done', eval_status='done', idempotent=True, issues=issues, review_paths=review_paths)
-    corpus = ec._load_corpus(cycle_id, project_root)
+    corpus = session_binding._load_corpus(cycle_id, project_root)
 
     def _finish(data: dict[str, str]) -> dict[str, str]:
         updated = dict(data)
@@ -274,7 +277,7 @@ def complete_probe_only(cycle_id: str, project_root: Path) -> dict[str, Any]:
         updated['eval_phase'] = 'done'
         updated['eval_status'] = 'done'
         return updated
-    error = ec._commit_staged_evaluate_state(cycle_id, project_root, update=_finish)
+    error = evaluate_context._commit_staged_evaluate_state(cycle_id, project_root, update=_finish)
     if error is not None:
         return ec._failure(ec._CMD_COMPLETE_PROBE_ONLY, error)
     return ec._success(ec._CMD_COMPLETE_PROBE_ONLY, eval_phase='done', eval_status='done', idempotent=False, issues=issues, review_paths=review_paths)

@@ -11,17 +11,26 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import eval_control  # noqa: E402
-from eval_control import (  # noqa: E402
+import evaluate_context  # noqa: E402
+import review_binding  # noqa: E402
+import session_binding  # noqa: E402
+from operation_recovery import (  # noqa: E402
+    validate_live_target_digest,
+)
+from probe_control import (  # noqa: E402
     _render_probe_review,
-    build_parser,
+)
+from review_binding import (  # noqa: E402
     canonical_probe_findings_from_reviews,
+    validate_review_against_probe_record,
+    validate_review_completion,
+)
+from eval_control import (  # noqa: E402
+    build_parser,
     check_dimension,
     complete_probe_only,
     read_b_snapshot_cmd,
     read_unit_view_cmd,
-    validate_live_target_digest,
-    validate_review_against_probe_record,
-    validate_review_completion,
 )
 
 
@@ -213,7 +222,7 @@ def test_read_unit_view_matches_units_and_read_b_snapshot_omits_them(
     )
     snapshot = {"digest": "a" * 64, "content": b_text}
     monkeypatch.setattr(
-        eval_control,
+        evaluate_context,
         "_load_evaluating_context",
         lambda *_: (
             {"current_state": "Working"},
@@ -225,12 +234,12 @@ def test_read_unit_view_matches_units_and_read_b_snapshot_omits_them(
         ),
     )
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_eval_paths",
         lambda *_, **__: {"evaluate_dir": tmp_path.as_posix()},
     )
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_evaluate_state_path",
         lambda *_: tmp_path / "evaluate-state.md",
     )
@@ -321,7 +330,7 @@ def test_complete_probe_only_validates_before_write_and_replays_idempotently(
     commits = 0
 
     monkeypatch.setattr(
-        eval_control,
+        evaluate_context,
         "_load_evaluating_context",
         lambda *_: (
             {"current_state": "Working"},
@@ -333,7 +342,7 @@ def test_complete_probe_only_validates_before_write_and_replays_idempotently(
         ),
     )
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_eval_paths",
         lambda *_, **__: {
             "evaluate_dir": tmp_path.as_posix(),
@@ -341,21 +350,21 @@ def test_complete_probe_only_validates_before_write_and_replays_idempotently(
         },
     )
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_evaluate_state_path",
         lambda *_: tmp_path / "evaluate-state.md",
     )
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_operations_for_round",
         lambda *_: [operation],
     )
     monkeypatch.setattr(
-        eval_control,
+        review_binding,
         "_review_path_from_context",
         lambda *_, **__: review_path,
     )
-    monkeypatch.setattr(eval_control, "_load_corpus", lambda *_: {})
+    monkeypatch.setattr(session_binding, "_load_corpus", lambda *_: {})
 
     def _merge(data, dim, status, *, corpus):
         del dim, corpus
@@ -370,7 +379,7 @@ def test_complete_probe_only_validates_before_write_and_replays_idempotently(
         return None
 
     monkeypatch.setattr(eval_control, "merge_current_dimension", _merge)
-    monkeypatch.setattr(eval_control, "_commit_staged_evaluate_state", _commit)
+    monkeypatch.setattr(evaluate_context, "_commit_staged_evaluate_state", _commit)
 
     first = complete_probe_only("cycle", tmp_path)
     second = complete_probe_only("cycle", tmp_path)
@@ -394,7 +403,7 @@ def _patch_check_dimension_context(
         "issue_counts": '{"quality":{"total":0,"resolved":0}}',
     }
     monkeypatch.setattr(
-        eval_control,
+        evaluate_context,
         "_load_evaluating_context",
         lambda *_: (
             {"current_state": "Working"},
@@ -405,11 +414,11 @@ def _patch_check_dimension_context(
             "tech",
         ),
     )
-    monkeypatch.setattr(eval_control, "_dispatch_dim_allowed", lambda *_: True)
-    monkeypatch.setattr(eval_control, "_load_corpus", lambda *_: None)
-    monkeypatch.setattr(eval_control, "_canonical_dim", lambda *_: "quality")
+    monkeypatch.setattr(session_binding, "_dispatch_dim_allowed", lambda *_: True)
+    monkeypatch.setattr(session_binding, "_load_corpus", lambda *_: None)
+    monkeypatch.setattr(session_binding, "_canonical_dim", lambda *_: "quality")
     monkeypatch.setattr(
-        eval_control,
+        review_binding,
         "_review_path_from_context",
         lambda *_, **__: review_path,
     )

@@ -13,11 +13,18 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import eval_control  # noqa: E402
+import evaluate_context  # noqa: E402
+import probe_control  # noqa: E402
+import remediation_control  # noqa: E402
+import review_binding  # noqa: E402
+import session_binding  # noqa: E402
+from remediation_control import (  # noqa: E402
+    restore_eval_target,
+)
 from eval_control import (  # noqa: E402
     apply_remediation,
     begin_dimension_remediation,
     check_dimension_remediation,
-    restore_eval_target,
     submit_probe_findings,
 )
 from eval_operation_context import issue_remediation_context  # noqa: E402
@@ -144,7 +151,7 @@ def _install_apply_context(
 ):
     eval_control._ADAPTER_CTX.set(adapter)
     monkeypatch.setattr(
-        eval_control,
+        remediation_control,
         "_remediation_command_context",
         lambda *_args, **_kwargs: (
             {"current_state": "Working"},
@@ -161,11 +168,11 @@ def _install_apply_context(
         ),
     )
     monkeypatch.setattr(
-        eval_control,
+        review_binding,
         "_review_path_from_context",
         lambda *_args, **_kwargs: tmp_path / "quality.md",
     )
-    monkeypatch.setattr(eval_control, "_load_corpus", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(session_binding, "_load_corpus", lambda *_args, **_kwargs: {})
 
     def _commit(*_args, update=None, patch=None, **_kwargs):
         if commit_error:
@@ -176,7 +183,7 @@ def _install_apply_context(
             eval_data.update(patch)
         return None
 
-    monkeypatch.setattr(eval_control, "_commit_staged_evaluate_state", _commit)
+    monkeypatch.setattr(evaluate_context, "_commit_staged_evaluate_state", _commit)
 
 
 def _install_dimension_context(
@@ -195,7 +202,7 @@ def _install_dimension_context(
         commit_error=commit_error,
     )
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_canonical_dim",
         lambda *_args, **_kwargs: "quality",
     )
@@ -206,17 +213,17 @@ def _install_dimension_context(
         "sots": [],
     }
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_expanded_corpus",
         lambda *_args, **_kwargs: {"dimensions": [dim_def]},
     )
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_dimension_def",
         lambda *_args, **_kwargs: dim_def,
     )
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_load_corpus",
         lambda *_args, **_kwargs: {"dimensions": [{"id": "quality"}]},
     )
@@ -231,7 +238,7 @@ def _install_committed_probe(monkeypatch, review_path: Path) -> None:
         }
         for row in parse_review_file(review_path)
     ]
-    real_ops = eval_control._operations_for_round
+    real_ops = session_binding._operations_for_round
 
     def _with_probe(paths, round_token):
         records = list(real_ops(paths, round_token))
@@ -250,7 +257,7 @@ def _install_committed_probe(monkeypatch, review_path: Path) -> None:
             })
         return records
 
-    monkeypatch.setattr(eval_control, "_operations_for_round", _with_probe)
+    monkeypatch.setattr(session_binding, "_operations_for_round", _with_probe)
 
 
 def _write_pending_review(
@@ -262,7 +269,7 @@ def _write_pending_review(
     target = tmp_path / "target.md"
     target.write_text("old\n", encoding="utf-8")
     review_path = tmp_path / "quality.md"
-    content = eval_control._render_probe_review(
+    content = probe_control._render_probe_review(
         dimension_label="Quality",
         dimension_id="quality",
         round_token="round-1",
@@ -302,7 +309,7 @@ def _seed_remediation(
     target = tmp_path / "target.md"
     target.write_text("old\n", encoding="utf-8")
     review_path = tmp_path / "quality.md"
-    content = eval_control._render_probe_review(
+    content = probe_control._render_probe_review(
         dimension_label="Quality",
         dimension_id="quality",
         round_token="round-1",
@@ -1211,7 +1218,7 @@ def test_restore_is_cas_safe(tmp_path: Path, monkeypatch):
     adapter = _TargetAdapter(target)
     eval_control._ADAPTER_CTX.set(adapter)
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_paths_from_handoff",
         lambda: {"lease_id": "lease-1"},
     )
@@ -1281,7 +1288,7 @@ def _install_probe_context(monkeypatch, tmp_path: Path, adapter: _TargetAdapter)
     }
     eval_control._ADAPTER_CTX.set(adapter)
     monkeypatch.setattr(
-        eval_control,
+        evaluate_context,
         "_load_evaluating_context",
         lambda *_args, **_kwargs: (
             {"current_state": "Working"},
@@ -1293,7 +1300,7 @@ def _install_probe_context(monkeypatch, tmp_path: Path, adapter: _TargetAdapter)
         ),
     )
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_eval_paths",
         lambda *_args, **_kwargs: {
             "evaluate_dir": tmp_path.as_posix(),
@@ -1303,12 +1310,12 @@ def _install_probe_context(monkeypatch, tmp_path: Path, adapter: _TargetAdapter)
         },
     )
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_evaluate_state_path",
         lambda *_args, **_kwargs: tmp_path / "evaluate-state.md",
     )
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_expanded_corpus",
         lambda *_args, **_kwargs: {
             "dimensions": [{
@@ -1320,7 +1327,7 @@ def _install_probe_context(monkeypatch, tmp_path: Path, adapter: _TargetAdapter)
         },
     )
     monkeypatch.setattr(
-        eval_control,
+        session_binding,
         "_dimension_def",
         lambda *_args, **_kwargs: {
             "id": "quality",
@@ -1329,9 +1336,9 @@ def _install_probe_context(monkeypatch, tmp_path: Path, adapter: _TargetAdapter)
             "review": {"output_path": "quality.md"},
         },
     )
-    monkeypatch.setattr(eval_control, "_load_corpus", lambda *_args, **_kwargs: {})
+    monkeypatch.setattr(session_binding, "_load_corpus", lambda *_args, **_kwargs: {})
     monkeypatch.setattr(
-        eval_control,
+        evaluate_context,
         "_commit_staged_evaluate_state",
         lambda *_args, **_kwargs: None,
     )
