@@ -55,7 +55,7 @@ from l_ledger_schema import (  # noqa: E402
     save_l_ledger,
 )
 from l_transition_kernel import (  # noqa: E402
-    IllegalTransition,
+    IllegalTransitionError,
     step_abort_evaluating,
     step_accept,
     step_enter_deductive,
@@ -70,7 +70,7 @@ from l_transition_kernel import (  # noqa: E402
     step_reverse_to_inductive,
     step_reverse_to_writing,
 )
-from revision_lock import LockTimeout, revision_lock, session_lock  # noqa: E402
+from revision_lock import LockTimeoutError, revision_lock, session_lock  # noqa: E402
 from resolved_refs_schema import (  # noqa: E402
     intent_baseline_from_workflow,
     norm_constraint_from_workflow,
@@ -87,7 +87,7 @@ from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
 )
-from writing_compose_validation import validate_writing_artifacts  # noqa: E402
+from writing_compose_control import validate_writing_artifacts  # noqa: E402
 
 _CMD_STATUS = "status"
 _CMD_ENTER_FACT_INTAKE = "enter-fact-intake"
@@ -309,14 +309,14 @@ def _open_point_txn_block(slice_dir: Path) -> str | None:
     from compose_state_lock import compose_state_lock  # noqa: WPS433
 
     _ensure_inductive_imports()
-    from open_point_store import RepairRequired, reconcile  # noqa: WPS433
+    from open_point_store import RepairRequiredError, reconcile  # noqa: WPS433
 
     try:
         with compose_state_lock(slice_dir):
             reconcile(slice_dir)
             if txn_path.is_file():
                 return "pending open-point transaction"
-    except RepairRequired:
+    except RepairRequiredError:
         return "open-point transaction repair_required"
     return None
 
@@ -646,9 +646,9 @@ def _with_revision_lock(
                 state=new_ledger["by_id"][new_ledger["focus"]]["state"],
                 focus=new_ledger["focus"],
             )
-    except LockTimeout:
+    except LockTimeoutError:
         return _failure(command, "lock_timeout", "revision lock timeout")
-    except IllegalTransition as exc:
+    except IllegalTransitionError as exc:
         return _failure(command, exc.code, str(exc), **exc.extra)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         return _failure(command, "invalid_ledger", str(exc))
@@ -679,7 +679,7 @@ def draft_status(
                 profile_id=profile_id,
                 revision_dir=revision_dir,
             )
-    except LockTimeout:
+    except LockTimeoutError:
         return _failure(_CMD_STATUS, "lock_timeout", "revision lock timeout")
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         return _failure(_CMD_STATUS, "invalid_ledger", str(exc))
@@ -787,7 +787,7 @@ def enter_inductive(
         focus = str(ledger["focus"])
         slice_dir = (revision_dir / focus).resolve()
         if not _has_stamp(slice_dir, _FACT_INTAKE_STAMP):
-            raise IllegalTransition(
+            raise IllegalTransitionError(
                 "illegal_transition",
                 "enter-inductive requires completed fact intake",
             )
@@ -868,25 +868,25 @@ def enter_deductive(
         state = ledger["by_id"][focus]["state"]
         slice_dir = (revision_dir / focus).resolve()
         if not _has_stamp(slice_dir, _FACT_INTAKE_STAMP):
-            raise IllegalTransition(
+            raise IllegalTransitionError(
                 "illegal_transition",
                 "enter-deductive requires completed fact intake",
             )
         if state == "FactIntake" and inductive:
-            raise IllegalTransition(
+            raise IllegalTransitionError(
                 "illegal_transition",
                 "enter-deductive from FactIntake requires pipeline.inductive=false",
             )
         if state == "Inductive":
             if not inductive:
-                raise IllegalTransition(
+                raise IllegalTransitionError(
                     "illegal_transition",
                     "enter-deductive from Inductive requires pipeline.inductive",
                 )
             if _inductive_complete_error(
                 cycle_id, project_root, profile_id, slice_dir
             ) is not None:
-                raise IllegalTransition(
+                raise IllegalTransitionError(
                     "illegal_transition",
                     "enter-deductive requires completed inductive",
                 )
@@ -1170,7 +1170,7 @@ def enter_evaluating(
         state = ledger["by_id"][str(ledger["focus"])]["state"]
         slice_dir = (revision_dir / str(ledger["focus"])).resolve()
         if state == "Writing" and not _has_stamp(slice_dir, _WRITING_STAMP):
-            raise IllegalTransition(
+            raise IllegalTransitionError(
                 "writing_incomplete",
                 "writing complete check failed",
             )
@@ -1204,10 +1204,10 @@ def _eval_exit(
         slice_dir = (revision_dir / str(ledger["focus"])).resolve()
         meta = _load_eval_run(slice_dir)
         if meta is None:
-            raise IllegalTransition("stale_eval", "missing eval_run_id")
+            raise IllegalTransitionError("stale_eval", "missing eval_run_id")
         current = ledger_fingerprint(ledger)
         if str(meta.get("ledger_fingerprint", "")) != current:
-            raise IllegalTransition("stale_eval", "eval_run_id is stale")
+            raise IllegalTransitionError("stale_eval", "eval_run_id is stale")
         return transform(ledger)
 
     return _with_revision_lock(command, revision_dir, apply)
@@ -1287,7 +1287,7 @@ def re_evaluate(
                 state="Evaluating",
                 eval_run_id=run_id,
             )
-    except LockTimeout:
+    except LockTimeoutError:
         return _failure(_CMD_RE_EVALUATE, "lock_timeout", "revision lock timeout")
     except (OSError, ValueError, FileNotFoundError) as exc:
         return _failure(_CMD_RE_EVALUATE, "invalid_ledger", str(exc))
@@ -1403,7 +1403,7 @@ def _cli() -> int:
                 result = reopen_current(**kwargs, confirm=confirm)
             else:
                 return 1
-    except LockTimeout:
+    except LockTimeoutError:
         result = _failure(args.command, "lock_timeout", "session lock timeout")
     if result.get("ok") and "dispatch_input" in result:
         print(result["dispatch_input"])
@@ -1530,7 +1530,7 @@ def rollback_evaluating_phase(
             revision_dir,
             step_abort_evaluating(ledger, previous=previous_phase),
         )
-    except IllegalTransition:
+    except IllegalTransitionError:
         return
     slice_dir = revision_dir / focus
     eval_run = slice_dir / _EVAL_RUN_FILE

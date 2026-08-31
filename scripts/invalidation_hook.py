@@ -151,7 +151,7 @@ def invalidate_downstream(
 ) -> None:
     """Mark downstream sessions Invalidated. Acquires cycle exclusive lock."""
     _ensure_compose_paths()
-    from revision_lock import LockTimeout, cycle_lock  # noqa: WPS433
+    from revision_lock import LockTimeoutError, cycle_lock  # noqa: WPS433
 
     cycle_cache = cache_dir / cycle_id
     try:
@@ -163,5 +163,5 @@ def invalidate_downstream(
                 cache_dir,
                 project_root=project_root,
             )
-    except LockTimeout as exc:
+    except LockTimeoutError as exc:
         raise RuntimeError(f"invalidation lock_timeout: {exc}") from exc

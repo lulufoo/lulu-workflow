@@ -8,7 +8,7 @@ import pytest
 
 from l_ledger_schema import build_ledger
 from l_transition_kernel import (
-    IllegalTransition,
+    IllegalTransitionError,
     shell_advance,
     shell_backtrack,
     shell_unfreeze,
@@ -53,7 +53,7 @@ def test_enter_fact_intake_from_pending() -> None:
 
 
 def test_enter_deductive_requires_fact_intake() -> None:
-    with pytest.raises(IllegalTransition) as exc:
+    with pytest.raises(IllegalTransitionError) as exc:
         step_enter_deductive(_chain())
     assert exc.value.code == "illegal_transition"
 
@@ -69,7 +69,7 @@ def test_enter_follows_serial_profile() -> None:
 
 def test_enter_writing_rejects_inductive() -> None:
     ledger = step_enter_inductive(step_enter_fact_intake(_chain()))
-    with pytest.raises(IllegalTransition):
+    with pytest.raises(IllegalTransitionError):
         step_enter_writing(ledger)
 
 
@@ -91,7 +91,7 @@ def test_abort_evaluating_restores_previous_phase() -> None:
     restored = step_abort_evaluating(ledger, previous="Writing")
     assert restored["by_id"]["L1"]["state"] == "Writing"
     ledger = step_enter_evaluating(restored)
-    with pytest.raises(IllegalTransition):
+    with pytest.raises(IllegalTransitionError):
         step_abort_evaluating(ledger, previous="Evaluating")
 
 
@@ -105,7 +105,7 @@ def test_skip_freeedit_to_evaluating() -> None:
 def test_enter_freeedit_rejected_when_disabled() -> None:
     ledger = _produce({"inductive": False})
     ledger = step_enter_writing(ledger)
-    with pytest.raises(IllegalTransition) as exc:
+    with pytest.raises(IllegalTransitionError) as exc:
         step_enter_freeedit(ledger, {"freeedit": False})
     assert exc.value.code == "illegal_transition"
 
@@ -113,7 +113,7 @@ def test_enter_freeedit_rejected_when_disabled() -> None:
 def test_writing_cannot_reverse_to_deductive() -> None:
     ledger = _produce({"inductive": True})
     ledger = step_enter_writing(ledger)
-    with pytest.raises(IllegalTransition):
+    with pytest.raises(IllegalTransitionError):
         step_reverse_to_deductive(ledger)
 
 
@@ -155,7 +155,7 @@ def test_advance_and_backtrack_and_unfreeze() -> None:
     assert ledger["by_id"]["L2"]["frozen"] is True
     ledger = step_enter_evaluating(ledger)
     ledger = step_accept(ledger)
-    with pytest.raises(IllegalTransition) as exc:
+    with pytest.raises(IllegalTransitionError) as exc:
         shell_advance(ledger)
     assert exc.value.code == "alignment_required"
     ledger = shell_unfreeze(ledger)
@@ -191,7 +191,7 @@ def test_nested_backtrack_keeps_frozen_suffix() -> None:
 
 def test_backtrack_rejects_non_predecessor() -> None:
     ledger = _completed_prefix_writing()
-    with pytest.raises(IllegalTransition):
+    with pytest.raises(IllegalTransitionError):
         shell_backtrack(ledger, "L2")
-    with pytest.raises(IllegalTransition):
+    with pytest.raises(IllegalTransitionError):
         shell_backtrack(ledger, "L3")

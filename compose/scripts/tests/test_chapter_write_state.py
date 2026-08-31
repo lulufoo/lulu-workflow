@@ -516,7 +516,7 @@ def test_assemble_requires_write_state_complete(tmp_path: Path):
 
 
 def test_init_validate_requires_write_state(tmp_path: Path):
-    from writing_compose_validation import validate_writing_artifacts
+    from writing_compose_control import validate_writing_artifacts
 
     repo = Path(__file__).resolve().parents[4]
     rev = _rev(tmp_path)

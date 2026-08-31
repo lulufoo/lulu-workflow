@@ -23,7 +23,7 @@ DEFAULT_TIMEOUT_S = 5.0
 _POLL_S = 0.05
 
 
-class LockTimeout(TimeoutError):
+class LockTimeoutError(TimeoutError):
     def __init__(self, path: Path) -> None:
         super().__init__(f"lock_timeout: {path}")
         self.path = path
@@ -61,7 +61,7 @@ def acquire_lock(
                 break
             except BlockingIOError as exc:
                 if time.monotonic() >= deadline:
-                    raise LockTimeout(path) from exc
+                    raise LockTimeoutError(path) from exc
                 time.sleep(_POLL_S)
         try:
             yield

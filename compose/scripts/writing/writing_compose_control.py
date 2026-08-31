@@ -4,7 +4,7 @@
 Subcommands:
     validate    Check revision-dir facts/chapters/derive/body and compose doc
 
-CLI details: ``python3 writing_compose_validation.py --help``
+CLI details: ``python3 writing_compose_control.py --help``
 """
 
 from __future__ import annotations

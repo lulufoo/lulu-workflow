@@ -33,10 +33,10 @@ sys.path.insert(0, str(WORKFLOW_SCRIPTS))
 from start_gate import check_gate, get_topic_doc  # noqa: E402
 
 from delivered_refs_schema import DeliveredRef, load_delivered_refs_file  # noqa: E402
-from holder_finalize import holder_finalize  # noqa: E402
+from holder_finalize_control import finalize_holder  # noqa: E402
 from l_ledger_schema import build_ledger, load_l_ledger, save_l_ledger  # noqa: E402
 from resolved_refs_schema import freeze_delivered_copy, write_resolved_refs  # noqa: E402
-from revision_lock import LockTimeout, session_lock  # noqa: E402
+from revision_lock import LockTimeoutError, session_lock  # noqa: E402
 from scope_package_schema import (  # noqa: E402
     chain_ids_from_scope_package,
     load_scope_package,
@@ -341,12 +341,12 @@ def run_start(args: argparse.Namespace) -> dict[str, Any]:
                     start_id=start_id,
                     holder_finalized=False,
                 )
-    except LockTimeout:
+    except LockTimeoutError:
         return _failure("lock_timeout", "session lock timeout")
     except (OSError, ValueError) as exc:
         return _failure("start_failed", str(exc))
 
-    fin = holder_finalize(
+    fin = finalize_holder(
         cycle_id=cycle_id,
         project_root=project_root,
         conversation_id=conversation_id,

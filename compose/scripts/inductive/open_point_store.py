@@ -126,7 +126,7 @@ class StaleError(OpenPointError):
         super().__init__(message)
 
 
-class RepairRequired(OpenPointError):
+class RepairRequiredError(OpenPointError):
     def __init__(self, message: str = "repair_required") -> None:
         super().__init__(message)
 
@@ -211,7 +211,7 @@ def _skill_template_text(
     if not project_root:
         raise _skill_template_error(role)
     try:
-        from load_compose_template import (  # noqa: WPS433
+        from compose_template import (  # noqa: WPS433
             ComposeTemplateLoadError,
             load_compose_template,
         )
@@ -505,7 +505,7 @@ def reconcile(slice_dir: Path) -> None:
         durable_unlink(txn_path)
         return
     if any(item == "neither" for item in classifications):
-        raise RepairRequired()
+        raise RepairRequiredError()
     for key, target in txn["targets"].items():
         path = Path(slice_dir) / key
         if target["existed"]:

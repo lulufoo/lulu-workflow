@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Holder finalize handshake after Compose Start.
 
-Called by start.py after a revision is published, or when retrying an
+Called by start after a revision is published, or when retrying an
 unfinished publish. Commits cycle-visible side effects and sets
 holder_finalized=true. Not a SKILL step.
 
@@ -33,7 +33,7 @@ from invalidation_hook import invalidate_downstream_under_cycle_lock  # noqa: E4
 from transition_table import load_stage_order  # noqa: E402
 from workflow_sessions import current_effective_delivered, get_sessions  # noqa: E402
 
-from revision_lock import LockTimeout, cycle_lock, revision_lock, session_lock  # noqa: E402
+from revision_lock import LockTimeoutError, cycle_lock, revision_lock, session_lock  # noqa: E402
 from session_state_schema import load_session_state, save_session_state  # noqa: E402
 from workflow_common import CACHE_DIR, detect_cycle_type, write_active_context  # noqa: E402
 from workflow_paths import load_profile_json, write_active_profile  # noqa: E402
@@ -116,7 +116,7 @@ def _resolve_finalize_target(
     return ss_path, _profile_id_from_state(root, load_session_state(ss_path))
 
 
-def holder_finalize(
+def finalize_holder(
     *,
     cycle_id: str,
     project_root: Path,
@@ -242,7 +242,7 @@ def holder_finalize(
                         start_id=str(snapshot["start_id"]),
                         holder_finalized=True,
                     )
-    except LockTimeout:
+    except LockTimeoutError:
         return _failure("lock_timeout", "lock timeout")
     except (OSError, ValueError) as exc:
         return _failure("finalize_failed", str(exc))
@@ -265,7 +265,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--confirm", action="store_true")
     args = parser.parse_args(argv)
     return _emit(
-        holder_finalize(
+        finalize_holder(
             cycle_id=args.cycle_id.strip(),
             project_root=args.project_root.resolve(),
             conversation_id=args.conversation_id,

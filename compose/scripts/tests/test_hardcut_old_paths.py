@@ -28,6 +28,9 @@ _DELETED_MODULES = (
     "compose/scripts/inductive/inductive_subagent_guard.py",
     "compose/scripts/section/display_layer_gates.py",
     "compose/scripts/inductive/kw_facets.py",
+    "compose/scripts/writing/writing_compose_validation.py",
+    "compose/scripts/templates/load_compose_template.py",
+    "compose/scripts/session/holder_finalize.py",
 )
 
 _DELETED_DATA = (
@@ -48,6 +51,8 @@ _DELETED_TESTS = (
     "compose/scripts/tests/test_chapters_control.py",
     "compose/scripts/tests/test_inductive_facts_projection.py",
     "compose/scripts/tests/test_display_layer_gates.py",
+    "compose/scripts/tests/test_writing_compose_validation.py",
+    "compose/scripts/tests/test_load_compose_template.py",
 )
 
 _FORBIDDEN_SKILL_TOKENS = (

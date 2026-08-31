@@ -26,7 +26,7 @@ from fact_intake_eval_runtime_schema import (  # noqa: E402
     evaluate_state_path,
     gate_allows_derive_from_evaluate_state,
 )
-from load_compose_template import (  # noqa: E402
+from compose_template import (  # noqa: E402
     ComposeTemplateLoadError,
     load_compose_template,
 )

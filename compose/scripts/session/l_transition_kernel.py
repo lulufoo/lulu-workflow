@@ -34,7 +34,7 @@ from l_ledger_schema import (
 PRODUCER_STATES = frozenset({"Inductive", "Deductive"})
 
 
-class IllegalTransition(ValueError):
+class IllegalTransitionError(ValueError):
     """A ledger command that must not write."""
 
     def __init__(self, code: str, message: str, **extra: Any) -> None:
@@ -44,7 +44,7 @@ class IllegalTransition(ValueError):
 
 
 @dataclass(frozen=True)
-class ShellAdvance:
+class ShellAdvanceResult:
     ledger: dict[str, Any]
     changed: bool
     next_action: str | None = None
@@ -61,7 +61,7 @@ def _cell(ledger: dict[str, Any], nid: str) -> dict[str, Any]:
 def _require_unfrozen_focus(ledger: dict[str, Any]) -> str:
     focus = str(ledger["focus"])
     if _cell(ledger, focus)["frozen"] is True:
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             f"focus {focus} is frozen",
         )
@@ -71,18 +71,18 @@ def _require_unfrozen_focus(ledger: dict[str, Any]) -> str:
 def _finish(ledger: dict[str, Any]) -> dict[str, Any]:
     errors = validate_l_ledger(ledger)
     if errors:
-        raise IllegalTransition("invalid_ledger", "; ".join(errors))
+        raise IllegalTransitionError("invalid_ledger", "; ".join(errors))
     return ledger
 
 
 # --- $L_SHELL ---
 
 
-def shell_advance(ledger: dict[str, Any]) -> ShellAdvance:
+def shell_advance(ledger: dict[str, Any]) -> ShellAdvanceResult:
     """Advance focus to the direct successor, or signal ready/align."""
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "Completed":
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             f"advance requires focus {focus} Completed",
         )
@@ -90,41 +90,41 @@ def shell_advance(ledger: dict[str, Any]) -> ShellAdvance:
     f = focus_index(ledger)
     if f + 1 >= len(order):
         if not all_completed_unfrozen(ledger):
-            raise IllegalTransition(
+            raise IllegalTransitionError(
                 "illegal_transition",
                 "last L is Completed but ledger is not ready-for-delivery",
             )
-        return ShellAdvance(
+        return ShellAdvanceResult(
             ledger=_clone(ledger),
             changed=False,
             next_action="ready-for-delivery",
         )
     nxt = order[f + 1]
     if _cell(ledger, nxt)["frozen"] is True:
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "alignment_required",
             f"successor {nxt} is frozen",
             successor=nxt,
         )
     new = _clone(ledger)
     new["focus"] = nxt
-    return ShellAdvance(ledger=_finish(new), changed=True)
+    return ShellAdvanceResult(ledger=_finish(new), changed=True)
 
 
 def shell_backtrack(ledger: dict[str, Any], target: str) -> dict[str, Any]:
     order = list(ledger["order"])
     if target not in order:
-        raise IllegalTransition("illegal_transition", f"unknown target {target}")
+        raise IllegalTransitionError("illegal_transition", f"unknown target {target}")
     f = focus_index(ledger)
     t = order.index(target)
     if t >= f:
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "backtrack target must be a strict predecessor",
         )
     cell = _cell(ledger, target)
     if cell["state"] != "Completed" or cell["frozen"] is True:
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "backtrack target must be Completed and unfrozen",
         )
@@ -142,20 +142,20 @@ def shell_backtrack(ledger: dict[str, Any], target: str) -> dict[str, Any]:
 def shell_unfreeze(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "Completed":
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             f"unfreeze requires focus {focus} Completed",
         )
     order = list(ledger["order"])
     f = focus_index(ledger)
     if f + 1 >= len(order):
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "unfreeze requires a frozen direct successor",
         )
     nxt = order[f + 1]
     if _cell(ledger, nxt)["frozen"] is not True:
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             f"direct successor {nxt} is not frozen",
         )
@@ -165,7 +165,7 @@ def shell_unfreeze(ledger: dict[str, Any]) -> dict[str, Any]:
         for nid in order[: f + 1]
     )
     if not prefix_ok:
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "unfreeze requires Completed unfrozen prefix through focus",
         )
@@ -181,7 +181,7 @@ def shell_unfreeze(ledger: dict[str, Any]) -> dict[str, Any]:
 def step_enter_fact_intake(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "Pending":
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "enter-fact-intake requires Pending focus",
         )
@@ -193,7 +193,7 @@ def step_enter_fact_intake(ledger: dict[str, Any]) -> dict[str, Any]:
 def step_enter_inductive(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "FactIntake":
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "enter-inductive requires FactIntake focus",
         )
@@ -205,7 +205,7 @@ def step_enter_inductive(ledger: dict[str, Any]) -> dict[str, Any]:
 def step_enter_deductive(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] not in {"FactIntake", "Inductive"}:
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "enter-deductive requires FactIntake or Inductive focus",
         )
@@ -217,7 +217,7 @@ def step_enter_deductive(ledger: dict[str, Any]) -> dict[str, Any]:
 def step_enter_writing(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "Deductive":
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "enter-writing requires Deductive focus",
         )
@@ -231,13 +231,13 @@ def step_enter_freeedit(
     profile: dict[str, Any],
 ) -> dict[str, Any]:
     if profile.get("freeedit") is not True:
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "enter-freeedit requires pipeline.freeedit",
         )
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "Writing":
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "enter-freeedit requires Writing focus",
         )
@@ -249,7 +249,7 @@ def step_enter_freeedit(
 def step_enter_evaluating(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] not in {"Writing", "FreeEdit"}:
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "enter-evaluating requires Writing or FreeEdit",
         )
@@ -261,7 +261,7 @@ def step_enter_evaluating(ledger: dict[str, Any]) -> dict[str, Any]:
 def step_reverse_to_inductive(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "FreeEdit":
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "reverse-to-inductive requires FreeEdit",
         )
@@ -273,7 +273,7 @@ def step_reverse_to_inductive(ledger: dict[str, Any]) -> dict[str, Any]:
 def step_reverse_to_deductive(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "FreeEdit":
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "reverse-to-deductive requires FreeEdit",
         )
@@ -285,7 +285,7 @@ def step_reverse_to_deductive(ledger: dict[str, Any]) -> dict[str, Any]:
 def step_reverse_to_writing(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "FreeEdit":
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "reverse-to-writing requires FreeEdit",
         )
@@ -297,7 +297,7 @@ def step_reverse_to_writing(ledger: dict[str, Any]) -> dict[str, Any]:
 def step_accept(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "Evaluating":
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "accept requires Evaluating",
         )
@@ -309,7 +309,7 @@ def step_accept(ledger: dict[str, Any]) -> dict[str, Any]:
 def step_fix(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "Evaluating":
-        raise IllegalTransition("illegal_transition", "fix requires Evaluating")
+        raise IllegalTransitionError("illegal_transition", "fix requires Evaluating")
     new = _clone(ledger)
     new["by_id"][focus]["state"] = "FreeEdit"
     return _finish(new)
@@ -318,12 +318,12 @@ def step_fix(ledger: dict[str, Any]) -> dict[str, Any]:
 def step_abort_evaluating(ledger: dict[str, Any], *, previous: str) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "Evaluating":
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "abort-evaluating requires Evaluating",
         )
     if previous not in {"Writing", "FreeEdit"}:
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "abort-evaluating previous must be Writing or FreeEdit",
         )
@@ -335,7 +335,7 @@ def step_abort_evaluating(ledger: dict[str, Any], *, previous: str) -> dict[str,
 def step_reopen(ledger: dict[str, Any]) -> dict[str, Any]:
     focus = _require_unfrozen_focus(ledger)
     if _cell(ledger, focus)["state"] != "Completed":
-        raise IllegalTransition(
+        raise IllegalTransitionError(
             "illegal_transition",
             "reopen requires Completed focus",
         )

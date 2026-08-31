@@ -17,7 +17,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from load_compose_template import (  # noqa: E402
+from compose_template import (  # noqa: E402
     ComposeTemplateLoadError,
     load_compose_template,
 )

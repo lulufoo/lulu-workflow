@@ -10,7 +10,7 @@ from argparse import Namespace
 import bootstrap  # noqa: F401
 import pytest
 
-from holder_finalize import holder_finalize, main
+from holder_finalize_control import finalize_holder, main
 from init_working_helpers import seed_tech_plan_session
 from session_state_schema import load_session_state, save_session_state
 from start import run_start
@@ -43,7 +43,7 @@ def _pending_start(tmp_path: Path) -> Path:
 
 def test_holder_finalize_reads_pending_session(tmp_path: Path) -> None:
     ss_path = _pending_start(tmp_path)
-    result = holder_finalize(
+    result = finalize_holder(
         cycle_id=_CYCLE,
         project_root=tmp_path,
         confirm=True,
@@ -56,7 +56,7 @@ def test_holder_finalize_reads_pending_session(tmp_path: Path) -> None:
 
 def test_holder_finalize_stale_when_not_pending(tmp_path: Path) -> None:
     seed_tech_plan_session(tmp_path, cycle_id=_CYCLE)
-    result = holder_finalize(
+    result = finalize_holder(
         cycle_id=_CYCLE,
         project_root=tmp_path,
         confirm=True,

@@ -47,7 +47,7 @@ from cycle_delivered_refs import DeliveryInconsistent, file_digest  # noqa: E402
 from human_delivery_gate_schema import write_approved  # noqa: E402
 from l_ledger_schema import all_completed_unfrozen, load_l_ledger  # noqa: E402
 from compose_package_control import assemble_compose_package, validate_ready_package  # noqa: E402
-from revision_lock import LockTimeout, cycle_lock, revision_lock, session_lock  # noqa: E402
+from revision_lock import LockTimeoutError, cycle_lock, revision_lock, session_lock  # noqa: E402
 from session_state_schema import load_session_state  # noqa: E402
 from transition_registry import is_allowed  # noqa: E402
 from workflow_common import CACHE_DIR  # noqa: E402
@@ -243,7 +243,7 @@ def leave_split(
                         if k in details
                     },
                 )
-    except LockTimeout:
+    except LockTimeoutError:
         return {
             "ok": False,
             "command": _CMD_LEAVE_SPLIT,
@@ -327,7 +327,7 @@ def ready_for_delivery(
                     profile_id=profile_id,
                     package_path=str(path),
                 )
-    except LockTimeout:
+    except LockTimeoutError:
         return {
             "ok": False,
             "command": _CMD_READY,
@@ -367,7 +367,7 @@ def return_to_working(
                 merged["current_state"] = "Working"
                 save_workflow_state(ws_path, merged, merge=False)
                 return _success(_CMD_RETURN_WORKING, "Working", profile_id=profile_id)
-    except LockTimeout:
+    except LockTimeoutError:
         return {
             "ok": False,
             "command": _CMD_RETURN_WORKING,
@@ -467,7 +467,7 @@ def deliver(
                     merged["current_state"] = "Delivered"
                     save_workflow_state(ws_path, merged, merge=False)
                     return _success(_CMD_DELIVER, "Delivered", profile_id=profile_id)
-    except LockTimeout:
+    except LockTimeoutError:
         return {
             "ok": False,
             "command": _CMD_DELIVER,

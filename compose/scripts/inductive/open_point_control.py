@@ -40,7 +40,7 @@ for _path in (_HERE, *_SCHEMA_DIRS, _SESSION, _KERNEL, _TEMPLATES):
 from compose_state_lock import compose_state_lock  # noqa: E402
 from l_ledger_schema import working_slice_dir  # noqa: E402
 from open_point_store import (  # noqa: E402
-    RepairRequired,
+    RepairRequiredError,
     StaleError,
     active_batch_of,
     add_opens,
@@ -390,7 +390,7 @@ def main(argv: list[str] | None = None) -> int:
             dispatch[args.subcommand](slice_dir, args)
         except StaleError:
             _fail("stale")
-        except RepairRequired:
+        except RepairRequiredError:
             _fail("repair_required")
         except ValueError as exc:
             _fail(str(exc))

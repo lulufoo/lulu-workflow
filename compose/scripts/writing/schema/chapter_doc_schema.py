@@ -9,7 +9,7 @@ the chapter plan (framework/placement ``chapters[].id``, e.g. ``chap-3``),
 not an uppercase lens key.
 
 Write-side + Writing-internal-read (``compose_doc_control append-chapter``,
-``writing_compose_validation`` assembly gate). Downstream Eval reads chapter
+``writing_compose_control`` assembly gate). Downstream Eval reads chapter
 anchors **from EvalTarget B only** via ``eval/scripts/eval_target_units.py``
 (K3-c/d option 1) — this module stays compose-side and is **not** imported
 by eval.

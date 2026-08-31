@@ -26,7 +26,7 @@ from lens_frontier_schema import (  # noqa: E402
     load_lens_frontier,
 )
 from open_point_store import (  # noqa: E402
-    RepairRequired,
+    RepairRequiredError,
     add_opens,
     check_close,
     defer_open,
@@ -467,9 +467,9 @@ def test_crash_neither_sets_repair_required(tmp_path: Path):
             },
         },
     )
-    with pytest.raises(RepairRequired):
+    with pytest.raises(RepairRequiredError):
         reconcile(tmp_path)
-    with pytest.raises(RepairRequired):
+    with pytest.raises(RepairRequiredError):
         add_opens(tmp_path, opens=[_human_open(question="blocked")])
     assert txn_path.is_file()
 
@@ -640,7 +640,7 @@ def test_cleared_fails_without_skill_templates(
 def test_lens_snapshot_reads_skill_not_slice(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    import load_compose_template as lct
+    import compose_template as lct
     import workflow_paths as wp
 
     fetched = _FIXTURE_REGISTRY

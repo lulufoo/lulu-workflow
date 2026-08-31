@@ -47,7 +47,7 @@ from chapter_write_state_schema import (  # noqa: E402
 )
 from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
-from load_compose_template import load_compose_template  # noqa: E402
+from compose_template import load_compose_template  # noqa: E402
 from section_form_registry_schema import fetch_section_form_registry  # noqa: E402
 from section_registry_schema import fetch_section_registry  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402

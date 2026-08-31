@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for load_compose_template.py."""
+"""Tests for compose_template.py."""
 
 import json
 import sys
@@ -12,7 +12,7 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from compose_template_registry import ComposeTemplateError, resolve_template_ref, scheme_template_keys  # noqa: E402
-from load_compose_template import (  # noqa: E402
+from compose_template import (  # noqa: E402
     ComposeTemplateLoadError,
     load_compose_template,
     resolve_compose_template_path,

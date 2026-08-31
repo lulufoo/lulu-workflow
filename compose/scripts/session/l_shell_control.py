@@ -39,12 +39,12 @@ from l_ledger_schema import (  # noqa: E402
     save_l_ledger,
 )
 from l_transition_kernel import (  # noqa: E402
-    IllegalTransition,
+    IllegalTransitionError,
     shell_advance,
     shell_backtrack,
     shell_unfreeze,
 )
-from revision_lock import LockTimeout, revision_lock, session_lock  # noqa: E402
+from revision_lock import LockTimeoutError, revision_lock, session_lock  # noqa: E402
 from workflow_paths import resolve_profile_id  # noqa: E402
 from workflow_profile_paths import session_state_path  # noqa: E402
 from workflow_state_schema import load_workflow_state  # noqa: E402
@@ -212,9 +212,9 @@ def _mutate(
                 "by_id": new_ledger["by_id"],
                 "next_actions": derive_next_actions(new_ledger, session_state),
             }
-    except LockTimeout:
+    except LockTimeoutError:
         return _failure(command, "lock_timeout", "revision lock timeout")
-    except IllegalTransition as exc:
+    except IllegalTransitionError as exc:
         extra = dict(exc.extra)
         if exc.code == "alignment_required":
             extra["ledger_fingerprint"] = ledger_fingerprint(load_l_ledger(revision_dir))
@@ -233,14 +233,14 @@ def _open_point_txn_block(slice_dir: Path) -> str | None:
     for path in (inductive, *kernel_bootstrap.inductive_schema_dirs()):
         if str(path) not in sys.path:
             sys.path.insert(0, str(path))
-    from open_point_store import RepairRequired, reconcile  # noqa: WPS433
+    from open_point_store import RepairRequiredError, reconcile  # noqa: WPS433
 
     try:
         with compose_state_lock(slice_dir):
             reconcile(slice_dir)
             if txn_path.is_file():
                 return "pending open-point transaction"
-    except RepairRequired:
+    except RepairRequiredError:
         return "open-point transaction repair_required"
     return None
 
@@ -284,9 +284,9 @@ def cmd_advance(revision_dir: Path, session_state: str) -> dict[str, Any]:
             if result.next_action:
                 payload["next_action"] = result.next_action
             return payload
-    except LockTimeout:
+    except LockTimeoutError:
         return _failure(_CMD_ADVANCE, "lock_timeout", "revision lock timeout")
-    except IllegalTransition as exc:
+    except IllegalTransitionError as exc:
         extra = dict(exc.extra)
         if exc.code == "alignment_required":
             extra["ledger_fingerprint"] = ledger_fingerprint(load_l_ledger(revision_dir))
@@ -333,7 +333,7 @@ def cmd_unfreeze(
     def apply(ledger: dict[str, Any]) -> dict[str, Any]:
         current = ledger_fingerprint(ledger)
         if current != expected_fingerprint:
-            raise IllegalTransition(
+            raise IllegalTransitionError(
                 "stale_fingerprint",
                 "expected fingerprint does not match current ledger",
             )
@@ -424,7 +424,7 @@ def main(argv: list[str] | None = None) -> int:
                         confirm=args.confirm,
                     )
                 )
-    except LockTimeout:
+    except LockTimeoutError:
         return _emit(_failure(args.command, "lock_timeout", "session lock timeout"))
     return _emit(_failure(args.command, "illegal_transition", "unknown command"))
 

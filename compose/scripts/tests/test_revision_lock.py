@@ -9,7 +9,7 @@ import bootstrap  # noqa: F401
 import pytest
 
 from revision_lock import (
-    LockTimeout,
+    LockTimeoutError,
     acquire_lock,
     cycle_lock,
     revision_lock,
@@ -21,7 +21,7 @@ from revision_lock import (
 def test_exclusive_blocks_shared(tmp_path) -> None:
     path = revision_lock_path(tmp_path)
     with revision_lock(tmp_path, exclusive=True):
-        with pytest.raises(LockTimeout):
+        with pytest.raises(LockTimeoutError):
             with acquire_lock(path, exclusive=False, timeout_s=0.2):
                 pass
 
@@ -34,7 +34,7 @@ def test_shared_allows_shared(tmp_path) -> None:
 
 def test_timeout_code(tmp_path) -> None:
     with revision_lock(tmp_path, exclusive=True):
-        with pytest.raises(LockTimeout) as exc:
+        with pytest.raises(LockTimeoutError) as exc:
             with revision_lock(tmp_path, exclusive=True, timeout_s=0.15):
                 pass
         assert exc.value.code == "lock_timeout"
@@ -56,7 +56,7 @@ def test_cycle_exclusive_blocks_second_exclusive(tmp_path) -> None:
     cycle = tmp_path / "cycle"
     cycle.mkdir()
     with cycle_lock(cycle, exclusive=True):
-        with pytest.raises(LockTimeout):
+        with pytest.raises(LockTimeoutError):
             with cycle_lock(cycle, exclusive=True, timeout_s=0.15):
                 pass
 
