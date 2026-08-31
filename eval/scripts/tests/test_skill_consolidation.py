@@ -54,9 +54,14 @@ def test_eval_skills_are_consolidated_and_macro_only() -> None:
     for skill in _CURRENT_SKILLS:
         text = _skill_text(skill)
         assert "## Script Macros" in text
-        assert "python3" not in text
         assert "review_schema.py" not in text
         assert "issue-taxonomy.json" not in text
+        if skill == _ORCHESTRATOR:
+            assert 'python3 "$SKILL_ROOT/eval/scripts/eval_entry.py"' in text
+            body = text.split("## Principles", 1)[1]
+            assert "python3" not in body
+        else:
+            assert "python3" not in text
 
 
 def test_eval_orchestrator_is_probe_then_remediation_then_complete() -> None:

@@ -95,15 +95,27 @@ _CORPUS_REF = f"{_CORPUS_ID}@{_CORPUS_VERSION}"
 _DIMENSION_ORDER = ("e1-doc-coverage", "e2-fact-provenance")
 _PROFILE_ENV = "COMPOSE_FACT_INTAKE_PROFILE_ID"
 _EVAL_CAPABILITY = "full-remediation"
+_BOUND_PROFILE_ID: str | None = None
 
 
 def _profile_id() -> str:
-    pid = (os.environ.get(_PROFILE_ENV) or "").strip()
+    pid = (_BOUND_PROFILE_ID or os.environ.get(_PROFILE_ENV) or "").strip()
     if not pid:
         raise ValueError(
-            f"{_PROFILE_ENV} is required (set by fact_intake_eval_control)",
+            "adapter_options.profile_id is required "
+            "(emit via fact_intake_eval_control or set "
+            f"{_PROFILE_ENV})",
         )
     return pid
+
+
+def bind_profile_id(profile_id: str) -> None:
+    """Bind the cycle's compose profile_id for this process."""
+    global _BOUND_PROFILE_ID
+    pid = profile_id.strip()
+    if not pid:
+        raise ValueError("adapter_options.profile_id must be a non-empty string")
+    _BOUND_PROFILE_ID = pid
 
 
 def _revision_dir(cycle_id: str, project_root: Path) -> Path:
@@ -142,6 +154,16 @@ class FactIntakeEvalAdapter:
     """WorkflowAdapter for Fact-intake eval (Deductive intake; return_to_caller)."""
 
     WORKFLOW_ID = _WORKFLOW_ID
+
+    @classmethod
+    def from_config(cls, raw: dict[str, Any]) -> "FactIntakeEvalAdapter":
+        options = raw.get("adapter_options") if isinstance(raw, dict) else None
+        pid = ""
+        if isinstance(options, dict):
+            pid = str(options.get("profile_id") or "").strip()
+        if pid:
+            bind_profile_id(pid)
+        return cls()
 
     def _runtime(self, cycle_id: str, project_root: Path) -> dict[str, Any]:
         return load_runtime(runtime_path(_slice_dir(cycle_id, project_root)))

@@ -4,7 +4,7 @@
 Callers (Compose / Decision) pass ``--adapter-config-file`` or ``--adapter-config``.
 Eval does not discover stages or read a central registry.
 
-Invoke via the ``$EVAL_CONTROL`` macro (see ``eval/SKILL.md`` / compose / decision).
+Invoke via the ``$EVAL_CONTROL`` macro defined in ``eval/SKILL.md``.
 """
 
 from __future__ import annotations

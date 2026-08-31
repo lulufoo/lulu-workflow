@@ -1,25 +1,21 @@
 #!/usr/bin/env python3
-"""Fact-intake-eval entry: fixed adapter-config → eval_entry (independent of delivery Eval).
+"""Fact-intake-eval: emit adapter-config for $EVAL_CONTROL.
 
-Sets COMPOSE_FACT_INTAKE_PROFILE_ID so the adapter can resolve the compose revision.
+Writes eval-profile.json plus adapter_options.profile_id. Does not invoke
+eval_entry.py.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 _INTAKE_EVAL_ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW_ROOT = Path(__file__).resolve().parents[4]
 _COMPOSE_SCRIPTS = _WORKFLOW_ROOT / "compose" / "scripts"
-_EVAL_ENTRY = _WORKFLOW_ROOT / "eval" / "scripts" / "eval_entry.py"
 _PROFILE_PATH = _INTAKE_EVAL_ROOT / "eval-profile.json"
-_PROFILE_ENV = "COMPOSE_FACT_INTAKE_PROFILE_ID"
 
 if str(_COMPOSE_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_COMPOSE_SCRIPTS))
@@ -41,71 +37,67 @@ def load_fact_intake_adapter_config() -> dict:
     return data
 
 
+def default_adapter_config_path(project_root: Path, cycle_id: str) -> Path:
+    return project_root / ".cache" / "fact-intake-eval-adapter" / f"{cycle_id}.json"
+
+
+def write_adapter_config(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    output: Path | None = None,
+) -> Path:
+    """Copy the packaged profile and bind this cycle's profile_id."""
+    config = load_fact_intake_adapter_config()
+    profile_id = resolve_profile_id(
+        project_root=project_root,
+        cycle_id=cycle_id,
+    )
+    options = config.get("adapter_options")
+    if not isinstance(options, dict):
+        options = {}
+    options["profile_id"] = profile_id
+    config["adapter_options"] = options
+    path = (output or default_adapter_config_path(project_root, cycle_id)).resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(config, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Fact Intake Eval control — fixed compose fact-intake-eval adapter config",
+        description="Fact Intake Eval — emit adapter-config file for $EVAL_CONTROL",
     )
     parser.add_argument("--cycle-id", required=True)
     parser.add_argument("--project-root", type=Path, default=Path("."))
     parser.add_argument(
-        "eval_args",
-        nargs=argparse.REMAINDER,
-        help="Eval subcommand and args (e.g. begin-eval-round)",
+        "--output",
+        type=Path,
+        default=None,
+        help="Adapter-config JSON path (default: .cache/fact-intake-eval-adapter/<cycle>.json)",
     )
     args = parser.parse_args(argv)
 
-    remainder = list(args.eval_args)
-    if remainder and remainder[0] == "--":
-        remainder = remainder[1:]
-    if not remainder:
-        return _emit_error("missing Eval subcommand after --cycle-id")
-
-    try:
-        config = load_fact_intake_adapter_config()
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
-        return _emit_error(str(exc))
-
     project_root = args.project_root.resolve()
     try:
-        profile_id = resolve_profile_id(
-            project_root=project_root,
-            cycle_id=args.cycle_id.strip(),
+        path = write_adapter_config(
+            args.cycle_id.strip(),
+            project_root,
+            output=args.output,
         )
-    except (ValueError, FileNotFoundError, OSError) as exc:
+    except (OSError, ValueError, json.JSONDecodeError, FileNotFoundError) as exc:
         return _emit_error(str(exc))
-    env = os.environ.copy()
-    env[_PROFILE_ENV] = profile_id
 
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        suffix=".json",
-        prefix="fact-intake-eval-adapter-config-",
-        delete=False,
-        encoding="utf-8",
-    ) as handle:
-        json.dump(config, handle, ensure_ascii=False, indent=2)
-        handle.write("\n")
-        config_path = Path(handle.name)
-
-    cmd = [
-        sys.executable,
-        str(_EVAL_ENTRY),
-        "--adapter-config-file",
-        str(config_path),
-        "--cycle-id",
-        args.cycle_id.strip(),
-        "--project-root",
-        str(project_root),
-        *remainder,
-    ]
-    try:
-        completed = subprocess.run(cmd, check=False, env=env)
-        return int(completed.returncode)
-    finally:
-        try:
-            config_path.unlink(missing_ok=True)
-        except OSError:
-            pass
+    print(
+        json.dumps(
+            {"ok": True, "adapter_config_file": path.as_posix()},
+            ensure_ascii=False,
+        ),
+    )
+    return 0
 
 
 if __name__ == "__main__":

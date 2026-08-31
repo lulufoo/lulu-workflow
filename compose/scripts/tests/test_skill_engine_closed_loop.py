@@ -130,13 +130,20 @@ def test_eval_skill_drops_stage_entry_table() -> None:
         assert not stage_entry_file.exists(), f"{stage_entry_file} should have been deleted (eval V2)"
 
 
-def test_eval_control_macro_is_generic_and_holder_free() -> None:
-    """Item 5: L-execution defines adapter-aware Eval control; holders don't."""
+def test_eval_control_macro_is_eval_owned_and_holder_free() -> None:
+    """Item 5: eval SKILL defines $EVAL_CONTROL; callers bind adapter-config only."""
+    eval_text = _EVAL_SKILL.read_text(encoding="utf-8")
+    assert "| `$EVAL_CONTROL` |" in eval_text
+    assert "eval/scripts/eval_entry.py" in eval_text
+    assert "$EVAL_ADAPTER_CONFIG" in eval_text
+
     inner_text = (
         _WORKFLOW_ROOT / "compose" / "references" / "l-execution.md"
     ).read_text(encoding="utf-8")
-    assert "`$EVAL_CONTROL`" in inner_text
+    assert "| `$EVAL_CONTROL` |" not in inner_text
+    assert "| `$COMPOSE_EVAL_ADAPTER` |" in inner_text
     assert "compose/scripts/eval/compose_eval_control.py" in inner_text
+    assert "$EVAL_CONTROL begin-eval-round" in inner_text
 
     for stage in _STAGES:
         holder_text = (_WORKFLOW_ROOT / stage / "SKILL.md").read_text(encoding="utf-8")

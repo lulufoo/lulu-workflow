@@ -124,11 +124,20 @@ def test_eval_methods_do_not_name_script_files() -> None:
             assert token not in text, f"{path}: {token}"
 
 
-def test_callers_enter_through_eval_entry() -> None:
-    compose = (
-        _WORKFLOW_ROOT / "compose" / "scripts" / "eval" / "compose_eval_control.py"
+_EVAL_CONTROL_ROW = "| `$EVAL_CONTROL` |"
+
+
+def test_eval_skill_owns_eval_control_macro() -> None:
+    eval_skill = (_WORKFLOW_ROOT / "eval" / "SKILL.md").read_text(encoding="utf-8")
+    assert _EVAL_CONTROL_ROW in eval_skill
+    assert "eval/scripts/eval_entry.py" in eval_skill
+    assert "$EVAL_ADAPTER_CONFIG" in eval_skill
+
+    compose_macros = (
+        _WORKFLOW_ROOT / "compose" / "references" / "l-execution.md"
     ).read_text(encoding="utf-8")
-    assert 'eval" / "scripts" / "eval_entry.py"' in compose
+    assert _EVAL_CONTROL_ROW not in compose_macros
+
     decision = (
         _WORKFLOW_ROOT
         / "decision"
@@ -136,8 +145,15 @@ def test_callers_enter_through_eval_entry() -> None:
         / "dc-delivery-runner"
         / "SKILL.md"
     ).read_text(encoding="utf-8")
-    assert "eval/scripts/eval_entry.py" in decision
+    assert _EVAL_CONTROL_ROW not in decision
     assert "eval/scripts/eval_control.py" not in decision
+    assert "$EVAL_ADAPTER_CONFIG" in decision
+
+    compose_emit = (
+        _WORKFLOW_ROOT / "compose" / "scripts" / "eval" / "compose_eval_control.py"
+    ).read_text(encoding="utf-8")
+    assert "eval/scripts/eval_entry.py" not in compose_emit
+    assert "subprocess" not in compose_emit
 
 
 def test_eval_control_main_rejects_direct_invocation(capsys) -> None:

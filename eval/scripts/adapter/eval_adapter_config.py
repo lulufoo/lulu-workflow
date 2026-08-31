@@ -165,6 +165,7 @@ def load_eval_adapter_from_config(
         workflow_root=root,
         role="adapter",
     )
+    factory = getattr(adapter_type, "from_config", None)
     if parsed.construction == "decorator":
         delegate = parsed.raw["adapter_options"]["delegate"]
         contributor = _load_component_type(
@@ -175,12 +176,13 @@ def load_eval_adapter_from_config(
         )()
         if not callable(getattr(contributor, "contribute", None)):
             raise ValueError("delegate missing required method contribute")
-        factory = getattr(adapter_type, "from_config", None)
         if not callable(factory):
             raise ValueError(
                 f"decorator adapter {parsed.adapter_class!r} missing from_config()",
             )
         return factory(parsed.raw, contributor=contributor)
+    if callable(factory):
+        return factory(parsed.raw)
     return adapter_type()
 
 

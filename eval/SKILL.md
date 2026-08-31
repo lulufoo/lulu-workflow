@@ -2,21 +2,22 @@
 name: eval-library
 description: >
   Shared Eval orchestration for lulu-dev-workflow. Coordinates dimension probes
-  and remediation through the caller's Eval control macro.
+  and remediation.
 meta-skill-version: 1.0.0
 ---
 
 # eval/SKILL.md
 
-Shared Eval orchestration. Compose runs a full round; Decision runs only the
-Probe control segment. The caller supplies `$EVAL_CONTROL` with its active
-adapter configuration.
+Coordinates dimension probes and remediation for one round. Done when a
+probe-only or full-remediation path returns its result.
 
 ## Script Macros
 
 | Macro | Command |
 |-------|---------|
-| `$EVAL_CONTROL` | Caller-supplied adapter-aware Eval control macro |
+| `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_entry.py" --adapter-config-file "$EVAL_ADAPTER_CONFIG" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
+
+Pin `$EVAL_ADAPTER_CONFIG` and `$CYCLE_ID` before `$EVAL_CONTROL`.
 
 ## Principles
 

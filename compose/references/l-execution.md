@@ -11,9 +11,7 @@ Outer macros (`$SESSION_INFO`, `$L_SHELL`) remain as defined in the compose SKIL
 | Macro | Command |
 |-------|---------|
 | `$L_STEP` | `python3 "$SKILL_ROOT/compose/scripts/session/l_step_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
-| `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/eval/compose_eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` |
-| `$FACT_INTAKE_EVAL_CTL` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-intake-eval/scripts/fact_intake_eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" -- <subcommand>` |
-| `$ATOMIZE_EVAL_CONTROL` | Same command as `$FACT_INTAKE_EVAL_CTL` (retired name; prefer `$FACT_INTAKE_EVAL_CTL`) |
+| `$COMPOSE_EVAL_ADAPTER` | `python3 "$SKILL_ROOT/compose/scripts/eval/compose_eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/writing/compose_doc_control.py" <subcommand> [args...]` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
 | `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/writing/chapter_write_state_control.py"` |
@@ -33,7 +31,7 @@ Run `$SESSION_INFO --view session` and `$L_STEP status`. Bind:
 | `$POST_WRITING_OPTIONS` | `pipeline.post_writing_options` | Pause after Writing |
 | `$ROLE_PROMPT` | `role.role_prompt` | Scope persona |
 
-Follow `$L_STEP status` → `next_actions`. `begin-eval-round` means go to **Evaluating** and run `$EVAL_CONTROL begin-eval-round`; do not run it as `$L_STEP`.
+Follow `$L_STEP status` → `next_actions`. `begin-eval-round` means go to **Evaluating** and follow eval/SKILL.md (`$EVAL_CONTROL begin-eval-round`); do not run it as `$L_STEP`.
 
 ## Spine
 
@@ -110,8 +108,9 @@ Do not offer `reverse-to-inductive` when `$INDUCTIVE` is false.
 
 ## Evaluating
 
-1. Load `{SKILL_ROOT}/eval/SKILL.md` and follow it. `$EVAL_CONTROL begin-eval-round` owns prepare, Evaluating transition, and handoff. Do not run `$L_STEP enter-evaluating` first.
-2. On Eval exit, this reference owns the L transition. Eval SKILL does not run `$L_STEP`.
+1. Run `$COMPOSE_EVAL_ADAPTER`. Pin `adapter_config_file` as `$EVAL_ADAPTER_CONFIG`.
+2. Load `{SKILL_ROOT}/eval/SKILL.md` and follow it. `$EVAL_CONTROL begin-eval-round` owns prepare, Evaluating transition, and handoff. Do not run `$L_STEP enter-evaluating` first.
+3. On Eval exit, this reference owns the L transition. Eval SKILL does not run `$L_STEP`.
    - Accept → `$L_STEP accept --confirm`. Return to ## Working.
    - Fix → `$L_STEP fix --confirm`. Continue **FreeEdit**.
    - Re-evaluate → `$L_STEP re-evaluate --confirm`, then return to Eval **Begin Eval**.

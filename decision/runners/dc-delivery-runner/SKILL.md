@@ -14,7 +14,6 @@ confirmation. Complete when the user confirms the decision is correct to deliver
 | Macro | Command |
 |-------|---------|
 | `$DEC_EVAL` | `python3 "$SKILL_DIR/scripts/dec_eval_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_entry.py" --adapter-config-file "$SKILL_DIR/eval/eval-profile.json" --project-root "$(pwd)" --cycle-id "<cycle_id>"` |
 | `$SESSION_INTEGRITY` | `python3 "$SKILL_DIR/scripts/dec_session_integrity.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
 
 Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`.
@@ -42,11 +41,12 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 
 Eval owns probe-runner dispatch; Decision never dispatches Eval runners or remediation. Contracts: `eval/eval-profile.json`, `$DEC_EVAL` / `$EVAL_CONTROL` `--help`, `eval/methods/decision-consistency.md`.
 
-1. Load `$SKILL_ROOT/eval/SKILL.md` and execute its **Begin Eval** probe-only
+1. Pin `$EVAL_ADAPTER_CONFIG` = `$SKILL_DIR/eval/eval-profile.json`.
+2. Load `$SKILL_ROOT/eval/SKILL.md` and execute its **Begin Eval** probe-only
    segment. Do not call `$SUBAGENT_TOOL`, load `dimension-probe-runner`, or run
    remediation.
-2. Pin the successful `complete-probe-only` JSON as `probe_result`.
-3. Run `$DEC_EVAL route-probe-result --probe-result-json '<probe_result JSON>'`.
+3. Pin the successful `complete-probe-only` JSON as `probe_result`.
+4. Run `$DEC_EVAL route-probe-result --probe-result-json '<probe_result JSON>'`.
    - `outcome: pass` → continue to `$SESSION_INTEGRITY render`.
    - `outcome: fail` → RS at `realign_gate`; do not present completion.
 

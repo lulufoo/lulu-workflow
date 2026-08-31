@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
-"""Compose entry: stage compose-profile.eval → decorator adapter envelope.
+"""Compose: derive decorator envelope and emit adapter-config for $EVAL_CONTROL.
 
-Stage profile remains the Contributor SSOT. This control derives the runtime
-envelope Eval Loader consumes and invokes ``eval/scripts/eval_entry.py``.
+Stage profile remains the Contributor SSOT. This control writes the runtime
+envelope Eval Loader consumes. It does not start the Eval process.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -25,12 +23,9 @@ kernel_bootstrap.ensure_kernel_paths()
 
 from compose_eval_envelope import build_compose_eval_envelope  # noqa: E402
 from workflow_paths import (  # noqa: E402
-    WORKFLOW_ROOT,
     load_profile,
     resolve_profile_id,
 )
-
-_EVAL_ENTRY = WORKFLOW_ROOT / "eval" / "scripts" / "eval_entry.py"
 
 
 def _emit_error(message: str) -> int:
@@ -43,70 +38,67 @@ def extract_eval_adapter_config(profile: dict[str, Any]) -> dict[str, Any]:
     return build_compose_eval_envelope(profile)
 
 
+def default_adapter_config_path(project_root: Path, cycle_id: str) -> Path:
+    return project_root / ".cache" / "compose-eval-adapter" / f"{cycle_id}.json"
+
+
+def write_adapter_config(
+    cycle_id: str,
+    project_root: Path,
+    *,
+    output: Path | None = None,
+) -> Path:
+    """Derive the envelope and write it. Return the absolute path."""
+    profile_id = resolve_profile_id(
+        project_root=project_root,
+        cycle_id=cycle_id,
+    )
+    profile = load_profile(
+        profile_id,
+        project_root=project_root,
+        cycle_id=cycle_id,
+    )
+    config = extract_eval_adapter_config(profile)
+    path = (output or default_adapter_config_path(project_root, cycle_id)).resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(config, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Compose Eval control — passthrough stage eval config to Eval",
+        description="Compose Eval adapter — emit adapter-config file for $EVAL_CONTROL",
     )
     parser.add_argument("--cycle-id", required=True)
     parser.add_argument("--project-root", type=Path, default=Path("."))
     parser.add_argument(
-        "eval_args",
-        nargs=argparse.REMAINDER,
-        help="Eval subcommand and args (e.g. begin-eval-round)",
+        "--output",
+        type=Path,
+        default=None,
+        help="Adapter-config JSON path (default: .cache/compose-eval-adapter/<cycle>.json)",
     )
     args = parser.parse_args(argv)
 
-    remainder = list(args.eval_args)
-    if remainder and remainder[0] == "--":
-        remainder = remainder[1:]
-    if not remainder:
-        return _emit_error("missing Eval subcommand after --cycle-id")
-
     project_root = args.project_root.resolve()
     try:
-        profile_id = resolve_profile_id(
-            project_root=project_root,
-            cycle_id=args.cycle_id.strip(),
+        path = write_adapter_config(
+            args.cycle_id.strip(),
+            project_root,
+            output=args.output,
         )
-        profile = load_profile(
-            profile_id,
-            project_root=project_root,
-            cycle_id=args.cycle_id.strip(),
-        )
-        config = extract_eval_adapter_config(profile)
     except (FileNotFoundError, ValueError, OSError) as exc:
         return _emit_error(str(exc))
 
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        suffix=".json",
-        prefix="eval-adapter-config-",
-        delete=False,
-        encoding="utf-8",
-    ) as handle:
-        json.dump(config, handle, ensure_ascii=False, indent=2)
-        handle.write("\n")
-        config_path = Path(handle.name)
-
-    cmd = [
-        sys.executable,
-        str(_EVAL_ENTRY),
-        "--adapter-config-file",
-        str(config_path),
-        "--cycle-id",
-        args.cycle_id.strip(),
-        "--project-root",
-        str(project_root),
-        *remainder,
-    ]
-    try:
-        completed = subprocess.run(cmd, check=False)
-        return int(completed.returncode)
-    finally:
-        try:
-            config_path.unlink(missing_ok=True)
-        except OSError:
-            pass
+    print(
+        json.dumps(
+            {"ok": True, "adapter_config_file": path.as_posix()},
+            ensure_ascii=False,
+        ),
+    )
+    return 0
 
 
 if __name__ == "__main__":

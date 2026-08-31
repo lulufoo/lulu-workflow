@@ -50,6 +50,31 @@ def test_loads_adapter_from_config_file(tmp_path: Path) -> None:
     assert adapter.marker == "loaded-from-config"
 
 
+def test_flat_adapter_from_config_receives_payload(tmp_path: Path) -> None:
+    workflow_root = tmp_path / "lulu-dev-workflow"
+    _write_adapter_module(
+        workflow_root,
+        "class NonComposeEvalAdapter:\n"
+        "    def __init__(self, label=''):\n"
+        "        self.label = label\n"
+        "    @classmethod\n"
+        "    def from_config(cls, raw):\n"
+        "        return cls(label=raw.get('workflow_id', ''))\n",
+    )
+    adapter = eac.load_eval_adapter_from_config(
+        {
+            "workflow_id": "from-config-label",
+            "adapter_module": (
+                "non-compose/scripts/eval/non_compose_eval_adapter.py"
+            ),
+            "adapter_class": "NonComposeEvalAdapter",
+            "eval_capability": "full-remediation",
+        },
+        workflow_root=workflow_root,
+    )
+    assert adapter.label == "from-config-label"
+
+
 def test_rejects_missing_adapter_class(tmp_path: Path) -> None:
     workflow_root = tmp_path / "lulu-dev-workflow"
     _write_adapter_module(workflow_root, "class PresentAdapter:\n    pass\n")

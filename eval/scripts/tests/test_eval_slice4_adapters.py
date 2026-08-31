@@ -724,8 +724,6 @@ class TestCallerCommands:
         assert "probe-complete" not in skill
 
     def test_compose_passthrough_uses_remediation_complete(self) -> None:
-        source = (
-            _WORKFLOW_ROOT / "compose" / "scripts" / "tests" / "test_compose_eval_control.py"
-        ).read_text(encoding="utf-8")
-        assert "remediation-complete" in source
-        assert "complete-round" not in source
+        skill = (_WORKFLOW_ROOT / "eval" / "SKILL.md").read_text(encoding="utf-8")
+        assert "remediation-complete" in skill
+        assert "complete-round" not in skill
