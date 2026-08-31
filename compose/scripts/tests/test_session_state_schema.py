@@ -10,7 +10,7 @@ from typing import Optional
 import pytest
 
 import bootstrap  # noqa: F401
-from bootstrap import CORE, SCHEMA_SESSION  # noqa: E402
+from bootstrap import SCHEMA_SESSION  # noqa: E402
 
 from session_state_schema import (
     bump_active_doc,

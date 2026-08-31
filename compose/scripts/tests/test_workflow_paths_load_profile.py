@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 _SCRIPTS = Path(__file__).resolve().parents[1]
-for _p in (_SCRIPTS / "core", _SCRIPTS / "section", _SCRIPTS / "schema" / "session"):
+for _p in (_SCRIPTS / "_kernel", _SCRIPTS / "schema" / "session"):
     sys.path.insert(0, str(_p))
 
 from workflow_paths import (  # noqa: E402

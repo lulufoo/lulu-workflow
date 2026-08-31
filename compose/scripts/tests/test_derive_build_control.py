@@ -24,7 +24,7 @@ _PLAN_KW = (
 )
 
 
-_CORE = _REPO / "lulu-dev-workflow" / "compose" / "scripts" / "core"
+_CORE = _REPO / "lulu-dev-workflow" / "compose" / "scripts" / "_kernel"
 if str(_CORE) not in sys.path:
     sys.path.insert(0, str(_CORE))
 from workflow_paths import seed_revision_profile_pointer  # noqa: E402

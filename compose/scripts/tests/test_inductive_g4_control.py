@@ -13,11 +13,11 @@ _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 _G4_CTL = _INDUCTIVE_DIR / "inductive_g4_control.py"
 _GATE_CTL = _INDUCTIVE_DIR / "inductive_gate_control.py"
 _SCHEMA_DIR = _INDUCTIVE_DIR / "schema"
-_SECTION = Path(__file__).resolve().parent.parent / "section"
+_KERNEL = Path(__file__).resolve().parent.parent / "_kernel"
 
 sys.path.insert(0, str(_INDUCTIVE_DIR))
 sys.path.insert(0, str(_SCHEMA_DIR))
-sys.path.insert(0, str(_SECTION))
+sys.path.insert(0, str(_KERNEL))
 
 from compose_state_lock import canonical_digest  # noqa: E402
 from g4_recompose_report_schema import g4_report_path  # noqa: E402

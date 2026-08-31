@@ -6,8 +6,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-_SECTION = Path(__file__).resolve().parent.parent / "section"
-sys.path.insert(0, str(_SECTION))
+_DEDUCTIVE = Path(__file__).resolve().parent.parent / "deductive"
+sys.path.insert(0, str(_DEDUCTIVE))
 
 from derive_shell import (  # noqa: E402
     DeriveCycleError,

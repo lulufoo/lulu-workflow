@@ -23,12 +23,11 @@ from typing import Any
 
 _HERE = Path(__file__).resolve().parent
 _SCHEMA = _HERE / "schema"
-_SECTION = _HERE.parent / "section"
+_KERNEL = _HERE.parent / "_kernel"
 _SESSION = _HERE.parent / "schema" / "session"
 _REGISTRY = _HERE.parent / "schema" / "section" / "registry"
-_IO = _HERE.parent / "io"
-_CORE = _HERE.parent / "core"
-for _path in (_HERE, _SCHEMA, _SECTION, _SESSION, _REGISTRY, _IO, _CORE):
+_TEMPLATES = _HERE.parent / "templates"
+for _path in (_HERE, _SCHEMA, _KERNEL, _SESSION, _REGISTRY, _TEMPLATES):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 

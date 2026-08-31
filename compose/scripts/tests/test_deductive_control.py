@@ -9,9 +9,9 @@ import sys
 from pathlib import Path
 
 _SCRIPTS = Path(__file__).resolve().parents[1]
-_CORE = _SCRIPTS / "core"
-if str(_CORE) not in sys.path:
-    sys.path.insert(0, str(_CORE))
+_KERNEL = _SCRIPTS / "_kernel"
+if str(_KERNEL) not in sys.path:
+    sys.path.insert(0, str(_KERNEL))
 from workflow_paths import seed_revision_profile_pointer  # noqa: E402
 _CTL = _SCRIPTS / "deductive" / "deductive_control.py"
 _REPO = Path(__file__).resolve().parents[4]

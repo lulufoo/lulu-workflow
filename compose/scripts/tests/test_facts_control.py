@@ -8,10 +8,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-_SECTION = Path(__file__).resolve().parent.parent / "section"
-_CORE = Path(__file__).resolve().parent.parent / "core"
-sys.path.insert(0, str(_CORE))
-sys.path.insert(0, str(_SECTION))
+_FACTS = Path(__file__).resolve().parent.parent / "facts"
+_KERNEL = Path(__file__).resolve().parent.parent / "_kernel"
+sys.path.insert(0, str(_KERNEL))
+sys.path.insert(0, str(_FACTS))
 
 from workflow_paths import seed_revision_profile_pointer  # noqa: E402
 from facts_schema import (  # noqa: E402
@@ -28,7 +28,7 @@ from facts_schema import (  # noqa: E402
 )
 from l_ledger_schema import load_l_ledger, save_l_ledger  # noqa: E402
 
-_CTL = _SECTION / "facts_control.py"
+_CTL = _FACTS / "facts_control.py"
 _REPO = Path(__file__).resolve().parents[4]
 
 

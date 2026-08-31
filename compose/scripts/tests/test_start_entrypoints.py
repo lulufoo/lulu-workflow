@@ -29,7 +29,7 @@ def test_start_does_not_expose_holder_finalize() -> None:
 def test_engine_registers_start_only_in_macro_table() -> None:
     engine_text = _ENGINE_SKILL.read_text(encoding="utf-8")
     orchestration, macro_table = engine_text.split("## Script Macros", maxsplit=1)
-    invocation = 'python3 "$SKILL_ROOT/compose/scripts/core/start.py"'
+    invocation = 'python3 "$SKILL_ROOT/compose/scripts/session/start.py"'
     assert invocation not in orchestration
     assert invocation in macro_table
     assert '## Inputs' in orchestration
@@ -63,7 +63,7 @@ def test_static_profile_holders_bind_compose_inputs() -> None:
         assert f"--profile {stage} " not in text
         assert "--profile-path" not in text
         assert f"$SKILL_DIR/scripts/{stage}_start.py" not in text
-        assert 'python3 "$SKILL_ROOT/compose/scripts/core/start.py"' not in text
+        assert 'python3 "$SKILL_ROOT/compose/scripts/session/start.py"' not in text
         assert "## Entry" in text
         assert preflight in text
         assert '--project-root "$PROJECT_ROOT"' in text
@@ -103,4 +103,4 @@ def test_plan_skill_hands_stage_inputs_to_session_bootstrap() -> None:
     assert "Resume" not in text
     assert "--profile lulu-plan " not in text
     assert "$SKILL_DIR/scripts/lulu-plan_start.py" not in text
-    assert 'python3 "$SKILL_ROOT/compose/scripts/core/start.py"' not in text
+    assert 'python3 "$SKILL_ROOT/compose/scripts/session/start.py"' not in text

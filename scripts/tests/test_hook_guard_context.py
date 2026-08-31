@@ -131,10 +131,10 @@ class TestShouldInjectConversationId:
             "python3 ~/.cursor/skills/lulu-dev-workflow/decision/scripts/dec_start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/runtime_control.py --project-root /tmp resolve-session-context",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py --project-root /tmp bind-context --cycle-id fid1 --skill-dir /tmp/lulu-plan",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/core/start.py --profile lulu-blueprint --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/core/start.py --profile lulu-spec --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/core/start.py --profile lulu-plan --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/core/start.py --profile lulu-design --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/session/start.py --profile lulu-blueprint --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/session/start.py --profile lulu-spec --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/session/start.py --profile lulu-plan --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/session/start.py --profile lulu-design --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-tasks/scripts/tt_start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-code/scripts/tc_start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-code/scripts/tc_task_control.py resolve-context --task-id t1",
@@ -154,7 +154,7 @@ class TestShouldInjectConversationId:
             "git status",
             "python3 cycle_control.py --project-root /tmp start --name test",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/hook/hook_guard.py",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/section/l_step_control.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/session/l_step_control.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py start --name test",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py resolve-token --token F1",
             "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py menu",
@@ -199,7 +199,7 @@ class TestShouldInjectConversationId:
             'OUT="/tmp/r1"\n'
             'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/'
             'inductive_gate_control.py --out-dir "$OUT" gate-close --gate G3\n'
-            'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/section/'
+            'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/session/'
             'l_step_control.py --cycle-id fid1 enter-deductive 2>&1\n'
         )
         updated = hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d")
@@ -218,7 +218,7 @@ class TestShouldInjectConversationId:
     def test_multiline_command_no_injectable_line_returns_none(self):
         cmd = (
             'OUT="/tmp/r1"\n'
-            'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/section/'
+            'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/session/'
             'l_step_control.py --cycle-id fid1 enter-deductive 2>&1\n'
         )
         assert hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d") is None
@@ -258,7 +258,7 @@ class TestShouldInjectConversationId:
             'python3 "$SKILL_DIR/scripts/tt_start.py" --cycle-id fid1',
             'python3 "${SKILL_DIR}/scripts/dec_start.py" --cycle-id fid1',
             'python3 "$SKILL_DIR/scripts/tc_start.py" --cycle-id fid1',
-            'python3 "$SKILL_ROOT/compose/scripts/core/start.py" --profile lulu-plan --cycle-id fid1',
+            'python3 "$SKILL_ROOT/compose/scripts/session/start.py" --profile lulu-plan --cycle-id fid1',
         ],
     )
     def test_skill_var_path_injects(self, command):

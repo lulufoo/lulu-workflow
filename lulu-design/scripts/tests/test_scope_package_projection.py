@@ -14,7 +14,7 @@ import importlib.util
 _SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW_ROOT = _SCRIPTS_ROOT.parents[1]
 _KERNEL_TESTS = _WORKFLOW_ROOT / "compose" / "scripts" / "tests"
-_COMPOSE_START = _WORKFLOW_ROOT / "compose" / "scripts" / "start"
+_COMPOSE_START = _WORKFLOW_ROOT / "compose" / "scripts" / "scope"
 _DESIGN_START = _SCRIPTS_ROOT / "start"
 for _p in (_KERNEL_TESTS, _COMPOSE_START, _DESIGN_START):
     if str(_p) not in sys.path:

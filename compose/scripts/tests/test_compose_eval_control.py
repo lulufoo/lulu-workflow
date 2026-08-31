@@ -4,13 +4,15 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-_CORE = Path(__file__).resolve().parents[1] / "core"
+_CORE = Path(__file__).resolve().parents[1] / "eval"
 if str(_CORE) not in sys.path:
     sys.path.insert(0, str(_CORE))
 
@@ -89,3 +91,19 @@ def test_main_forwards_full_round_completion_to_eval_entry(
     assert result == 0
     assert captured["command"][-1] == "remediation-complete"
     assert captured["config"]["workflow_id"] == "lulu-design"
+
+
+def test_skill_style_help_resolves_workflow_paths() -> None:
+    """SKILL invokes this file directly; pytest bootstrap must not hide import gaps."""
+    script = Path(__file__).resolve().parents[1] / "eval" / "compose_eval_control.py"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = ""
+    completed = subprocess.run(
+        [sys.executable, str(script), "--help"],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "--cycle-id" in completed.stdout

@@ -11,7 +11,7 @@ _KERNEL_CORE = (
     Path(__file__).resolve().parents[3]
     / "compose"
     / "scripts"
-    / "core"
+    / "_kernel"
 )
 if str(_KERNEL_CORE) not in sys.path:
     sys.path.insert(0, str(_KERNEL_CORE))

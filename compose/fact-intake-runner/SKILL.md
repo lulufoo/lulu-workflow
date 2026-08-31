@@ -31,7 +31,7 @@ Parent binds `$SOURCE_PATH` and `$REQUIRE_SEED_ORIGIN`.
 
 | Macro | Command |
 |-------|---------|
-| `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
+| `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/facts/facts_control.py"` |
 | `$FACT_INTAKE_DISPOSITION_CTL` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/scripts/fact_intake_disposition_control.py"` |
 
 `$FACTS_CTL`: `--help` · `validate` · `status` · `write`.  

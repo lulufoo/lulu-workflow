@@ -59,7 +59,7 @@ _SKILL_VAR_PY_PATH = re.compile(
 _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
     "/scripts/runtime_control.py",
     "/scripts/cycle_control.py",
-    "/compose/scripts/core/start.py",
+    "/compose/scripts/session/start.py",
     "/compose/scripts/inductive/inductive_gate_control.py",
     "/compose/scripts/inductive/inductive_g4_control.py",
     # Stage scripts: short form so "$SKILL_DIR/scripts/..." also matches.
@@ -70,8 +70,8 @@ _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
     # Writing critical-path controls (biz log conv_id injection).
     "/compose/narrative-arc-runner/scripts/narrative_arc_build_control.py",
     "/compose/narrative-arc-runner/scripts/narrative_arc_control.py",
-    "/compose/scripts/section/chapter_write_state_control.py",
-    "/compose/scripts/section/compose_doc_control.py",
+    "/compose/scripts/writing/chapter_write_state_control.py",
+    "/compose/scripts/writing/compose_doc_control.py",
 )
 
 # Inductive grounding controls: always bind to the hook conversation id (override agent typos).

@@ -12,7 +12,7 @@ import pytest
 
 _WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
 for _rel in (
-    "compose/scripts/start",
+    "compose/scripts/scope",
     "lulu-plan/scripts/start",
     "lulu-design/scripts/start",
     "lulu-spec/scripts/start",

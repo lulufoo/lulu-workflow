@@ -22,7 +22,7 @@ _COMPOSE = Path(__file__).resolve().parents[3]
 _SCRIPTS = _COMPOSE / "scripts"
 _INTAKE_EVAL = _COMPOSE / "fact-intake-runner" / "fact-intake-eval" / "scripts"
 _EVAL_SCRIPTS = _COMPOSE.parent / "eval" / "scripts"
-for _path in (_SCRIPTS, _SCRIPTS / "section", _SCRIPTS / "io", _INTAKE_EVAL, _EVAL_SCRIPTS):
+for _path in (_SCRIPTS, _SCRIPTS / "_kernel", _SCRIPTS / "templates", _INTAKE_EVAL, _EVAL_SCRIPTS):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 import kernel_bootstrap  # noqa: E402

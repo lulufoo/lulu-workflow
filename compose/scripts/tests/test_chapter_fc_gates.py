@@ -6,7 +6,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-_SECTION = Path(__file__).resolve().parents[1] / "section"
+_SECTION = Path(__file__).resolve().parents[1] / "writing"
 if str(_SECTION) not in sys.path:
     sys.path.insert(0, str(_SECTION))
 

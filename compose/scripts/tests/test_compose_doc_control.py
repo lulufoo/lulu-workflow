@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "section"))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "writing"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_kernel"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from compose_doc_control import (  # noqa: E402

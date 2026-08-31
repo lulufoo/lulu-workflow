@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "_kernel"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "schema" / "session"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "section"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "_kernel"))
 
 from l_ledger_schema import build_ledger, save_l_ledger
 from workflow_paths import seed_profile_pointer_for_tests

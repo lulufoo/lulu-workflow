@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-_SECTION = Path(__file__).resolve().parents[1] / "section"
+_SECTION = Path(__file__).resolve().parents[1] / "writing"
 _SCRIPTS = Path(__file__).resolve().parents[1]
 _NARRATIVE = Path(__file__).resolve().parents[2] / "narrative-arc-runner" / "scripts"
 for _p in (_SECTION, _SCRIPTS, _NARRATIVE):

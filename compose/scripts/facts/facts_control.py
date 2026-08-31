@@ -28,8 +28,8 @@ from typing import Any
 
 _SECTION = Path(__file__).resolve().parent
 _SCRIPTS = _SECTION.parent
-_CORE = _SCRIPTS / "core"
-for _p in (_SCRIPTS, _CORE):
+_KERNEL = _SCRIPTS / "_kernel"
+for _p in (_SCRIPTS, _KERNEL):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 import kernel_bootstrap  # noqa: E402

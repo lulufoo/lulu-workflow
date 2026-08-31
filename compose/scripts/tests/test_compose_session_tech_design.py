@@ -7,10 +7,10 @@ import sys
 from pathlib import Path
 
 import bootstrap  # noqa: F401
-from bootstrap import CORE  # noqa: E402
+from bootstrap import SESSION  # noqa: E402
 from workflow_paths import EVAL_SCRIPTS  # noqa: E402
 
-sys.path.insert(0, str(CORE))
+sys.path.insert(0, str(SESSION))
 sys.path.insert(0, str(EVAL_SCRIPTS))
 _TECH_DESIGN_EVAL = (
     Path(__file__).resolve().parents[3] / "lulu-design" / "scripts" / "eval"

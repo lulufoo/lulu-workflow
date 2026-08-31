@@ -20,7 +20,7 @@ from workflow_sessions import get_sessions  # noqa: E402
 from cycle_delivered_refs import remove_delivered_ref  # noqa: E402
 
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
-_KERNEL_CORE = _SKILL_ROOT / "compose" / "scripts" / "core"
+_KERNEL_CORE = _SKILL_ROOT / "compose" / "scripts" / "_kernel"
 _KERNEL_SCHEMA_SESSION = _SKILL_ROOT / "compose" / "scripts" / "schema" / "session"
 _KERNEL_SCRIPTS = _SKILL_ROOT / "compose" / "scripts"
 

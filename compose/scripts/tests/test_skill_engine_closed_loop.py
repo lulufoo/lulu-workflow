@@ -136,7 +136,7 @@ def test_eval_control_macro_is_generic_and_holder_free() -> None:
         _WORKFLOW_ROOT / "compose" / "references" / "l-execution.md"
     ).read_text(encoding="utf-8")
     assert "`$EVAL_CONTROL`" in inner_text
-    assert "compose/scripts/core/compose_eval_control.py" in inner_text
+    assert "compose/scripts/eval/compose_eval_control.py" in inner_text
 
     for stage in _STAGES:
         holder_text = (_WORKFLOW_ROOT / stage / "SKILL.md").read_text(encoding="utf-8")

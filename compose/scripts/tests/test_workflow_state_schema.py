@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 import bootstrap  # noqa: F401
-from bootstrap import CORE, SCHEMA_SESSION  # noqa: E402
+from bootstrap import SCHEMA_SESSION  # noqa: E402
 
 from workflow_state_schema import (
     get_schema,

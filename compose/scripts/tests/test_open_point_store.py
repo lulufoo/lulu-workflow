@@ -16,8 +16,8 @@ _SCHEMA_DIR = _INDUCTIVE_DIR / "schema"
 _SCRIPTS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_INDUCTIVE_DIR))
 sys.path.insert(0, str(_SCHEMA_DIR))
-sys.path.insert(0, str(_SCRIPTS / "io"))
-sys.path.insert(0, str(_SCRIPTS / "core"))
+sys.path.insert(0, str(_SCRIPTS / "templates"))
+sys.path.insert(0, str(_SCRIPTS / "_kernel"))
 
 from compose_state_lock import canonical_digest, durable_write_json  # noqa: E402
 from lens_frontier_schema import (  # noqa: E402

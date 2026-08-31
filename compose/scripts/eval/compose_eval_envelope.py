@@ -7,7 +7,7 @@ import hashlib
 import json
 from typing import Any
 
-OUTER_ADAPTER_MODULE = "compose/scripts/core/compose_eval_adapter.py"
+OUTER_ADAPTER_MODULE = "compose/scripts/eval/compose_eval_adapter.py"
 OUTER_ADAPTER_CLASS = "ComposeEvalAdapter"
 
 

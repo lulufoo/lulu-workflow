@@ -25,9 +25,9 @@ from pathlib import Path
 from typing import Any
 
 _SCRIPTS = Path(__file__).resolve().parents[2]
-_SECTION = _SCRIPTS / "section"
-if str(_SECTION) not in sys.path:
-    sys.path.insert(0, str(_SECTION))
+_KERNEL = _SCRIPTS / "_kernel"
+if str(_KERNEL) not in sys.path:
+    sys.path.insert(0, str(_KERNEL))
 
 from compose_state_lock import canonical_digest, durable_write_json
 

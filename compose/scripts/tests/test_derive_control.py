@@ -12,10 +12,10 @@ import json
 import sys
 from pathlib import Path
 
-_SECTION = Path(__file__).resolve().parent.parent / "section"
-_CORE = Path(__file__).resolve().parent.parent / "core"
-sys.path.insert(0, str(_CORE))
-sys.path.insert(0, str(_SECTION))
+_DEDUCTIVE = Path(__file__).resolve().parent.parent / "deductive"
+_KERNEL = Path(__file__).resolve().parent.parent / "_kernel"
+sys.path.insert(0, str(_KERNEL))
+sys.path.insert(0, str(_DEDUCTIVE))
 
 import derive_control as mod  # noqa: E402
 from workflow_paths import seed_revision_profile_pointer  # noqa: E402

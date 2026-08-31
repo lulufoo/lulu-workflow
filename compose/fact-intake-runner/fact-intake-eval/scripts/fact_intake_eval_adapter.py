@@ -13,8 +13,10 @@ from typing import Any
 _INTAKE_EVAL_SCRIPTS = Path(__file__).resolve().parent
 _WORKFLOW_ROOT = Path(__file__).resolve().parents[4]
 _EVAL_SCRIPTS = _WORKFLOW_ROOT / "eval" / "scripts"
-_COMPOSE_CORE = _WORKFLOW_ROOT / "compose" / "scripts" / "core"
-_COMPOSE_SECTION = _WORKFLOW_ROOT / "compose" / "scripts" / "section"
+_COMPOSE_KERNEL = _WORKFLOW_ROOT / "compose" / "scripts" / "_kernel"
+_COMPOSE_SESSION = _WORKFLOW_ROOT / "compose" / "scripts" / "session"
+_COMPOSE_FACTS = _WORKFLOW_ROOT / "compose" / "scripts" / "facts"
+_COMPOSE_SCOPE = _WORKFLOW_ROOT / "compose" / "scripts" / "scope"
 _COMPOSE_SCHEMA_SESSION = (
     _WORKFLOW_ROOT / "compose" / "scripts" / "schema" / "session"
 )
@@ -22,8 +24,10 @@ _COMPOSE_SCHEMA_SESSION = (
 # ahead of that directory so the shared Eval handoff helpers win.
 for p in (
     _INTAKE_EVAL_SCRIPTS,
-    _COMPOSE_CORE,
-    _COMPOSE_SECTION,
+    _COMPOSE_KERNEL,
+    _COMPOSE_SESSION,
+    _COMPOSE_FACTS,
+    _COMPOSE_SCOPE,
     _COMPOSE_SCHEMA_SESSION,
     _EVAL_SCRIPTS,
 ):

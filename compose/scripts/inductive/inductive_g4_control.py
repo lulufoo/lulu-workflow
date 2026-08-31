@@ -39,8 +39,8 @@ if str(_SCRIPTS) not in sys.path:
 
 _COMPOSE_SCRIPTS = _HERE.parent
 _SESSION = _COMPOSE_SCRIPTS / "schema" / "session"
-_SECTION = _COMPOSE_SCRIPTS / "section"
-for _path in (_SESSION, _SECTION):
+_KERNEL = _COMPOSE_SCRIPTS / "_kernel"
+for _path in (_SESSION, _KERNEL):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 

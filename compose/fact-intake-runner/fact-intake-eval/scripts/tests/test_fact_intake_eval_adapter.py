@@ -13,17 +13,17 @@ import pytest
 # .../compose/fact-intake-runner/fact-intake-eval/scripts/tests/<this>
 _ATOMIZE = Path(__file__).resolve().parents[1]  # fact-intake-eval/scripts
 _COMPOSE_SCRIPTS = Path(__file__).resolve().parents[4] / "scripts"  # compose/scripts
-_COMPOSE_CORE = _COMPOSE_SCRIPTS / "core"
+_COMPOSE_KERNEL = _COMPOSE_SCRIPTS / "_kernel"
 _COMPOSE_TESTS = _COMPOSE_SCRIPTS / "tests"
 _EVAL = Path(__file__).resolve().parents[5] / "eval" / "scripts"  # lulu-dev-workflow/eval/scripts
-for p in (_ATOMIZE, _COMPOSE_CORE, _COMPOSE_TESTS, _EVAL):
+for p in (_ATOMIZE, _COMPOSE_KERNEL, _COMPOSE_TESTS, _EVAL):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
 import bootstrap  # noqa: F401, E402
-from bootstrap import CORE  # noqa: E402
+from bootstrap import KERNEL  # noqa: E402
 
-sys.path.insert(0, str(CORE))
+sys.path.insert(0, str(KERNEL))
 
 from fact_intake_eval_adapter import (  # noqa: E402
     FactIntakeEvalAdapter,

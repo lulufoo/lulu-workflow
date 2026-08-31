@@ -9,7 +9,7 @@ import pytest
 
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
 _STAGES = ["decision", "lulu-tasks", "lulu-code"]
-# lulu-plan uses compose/scripts/core/workflow_common.py (no STAGE / session_base_dir).
+# lulu-plan uses compose/scripts/_kernel/workflow_common.py (no STAGE / session_base_dir).
 _FID = "20260524143022-02cd7e6e"
 
 _EXPECTED_CACHE_SUBDIR = {

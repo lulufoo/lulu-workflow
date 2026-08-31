@@ -28,7 +28,7 @@ SOURCE_PATH: <abs intake SoT>
 | Macro | Command |
 |-------|---------|
 | `$FACT_DISPOSITION_BUILD_CTL` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-disposition-runner/scripts/fact_disposition_build_control.py"` |
-| `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
+| `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/facts/facts_control.py"` |
 
 Build: `--help` · `context`.  
 Facts: `--help` · `write` · `validate`.

@@ -25,7 +25,7 @@ _CYCLE_ID = "20260524143022-02cd7e6e"
 _TOPIC_ID = "topic-20260101000000-deadbeef"
 
 _COMPOSE_START_STAGES = frozenset({"lulu-plan", "lulu-spec"})
-_KERNEL_START = _LDEV / "compose" / "scripts" / "core" / "start.py"
+_KERNEL_START = _LDEV / "compose" / "scripts" / "session" / "start.py"
 
 _STAGES_WITH_GATE = ["lulu-spec", "lulu-plan", "lulu-tasks", "lulu-code"]
 _ALL_STAGES = ["decision", "lulu-spec", "lulu-plan", "lulu-tasks", "lulu-code"]

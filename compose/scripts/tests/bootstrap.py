@@ -7,23 +7,27 @@ from pathlib import Path
 
 _TESTS = Path(__file__).resolve().parent
 _KERNEL_SCRIPTS = _TESTS.parent
-CORE = _KERNEL_SCRIPTS / "core"
-SECTION = _KERNEL_SCRIPTS / "section"
+KERNEL = _KERNEL_SCRIPTS / "_kernel"
+SESSION = _KERNEL_SCRIPTS / "session"
+TEMPLATES = _KERNEL_SCRIPTS / "templates"
+FACTS = _KERNEL_SCRIPTS / "facts"
+WRITING = _KERNEL_SCRIPTS / "writing"
+EVAL = _KERNEL_SCRIPTS / "eval"
+INDUCTIVE = _KERNEL_SCRIPTS / "inductive"
+DEDUCTIVE = _KERNEL_SCRIPTS / "deductive"
 SCOPE = _KERNEL_SCRIPTS / "scope"
-IO = _KERNEL_SCRIPTS / "io"
 SCHEMA_SECTION = _KERNEL_SCRIPTS / "schema" / "section"
 SCHEMA_SECTION_REGISTRY = SCHEMA_SECTION / "registry"
 SCHEMA_SECTION_DOCUMENT = SCHEMA_SECTION / "document"
 SCHEMA_SECTION_SCOPE = SCHEMA_SECTION / "scope"
 SCHEMA_SESSION = _KERNEL_SCRIPTS / "schema" / "session"
-START = _KERNEL_SCRIPTS / "start"
 
 # Bare module names owned exclusively by compose (stage trees use prefixed names).
 _MODULE_OWNERS = {
-    "workflow_common": CORE,
+    "workflow_common": KERNEL,
     "workflow_state_schema": SCHEMA_SESSION,
     "session_state_schema": SCHEMA_SESSION,
-    "session_control": CORE,
+    "session_control": SESSION,
 }
 
 
@@ -46,21 +50,26 @@ def _purge_stale_modules() -> None:
 _purge_stale_modules()
 
 _COMPOSE_PATHS = (
-    CORE,
-    SECTION,
+    KERNEL,
+    SESSION,
+    TEMPLATES,
+    FACTS,
+    WRITING,
+    EVAL,
+    INDUCTIVE,
+    DEDUCTIVE,
     SCOPE,
-    IO,
+    INDUCTIVE / "schema",
     SCHEMA_SECTION,
     SCHEMA_SECTION_REGISTRY,
     SCHEMA_SECTION_DOCUMENT,
     SCHEMA_SECTION_SCOPE,
     SCHEMA_SESSION,
-    START,
+    _KERNEL_SCRIPTS,
     _TESTS,
 )
 
 _WORKFLOW_ROOT = _TESTS.parent.parent.parent
-# Stage script dirs on pytest pythonpath must not shadow compose bare imports.
 _OTHER_STAGE_SCRIPT_DIRS = (
     _WORKFLOW_ROOT / "lulu-code" / "scripts",
     _WORKFLOW_ROOT / "eval" / "scripts",

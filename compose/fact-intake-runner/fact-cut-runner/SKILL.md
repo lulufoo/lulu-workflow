@@ -29,7 +29,7 @@ REQUIRE_SEED_ORIGIN: <true|false; default false>
 | Macro | Command |
 |-------|---------|
 | `$FACT_CUT_BUILD_CTL` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-cut-runner/scripts/fact_cut_build_control.py"` |
-| `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/section/facts_control.py"` |
+| `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/facts/facts_control.py"` |
 
 Build: `--help` · `context`.  
 Facts: `--help` · `write` · `validate`.

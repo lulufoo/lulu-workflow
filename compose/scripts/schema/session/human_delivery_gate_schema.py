@@ -18,9 +18,9 @@ from pathlib import Path
 import sys
 
 _SCRIPTS = Path(__file__).resolve().parents[2]
-_CORE = _SCRIPTS / "core"
-if str(_CORE) not in sys.path:
-    sys.path.insert(0, str(_CORE))
+_KERNEL = _SCRIPTS / "_kernel"
+if str(_KERNEL) not in sys.path:
+    sys.path.insert(0, str(_KERNEL))
 
 from workflow_common import parse_frontmatter_fields
 

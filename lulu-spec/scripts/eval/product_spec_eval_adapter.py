@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 _WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
-_KERNEL_CORE = _WORKFLOW_ROOT / "compose" / "scripts" / "core"
+_KERNEL_CORE = _WORKFLOW_ROOT / "compose" / "scripts" / "eval"
 if str(_KERNEL_CORE) not in sys.path:
     sys.path.insert(0, str(_KERNEL_CORE))
 

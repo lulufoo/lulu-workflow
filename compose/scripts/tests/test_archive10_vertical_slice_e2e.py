@@ -18,7 +18,7 @@ _DESIGN_START = _WORKFLOW_ROOT / "lulu-design" / "scripts" / "start"
 
 for _p in (
     _SCRIPTS,
-    _SCRIPTS / "core",
+    _SCRIPTS / "_kernel",
     _SCRIPTS / "schema" / "session",
     _DESIGN_START,
     _WORKFLOW_ROOT / "compose" / "scripts" / "tests",

@@ -22,9 +22,9 @@ from typing import Any
 
 _SCHEMA_DIR = Path(__file__).resolve().parent
 _SCRIPTS = _SCHEMA_DIR.parents[3]
-_CORE = _SCRIPTS / "core"
-_IO = _SCRIPTS / "io"
-for _p in (_CORE, _IO):
+_KERNEL = _SCRIPTS / "_kernel"
+_TEMPLATES = _SCRIPTS / "templates"
+for _p in (_KERNEL, _TEMPLATES):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 

@@ -19,11 +19,11 @@ _DESIGN_DOMAIN = (
 )
 _G4_CTL = _INDUCTIVE_DIR / "inductive_g4_control.py"
 _SCHEMA_DIR = _INDUCTIVE_DIR / "schema"
-_SECTION = Path(__file__).resolve().parent.parent / "section"
+_KERNEL = Path(__file__).resolve().parent.parent / "_kernel"
 
 sys.path.insert(0, str(_INDUCTIVE_DIR))
 sys.path.insert(0, str(_SCHEMA_DIR))
-sys.path.insert(0, str(_SECTION))
+sys.path.insert(0, str(_KERNEL))
 
 from compose_state_lock import canonical_digest  # noqa: E402
 from g4_recompose_report_schema import g4_report_path, load_report  # noqa: E402
@@ -292,7 +292,7 @@ def _report_digest(out_dir: Path) -> str:
 
 
 def test_init_session_fills_gate_stage_from_revision_pointer(tmp_path: Path) -> None:
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "_kernel"))
     from workflow_paths import (  # noqa: WPS433
         seed_revision_profile_pointer,
         write_active_profile,

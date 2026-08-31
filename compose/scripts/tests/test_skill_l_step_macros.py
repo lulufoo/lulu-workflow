@@ -20,7 +20,7 @@ def test_engine_defines_generic_l_step() -> None:
     inner_text = _INNER.read_text(encoding="utf-8")
     engine_text = _ENGINE_SKILL.read_text(encoding="utf-8")
     assert (
-        'python3 "$SKILL_ROOT/compose/scripts/section/l_step_control.py" '
+        'python3 "$SKILL_ROOT/compose/scripts/session/l_step_control.py" '
         '--cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>'
     ) in inner_text
     assert "$L_STEP" not in engine_text
@@ -33,7 +33,7 @@ def test_stage_skills_do_not_locally_redefine_l_step() -> None:
         text = (_WORKFLOW_ROOT / stage / "SKILL.md").read_text(encoding="utf-8")
         assert "$L_STEP" not in text
         assert f"$SKILL_DIR/scripts/pipeline/{stage.replace('-', '_')}_l_step_control.py" not in text
-        assert "compose/scripts/section/l_step_control.py" not in text
+        assert "compose/scripts/session/l_step_control.py" not in text
 
 
 def test_stage_skills_no_ready_pipeline_state_wording() -> None:

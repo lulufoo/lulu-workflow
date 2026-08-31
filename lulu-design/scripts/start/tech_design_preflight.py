@@ -10,7 +10,7 @@ from pathlib import Path
 
 _WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
 _KERNEL_SCRIPTS = _WORKFLOW_ROOT / "compose" / "scripts"
-_START = _KERNEL_SCRIPTS / "start"
+_START = _KERNEL_SCRIPTS / "scope"
 for p in (_KERNEL_SCRIPTS, _START, Path(__file__).resolve().parent):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))

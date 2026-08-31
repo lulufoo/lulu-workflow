@@ -12,7 +12,7 @@ import pytest
 
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
 _LDEV = _SRC / "lulu-dev-workflow"
-_KERNEL_START = _LDEV / "compose" / "scripts" / "core" / "start.py"
+_KERNEL_START = _LDEV / "compose" / "scripts" / "session" / "start.py"
 _COMPOSE_START_STAGES = frozenset({"lulu-plan", "lulu-spec", "lulu-arch", "lulu-blueprint"})
 _STAGES = ["decision", "lulu-spec", "lulu-plan", "lulu-tasks", "lulu-code"]
 

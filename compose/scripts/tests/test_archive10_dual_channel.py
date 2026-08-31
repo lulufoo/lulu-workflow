@@ -12,7 +12,7 @@ import pytest
 _COMPOSE = Path(__file__).resolve().parents[2]
 _REPO = Path(__file__).resolve().parents[4]
 _SCRIPTS = _COMPOSE / "scripts"
-_SECTION = _SCRIPTS / "section"
+_WRITING = _SCRIPTS / "writing"
 _NARRATIVE = _COMPOSE / "narrative-arc-runner" / "scripts"
 _VIEWER = _COMPOSE / "compose-viewer" / "scripts"
 _ARC_CTL = _NARRATIVE / "narrative_arc_control.py"
@@ -20,8 +20,8 @@ _ARC_BUILD = _NARRATIVE / "narrative_arc_build_control.py"
 _VIEWER_CTL = _VIEWER / "compose_viewer_control.py"
 _HTML = _COMPOSE / "compose-viewer" / "assets" / "compose-viewer.html"
 
-_CORE = _SCRIPTS / "core"
-for _p in (_SECTION, _NARRATIVE, _SCRIPTS, _CORE):
+_KERNEL = _SCRIPTS / "_kernel"
+for _p in (_WRITING, _NARRATIVE, _SCRIPTS, _KERNEL):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 

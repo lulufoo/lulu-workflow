@@ -9,7 +9,7 @@ import pytest
 
 _ROOT = Path(__file__).resolve().parents[3]
 _KERNEL_TESTS = _ROOT / "compose" / "scripts" / "tests"
-_KERNEL_CORE = _ROOT / "compose" / "scripts" / "core"
+_KERNEL_CORE = _ROOT / "compose" / "scripts" / "_kernel"
 _START = _ROOT / "lulu-blueprint" / "scripts" / "start"
 _EVAL = _ROOT / "lulu-blueprint" / "scripts" / "eval"
 

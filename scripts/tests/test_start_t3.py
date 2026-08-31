@@ -28,7 +28,7 @@ _TOPIC_CYCLE = [
     "lulu-bet", "lulu-blueprint", "lulu-approach", "lulu-arch",
 ]
 _TOPIC_ID = "topic-20260524143022-aabbccdd"
-_KERNEL_START = _LDEV / "compose" / "scripts" / "core" / "start.py"
+_KERNEL_START = _LDEV / "compose" / "scripts" / "session" / "start.py"
 
 
 def _start_argparse_source(stage: str) -> str:

@@ -17,8 +17,8 @@ from typing import Any
 _HERE = Path(__file__).resolve().parent
 _SCRIPTS = _HERE.parent
 _SESSION = _SCRIPTS / "schema" / "session"
-_SECTION = _SCRIPTS / "section"
-for _p in (_HERE, _SESSION, _SECTION, _SCRIPTS):
+_FACTS = _SCRIPTS / "facts"
+for _p in (_HERE, _SESSION, _FACTS, _SCRIPTS):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 

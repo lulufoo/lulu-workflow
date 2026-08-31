@@ -6,7 +6,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "section"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "writing"))
 
 from chapter_artifact_paths import chapter_body_path, chapter_derive_path  # noqa: E402
 

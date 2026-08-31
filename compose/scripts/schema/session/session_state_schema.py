@@ -20,9 +20,8 @@ from pathlib import Path
 from typing import Any
 
 _SCRIPTS = Path(__file__).resolve().parents[2]
-_CORE = _SCRIPTS / "core"
-_SECTION = _SCRIPTS / "section"
-for _p in (_CORE, _SECTION):
+_KERNEL = _SCRIPTS / "_kernel"
+for _p in (_KERNEL,):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 

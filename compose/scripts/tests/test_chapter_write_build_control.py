@@ -10,7 +10,7 @@ from pathlib import Path
 
 _COMPOSE = Path(__file__).resolve().parents[2]
 _REPO = Path(__file__).resolve().parents[4]
-_CORE = _COMPOSE / "scripts" / "core"
+_CORE = _COMPOSE / "scripts" / "_kernel"
 sys.path.insert(0, str(_CORE))
 from workflow_paths import seed_revision_profile_pointer  # noqa: E402
 _BUILD = (

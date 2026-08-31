@@ -26,9 +26,9 @@ from workflow_state_schema import save_workflow_state  # noqa: E402
 from test_template_data import seed_tech_plan_test_caches  # noqa: E402
 
 import bootstrap  # noqa: F401
-from bootstrap import CORE  # noqa: E402
+from bootstrap import SESSION  # noqa: E402
 
-_SCRIPT = CORE / "session_info.py"
+_SCRIPT = SESSION / "session_info.py"
 
 
 def _expected_next_stages(cycle_id: str) -> list[str]:

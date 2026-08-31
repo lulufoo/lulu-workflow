@@ -12,13 +12,13 @@ from pathlib import Path
 from typing import Any
 
 _SCRIPTS = Path(__file__).resolve().parents[3]
-_CORE = _SCRIPTS / "core"
-_IO = _SCRIPTS / "io"
+_KERNEL = _SCRIPTS / "_kernel"
+_TEMPLATES = _SCRIPTS / "templates"
 _INDUCTIVE = _SCRIPTS / "inductive"
-if str(_CORE) not in sys.path:
-    sys.path.insert(0, str(_CORE))
-if str(_IO) not in sys.path:
-    sys.path.insert(0, str(_IO))
+if str(_KERNEL) not in sys.path:
+    sys.path.insert(0, str(_KERNEL))
+if str(_TEMPLATES) not in sys.path:
+    sys.path.insert(0, str(_TEMPLATES))
 if str(_INDUCTIVE) not in sys.path:
     sys.path.insert(0, str(_INDUCTIVE))
 from workflow_paths import WORKFLOW_SCRIPTS  # noqa: E402

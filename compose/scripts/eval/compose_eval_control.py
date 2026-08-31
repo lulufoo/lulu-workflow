@@ -15,9 +15,13 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-_CORE = Path(__file__).resolve().parent
-if str(_CORE) not in sys.path:
-    sys.path.insert(0, str(_CORE))
+_HERE = Path(__file__).resolve().parent
+_SCRIPTS = _HERE.parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+import kernel_bootstrap  # noqa: E402
+
+kernel_bootstrap.ensure_kernel_paths()
 
 from compose_eval_envelope import build_compose_eval_envelope  # noqa: E402
 from workflow_paths import (  # noqa: E402

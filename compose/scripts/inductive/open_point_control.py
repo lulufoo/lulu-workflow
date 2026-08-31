@@ -26,10 +26,9 @@ _HERE = Path(__file__).resolve().parent
 _SCHEMA = _HERE / "schema"
 _COMPOSE_SCRIPTS = _HERE.parent
 _SESSION = _COMPOSE_SCRIPTS / "schema" / "session"
-_SECTION = _COMPOSE_SCRIPTS / "section"
-_IO = _COMPOSE_SCRIPTS / "io"
-_CORE = _COMPOSE_SCRIPTS / "core"
-for _path in (_HERE, _SCHEMA, _SESSION, _SECTION, _IO, _CORE):
+_KERNEL = _COMPOSE_SCRIPTS / "_kernel"
+_TEMPLATES = _COMPOSE_SCRIPTS / "templates"
+for _path in (_HERE, _SCHEMA, _SESSION, _KERNEL, _TEMPLATES):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 

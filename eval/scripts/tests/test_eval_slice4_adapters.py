@@ -635,7 +635,7 @@ class TestSharedInitializerAndPrimitives:
         assert "load_evaluate_state" not in finalize
 
     def test_compose_adapter_exposes_renamed_target_primitives(self) -> None:
-        sys.path.insert(0, str(_WORKFLOW_ROOT / "compose" / "scripts" / "core"))
+        sys.path.insert(0, str(_WORKFLOW_ROOT / "compose" / "scripts" / "eval"))
         from compose_eval_adapter import ComposeEvalAdapter
 
         for name in (_READ, _COMMIT, _RESTORE):

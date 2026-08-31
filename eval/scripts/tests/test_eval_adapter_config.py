@@ -175,7 +175,7 @@ def test_entry_loads_config_before_handoff(monkeypatch, tmp_path: Path) -> None:
 
 def test_loads_decorator_adapter_and_delegate(tmp_path: Path) -> None:
     workflow_root = tmp_path / "lulu-dev-workflow"
-    adapter_dir = workflow_root / "compose" / "scripts" / "core"
+    adapter_dir = workflow_root / "compose" / "scripts" / "eval"
     adapter_dir.mkdir(parents=True)
     (adapter_dir / "compose_eval_adapter.py").write_text(
         (
@@ -209,7 +209,7 @@ def test_loads_decorator_adapter_and_delegate(tmp_path: Path) -> None:
 
     adapter = eac.load_eval_adapter_from_config(
         {
-            "adapter_module": "compose/scripts/core/compose_eval_adapter.py",
+            "adapter_module": "compose/scripts/eval/compose_eval_adapter.py",
             "adapter_class": "ComposeEvalAdapter",
             "workflow_id": "lulu-design",
             "eval_capability": "full-remediation",
@@ -231,7 +231,7 @@ def test_loads_decorator_adapter_and_delegate(tmp_path: Path) -> None:
 
 def test_decorator_rejects_delegate_traversal(tmp_path: Path) -> None:
     workflow_root = tmp_path / "lulu-dev-workflow"
-    adapter_dir = workflow_root / "compose" / "scripts" / "core"
+    adapter_dir = workflow_root / "compose" / "scripts" / "eval"
     adapter_dir.mkdir(parents=True)
     (adapter_dir / "compose_eval_adapter.py").write_text(
         "class ComposeEvalAdapter:\n    @classmethod\n"
@@ -242,7 +242,7 @@ def test_decorator_rejects_delegate_traversal(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="path traversal"):
         eac.load_eval_adapter_from_config(
             {
-                "adapter_module": "compose/scripts/core/compose_eval_adapter.py",
+                "adapter_module": "compose/scripts/eval/compose_eval_adapter.py",
                 "adapter_class": "ComposeEvalAdapter",
                 "eval_capability": "full-remediation",
                 "construction": "decorator",
@@ -287,7 +287,7 @@ def test_loads_real_design_decorator_envelope() -> None:
             encoding="utf-8"
         )
     )
-    sys.path.insert(0, str(workflow_root / "compose" / "scripts" / "core"))
+    sys.path.insert(0, str(workflow_root / "compose" / "scripts" / "eval"))
     from compose_eval_envelope import build_compose_eval_envelope
 
     envelope = build_compose_eval_envelope(profile)

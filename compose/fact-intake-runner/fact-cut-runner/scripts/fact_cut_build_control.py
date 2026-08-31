@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 _SCRIPTS = Path(__file__).resolve().parents[3] / "scripts"
-for _path in (_SCRIPTS, _SCRIPTS / "section", _SCRIPTS / "io"):
+for _path in (_SCRIPTS, _SCRIPTS / "_kernel", _SCRIPTS / "templates"):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 import kernel_bootstrap  # noqa: E402

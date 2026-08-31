@@ -34,8 +34,8 @@ from typing import Any
 
 _DEDUCTIVE = Path(__file__).resolve().parent
 _SCRIPTS = _DEDUCTIVE.parent
-_SECTION = _SCRIPTS / "section"
-for p in (_SCRIPTS, _SECTION, _DEDUCTIVE):
+_KERNEL = _SCRIPTS / "_kernel"
+for p in (_SCRIPTS, _KERNEL, _DEDUCTIVE):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 import kernel_bootstrap  # noqa: E402
