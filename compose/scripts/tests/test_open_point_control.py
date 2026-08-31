@@ -296,21 +296,21 @@ def test_detect_context_emits_slim_snapshots(tmp_path: Path):
     before = (slice_dir / "lens-frontier.json").read_text(encoding="utf-8")
     code, payload = _run(slice_dir, "detect-context", project_root=root)
     assert code == 0, payload
-    assert payload["facts_snapshot"] == []
-    assert [item["lens"] for item in payload["lens_registry"]] == _PLAN_LENSES
-    assert payload["lens_registry"][0]["heading"] == "Context"
+    assert "facts_snapshot" not in payload
+    assert "lens_registry" not in payload
+    assert "kw_criteria" not in payload
     assert payload["opens_snapshot"] == []
     assert "facts" not in payload
     assert "lenses" not in payload
     assert "opens" not in payload
     assert "frontiers" in payload
+    assert list(payload["frontiers"]["lenses"]) == _PLAN_LENSES
     assert "facts_digest" not in payload
     assert "lens_digest" not in payload
     assert "opens_digest" not in payload
     assert "frontier_digest" not in payload
     assert "code_grounding" not in payload
     assert "inert_means" not in payload
-    assert "I" in payload["kw_criteria"]
     assert payload["intent_baseline_refs"] == []
     assert payload["project_evidence_scope"]["project_root"] == str(Path(root).resolve())
     assert (slice_dir / "lens-frontier.json").read_text(encoding="utf-8") == before
@@ -372,6 +372,57 @@ def test_detect_context_fetches_registry_from_skill_without_slice_file(
     assert code == 0, payload
     code, payload = _run(slice_dir, "detect-context", project_root=root)
     assert code == 0, payload
-    assert [item["lens"] for item in payload["lens_registry"]] == _PLAN_LENSES
+    assert "lens_registry" not in payload
+    assert list(payload["frontiers"]["lenses"]) == _PLAN_LENSES
     assert not (slice_dir / "section-registry.json").exists()
     assert not (slice_dir / "section-kw-criteria.md").exists()
+
+
+def test_detect_lens_context_filters_facts_and_rejects_unknown(tmp_path: Path):
+    slice_dir, root = _slice_env(tmp_path)
+    code, payload = _run(slice_dir, "ensure-frontier", project_root=root)
+    assert code == 0, payload
+    (slice_dir / "_facts.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "F-ctx",
+                    "text": "ctx",
+                    "lens_tags": ["CTX"],
+                    "origin": {"type": "seed"},
+                },
+                {"id": "F-empty", "text": "none", "lens_tags": []},
+                {"id": "F-go", "text": "go", "lens_tags": ["GO"]},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    code, payload = _run(
+        slice_dir, "detect-lens-context", "--lens", "CTX", project_root=root
+    )
+    assert code == 0, payload
+    assert payload["lens_registry"]["lens"] == "CTX"
+    assert payload["lens_registry"]["heading"] == "Context"
+    assert isinstance(payload["kw_criteria"], str)
+    assert "KW0" in payload["kw_criteria"]
+    assert [item["id"] for item in payload["facts_snapshot"]] == ["F-ctx"]
+    assert payload["facts_snapshot"][0]["origin"] == {"type": "seed"}
+    assert "opens_snapshot" not in payload
+    assert "frontiers" not in payload
+    assert not (slice_dir / "section-registry.json").exists()
+    code, payload = _run(
+        slice_dir, "detect-lens-context", "--lens", "NOPE", project_root=root
+    )
+    assert code == 1
+    assert "unknown lens" in payload["error"]
+
+
+def test_detect_lens_context_refused_when_processing(tmp_path: Path):
+    slice_dir, root = _slice_env(tmp_path)
+    add_opens(slice_dir, opens=[_human_open()], project_root=root)
+    code, payload = _run(
+        slice_dir, "detect-lens-context", "--lens", "I", project_root=root
+    )
+    assert code == 1
+    assert payload["ok"] is False
+    assert "idle" in payload["error"] or "processing" in payload["error"]

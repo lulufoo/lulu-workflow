@@ -10,6 +10,7 @@ Design rationale:
 docs/domain/archive/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
 docs/domain/archive/compose/compose-g3-detect-context-slim-design.md
 docs/domain/archive/compose/archive-49.0/compose-g3-section-registry-skill-fetch-design.md
+docs/domain/archive/compose/archive-50.0/compose-g3-detect-lens-context-design.md
 """
 
 from __future__ import annotations
@@ -52,6 +53,7 @@ from lens_frontier_schema import (  # noqa: E402
     merge_missing_keys,
     normalize_lens_frontier,
     save_lens_frontier,
+    slice_kw_criteria,
     validate_lens_frontier,
 )
 from open_point_detect_receipt_schema import (  # noqa: E402
@@ -270,6 +272,51 @@ def detect_lens_registry(snapshot: Any) -> list[dict[str, str]]:
             item[field] = value.strip() if isinstance(value, str) else ""
         out.append(item)
     return out
+
+
+def facts_for_lens(facts: Any, lens: str) -> list[Any]:
+    """Return full facts whose lens_tags contain ``lens``. Empty tags drop."""
+    key = str(lens).strip().upper()
+    if not key or not isinstance(facts, list):
+        return []
+    out: list[Any] = []
+    for item in facts:
+        if not isinstance(item, dict):
+            continue
+        tags = item.get("lens_tags")
+        if not isinstance(tags, list):
+            continue
+        if key in {str(tag).strip().upper() for tag in tags if str(tag).strip()}:
+            out.append(item)
+    return out
+
+
+def detect_lens_registry_entry(snapshot: Any, lens: str) -> dict[str, str]:
+    key = str(lens).strip().upper()
+    if not key:
+        raise ValueError("unknown lens")
+    for item in detect_lens_registry(snapshot):
+        if item["lens"] == key:
+            return item
+    raise ValueError(f"unknown lens {key}")
+
+
+def detect_lens_context(
+    slice_dir: Path, lens: str, project_root: Path | str | None = None
+) -> dict[str, Any]:
+    """KW slice, one registry row, and facts tagged with ``lens``."""
+    key = str(lens).strip().upper()
+    if not key:
+        raise ValueError("unknown lens")
+    entry = detect_lens_registry_entry(lens_snapshot(slice_dir, project_root), key)
+    sliced = slice_kw_criteria(load_published_kw_raw(slice_dir, project_root), key)
+    if sliced is None:
+        raise ValueError(f"KW criteria missing for {key}")
+    return {
+        "kw_criteria": sliced,
+        "lens_registry": entry,
+        "facts_snapshot": facts_for_lens(facts_snapshot(slice_dir), key),
+    }
 
 
 def detect_opens_snapshot(opens: Any) -> list[dict[str, str]]:

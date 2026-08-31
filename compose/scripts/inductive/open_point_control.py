@@ -11,6 +11,7 @@ Design rationale:
 docs/domain/archive/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
 docs/domain/archive/compose/archive-43.0/compose-g3-gate-phase-map-design.md
 docs/domain/archive/compose/compose-g3-detect-context-slim-design.md
+docs/domain/archive/compose/archive-50.0/compose-g3-detect-lens-context-design.md
 """
 
 from __future__ import annotations
@@ -44,14 +45,12 @@ from open_point_store import (  # noqa: E402
     defer_open,
     ensure_frontier,
     FACTS_BASENAME,
-    facts_snapshot,
     frontier_digest,
     frontier_skip,
     frontier_snapshot,
     frontier_unskip,
-    detect_lens_registry,
+    detect_lens_context,
     detect_opens_snapshot,
-    lens_snapshot,
     load_bundle,
     load_detect_materials,
     require_detect_ruler,
@@ -60,7 +59,6 @@ from open_point_store import (  # noqa: E402
     skip_open,
     update_open,
 )
-from lens_frontier_schema import slice_kw_criteria  # noqa: E402
 
 
 def _ok(payload: dict[str, Any]) -> None:
@@ -124,28 +122,25 @@ def cmd_detect_context(slice_dir: Path, args: argparse.Namespace) -> None:
     if bundle["state"]["phase"] != "idle":
         raise ValueError("detect-context requires idle (currently processing)")
     project_root = Path(args.project_root).resolve() if args.project_root else None
-    keys, kw_raw = require_detect_ruler(slice_dir, project_root)
-    facts = facts_snapshot(slice_dir)
-    lenses = lens_snapshot(slice_dir, project_root)
-    frontiers = frontier_snapshot(slice_dir)
-    kw_criteria: dict[str, str] = {}
-    for lens in keys:
-        sliced = slice_kw_criteria(kw_raw, lens)
-        if sliced is None:
-            raise ValueError(f"KW criteria missing for {lens}")
-        kw_criteria[lens] = sliced
+    require_detect_ruler(slice_dir, project_root)
     intent_refs, code_grounding = load_detect_materials(slice_dir, project_root)
     payload: dict[str, Any] = {
-        "facts_snapshot": facts,
-        "lens_registry": detect_lens_registry(lenses),
         "opens_snapshot": detect_opens_snapshot(bundle["opens"]),
-        "frontiers": frontiers,
-        "kw_criteria": kw_criteria,
+        "frontiers": frontier_snapshot(slice_dir),
         "intent_baseline_refs": intent_refs,
     }
     if code_grounding and project_root is not None:
         payload["project_evidence_scope"] = {"project_root": str(project_root)}
     _ok(payload)
+
+
+def cmd_detect_lens_context(slice_dir: Path, args: argparse.Namespace) -> None:
+    bundle = load_bundle(slice_dir)
+    if bundle["state"]["phase"] != "idle":
+        raise ValueError("detect-lens-context requires idle (currently processing)")
+    project_root = Path(args.project_root).resolve() if args.project_root else None
+    require_detect_ruler(slice_dir, project_root)
+    _ok(detect_lens_context(slice_dir, args.lens, project_root))
 
 
 def cmd_process_context(slice_dir: Path, args: argparse.Namespace) -> None:
@@ -272,8 +267,20 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     sub.add_parser(
         "detect-context",
-        help="Read-only facts, slim lens/opens, frontiers, KW slices, and means materials. frontier_kw is the last found gap KW (resume start).",
+        help=(
+            "Read-only opens, frontiers, intent refs, and means materials. "
+            "Does not emit facts, KW, or lens registry. frontier_kw is the "
+            "last found gap KW (resume start)."
+        ),
     )
+    lens_ctx = sub.add_parser(
+        "detect-lens-context",
+        help=(
+            "Read-only KW slice, one registry row, and facts whose "
+            "lens_tags contain --lens. Unknown lens errors."
+        ),
+    )
+    lens_ctx.add_argument("--lens", required=True)
     sub.add_parser(
         "process-context",
         help="Active open + facts_path; project scope when --project-root",
@@ -361,6 +368,7 @@ def main(argv: list[str] | None = None) -> int:
         "resolve-context": cmd_resolve_context,
         "ensure-frontier": cmd_ensure_frontier,
         "detect-context": cmd_detect_context,
+        "detect-lens-context": cmd_detect_lens_context,
         "process-context": cmd_process_context,
         "add-opens": cmd_add_opens,
         "update-open": cmd_update_open,

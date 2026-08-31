@@ -27,7 +27,7 @@ Stamp `actor=ai`, `means=scan`.
 ## `intent`
 
 Ask whether classified intent-baseline items that map to this lens are
-still unfulfilled by `facts_snapshot` or `opens_snapshot`.
+still unfulfilled by this lens's `facts_snapshot` or `opens_snapshot`.
 
 Evidence is `intent_baseline_refs`. An empty array makes this method
 inert. Do not use norm constraints.
@@ -39,9 +39,11 @@ Stamp `actor=ai`, `means=intent`.
 Ask whether the coarsest remaining KW is silent or unresolved on
 failure, boundary, assumption, or seam.
 
-Evidence is `facts_snapshot` plus `lens_registry` Intent and boundary.
-No extra material. Missing facts or registry fails the whole Detect
-pass, not this method alone.
+Evidence is this lens's `facts_snapshot` plus this lens's
+`lens_registry` Intent and boundary. Both come from
+`detect-lens-context`. No extra material. A failed
+`detect-lens-context` fails the whole Detect pass, not this method
+alone. An empty `facts_snapshot` is legal.
 
 A hit is silence or an unresolved question that also leaves the
 coarsest remaining KW predicate false. Skip already-settled questions.

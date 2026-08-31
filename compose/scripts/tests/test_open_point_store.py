@@ -30,8 +30,11 @@ from open_point_store import (  # noqa: E402
     add_opens,
     check_close,
     defer_open,
+    detect_lens_context,
     detect_lens_registry,
+    detect_lens_registry_entry,
     detect_opens_snapshot,
+    facts_for_lens,
     ensure_frontier,
     lens_snapshot,
     load_bundle,
@@ -702,3 +705,45 @@ def test_lens_snapshot_fetches_installed_lulu_plan(tmp_path: Path):
         "VF",
     ]
     assert not (slice_dir / "section-registry.json").exists()
+
+
+def test_facts_for_lens_keeps_matching_tags_only():
+    facts = [
+        {"id": "F-1", "text": "a", "lens_tags": ["CTX"]},
+        {"id": "F-2", "text": "b", "lens_tags": ["ctx", "GO"]},
+        {"id": "F-3", "text": "c", "lens_tags": []},
+        {"id": "F-4", "text": "d"},
+        {"id": "F-5", "text": "e", "lens_tags": ["GO"]},
+    ]
+    assert [item["id"] for item in facts_for_lens(facts, "ctx")] == ["F-1", "F-2"]
+    assert facts_for_lens(facts, "NOPE") == []
+    assert facts_for_lens(None, "CTX") == []
+
+
+def test_detect_lens_registry_entry_unknown():
+    snapshot = {
+        "section_order": ["I"],
+        "sections": {"I": {"heading": "Intent", "intent": "c"}},
+    }
+    assert detect_lens_registry_entry(snapshot, "i")["heading"] == "Intent"
+    with pytest.raises(ValueError, match="unknown lens"):
+        detect_lens_registry_entry(snapshot, "GO")
+
+
+def test_detect_lens_context_filters_facts(tmp_path: Path):
+    (tmp_path / "_facts.json").write_text(
+        json.dumps(
+            [
+                {"id": "F-I", "text": "intent", "lens_tags": ["I"]},
+                {"id": "F-empty", "text": "none", "lens_tags": []},
+                {"id": "F-go", "text": "goal", "lens_tags": ["GO"]},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    payload = detect_lens_context(tmp_path, "I", tmp_path)
+    assert payload["lens_registry"]["lens"] == "I"
+    assert "KW0" in payload["kw_criteria"]
+    assert [item["id"] for item in payload["facts_snapshot"]] == ["F-I"]
+    with pytest.raises(ValueError, match="unknown lens"):
+        detect_lens_context(tmp_path, "GO", tmp_path)

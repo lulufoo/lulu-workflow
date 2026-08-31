@@ -28,22 +28,23 @@ Parent supplies invoke arguments only.
 
 - `--out-dir` is required.
 - `--project-root` may be empty.
-- Fetch the snapshot through `$OPEN_POINT_CTL detect-context`.
+- Fetch the roster through `$OPEN_POINT_CTL detect-context`.
 
 ## Principles
 
 1. A candidate is one unresolved question that matters to the current
-   slice. Questions settled by `facts_snapshot` or represented in
-   `opens_snapshot` are not candidates.
-2. Lenses in `lens_registry` are non-exhaustive prompts, not a
-   questionnaire or scan order. Follow the available evidence; do not
-   invent gaps.
+   slice. Questions settled by this lens's `facts_snapshot` or
+   represented in `opens_snapshot` are not candidates.
+2. The per-lens `lens_registry` row is a non-exhaustive prompt, not a
+   questionnaire. Follow the available evidence; do not invent gaps.
+   Coverage order is `frontiers.lenses`.
 
 ## Detection
 
-1. For every lens in `lens_registry`, detect gaps against its coarsest
-   remaining KW in `kw_criteria`, measured from that lens's `frontiers`
-   start.
+1. For every key in `frontiers.lenses`, fetch
+   `$OPEN_POINT_CTL detect-lens-context --lens <key>`. Detect gaps
+   against that call's `kw_criteria`, measured from that lens's
+   `frontiers` start.
 2. Use the methods and evidence scopes in `references/detect-means.md`.
 3. Preserve complete inspection evidence: per-lens measurements and raw
    outcome.
@@ -77,5 +78,6 @@ Parent supplies invoke arguments only.
 
 ## Boundaries
 
-- Read-only. The only control call is `$OPEN_POINT_CTL detect-context`.
+- Read-only. Control calls: `detect-context` at Input;
+  `detect-lens-context` once per `frontiers.lenses` key.
 - Do not produce options, leanings, or solutions.
