@@ -18,6 +18,9 @@ for p in (
 ):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
+from eval_path import ensure_eval_script_layers  # noqa: E402
+
+ensure_eval_script_layers()
 
 import bootstrap  # noqa: F401
 from compose_profile_context import reset_active_profile  # noqa: WPS433

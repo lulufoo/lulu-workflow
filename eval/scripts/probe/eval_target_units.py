@@ -11,11 +11,7 @@ Section-key grammar retired in K3-d.
 
 from __future__ import annotations
 
-import argparse
-import json
 import re
-import sys
-from pathlib import Path
 from typing import Any, Literal
 
 Shape = Literal["chapter", "unknown"]
@@ -114,65 +110,3 @@ def units_from_eval_target(text: str) -> dict[str, Any]:
 
     empty = not any(c["units"] for c in containers)
     return {"shape": shape, "containers": containers, "empty": empty}
-
-
-def prior_container_units(
-    view: dict[str, Any], container_id: str
-) -> list[dict[str, str]]:
-    """All units from containers strictly before ``container_id`` (doc order)."""
-    prior: list[dict[str, str]] = []
-    for container in view.get("containers", []):
-        if container["id"] == container_id:
-            break
-        prior.extend(container["units"])
-    return prior
-
-
-def severity_hints_chapter(view: dict[str, Any], container_id: str) -> dict[str, Any]:
-    """Map chapter-path positions to the old section_order severity skeleton.
-
-    | Old (section_order)              | Chapter-path equivalent                          |
-    |----------------------------------|--------------------------------------------------|
-    | first key                        | first container                                  |
-    | last key                         | last container                                   |
-    | key has non-empty upstream       | container index > 0 (has prior chapters)         |
-    | before last key                  | not last container                               |
-    """
-    ids = [c["id"] for c in view.get("containers", [])]
-    if not ids or container_id not in ids:
-        return {
-            "is_first": False,
-            "is_last": False,
-            "has_prior": False,
-            "before_last": False,
-        }
-    index = ids.index(container_id)
-    return {
-        "is_first": index == 0,
-        "is_last": index == len(ids) - 1,
-        "has_prior": index > 0,
-        "before_last": index < len(ids) - 1,
-    }
-
-
-def cmd_inspect(path: Path) -> int:
-    text = path.read_text(encoding="utf-8")
-    view = units_from_eval_target(text)
-    print(json.dumps(view, ensure_ascii=False, indent=2))
-    return 0
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Inspect EvalTarget (B) intent units (chapter anchors)"
-    )
-    parser.add_argument("--path", type=Path, required=True, help="Path to EvalTarget B")
-    args = parser.parse_args(argv)
-    if not args.path.is_file():
-        print(f"not a file: {args.path}", file=sys.stderr)
-        return 1
-    return cmd_inspect(args.path)
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

@@ -19,6 +19,9 @@ _EVAL = Path(__file__).resolve().parents[5] / "eval" / "scripts"  # lulu-dev-wor
 for p in (_ATOMIZE, _COMPOSE_KERNEL, _COMPOSE_TESTS, _EVAL):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
+from eval_path import ensure_eval_script_layers  # noqa: E402
+
+ensure_eval_script_layers()
 
 import bootstrap  # noqa: F401, E402
 from bootstrap import KERNEL  # noqa: E402
@@ -34,7 +37,7 @@ from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import FACTS_BASENAME  # noqa: E402
 from init_working_helpers import init_working_ready  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
-from evaluate_state_ops import init_evaluate_state_for_corpus  # noqa: E402
+from evaluate_state_binding import init_evaluate_state_for_corpus  # noqa: E402
 from evaluate_state_schema import load_evaluate_state, parse_handling_policy  # noqa: E402
 
 _CYCLE = "feat-fact-intake-eval"

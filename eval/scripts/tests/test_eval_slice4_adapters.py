@@ -16,7 +16,7 @@ sys.path.insert(0, str(_EVAL_SCRIPTS))
 
 import eval_adapter_config as eac
 import eval_entry
-from corpus_compose import compose_corpus, load_dimension_def
+from corpus_composition import compose_corpus, load_dimension_def
 from corpus_schema import normalize_corpus, validate_corpus
 
 

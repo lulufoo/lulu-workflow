@@ -10,7 +10,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import evaluate_state_ops  # noqa: E402
+import evaluate_state_binding  # noqa: E402
 from evaluate_state_schema import (  # noqa: E402
     all_dims_at_least,
     build_initial_evaluate_state,
@@ -22,7 +22,7 @@ from evaluate_state_schema import (  # noqa: E402
     save_evaluate_state,
     validate_evaluate_state,
 )
-from evaluate_state_ops import (  # noqa: E402
+from evaluate_state_binding import (  # noqa: E402
     build_initial_evaluate_state_for_corpus,
     init_evaluate_state_for_corpus,
     locked_patch_evaluate_state,
@@ -484,7 +484,7 @@ class TestLockedPatch:
             raise AssertionError("legacy business fields were parsed")
 
         monkeypatch.setattr(
-            evaluate_state_ops,
+            evaluate_state_binding,
             "parse_frontmatter_fields",
             reject_full_parse,
         )

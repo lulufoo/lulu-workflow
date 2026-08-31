@@ -33,6 +33,9 @@ for p in (
 ):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
+from eval_path import ensure_eval_script_layers  # noqa: E402
+
+ensure_eval_script_layers()
 
 from fact_intake_eval_runtime_schema import (  # noqa: E402
     allocate_lease,
@@ -49,7 +52,7 @@ from fact_intake_eval_runtime_schema import (  # noqa: E402
     write_workflow_state_file,
 )
 from compose_session import workflow_state_path as compose_workflow_state_path  # noqa: E402
-from corpus_compose import compose_corpus, load_dimension_def  # noqa: E402
+from corpus_composition import compose_corpus, load_dimension_def  # noqa: E402
 from l_ledger_schema import active_slice_dir  # noqa: E402
 from eval_handoff_schema import (  # noqa: E402
     build_eval_handoff_v2,

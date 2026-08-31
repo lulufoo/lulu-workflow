@@ -14,8 +14,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
-
-_WORKFLOW_ROOT = Path(__file__).resolve().parents[2]
+from eval_path import WORKFLOW_ROOT as _WORKFLOW_ROOT
 
 _REQUIRED_KEYS = ("adapter_module", "adapter_class", "eval_capability")
 _VALID_EVAL_CAPABILITY = frozenset({"full-remediation", "probe-only"})

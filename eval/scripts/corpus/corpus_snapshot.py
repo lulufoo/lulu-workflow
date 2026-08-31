@@ -14,8 +14,9 @@ from pathlib import Path
 from typing import Any
 
 from corpus_schema import normalize_corpus
+from eval_path import WORKFLOW_ROOT
 
-_WORKFLOW_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+_WORKFLOW_SCRIPTS = WORKFLOW_ROOT / "scripts"
 if str(_WORKFLOW_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_WORKFLOW_SCRIPTS))
 import fetch_template  # noqa: E402

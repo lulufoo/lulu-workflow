@@ -20,6 +20,9 @@ from workflow_paths import EVAL_SCRIPTS, load_profile, shell_path
 # schema is cached via eval_handoff_control.
 if str(EVAL_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(EVAL_SCRIPTS))
+from eval_path import ensure_eval_script_layers  # noqa: E402
+
+ensure_eval_script_layers()
 from eval_handoff_schema import (  # noqa: E402
     build_eval_handoff_v2,
     validate_artifact_manifest_v2,
@@ -63,7 +66,7 @@ from workflow_state_schema import (
     resolve_workflow_state_path_from_cycle,
     save_workflow_state,
 )
-from corpus_compose import compose_corpus  # noqa: E402
+from corpus_composition import compose_corpus  # noqa: E402
 from corpus_schema import expand_corpus  # noqa: E402
 from corpus_snapshot import SNAPSHOT_REF  # noqa: E402
 from eval_admission import (  # noqa: E402

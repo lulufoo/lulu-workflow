@@ -12,8 +12,8 @@ This Method defines how to evaluate EvalTarget **B** using the loaded EvalSoT
 
 1. Evaluate **B** only. Do not read compose sidecars, fact files, body files,
    state vectors, layer standards, diagnostic criteria, or section registries.
-2. Read `eval/scripts/eval_target_units.py` and build the unit view with
-   `eval_target_units.units_from_eval_target(B_text)`.
+2. Run `$READ_UNIT_VIEW`. Treat the returned `shape`, `containers`, and
+   `empty` as the unit view.
 3. Branch on the view shape:
    - `unknown`: emit one `UNRESOLVABLE` finding because B has no chapter
      anchors; stop.
@@ -22,10 +22,10 @@ This Method defines how to evaluate EvalTarget **B** using the loaded EvalSoT
    - `chapter`: continue with the chapter procedure.
 4. Traverse chapters and their units in document order. Run every applicable
    P1–P4 criterion and Design supplement from A for each unit.
-5. For P3, use `prior_container_units(view, container_id)` as the complete
-   upstream set. If no prior chapters exist, skip P3 when its criterion
-   requires upstream content.
-6. Use `severity_hints_chapter(view, container_id)`:
+5. For P3, use units from containers strictly before the current chapter
+   (document order) as the complete upstream set. If no prior chapters exist,
+   skip P3 when its criterion requires upstream content.
+6. Use chapter position among `containers`:
    - P1 failure on the first chapter or a chapter with prior content: `critical`.
    - P2 failure before the last chapter: `critical`.
    - P3 failure when prior content exists: `critical`.

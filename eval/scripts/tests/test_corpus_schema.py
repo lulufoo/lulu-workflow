@@ -11,7 +11,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from corpus_compose import compose_corpus  # noqa: E402
+from corpus_composition import compose_corpus  # noqa: E402
 from corpus_schema import (  # noqa: E402
     corpus_ref,
     dispatch_ids,

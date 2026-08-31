@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from corpus_compose import corpus_fingerprint, is_composed_corpus_ref
+from corpus_composition import corpus_fingerprint, is_composed_corpus_ref
 from corpus_schema import (
     corpus_ref,
     dispatch_ids,

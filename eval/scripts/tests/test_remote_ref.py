@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for eval/scripts/url_fetch.py."""
+"""Tests for eval/scripts/probe/remote_ref.py."""
 
 import sys
 from pathlib import Path
@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from url_fetch import UrlFetchError, is_remote_url, read_ref  # noqa: E402
+from remote_ref import UrlFetchError, is_remote_url, read_ref  # noqa: E402
 
 
 class TestIsRemoteUrl:

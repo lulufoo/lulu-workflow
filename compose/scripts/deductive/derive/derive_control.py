@@ -64,6 +64,9 @@ _EVAL_SCRIPTS = _SCRIPTS.parents[1] / "eval" / "scripts"
 for _p in (_INTAKE_EVAL_SCRIPTS, _EVAL_SCRIPTS):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
+from eval_path import ensure_eval_script_layers  # noqa: E402
+
+ensure_eval_script_layers()
 from fact_intake_eval_runtime_schema import (  # noqa: E402
     evaluate_state_path as intake_evaluate_state_path,
     fact_intake_eval_root,

@@ -17,6 +17,8 @@ from eval_control import (  # noqa: E402
     canonical_probe_findings_from_reviews,
     check_dimension,
     complete_probe_only,
+    read_b_snapshot_cmd,
+    read_unit_view_cmd,
     validate_live_target_digest,
     validate_review_against_probe_record,
     validate_review_completion,
@@ -155,7 +157,7 @@ def test_live_target_digest_must_still_match_probe_base(tmp_path: Path):
 
 def test_snapshot_commands_accept_operation_token_as_dimension_token_alias():
     parser = build_parser()
-    for command in ("read-b-snapshot", "read-evidence-snapshot"):
+    for command in ("read-b-snapshot", "read-evidence-snapshot", "read-unit-view"):
         extra = ["--evidence-ref", "ref"] if command == "read-evidence-snapshot" else []
         via_operation = parser.parse_args(
             ["--cycle-id", "c1", command, "--operation-token", "tok", *extra],
@@ -177,6 +179,7 @@ def test_cli_exposes_only_probe_and_design_section_6_2_commands():
         "read-evidence-snapshot",
         "submit-probe-findings",
         "check-dimension",
+        "read-unit-view",
         "begin-remediation",
         "begin-dimension-remediation",
         "cancel-remediation",
@@ -187,6 +190,97 @@ def test_cli_exposes_only_probe_and_design_section_6_2_commands():
         "complete-probe-only",
     }
     assert choices == expected
+
+
+def test_read_unit_view_rejects_empty_token(tmp_path: Path):
+    result = read_unit_view_cmd("cycle", tmp_path, dimension_token="   ")
+    assert result["ok"] is False
+    assert result["command"] == "read-unit-view"
+    assert "empty" in result["reason"]
+
+
+def test_read_unit_view_matches_units_and_read_b_snapshot_omits_them(
+    tmp_path: Path,
+    monkeypatch,
+):
+    import eval_target_units as etu
+
+    b_text = (
+        "# Title\n\n"
+        "<!-- chapter:chap-a -->\n"
+        "## Alpha\n\n"
+        "Prose one.\n"
+    )
+    snapshot = {"digest": "a" * 64, "content": b_text}
+    monkeypatch.setattr(
+        eval_control,
+        "_load_evaluating_context",
+        lambda *_: (
+            {"current_state": "Working"},
+            tmp_path / "workflow.md",
+            {"round_token": "round-1"},
+            1,
+            1,
+            "tech",
+        ),
+    )
+    monkeypatch.setattr(
+        eval_control,
+        "_eval_paths",
+        lambda *_, **__: {"evaluate_dir": tmp_path.as_posix()},
+    )
+    monkeypatch.setattr(
+        eval_control,
+        "_evaluate_state_path",
+        lambda *_: tmp_path / "evaluate-state.md",
+    )
+    monkeypatch.setattr(
+        eval_control,
+        "read_target_snapshot",
+        lambda **__: snapshot,
+    )
+
+    b_result = read_b_snapshot_cmd("cycle", tmp_path, dimension_token="tok")
+    view_result = read_unit_view_cmd("cycle", tmp_path, dimension_token="tok")
+    expected = etu.units_from_eval_target(b_text)
+
+    assert b_result["ok"] is True
+    assert "content" in b_result
+    assert "containers" not in b_result
+    assert "shape" not in b_result
+
+    assert view_result["ok"] is True
+    assert view_result["command"] == "read-unit-view"
+    assert "content" not in view_result
+    assert view_result["shape"] == expected["shape"]
+    assert view_result["containers"] == expected["containers"]
+    assert view_result["empty"] == expected["empty"]
+
+
+def test_probe_commands_forward_to_probe_control():
+    import probe_control
+
+    assert probe_control.begin_dimension.__module__ == "probe_control"
+    assert eval_control.begin_dimension.__module__ == "eval_control"
+    assert probe_control.read_unit_view_cmd.__module__ == "probe_control"
+
+
+def test_remediation_commands_forward_to_remediation_control():
+    import remediation_control
+
+    assert remediation_control.begin_remediation.__module__ == "remediation_control"
+    assert eval_control.begin_remediation.__module__ == "eval_control"
+    assert remediation_control.apply_remediation.__module__ == "remediation_control"
+    assert remediation_control.remediation_complete.__module__ == "remediation_control"
+
+
+def test_round_commands_forward_to_round_control():
+    import round_control
+
+    assert round_control.begin_eval_round.__module__ == "round_control"
+    assert eval_control.begin_eval_round.__module__ == "eval_control"
+    assert round_control.complete_probe_only.__module__ == "round_control"
+    assert round_control.init_round.__module__ == "round_control"
 
 
 def test_complete_probe_only_validates_before_write_and_replays_idempotently(

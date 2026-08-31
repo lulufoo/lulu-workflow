@@ -15,6 +15,9 @@ _KERNEL_TESTS = _WORKFLOW_ROOT / "compose" / "scripts" / "tests"
 for p in (_EVAL_SHELL, _EVAL_SCRIPTS, _KERNEL_CORE, _KERNEL_TESTS):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
+from eval_path import ensure_eval_script_layers  # noqa: E402
+
+ensure_eval_script_layers()
 
 import bootstrap  # noqa: F401
 from compose_eval_adapter import ComposeEvalAdapter  # noqa: E402

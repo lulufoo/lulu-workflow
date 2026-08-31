@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from url_fetch import read_ref  # noqa: E402
+from remote_ref import read_ref  # noqa: E402
 
 
 _REPO = Path(__file__).resolve().parents[4]

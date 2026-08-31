@@ -1,4 +1,4 @@
-"""Ensure eval/scripts wins import resolution for eval tests."""
+"""Ensure eval/scripts and capability folders win import resolution."""
 
 from __future__ import annotations
 
@@ -8,13 +8,13 @@ from pathlib import Path
 import pytest
 
 _EVAL_SCRIPTS = Path(__file__).resolve().parents[1]
+if str(_EVAL_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_EVAL_SCRIPTS))
+from eval_path import ensure_eval_script_layers  # noqa: E402
 
 
 def _ensure_eval_scripts() -> None:
-    scripts = str(_EVAL_SCRIPTS)
-    while scripts in sys.path:
-        sys.path.remove(scripts)
-    sys.path.insert(0, scripts)
+    ensure_eval_script_layers()
 
 
 @pytest.fixture(autouse=True)

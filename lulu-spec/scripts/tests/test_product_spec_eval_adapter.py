@@ -15,6 +15,9 @@ _KERNEL_TESTS = _WORKFLOW_ROOT / "compose" / "scripts" / "tests"
 for p in (_EVAL_SHELL, _EVAL_SCRIPTS, _KERNEL_CORE, _KERNEL_TESTS):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
+from eval_path import ensure_eval_script_layers  # noqa: E402
+
+ensure_eval_script_layers()
 
 import bootstrap  # noqa: F401
 from compose_eval_adapter import ComposeEvalAdapter  # noqa: E402
@@ -22,7 +25,7 @@ from product_spec_eval_adapter import (  # noqa: E402
     PRODUCT_SPEC_COMPOSED_CORPUS_REF,
 )
 from product_spec_eval_contributor import ProductSpecEvalContributor  # noqa: E402
-from corpus_compose import corpus_fingerprint  # noqa: E402
+from corpus_composition import corpus_fingerprint  # noqa: E402
 from delivered_refs_schema import DeliveredRef  # noqa: E402
 from product_spec_eval_policy import select_dimension_ids  # noqa: E402
 from workflow_state_schema import init_compose_session  # noqa: E402

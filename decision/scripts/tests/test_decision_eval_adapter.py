@@ -15,6 +15,9 @@ _EVAL_SCRIPTS = Path(__file__).resolve().parents[3] / "eval" / "scripts"
 for p in (_SCRIPTS, _EVAL_ADAPTER, _EVAL_SCRIPTS):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
+from eval_path import ensure_eval_script_layers  # noqa: E402
+
+ensure_eval_script_layers()
 
 from decision_eval_adapter import DecisionEvalAdapter  # noqa: E402
 import io
@@ -35,7 +38,7 @@ from dec_session_state_schema import write_session_state  # noqa: E402
 from dec_workflow_common import CACHE_DIR  # noqa: E402
 from eval_adapter_config import load_eval_adapter_from_config  # noqa: E402
 from eval_handoff_schema import validate_eval_handoff_v2  # noqa: E402
-from evaluate_state_ops import init_evaluate_state_for_corpus  # noqa: E402
+from evaluate_state_binding import init_evaluate_state_for_corpus  # noqa: E402
 from evaluate_state_schema import load_evaluate_state, parse_handling_policy  # noqa: E402
 
 

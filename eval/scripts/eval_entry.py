@@ -16,6 +16,9 @@ from pathlib import Path
 _EVAL_SCRIPTS = Path(__file__).resolve().parent
 if str(_EVAL_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_EVAL_SCRIPTS))
+from eval_path import ensure_eval_script_layers  # noqa: E402
+
+ensure_eval_script_layers()
 
 from eval_adapter_config import (  # noqa: E402
     load_adapter_config_file,

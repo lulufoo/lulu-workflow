@@ -15,8 +15,11 @@ _EVAL_SCRIPTS = _WORKFLOW_ROOT / "eval" / "scripts"
 for p in (_DECISION_SCRIPTS, _EVAL_SCRIPTS):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
+from eval_path import ensure_eval_script_layers  # noqa: E402
 
-from corpus_compose import compose_corpus, load_dimension_def  # noqa: E402
+ensure_eval_script_layers()
+
+from corpus_composition import compose_corpus, load_dimension_def  # noqa: E402
 from dec_domain_constraints_schema import KERNEL_STAGE, load_domain_constraints  # noqa: E402
 from dec_eval_runtime_schema import (  # noqa: E402
     allocate_lease,

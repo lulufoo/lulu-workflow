@@ -12,6 +12,9 @@ from workflow_paths import EVAL_SCRIPTS  # noqa: E402
 
 sys.path.insert(0, str(SESSION))
 sys.path.insert(0, str(EVAL_SCRIPTS))
+from eval_path import ensure_eval_script_layers  # noqa: E402
+
+ensure_eval_script_layers()
 _TECH_DESIGN_EVAL = (
     Path(__file__).resolve().parents[3] / "lulu-design" / "scripts" / "eval"
 )

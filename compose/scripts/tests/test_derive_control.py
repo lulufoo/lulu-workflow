@@ -220,6 +220,9 @@ def test_cli_edge_scan_requires_fact_intake_eval_gate(
     sys.path.insert(
         0, str(Path(__file__).resolve().parents[3] / "eval" / "scripts")
     )
+    from eval_path import ensure_eval_script_layers  # noqa: E402
+
+    ensure_eval_script_layers()
     from fact_intake_eval_runtime_schema import evaluate_state_path  # noqa: E402
     from evaluate_state_schema import (  # noqa: E402
         build_initial_evaluate_state,

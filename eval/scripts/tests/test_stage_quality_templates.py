@@ -9,7 +9,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from review_io import parse_review_file  # noqa: E402
 from review_schema import validate_review_file  # noqa: E402
-from url_fetch import read_ref  # noqa: E402
+from remote_ref import read_ref  # noqa: E402
 
 
 _REPO = Path(__file__).resolve().parents[4]
@@ -59,8 +59,9 @@ def test_stage_quality_uses_resolvable_local_method_and_sot(stage):
 
     method = read_ref(stage["method"], project_root=_REPO)
     sot = read_ref(stage["sot"], project_root=_REPO)
-    assert "eval_target_units.units_from_eval_target(B_text)" in method
-    assert "prior_container_units(view, container_id)" in method
+    assert "$READ_UNIT_VIEW" in method
+    assert "eval_target_units" not in method
+    assert "units from containers strictly before the current chapter" in method
     assert "`critical`" in method
     assert "`high`" not in method
     for probe in ("P1", "P2", "P3", "P4"):

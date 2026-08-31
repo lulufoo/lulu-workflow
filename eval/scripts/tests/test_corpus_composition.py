@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for corpus_compose.py."""
+"""Tests for corpus_composition.py."""
 
 import sys
 from pathlib import Path
@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from corpus_compose import (  # noqa: E402
+from corpus_composition import (  # noqa: E402
     compose_corpus,
     corpus_fingerprint,
     is_composed_corpus_ref,

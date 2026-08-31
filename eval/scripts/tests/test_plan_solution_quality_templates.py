@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from url_fetch import read_ref  # noqa: E402
+from remote_ref import read_ref  # noqa: E402
 
 
 _REPO = Path(__file__).resolve().parents[4]
@@ -39,7 +39,8 @@ def test_plan_local_templates_are_resolvable_from_project_root():
     method = read_ref(_METHOD_REF, project_root=_REPO)
     sot = read_ref(_SOT_REF, project_root=_REPO)
 
-    assert "eval_target_units.units_from_eval_target(B_text)" in method
+    assert "$READ_UNIT_VIEW" in method
+    assert "eval_target_units" not in method
     assert "`critical`" in method
     assert "`high`" not in method
     for probe in ("P1", "P2", "P3", "P4", "P5"):
@@ -53,7 +54,10 @@ def test_plan_local_templates_are_resolvable_from_project_root():
 
 
 def test_probe_runner_no_longer_defines_intent_gap_probes():
-    assert "intent_gap_probes" not in _RUNNER_SKILL.read_text(encoding="utf-8")
+    skill = _RUNNER_SKILL.read_text(encoding="utf-8")
+    assert "intent_gap_probes" not in skill
+    assert "$READ_UNIT_VIEW" in skill
+    assert "read-unit-view" in skill
 
 
 def test_p5_fixture_leaves_api_shape_underdetermined():

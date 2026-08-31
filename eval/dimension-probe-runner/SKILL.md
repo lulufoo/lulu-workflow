@@ -17,6 +17,7 @@ supplied by Eval orchestration.
 | Macro | Command |
 |-------|---------|
 | `$READ_B_SNAPSHOT` | `$EVAL_CONTROL read-b-snapshot --dimension-token "$DIMENSION_TOKEN"` |
+| `$READ_UNIT_VIEW` | `$EVAL_CONTROL read-unit-view --dimension-token "$DIMENSION_TOKEN"` |
 | `$SUBMIT_PROBE_FINDINGS` | `$EVAL_CONTROL submit-probe-findings --payload-file "$FINDINGS_PAYLOAD"` |
 
 ## Workflow

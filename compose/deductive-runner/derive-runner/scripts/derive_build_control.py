@@ -25,6 +25,9 @@ _EVAL_SCRIPTS = _COMPOSE.parent / "eval" / "scripts"
 for _path in (_SCRIPTS, _SCRIPTS / "_kernel", _SCRIPTS / "templates", _INTAKE_EVAL, _EVAL_SCRIPTS):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
+from eval_path import ensure_eval_script_layers  # noqa: E402
+
+ensure_eval_script_layers()
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
