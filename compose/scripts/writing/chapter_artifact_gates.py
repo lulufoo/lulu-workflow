@@ -5,7 +5,7 @@ Writing Write persists ``_body-{cid}.txt`` only. ``_derive-*.json`` and
 body↔``form.structure`` probes are not Writing hard gates (archive-7.0).
 
 Shared by ``chapter_write_state_control.complete`` and
-``writing_compose_control`` (Writing Step 6).
+``compose_writing_control`` (Writing Step 6).
 """
 
 from __future__ import annotations

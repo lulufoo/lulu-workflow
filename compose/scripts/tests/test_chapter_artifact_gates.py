@@ -10,7 +10,7 @@ _SECTION = Path(__file__).resolve().parents[1] / "writing"
 if str(_SECTION) not in sys.path:
     sys.path.insert(0, str(_SECTION))
 
-from chapter_fc_gates import check_chapter_write_artifacts  # noqa: E402
+from chapter_artifact_gates import check_chapter_write_artifacts  # noqa: E402
 
 
 def test_check_chapter_write_artifacts_happy(tmp_path: Path):

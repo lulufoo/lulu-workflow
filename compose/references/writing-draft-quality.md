@@ -72,7 +72,7 @@ AND
 anchors(chapter) ⊆ tokens(body)              # new: keep this chapter's facts' anchors
 ```
 
-`writing_compose_control.py` enforces the second line mechanically for `discovered` facts (anchor-coverage check; `code_ref` matches OR over its `path`/`symbol` segments). To avoid friendly fire, keep these distinctions:
+`compose_writing_control.py` enforces the second line mechanically for `discovered` facts (anchor-coverage check; `code_ref` matches OR over its `path`/`symbol` segments). To avoid friendly fire, keep these distinctions:
 
 1. "No verbatim" forbids whole-decision paste and `[Source:]` markers — it does **not** forbid retaining an `anchor.value` (a path / symbol) in prose.
 2. A "no path pile-up in the opening" convention (where a lens defines one) stays scoped to that opening; it must not be widened into a whole-body ban on paths for structural / contract lenses.
@@ -80,7 +80,7 @@ anchors(chapter) ⊆ tokens(body)              # new: keep this chapter's facts'
 
 ## Validate command
 
-`writing_compose_control.py validate` runs: `_facts.json` + `_narrative-arc.json` + chapter write-state `complete`, per-chapter non-empty body gate (same as `$CHAPTER_WRITE_STATE complete`), chapter anchors in the compose doc, and L6 fact-anchor coverage. Presence of `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` is an error (retired). See script `--help` for exit codes and stderr format.
+`compose_writing_control.py validate` runs: `_facts.json` + `_narrative-arc.json` + chapter write-state `complete`, per-chapter non-empty body gate (same as `$CHAPTER_WRITE_STATE complete`), chapter anchors in the compose doc, and L6 fact-anchor coverage. Presence of `_chapters.json` / `_lens-themes.json` / `_chapter-framework.json` / `_chapter-placement.json` is an error (retired). See script `--help` for exit codes and stderr format.
 
 ## Minimal example (one chapter)
 

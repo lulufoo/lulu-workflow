@@ -640,7 +640,7 @@ def test_cleared_fails_without_skill_templates(
 def test_lens_snapshot_reads_skill_not_slice(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    import compose_template as lct
+    import compose_template_loader as lct
     import workflow_paths as wp
 
     fetched = _FIXTURE_REGISTRY

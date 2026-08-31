@@ -33,7 +33,7 @@ Purpose: one KW thicken pass per required lens.
 Walk required lenses in `$VAR_LENS_ORDER` (`presence` from
 `$VAR_SECTION_REGISTRY`).
 
-1. `$DERIVE_BUILD_CTL lens-bundle --lens L …` → `kw_criteria` and `facts`
+1. `$DERIVE_BUILD lens-bundle --lens L …` → `kw_criteria` and `facts`
    (`--help`).
 2. Satisfied → next lens.
 3. Unsatisfied → one compensate: project only if projectable · on

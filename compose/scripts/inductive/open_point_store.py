@@ -211,7 +211,7 @@ def _skill_template_text(
     if not project_root:
         raise _skill_template_error(role)
     try:
-        from compose_template import (  # noqa: WPS433
+        from compose_template_loader import (  # noqa: WPS433
             ComposeTemplateLoadError,
             load_compose_template,
         )

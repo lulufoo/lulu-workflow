@@ -41,7 +41,7 @@ from facts_schema import (  # noqa: E402
     load_facts,
     pd_material_facts,
 )
-from compose_template import (  # noqa: E402
+from compose_template_loader import (  # noqa: E402
     ComposeTemplateLoadError,
     load_compose_template,
 )

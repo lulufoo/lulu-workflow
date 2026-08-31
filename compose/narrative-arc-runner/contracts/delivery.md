@@ -15,7 +15,7 @@ Single delivery path for all callers. Load only after
 1. Author a `kind=narrative-arc` candidate with `status=mapped` (tree + leaf
    `fact_ids`; no chapters required).
 2. Run pre-persist self-check (protocol step 5).
-3. `$NARRATIVE_ARC_BUILD_CTL validate-candidate --revision-dir … --file <candidate>`
+3. `$NARRATIVE_ARC_BUILD validate-candidate --revision-dir … --file <candidate>`
    → capture `digest`.
 4. `$NARRATIVE_ARC_CTL write --revision-dir … --project-root …
    --file <candidate> --output-path "$OUTPUT_PATH" --digest <digest>`

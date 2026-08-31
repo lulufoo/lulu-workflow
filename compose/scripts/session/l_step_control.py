@@ -87,7 +87,7 @@ from workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path_from_cycle,
 )
-from writing_compose_control import validate_writing_artifacts  # noqa: E402
+from compose_writing_control import validate_writing_artifacts  # noqa: E402
 
 _CMD_STATUS = "status"
 _CMD_ENTER_FACT_INTAKE = "enter-fact-intake"

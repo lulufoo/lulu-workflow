@@ -10,7 +10,7 @@ description: >-
 Read `$SOURCE_PATH` once; write focus-slice `_facts.json` atoms with non-empty
 `derivation.upstream_ref` and `origin.type=seed`; **omit** disposition.
 
-**Must:** `$FACT_CUT_BUILD_CTL context` then cut+write; pass structural validate.  
+**Must:** `$FACT_CUT_BUILD context` then cut+write; pass structural validate.  
 **Must not:** disposition; confirm; Eval; `fact-store-runner`; edit source doc; write
 `discovered` or non-empty disposition.
 
@@ -28,7 +28,7 @@ REQUIRE_SEED_ORIGIN: <true|false; default false>
 
 | Macro | Command |
 |-------|---------|
-| `$FACT_CUT_BUILD_CTL` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-cut-runner/scripts/fact_cut_build_control.py"` |
+| `$FACT_CUT_BUILD` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/fact-cut-runner/scripts/fact_cut_build_control.py"` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/facts/facts_control.py"` |
 
 Build: `--help` · `context`.  
@@ -37,7 +37,7 @@ Facts: `--help` · `write` · `validate`.
 ## Execution
 
 1. Bind Input.  
-2. `$FACT_CUT_BUILD_CTL context --revision-dir … --project-root … --cycle-id …`  
+2. `$FACT_CUT_BUILD context --revision-dir … --project-root … --cycle-id …`  
 3. Whole-doc cut → `$FACTS_CTL write … --intake-structure` (omit
    `derivation.disposition`; set seed + `upstream_ref`; add
    `--require-seed-origin` when `$REQUIRE_SEED_ORIGIN=true`).  

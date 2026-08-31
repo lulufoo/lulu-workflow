@@ -25,7 +25,7 @@ from deductive_disposition_patch import (  # noqa: E402
 )
 from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts, save_facts  # noqa: E402
-from compose_template import (  # noqa: E402
+from compose_template_loader import (  # noqa: E402
     ComposeTemplateLoadError,
     load_compose_template,
 )

@@ -37,7 +37,7 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from l_ledger_schema import active_slice_dir, load_l_ledger  # noqa: E402
-from compose_template import load_compose_template  # noqa: E402
+from compose_template_loader import load_compose_template  # noqa: E402
 from section_registry_schema import fetch_section_registry, lens_key_sequence  # noqa: E402
 from facts_schema import (  # noqa: E402
     facts_path,

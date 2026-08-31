@@ -4,7 +4,7 @@
 Subcommands:
     validate    Check revision-dir facts/chapters/derive/body and compose doc
 
-CLI details: ``python3 writing_compose_control.py --help``
+CLI details: ``python3 compose_writing_control.py --help``
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ kernel_bootstrap.ensure_kernel_paths()
 
 from chapter_artifact_paths import chapter_body_path  # noqa: E402
 from chapter_doc_schema import chapter_anchor_present, chapter_body_by_id  # noqa: E402
-from chapter_fc_gates import check_chapter_write_artifacts  # noqa: E402
+from chapter_artifact_gates import check_chapter_write_artifacts  # noqa: E402
 from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from section_registry_schema import fetch_section_registry, lens_key_sequence  # noqa: E402

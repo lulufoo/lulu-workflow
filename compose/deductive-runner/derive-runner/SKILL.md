@@ -29,7 +29,7 @@ CYCLE_ID: <cycle id>
 
 | Macro | Command |
 |-------|---------|
-| `$DERIVE_BUILD_CTL` | `python3 "$SKILL_ROOT/compose/deductive-runner/derive-runner/scripts/derive_build_control.py"` |
+| `$DERIVE_BUILD` | `python3 "$SKILL_ROOT/compose/deductive-runner/derive-runner/scripts/derive_build_control.py"` |
 | `$DERIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/derive_control.py"` |
 | `$DEDUCTIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/deductive_control.py" --revision-dir "$REVISION_DIR" --project-root "$(pwd)"` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/facts/facts_control.py"` |
@@ -48,7 +48,7 @@ CYCLE_ID: <cycle id>
 
 ### Prepare
 1. Take Input from parent dispatch.
-2. `$DERIVE_BUILD_CTL context …` (`--help`) → bind:
+2. `$DERIVE_BUILD context …` (`--help`) → bind:
    - `$VAR_LENS_ORDER` ← `section_order`
    - `$VAR_SECTION_REGISTRY` ← `section_registry`
 

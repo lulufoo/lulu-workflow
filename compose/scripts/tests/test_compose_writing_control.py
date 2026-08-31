@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for writing_compose_control.py (narrative-arc Writing path)."""
+"""Tests for compose_writing_control.py (narrative-arc Writing path)."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ sys.path.insert(0, str(_COMPOSE / "narrative-arc-runner" / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from chapter_write_state_control import main as write_state_main  # noqa: E402
-from writing_compose_control import (  # noqa: E402
+from compose_writing_control import (  # noqa: E402
     validate_display_layer_artifacts,
     validate_writing_artifacts,
 )
@@ -166,7 +166,7 @@ def revision_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     import workflow_paths
 
     monkeypatch.setattr(
-        "writing_compose_control.fetch_section_registry",
+        "compose_writing_control.fetch_section_registry",
         lambda *_a, **_k: _SECTION_REGISTRY,
     )
     monkeypatch.setattr(

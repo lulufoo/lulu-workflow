@@ -28,7 +28,7 @@ ARC_PATH: _narrative-arc.json
 
 | Macro | Command |
 |-------|---------|
-| `$CHAPTER_WRITE_BUILD_CTL` | `python3 "$SKILL_ROOT/compose/chapter-write-runner/scripts/chapter_write_build_control.py"` |
+| `$CHAPTER_WRITE_BUILD` | `python3 "$SKILL_ROOT/compose/chapter-write-runner/scripts/chapter_write_build_control.py"` |
 | `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/writing/chapter_write_state_control.py"` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/writing/compose_doc_control.py"` |
 

@@ -37,7 +37,7 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from chapter_artifact_paths import chapter_body_path  # noqa: E402
-from chapter_fc_gates import check_chapter_write_artifacts  # noqa: E402
+from chapter_artifact_gates import check_chapter_write_artifacts  # noqa: E402
 from chapter_write_state_schema import (  # noqa: E402
     chapter_write_state_path,
     compute_top_status,
@@ -47,7 +47,7 @@ from chapter_write_state_schema import (  # noqa: E402
 )
 from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
-from compose_template import load_compose_template  # noqa: E402
+from compose_template_loader import load_compose_template  # noqa: E402
 from section_form_registry_schema import fetch_section_form_registry  # noqa: E402
 from section_registry_schema import fetch_section_registry  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402

@@ -295,7 +295,7 @@ def resolve_section_form_registry_path(
     root = _effective_project_root(project_root)
     _ensure_workflow_scripts()
     from compose_profile_context import get_active_profile  # noqa: WPS433
-    from compose_template import (  # noqa: WPS433
+    from compose_template_loader import (  # noqa: WPS433
         ComposeTemplateLoadError,
         resolve_compose_template_path,
     )
@@ -344,7 +344,7 @@ def fetch_section_form_registry(
     """Load and validate section-form-registry from the SKILL install."""
     _ensure_workflow_scripts()
     from compose_profile_context import get_active_profile  # noqa: WPS433
-    from compose_template import load_compose_template  # noqa: WPS433
+    from compose_template_loader import load_compose_template  # noqa: WPS433
     from section_registry_schema import fetch_section_registry  # noqa: WPS433
 
     pid = profile_id or get_active_profile()

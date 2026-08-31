@@ -5,7 +5,7 @@ before `contracts/delivery.md`.
 
 ## Steps
 
-1. `$NARRATIVE_ARC_BUILD_CTL context …` → `$ARC_CONTEXT`.
+1. `$NARRATIVE_ARC_BUILD context …` → `$ARC_CONTEXT`.
    Supplies facts, Role, Domain, and registry. Missing context is failure — never
    fall back to a lens projection. Re-read Role `priority_tendency` and Domain
    `expression_conventions.scannability` from `$ARC_CONTEXT` before building.
@@ -68,7 +68,7 @@ before `contracts/delivery.md`.
    Record the outcome in the candidate's `meta.note` when useful, e.g.
    `self-check: lens-catalog=clear; grouping=narrative`.
 
-6. `$NARRATIVE_ARC_BUILD_CTL validate-candidate …` before each persistence.
+6. `$NARRATIVE_ARC_BUILD validate-candidate …` before each persistence.
    Machine validation gates structure and coverage only — it cannot detect a
    lens catalog; that is what step 5 exists for.
 

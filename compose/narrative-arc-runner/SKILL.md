@@ -14,7 +14,7 @@ or fact list.
 ## Boundaries
 
 **Must:** bind Input; load protocol then delivery; obtain context via
-`$NARRATIVE_ARC_BUILD_CTL`; build from facts' substance story; pass pre-persist
+`$NARRATIVE_ARC_BUILD`; build from facts' substance story; pass pre-persist
 self-check; `validate-candidate` then `write --digest` for each phase.  
 **Must not:** use topic / old arc / lens order as the spine; use lens clusters;
 persist a candidate that failed or skipped self-check; invent a second schema
@@ -44,7 +44,7 @@ Do **not** paste fact bodies — read via `context`.
 
 | Macro | Command |
 |-------|---------|
-| `$NARRATIVE_ARC_BUILD_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_build_control.py"` |
+| `$NARRATIVE_ARC_BUILD` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_build_control.py"` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
 | `$COMPOSE_VIEWER_CTL` | `python3 "$SKILL_ROOT/compose/compose-viewer/scripts/compose_viewer_control.py"` |
 

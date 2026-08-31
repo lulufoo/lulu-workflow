@@ -35,7 +35,7 @@ def resolve_fetched_instance_path(
     pid = profile_id or DEFAULT_COMPOSE_PROFILE_ID
     if str(WORKFLOW_SCRIPTS) not in sys.path:
         sys.path.insert(0, str(WORKFLOW_SCRIPTS))
-    from compose_template import resolve_compose_template_path  # noqa: WPS433
+    from compose_template_loader import resolve_compose_template_path  # noqa: WPS433
 
     return resolve_compose_template_path(
         scheme_key,

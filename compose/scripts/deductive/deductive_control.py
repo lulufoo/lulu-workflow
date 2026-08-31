@@ -67,7 +67,7 @@ from deductive_disposition_patch import (  # noqa: E402
     disposition_counts,
     validate_disposition_patch,
 )
-from compose_template import (  # noqa: E402
+from compose_template_loader import (  # noqa: E402
     ComposeTemplateLoadError,
     load_compose_template,
 )
