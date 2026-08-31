@@ -100,11 +100,11 @@ def resolve_section_registry_path(
     force: bool = False,
     profile_path: Path | None = None,
 ) -> Path:
-    """Return a direct template path or materialized remote/legacy cache path."""
+    """Return the SKILL install path for the section-registry template."""
     root = _effective_project_root(project_root)
     _ensure_workflow_scripts()
     from compose_profile_context import get_active_profile  # noqa: WPS433
-    from fetch_compose_framework import resolve_compose_template_path  # noqa: WPS433
+    from load_compose_template import resolve_compose_template_path  # noqa: WPS433
 
     pid = profile_id or get_active_profile()
     return resolve_compose_template_path(
@@ -113,8 +113,6 @@ def resolve_section_registry_path(
         profile_id=pid,
         cycle_id=cycle_id,
         conversation_id=conversation_id,
-        platform=platform,
-        force=force,
         profile_path=profile_path,
     )
 
@@ -137,14 +135,12 @@ def fetch_section_registry(
     """Fetch and validate a section registry through its template ref."""
     _ensure_workflow_scripts()
     from compose_profile_context import get_active_profile  # noqa: WPS433
-    from fetch_compose_framework import fetch_compose_framework  # noqa: WPS433
+    from load_compose_template import load_compose_template  # noqa: WPS433
 
     pid = profile_id or get_active_profile()
-    content = fetch_compose_framework(
+    content = load_compose_template(
         _REGISTRY_SCHEME_KEY,
         project_root.resolve(),
-        platform=platform,
-        force=force,
         profile_id=pid,
         cycle_id=cycle_id,
         conversation_id=conversation_id,

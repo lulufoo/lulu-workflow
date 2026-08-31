@@ -297,8 +297,10 @@ def resolve_section_form_registry_path(
     root = _effective_project_root(project_root)
     _ensure_workflow_scripts()
     from compose_profile_context import get_active_profile  # noqa: WPS433
-    from compose_template_registry import ComposeTemplateError  # noqa: WPS433
-    from fetch_compose_framework import resolve_compose_template_path  # noqa: WPS433
+    from load_compose_template import (  # noqa: WPS433
+        ComposeTemplateLoadError,
+        resolve_compose_template_path,
+    )
 
     pid = profile_id or get_active_profile()
     try:
@@ -308,11 +310,9 @@ def resolve_section_form_registry_path(
             profile_id=pid,
             cycle_id=cycle_id,
             conversation_id=conversation_id,
-            platform=platform,
-            force=force,
             profile_path=profile_path,
         )
-    except ComposeTemplateError:
+    except ComposeTemplateLoadError:
         return None
 
 
@@ -329,15 +329,13 @@ def fetch_section_form_registry(
     """Fetch and validate a section form registry through its template ref."""
     _ensure_workflow_scripts()
     from compose_profile_context import get_active_profile  # noqa: WPS433
-    from fetch_compose_framework import fetch_compose_framework  # noqa: WPS433
+    from load_compose_template import load_compose_template  # noqa: WPS433
     from section_registry_schema import fetch_section_registry  # noqa: WPS433
 
     pid = profile_id or get_active_profile()
-    content = fetch_compose_framework(
+    content = load_compose_template(
         _FORM_SCHEME_KEY,
         project_root.resolve(),
-        platform=platform,
-        force=force,
         profile_id=pid,
         cycle_id=cycle_id,
         conversation_id=conversation_id,

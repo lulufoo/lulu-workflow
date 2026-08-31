@@ -37,7 +37,7 @@ from facts_schema import (  # noqa: E402
     save_facts,
 )
 from compose_state_lock import compose_state_lock  # noqa: E402
-from fetch_compose_framework import fetch_compose_framework  # noqa: E402
+from load_compose_template import load_compose_template  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 from derive_shell import (  # noqa: E402
     DeriveCycleError,
@@ -122,7 +122,7 @@ def _load_registry(
     *,
     profile_path: Path | None = None,
 ) -> dict[str, Any]:
-    raw = fetch_compose_framework(
+    raw = load_compose_template(
         "section-registry",
         project_root,
         profile_id=profile_id,

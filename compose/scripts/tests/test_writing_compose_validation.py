@@ -66,23 +66,12 @@ _FORM_REGISTRY = {
 }
 
 
-def _seed_registries(tmp_path: Path) -> tuple[Path, Path]:
-    template_dir = tmp_path / "direct-templates"
-    template_dir.mkdir(parents=True, exist_ok=True)
-    section_path = template_dir / "section-registry.json"
-    form_path = template_dir / "section-form-registry.json"
-    section_path.write_text(json.dumps(_SECTION_REGISTRY), encoding="utf-8")
-    form_path.write_text(json.dumps(_FORM_REGISTRY), encoding="utf-8")
-    return section_path, form_path
-
-
-def _write_test_profile(tmp_path: Path, section_path: Path, form_path: Path) -> Path:
-    profile = json.loads(_PROFILE_SOURCE.read_text(encoding="utf-8"))
-    profile["framework_templates"]["section-registry"] = section_path.as_uri()
-    profile["framework_templates"]["section-form-registry"] = form_path.as_uri()
-    profile_path = tmp_path / "lulu-design-compose-profile.json"
-    profile_path.write_text(json.dumps(profile), encoding="utf-8")
-    return profile_path
+def _load_role(role: str, *_args: object, **_kwargs: object) -> str:
+    if role == "section-registry":
+        return json.dumps(_SECTION_REGISTRY)
+    if role == "section-form-registry":
+        return json.dumps(_FORM_REGISTRY)
+    raise AssertionError(role)
 
 
 def _write_facts(revision_dir: Path, facts: list[dict]) -> None:
@@ -173,14 +162,14 @@ def _seed_happy_path(
 
 @pytest.fixture
 def revision_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    section_path, form_path = _seed_registries(tmp_path)
-    profile_path = _write_test_profile(tmp_path, section_path, form_path)
     import workflow_paths
 
+    monkeypatch.setattr("writing_compose_validation.load_compose_template", _load_role)
+    monkeypatch.setattr("chapter_write_state_control.load_compose_template", _load_role)
     monkeypatch.setattr(
         workflow_paths,
         "compose_profile_path",
-        lambda _profile_id: profile_path,
+        lambda _profile_id: _PROFILE_SOURCE,
     )
     rev = tmp_path / "revision1"
     rev.mkdir()

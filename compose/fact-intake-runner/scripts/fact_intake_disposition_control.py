@@ -25,9 +25,9 @@ from deductive_disposition_patch import (  # noqa: E402
 )
 from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts, save_facts  # noqa: E402
-from fetch_compose_framework import (  # noqa: E402
-    FetchComposeFrameworkError,
-    fetch_compose_framework,
+from load_compose_template import (  # noqa: E402
+    ComposeTemplateLoadError,
+    load_compose_template,
 )
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
@@ -68,7 +68,7 @@ def _section_order(
     *,
     profile_path: Path | None = None,
 ) -> list[str]:
-    raw = fetch_compose_framework(
+    raw = load_compose_template(
         "section-registry",
         project_root,
         profile_id=profile,
@@ -90,7 +90,7 @@ def _consume_rule_ids(
     *,
     profile_path: Path | None = None,
 ) -> list[str]:
-    raw = fetch_compose_framework(
+    raw = load_compose_template(
         "role-instance",
         project_root,
         profile_id=profile,
@@ -150,7 +150,7 @@ def cmd_disposition_patch_validate(args: argparse.Namespace) -> int:
             runtime.profile_id,
             profile_path=runtime.profile_path,
         )
-    except (ValueError, FetchComposeFrameworkError, json.JSONDecodeError, FileNotFoundError, OSError) as exc:
+    except (ValueError, ComposeTemplateLoadError, json.JSONDecodeError, FileNotFoundError, OSError) as exc:
         return _fail(str(exc))
     errors = validate_disposition_patch(
         patch,
@@ -187,7 +187,7 @@ def cmd_disposition_patch_apply(args: argparse.Namespace) -> int:
             runtime.profile_id,
             profile_path=runtime.profile_path,
         )
-    except (ValueError, FetchComposeFrameworkError, json.JSONDecodeError, FileNotFoundError, OSError) as exc:
+    except (ValueError, ComposeTemplateLoadError, json.JSONDecodeError, FileNotFoundError, OSError) as exc:
         return _fail(str(exc))
     errors = validate_disposition_patch(
         patch,

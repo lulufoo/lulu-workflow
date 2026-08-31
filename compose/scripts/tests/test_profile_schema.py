@@ -26,10 +26,10 @@ _MINIMAL_ACTIVE_PROFILE = {
     "cache_subdir": "tech/foo",
     "framework_section": "tech-foo",
     "framework_templates": {
-        "section-registry": "tpt_section_registry_url",
-        "section-kw-criteria": "tpt_section_kw_criteria_url",
-        "role-instance": "tpt_feature_role_instance_url",
-        "domain-instance": "tpt_feature_domain_instance_url",
+        "section-registry": "lulu-dev-workflow/tech-foo/templates/section-registry.json",
+        "section-kw-criteria": "lulu-dev-workflow/tech-foo/templates/section-kw-criteria.md",
+        "role-instance": "lulu-dev-workflow/tech-foo/templates/role-instance.json",
+        "domain-instance": "lulu-dev-workflow/tech-foo/templates/domain-instance.json",
     },
     "pipeline": {
         "inductive": False,
@@ -158,3 +158,15 @@ def test_unknown_active_profile_validates_without_whitelist(tmp_path: Path) -> N
     path = stage_dir / "compose-profile.json"
     path.write_text(json.dumps(_MINIMAL_ACTIVE_PROFILE), encoding="utf-8")
     assert _validate_profile(path) == []
+
+
+def test_active_profile_rejects_non_skill_template_ref(tmp_path: Path) -> None:
+    stage_dir = tmp_path / "tech-foo"
+    stage_dir.mkdir()
+    path = stage_dir / "compose-profile.json"
+    data = dict(_MINIMAL_ACTIVE_PROFILE)
+    data["framework_templates"] = dict(data["framework_templates"])
+    data["framework_templates"]["section-registry"] = "file:///tmp/section-registry.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    errors = _validate_profile(path)
+    assert any("lulu-dev-workflow/" in err for err in errors)

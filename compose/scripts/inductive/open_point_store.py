@@ -199,16 +199,16 @@ def _skill_template_text(
     if not project_root:
         raise _skill_template_error(role)
     try:
-        from fetch_compose_framework import (  # noqa: WPS433
-            FetchComposeFrameworkError,
-            fetch_compose_framework,
+        from load_compose_template import (  # noqa: WPS433
+            ComposeTemplateLoadError,
+            load_compose_template,
         )
     except ImportError as exc:
         raise _skill_template_error(role) from exc
     try:
         root = Path(project_root).resolve()
         profile_id, profile_path = _skill_profile_binding(Path(slice_dir), root)
-        text = fetch_compose_framework(
+        text = load_compose_template(
             role,
             root,
             profile_id=profile_id,
@@ -218,7 +218,7 @@ def _skill_template_text(
         OSError,
         ValueError,
         FileNotFoundError,
-        FetchComposeFrameworkError,
+        ComposeTemplateLoadError,
     ) as exc:
         raise _skill_template_error(role) from exc
     if not str(text).strip():

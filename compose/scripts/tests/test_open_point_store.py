@@ -640,7 +640,7 @@ def test_cleared_fails_without_skill_templates(
 def test_lens_snapshot_reads_skill_not_slice(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    import fetch_compose_framework as fcf
+    import load_compose_template as lct
     import workflow_paths as wp
 
     fetched = {
@@ -655,7 +655,7 @@ def test_lens_snapshot_reads_skill_not_slice(
         assert name == "section-registry"
         return json.dumps(fetched)
 
-    monkeypatch.setattr(fcf, "fetch_compose_framework", _fake_fetch)
+    monkeypatch.setattr(lct, "load_compose_template", _fake_fetch)
     monkeypatch.setattr(
         wp,
         "resolve_revision_runtime_profile",

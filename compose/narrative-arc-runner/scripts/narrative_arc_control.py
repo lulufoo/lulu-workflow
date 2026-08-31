@@ -35,7 +35,7 @@ kernel_bootstrap.ensure_kernel_paths()
 from compose_state_lock import canonical_digest  # noqa: E402
 from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
-from fetch_compose_framework import fetch_compose_framework  # noqa: E402
+from load_compose_template import load_compose_template  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 from narrative_arc_schema import (  # noqa: E402
     NARRATIVE_ARC_BASENAME,
@@ -55,7 +55,7 @@ def _allowed_lenses(
     *,
     profile_path: Path | None = None,
 ) -> set[str]:
-    raw = fetch_compose_framework(
+    raw = load_compose_template(
         "section-registry",
         project_root,
         profile_id=profile_id,

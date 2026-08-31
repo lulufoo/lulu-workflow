@@ -32,7 +32,14 @@ from lens_frontier_schema import (  # noqa: E402
     lens_frontier_path,
     load_lens_frontier,
 )
-from open_point_store import add_opens, ensure_frontier, load_bundle  # noqa: E402
+from open_point_store import (  # noqa: E402
+    add_opens,
+    ensure_frontier,
+    frontier_skip,
+    lens_snapshot,
+    load_bundle,
+    registry_lens_keys,
+)
 from opens_schema import load_opens, opens_path  # noqa: E402
 
 _PARENT_CONV = "11111111-1111-4111-8111-111111111111"
@@ -71,57 +78,19 @@ def _g2_prepare_exit(
     assert code == 0, payload
 
 
+_DESIGN_PROFILE = (
+    _REPO / "lulu-dev-workflow" / "lulu-design" / "compose-profile.json"
+)
+_KEEP_LENSES = frozenset({"I", "ST"})
+
+
 def _bind_skill_fixture(out_dir: Path) -> str:
-    templates = Path(out_dir) / "_templates"
-    profile_path = templates / "compose-profile.json"
-    if not profile_path.is_file():
-        templates.mkdir(parents=True, exist_ok=True)
-        (templates / "section-registry.json").write_text(
-            json.dumps(
-                {
-                    "version": "1",
-                    "document_preamble": "test",
-                    "section_order": ["I"],
-                    "sections": {
-                        "I": {
-                            "heading": "Intent",
-                            "intent": "constraints",
-                            "presence": "required",
-                        }
-                    },
-                }
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        (templates / "section-kw-criteria.md").write_text(
-            "## I\n\n| KW | x |\n|----|---|\n| KW0 | n |\n| KW1 | r |\n| KW3 | b |\n",
-            encoding="utf-8",
-        )
-        profile_path.write_text(
-            json.dumps(
-                {
-                    "profile_id": "lulu-design",
-                    "framework_section": "lulu-design",
-                    "framework_templates": {
-                        "section-registry": (
-                            templates / "section-registry.json"
-                        ).resolve().as_uri(),
-                        "section-kw-criteria": (
-                            templates / "section-kw-criteria.md"
-                        ).resolve().as_uri(),
-                    },
-                }
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-    digest = hashlib.sha256(profile_path.read_bytes()).hexdigest()
+    digest = hashlib.sha256(_DESIGN_PROFILE.read_bytes()).hexdigest()
     (Path(out_dir) / "session-state.md").write_text(
         "---\n"
         "version: 2\n"
         "active_doc: 2\n"
-        f"profile_path: {profile_path.resolve()}\n"
+        f"profile_path: {_DESIGN_PROFILE.resolve()}\n"
         f"profile_digest: {digest}\n"
         "start_id: test\n"
         "holder_finalized: true\n"
@@ -130,6 +99,13 @@ def _bind_skill_fixture(out_dir: Path) -> str:
         encoding="utf-8",
     )
     return str(Path(out_dir).resolve())
+
+
+def _isolate_lenses(slice_dir: Path, project_root: str) -> None:
+    ensure_frontier(slice_dir, project_root)
+    for lens in registry_lens_keys(lens_snapshot(slice_dir, project_root)):
+        if lens not in _KEEP_LENSES:
+            frontier_skip(slice_dir, lens, "test isolate", project_root)
 
 
 def _run_gate(out_dir: Path, *args: str) -> tuple[int, dict]:
@@ -198,7 +174,7 @@ def _current_digests(slice_dir: Path) -> tuple[str, str]:
 
 
 def _ready_cleared(slice_dir: Path) -> None:
-    ensure_frontier(slice_dir, _bind_skill_fixture(slice_dir))
+    _isolate_lenses(slice_dir, _bind_skill_fixture(slice_dir))
     (slice_dir / "_facts.json").write_text(
         json.dumps(
             [{"id": "F-seed", "text": "g4 lens source", "lens_tags": ["I"]}]
@@ -209,11 +185,14 @@ def _ready_cleared(slice_dir: Path) -> None:
 
 
 def _detect_meta(slice_dir: Path, raw_candidates, **overrides):
-    ensure_frontier(slice_dir, _bind_skill_fixture(slice_dir))
+    root = _bind_skill_fixture(slice_dir)
+    _isolate_lenses(slice_dir, root)
     path = lens_frontier_path(slice_dir)
     frontier_lenses = load_lens_frontier(path)["lenses"] if path.is_file() else {}
     raw = list(raw_candidates)
-    checked = overrides.get("checked_lenses") or ["I", "ST"]
+    checked = overrides.get("checked_lenses") or registry_lens_keys(
+        lens_snapshot(slice_dir, root)
+    )
     hit = {
         str(item.get("lens", "")).strip().upper()
         for item in raw

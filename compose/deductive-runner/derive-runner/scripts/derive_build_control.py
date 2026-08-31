@@ -41,9 +41,9 @@ from facts_schema import (  # noqa: E402
     load_facts,
     pd_material_facts,
 )
-from fetch_compose_framework import (  # noqa: E402
-    FetchComposeFrameworkError,
-    fetch_compose_framework,
+from load_compose_template import (  # noqa: E402
+    ComposeTemplateLoadError,
+    load_compose_template,
 )
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
@@ -86,14 +86,14 @@ def _fetch_registry_and_kw(
     profile_path: Path | None = None,
 ) -> tuple[dict[str, Any] | None, str | None, str | None]:
     try:
-        reg_raw = fetch_compose_framework(
+        reg_raw = load_compose_template(
             "section-registry",
             root,
             profile_id=profile,
             cycle_id=cycle_id,
             profile_path=profile_path,
         )
-        kw_raw = fetch_compose_framework(
+        kw_raw = load_compose_template(
             "section-kw-criteria",
             root,
             profile_id=profile,
@@ -101,7 +101,7 @@ def _fetch_registry_and_kw(
             profile_path=profile_path,
         )
         reg = json.loads(reg_raw)
-    except (FetchComposeFrameworkError, OSError, ValueError, json.JSONDecodeError) as exc:
+    except (ComposeTemplateLoadError, OSError, ValueError, json.JSONDecodeError) as exc:
         return None, None, str(exc)
     if not isinstance(reg, dict):
         return None, None, "section-registry must be a JSON object"

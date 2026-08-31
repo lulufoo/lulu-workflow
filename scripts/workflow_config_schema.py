@@ -299,9 +299,7 @@ def compose_framework_config_keys(stage: str) -> frozenset[str]:
         return frozenset(keys)
     for value in templates.values():
         ref = str(value).strip() if isinstance(value, str) else ""
-        if ref and not ref.startswith(
-            ("lulu-dev-workflow/", "file://", "/", "http://", "https://")
-        ):
+        if ref and not ref.startswith("lulu-dev-workflow/"):
             keys.add(ref)
     return frozenset(keys)
 

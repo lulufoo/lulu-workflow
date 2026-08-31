@@ -47,7 +47,7 @@ from chapter_write_state_schema import (  # noqa: E402
 )
 from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
-from fetch_compose_framework import fetch_compose_framework  # noqa: E402
+from load_compose_template import load_compose_template  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 from logs.workflow_log import emit_biz  # noqa: E402
 from narrative_arc_schema import (  # noqa: E402
@@ -154,7 +154,7 @@ def _fetch_json_role(
     cycle_id: str,
     profile_path: Path | None = None,
 ) -> dict[str, Any]:
-    raw = fetch_compose_framework(
+    raw = load_compose_template(
         role,
         project_root,
         profile_id=profile,

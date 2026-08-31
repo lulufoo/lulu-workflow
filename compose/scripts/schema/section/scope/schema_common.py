@@ -30,12 +30,12 @@ def resolve_fetched_instance_path(
     conversation_id: str | None = None,
     profile_path: Path | None = None,
 ) -> Path:
-    """Return template cache path for a compose scheme role; fetch when cache is empty."""
+    """Return the SKILL install path for a compose scheme role."""
     root = effective_project_root(project_root)
     pid = profile_id or DEFAULT_COMPOSE_PROFILE_ID
     if str(WORKFLOW_SCRIPTS) not in sys.path:
         sys.path.insert(0, str(WORKFLOW_SCRIPTS))
-    from fetch_compose_framework import resolve_compose_template_path  # noqa: WPS433
+    from load_compose_template import resolve_compose_template_path  # noqa: WPS433
 
     return resolve_compose_template_path(
         scheme_key,

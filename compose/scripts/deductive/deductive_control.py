@@ -67,9 +67,9 @@ from deductive_disposition_patch import (  # noqa: E402
     disposition_counts,
     validate_disposition_patch,
 )
-from fetch_compose_framework import (  # noqa: E402
-    FetchComposeFrameworkError,
-    fetch_compose_framework,
+from load_compose_template import (  # noqa: E402
+    ComposeTemplateLoadError,
+    load_compose_template,
 )
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
@@ -323,13 +323,13 @@ def _load_role_consume_rule_ids(
     profile_path: Path | None = None,
 ) -> list[str]:
     try:
-        raw = fetch_compose_framework(
+        raw = load_compose_template(
             "role-instance",
             project_root,
             profile_id=profile.strip() or None,
             profile_path=profile_path,
         )
-    except FetchComposeFrameworkError as exc:
+    except ComposeTemplateLoadError as exc:
         raise ValueError(f"role-instance unavailable: {exc}") from exc
     try:
         data = json.loads(raw)
@@ -355,7 +355,7 @@ def _section_order(
     *,
     profile_path: Path | None = None,
 ) -> list[str]:
-    raw = fetch_compose_framework(
+    raw = load_compose_template(
         "section-registry",
         project_root,
         profile_id=profile.strip() or None,

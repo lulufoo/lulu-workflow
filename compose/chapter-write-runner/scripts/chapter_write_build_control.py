@@ -35,7 +35,7 @@ from domain_instance_schema import (  # noqa: E402
     DOMAIN_SCHEME_KEY,
     load_and_validate_domain_instance,
 )
-from fetch_compose_framework import fetch_compose_framework  # noqa: E402
+from load_compose_template import load_compose_template  # noqa: E402
 from role_instance_schema import (  # noqa: E402
     ROLE_SCHEME_KEY,
     load_and_validate_role_instance,
@@ -185,7 +185,7 @@ def _registry_preamble(
     cycle_id: str,
     profile_path: Path | None = None,
 ) -> str:
-    raw = fetch_compose_framework(
+    raw = load_compose_template(
         "section-registry",
         project_root,
         profile_id=profile,

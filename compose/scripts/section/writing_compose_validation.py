@@ -29,7 +29,7 @@ from chapter_doc_schema import chapter_anchor_present, chapter_body_by_id  # noq
 from chapter_fc_gates import check_chapter_write_artifacts  # noqa: E402
 from l_ledger_schema import active_slice_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
-from fetch_compose_framework import fetch_compose_framework  # noqa: E402
+from load_compose_template import load_compose_template  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 
@@ -39,7 +39,7 @@ def section_order_for_profile(
     *,
     profile_path: Path | None = None,
 ) -> list[str]:
-    raw = fetch_compose_framework(
+    raw = load_compose_template(
         "section-registry",
         project_root,
         profile_id=profile_id,

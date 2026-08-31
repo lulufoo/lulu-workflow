@@ -26,9 +26,9 @@ from fact_intake_eval_runtime_schema import (  # noqa: E402
     evaluate_state_path,
     gate_allows_derive_from_evaluate_state,
 )
-from fetch_compose_framework import (  # noqa: E402
-    FetchComposeFrameworkError,
-    fetch_compose_framework,
+from load_compose_template import (  # noqa: E402
+    ComposeTemplateLoadError,
+    load_compose_template,
 )
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
@@ -69,14 +69,14 @@ def cmd_context(args: argparse.Namespace) -> int:
             f"intake eval not done (eval_status={data.get('eval_status')!r})"
         )
     try:
-        reg_raw = fetch_compose_framework(
+        reg_raw = load_compose_template(
             "section-registry",
             root,
             profile_id=runtime.profile_id,
             cycle_id=cycle_id,
             profile_path=runtime.profile_path,
         )
-        role_raw = fetch_compose_framework(
+        role_raw = load_compose_template(
             "role-instance",
             root,
             profile_id=runtime.profile_id,
@@ -85,7 +85,7 @@ def cmd_context(args: argparse.Namespace) -> int:
         )
         reg = json.loads(reg_raw)
         role = json.loads(role_raw)
-    except (FetchComposeFrameworkError, OSError, ValueError, json.JSONDecodeError) as exc:
+    except (ComposeTemplateLoadError, OSError, ValueError, json.JSONDecodeError) as exc:
         return _fail(str(exc))
     if not isinstance(reg, dict) or not isinstance(role, dict):
         return _fail("section-registry / role-instance must be JSON objects")

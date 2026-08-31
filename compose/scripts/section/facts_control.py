@@ -37,7 +37,7 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from l_ledger_schema import active_slice_dir, load_l_ledger  # noqa: E402
-from fetch_compose_framework import fetch_compose_framework  # noqa: E402
+from load_compose_template import load_compose_template  # noqa: E402
 from facts_schema import (  # noqa: E402
     facts_path,
     lenses_present,
@@ -132,7 +132,7 @@ def _section_order(
     profile_path: Path | None = None,
 ) -> list[str]:
     """Allowed lens keys from section-registry (``sections`` keys; archive-5.0)."""
-    raw = fetch_compose_framework(
+    raw = load_compose_template(
         "section-registry",
         project_root,
         profile_id=profile_id,
@@ -158,7 +158,7 @@ def _consume_rule_ids(
         sys.path.insert(0, str(_SCOPE))
     from role_instance_schema import validate_role_instance  # noqa: WPS433
 
-    raw = fetch_compose_framework(
+    raw = load_compose_template(
         "role-instance",
         project_root,
         profile_id=profile_id,

@@ -176,7 +176,7 @@ def test_lens_bundle_cli_stdout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
             return "## CTX\n\nkw-body-ctx\n\n## GO\n\nkw-body-go\n"
         raise AssertionError(kind)
 
-    monkeypatch.setattr(mod, "fetch_compose_framework", _fake_fetch)
+    monkeypatch.setattr(mod, "load_compose_template", _fake_fetch)
     monkeypatch.setattr(
         mod,
         "_require_intake_eval",
@@ -224,7 +224,7 @@ def test_lens_bundle_fails_missing_kw_heading(tmp_path: Path, monkeypatch: pytes
             return "## GO\n\nonly go\n"
         raise AssertionError(kind)
 
-    monkeypatch.setattr(mod, "fetch_compose_framework", _fake_fetch)
+    monkeypatch.setattr(mod, "load_compose_template", _fake_fetch)
     monkeypatch.setattr(
         mod,
         "_require_intake_eval",

@@ -36,7 +36,7 @@ from domain_instance_schema import (  # noqa: E402
     load_and_validate_domain_instance,
 )
 from facts_schema import facts_path, load_facts  # noqa: E402
-from fetch_compose_framework import fetch_compose_framework  # noqa: E402
+from load_compose_template import load_compose_template  # noqa: E402
 from narrative_arc_schema import validate_narrative_arc  # noqa: E402
 from role_instance_schema import (  # noqa: E402
     ROLE_SCHEME_KEY,
@@ -83,7 +83,7 @@ def _registry(
     cycle_id: str,
     profile_path: Path | None = None,
 ) -> tuple[dict[str, Any], set[str]]:
-    raw = fetch_compose_framework(
+    raw = load_compose_template(
         "section-registry",
         project_root,
         profile_id=profile,
