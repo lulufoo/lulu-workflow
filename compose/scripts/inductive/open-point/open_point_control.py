@@ -13,6 +13,7 @@ docs/domain/archive/compose/archive-43.0/compose-g3-gate-phase-map-design.md
 docs/domain/archive/compose/compose-g3-detect-context-slim-design.md
 docs/domain/archive/compose/archive-50.0/compose-g3-detect-lens-context-design.md
 docs/domain/archive/compose/archive-67.0/compose-g3-detect-verdict-slim-design.md
+docs/domain/archive/compose/archive-68.0/compose-g3-detect-clean-skip-design.md
 """
 
 from __future__ import annotations
@@ -53,12 +54,12 @@ from open_point_store import (  # noqa: E402
     FACTS_BASENAME,
     frontier_digest,
     frontier_skip,
-    frontier_snapshot,
     frontier_unskip,
     detect_lens_context,
     detect_opens_snapshot,
     load_bundle,
     load_detect_materials,
+    pending_lenses,
     require_detect_ruler,
     reject_open,
     set_frontier,
@@ -132,7 +133,7 @@ def cmd_detect_context(slice_dir: Path, args: argparse.Namespace) -> None:
     intent_refs, code_grounding = load_detect_materials(slice_dir, project_root)
     payload: dict[str, Any] = {
         "opens_snapshot": detect_opens_snapshot(bundle["opens"]),
-        "frontiers": frontier_snapshot(slice_dir),
+        "pending_lenses": pending_lenses(slice_dir, project_root),
         "intent_baseline_refs": intent_refs,
     }
     if code_grounding and project_root is not None:
@@ -274,9 +275,11 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser(
         "detect-context",
         help=(
-            "Read-only opens, frontiers, intent refs, and means materials. "
-            "Does not emit facts, KW, or lens registry. frontier_kw is the "
-            "last found gap KW (resume start)."
+            "Read-only opens, pending_lenses, intent refs, and means "
+            "materials. pending_lenses = lenses due for detection this pass "
+            "with frontier_kw (last found gap KW, resume start); lenses "
+            "whose clean fingerprint still holds are carried by control and "
+            "omitted. Does not emit facts, KW, or lens registry."
         ),
     )
     lens_ctx = sub.add_parser(
@@ -297,11 +300,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Register 0..N opens. Detect must pass --detect-json "
             '{"verdicts": [{lens, gap_kw, candidates[]}, ...]} covering '
-            "every registry lens; gap_kw is null exactly when candidates "
-            "is empty. Empty --opens-json is legal only with detect "
-            "metadata. Coverage, measurements, and the receipt derive "
-            "from verdicts. AI Detect means must be scan|intent|probe "
-            "and not inert. Non-null gap_kw writes that lens frontier_kw."
+            "exactly the detect-context pending_lenses; gap_kw is null "
+            "exactly when candidates is empty. Empty --opens-json is legal "
+            "only with detect metadata. Measurements and the receipt derive "
+            "from verdicts; carried lenses get gap_kw null. AI Detect means "
+            "must be scan|intent|probe and not inert. Non-null gap_kw writes "
+            "that lens frontier_kw and drops clean; null records clean."
         ),
     )
     add.add_argument("--opens-json", required=True)

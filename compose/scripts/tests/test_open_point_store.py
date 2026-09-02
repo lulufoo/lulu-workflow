@@ -25,6 +25,12 @@ from lens_frontier_schema import (  # noqa: E402
     default_lens_entry,
     lens_frontier_path,
     load_lens_frontier,
+    normalize_lens_frontier,
+    validate_lens_frontier,
+)
+from open_point_config_schema import (  # noqa: E402
+    detect_skip_clean_enabled,
+    validate_open_point_config,
 )
 from open_point_store import (  # noqa: E402
     RepairRequiredError,
@@ -710,6 +716,30 @@ def test_lens_snapshot_fetches_installed_lulu_plan(tmp_path: Path):
     assert not (slice_dir / "section-registry.json").exists()
 
 
+def test_open_point_config_detect_skip_clean_defaults_false(tmp_path, monkeypatch):
+    monkeypatch.setenv("LULU_COMPOSE_CONFIG", str(tmp_path / "missing.json"))
+    assert detect_skip_clean_enabled() is False
+    path = tmp_path / "compose-config.json"
+    path.write_text('{"detect_skip_clean": true}', encoding="utf-8")
+    monkeypatch.setenv("LULU_COMPOSE_CONFIG", str(path))
+    assert detect_skip_clean_enabled() is True
+    assert validate_open_point_config({"detect_skip_clean": 1}) != []
+
+
+def test_lens_frontier_clean_is_optional_non_empty_string():
+    with_clean = {
+        "version": 1,
+        "lenses": {"CTX": {"frontier_kw": 2, "skipped": False, "clean": "sha256:x"}},
+    }
+    legacy = {"version": 1, "lenses": {"CTX": {"frontier_kw": 2, "skipped": False}}}
+    assert validate_lens_frontier(with_clean) == []
+    assert validate_lens_frontier(legacy) == []
+    assert normalize_lens_frontier(with_clean)["lenses"]["CTX"]["clean"] == "sha256:x"
+    assert "clean" not in normalize_lens_frontier(legacy)["lenses"]["CTX"]
+    bad = {"version": 1, "lenses": {"CTX": {"frontier_kw": 2, "skipped": False, "clean": ""}}}
+    assert any("clean" in err for err in validate_lens_frontier(bad))
+
+
 def test_facts_for_lens_keeps_matching_tags_only():
     facts = [
         {"id": "F-1", "text": "a", "lens_tags": ["CTX"]},
@@ -747,6 +777,6 @@ def test_detect_lens_context_filters_facts(tmp_path: Path):
     payload = detect_lens_context(tmp_path, "I", tmp_path)
     assert payload["lens_registry"]["lens"] == "I"
     assert "KW0" in payload["kw_criteria"]
-    assert [item["id"] for item in payload["facts_snapshot"]] == ["F-I"]
+    assert payload["facts_snapshot"] == [{"id": "F-I", "text": "intent"}]
     with pytest.raises(ValueError, match="unknown lens"):
         detect_lens_context(tmp_path, "GO", tmp_path)

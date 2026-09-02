@@ -13,6 +13,7 @@ docs/domain/archive/compose/archive-49.0/compose-g3-section-registry-skill-fetch
 docs/domain/archive/compose/archive-50.0/compose-g3-detect-lens-context-design.md
 docs/domain/archive/compose/archive-52.0/compose-script-layer-contract-lock-design.md
 docs/domain/archive/compose/archive-67.0/compose-g3-detect-verdict-slim-design.md
+docs/domain/archive/compose/archive-68.0/compose-g3-detect-clean-skip-design.md
 """
 
 from __future__ import annotations
@@ -65,6 +66,7 @@ from lens_frontier_schema import (  # noqa: E402
     slice_kw_criteria,
     validate_lens_frontier,
 )
+from open_point_config_schema import detect_skip_clean_enabled  # noqa: E402
 from open_point_detect_receipt_schema import (  # noqa: E402
     empty_open_point_receipts,
     load_open_point_receipts,
@@ -321,7 +323,7 @@ def detect_lens_registry_entry(snapshot: Any, lens: str) -> dict[str, str]:
 def detect_lens_context(
     slice_dir: Path, lens: str, project_root: Path | str | None = None
 ) -> dict[str, Any]:
-    """KW slice, one registry row, and facts tagged with ``lens``."""
+    """KW slice, one registry row, and ``id``/``text`` of facts tagged ``lens``."""
     key = str(lens).strip().upper()
     if not key:
         raise ValueError("unknown lens")
@@ -332,8 +334,18 @@ def detect_lens_context(
     return {
         "kw_criteria": sliced,
         "lens_registry": entry,
-        "facts_snapshot": facts_for_lens(facts_snapshot(slice_dir), key),
+        "facts_snapshot": [
+            {"id": item.get("id"), "text": item.get("text")}
+            for item in facts_for_lens(facts_snapshot(slice_dir), key)
+        ],
     }
+
+
+def detect_lens_digest(
+    slice_dir: Path, lens: str, project_root: Path | str | None = None
+) -> str:
+    """Fingerprint of one lens's Detect payload; the ``clean`` value."""
+    return canonical_digest(detect_lens_context(slice_dir, lens, project_root))
 
 
 def detect_opens_snapshot(opens: Any) -> list[dict[str, str]]:
@@ -399,19 +411,55 @@ def load_published_kw_raw(
     return _skill_template_text("section-kw-criteria", slice_dir, project_root)
 
 
+def _runtime_profile(slice_dir: Path, project_root: Path | str | None) -> Any:
+    if not project_root:
+        return None
+    from workflow_paths import resolve_revision_runtime_profile  # noqa: WPS433
+
+    try:
+        return resolve_revision_runtime_profile(Path(slice_dir), Path(project_root))
+    except (OSError, ValueError, FileNotFoundError):
+        return None
+
+
+def detect_skip_clean(
+    slice_dir: Path | None = None,
+    project_root: Path | str | None = None,
+) -> bool:
+    """Compose ``config/compose-config.json`` switch; default false."""
+    del slice_dir, project_root
+    return detect_skip_clean_enabled()
+
+
+def pending_lenses(
+    slice_dir: Path, project_root: Path | str | None = None
+) -> dict[str, dict[str, int]]:
+    """Registry lenses due for Detect with their resume start.
+
+    With ``detect_skip_clean`` on, a lens whose ``clean`` fingerprint still
+    matches its current Detect payload is omitted.
+    """
+    frontier_lenses = frontier_snapshot(slice_dir).get("lenses") or {}
+    skip = detect_skip_clean(slice_dir, project_root)
+    out: dict[str, dict[str, int]] = {}
+    for lens in registry_lens_keys(lens_snapshot(slice_dir, project_root)):
+        entry = frontier_lenses.get(lens) or default_lens_entry()
+        clean = entry.get("clean")
+        if skip and clean and clean == detect_lens_digest(slice_dir, lens, project_root):
+            continue
+        out[lens] = {"frontier_kw": int(entry.get("frontier_kw") or 0)}
+    return out
+
+
 def load_detect_materials(
     slice_dir: Path, project_root: Path | str | None
 ) -> tuple[list[dict[str, Any]], bool]:
     """Load intent refs and code_grounding. Missing project_root is true inert."""
-    if not project_root:
+    runtime = _runtime_profile(slice_dir, project_root)
+    if runtime is None:
         return [], False
     from resolved_refs_schema import intent_baseline_from_workflow  # noqa: WPS433
-    from workflow_paths import resolve_revision_runtime_profile  # noqa: WPS433
 
-    try:
-        runtime = resolve_revision_runtime_profile(Path(slice_dir), Path(project_root))
-    except (OSError, ValueError, FileNotFoundError):
-        return [], False
     try:
         cycle_id = runtime.session_base.parent.name
         refs = intent_baseline_from_workflow(
@@ -739,23 +787,24 @@ def _frontier_kw(frontier: dict[str, Any], lens: str) -> int:
     return int(entry.get("frontier_kw") or 0)
 
 
-def _frontier_after_gaps(
-    frontier: dict[str, Any], measurements: list[dict[str, Any]]
+def _frontier_after_detect(
+    frontier: dict[str, Any],
+    verdicts: list[dict[str, Any]],
+    clean_digests: dict[str, str],
 ) -> dict[str, Any] | None:
-    lenses = dict(frontier.get("lenses") or {})
-    changed = False
-    for item in measurements:
-        gap = item.get("gap_kw")
+    """Gap verdicts move frontier_kw and drop clean; null verdicts record clean."""
+    before = frontier.get("lenses") or {}
+    lenses = {key: dict(entry) for key, entry in before.items()}
+    for item in verdicts:
+        key = item["lens"]
+        current = lenses.setdefault(key, default_lens_entry())
+        gap = item["gap_kw"]
         if gap is None:
-            continue
-        key = str(item["lens"]).strip().upper()
-        current = dict(lenses.get(key) or default_lens_entry())
-        if current.get("frontier_kw") == int(gap):
-            continue
-        current["frontier_kw"] = int(gap)
-        lenses[key] = current
-        changed = True
-    if not changed:
+            current["clean"] = clean_digests[key]
+        else:
+            current["frontier_kw"] = int(gap)
+            current.pop("clean", None)
+    if lenses == before:
         return None
     return {"version": 1, "lenses": lenses}
 
@@ -791,9 +840,14 @@ def prepare_add_opens(
             raise ValueError("detect is only legal from idle")
         if _active_batch(bundle) is not None:
             raise ValueError("detect refused: active batch exists")
-        verdicts = parse_detect_verdicts(
-            detect.get("verdicts"), registry_lenses=allowed
-        )
+        pending = pending_lenses(slice_dir, project_root)
+        raw_verdicts = detect.get("verdicts")
+        if pending:
+            verdicts = parse_detect_verdicts(raw_verdicts, registry_lenses=list(pending))
+        elif raw_verdicts:
+            raise ValueError("verdicts must be empty: no pending lenses")
+        else:
+            verdicts = []
         current_frontier_data = frontier_snapshot(slice_dir)
         for item in verdicts:
             gap = item["gap_kw"]
@@ -802,10 +856,14 @@ def prepare_add_opens(
                 raise ValueError(
                     f"lens {item['lens']} gap_kw {gap} < frontier {start}"
                 )
-        measurements = [
-            {"lens": item["lens"], "gap_kw": item["gap_kw"]} for item in verdicts
-        ]
+        judged = {item["lens"]: item["gap_kw"] for item in verdicts}
+        measurements = [{"lens": lens, "gap_kw": judged.get(lens)} for lens in allowed]
         raw_candidate_count = sum(len(item["candidates"]) for item in verdicts)
+        clean_digests = {
+            item["lens"]: detect_lens_digest(slice_dir, item["lens"], project_root)
+            for item in verdicts
+            if item["gap_kw"] is None
+        }
         intent_refs, code_grounding = load_detect_materials(slice_dir, project_root)
         current_inert = compute_inert_means(intent_refs, code_grounding)
         for raw in opens:
@@ -837,7 +895,9 @@ def prepare_add_opens(
             "receipts": bundle["receipts"]["receipts"] + [receipt],
         }
         files: dict[str, Any] = {"open-point-detect-receipts.json": receipts}
-        updated_frontier = _frontier_after_gaps(current_frontier_data, measurements)
+        updated_frontier = _frontier_after_detect(
+            current_frontier_data, verdicts, clean_digests
+        )
         if updated_frontier is not None:
             files[FRONTIER_BASENAME] = updated_frontier
         if not registered:

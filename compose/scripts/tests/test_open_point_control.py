@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -57,15 +58,24 @@ def _ready_cleared(slice_dir: Path, project_root: str) -> None:
     ensure_frontier(slice_dir, project_root)
 
 
-def _run(out_dir: Path, *args: str, project_root: str | None = None) -> tuple[int, dict]:
+def _run(
+    out_dir: Path,
+    *args: str,
+    project_root: str | None = None,
+    extra_env: dict[str, str] | None = None,
+) -> tuple[int, dict]:
     cmd = [sys.executable, str(_CTL), "--out-dir", str(out_dir)]
     if project_root is not None:
         cmd.extend(["--project-root", project_root])
     cmd.extend(args)
+    env = None
+    if extra_env:
+        env = {**os.environ, **extra_env}
     res = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
+        env=env,
     )
     try:
         payload = json.loads(res.stdout)
@@ -293,8 +303,9 @@ def test_detect_context_emits_slim_snapshots(tmp_path: Path):
     assert "facts" not in payload
     assert "lenses" not in payload
     assert "opens" not in payload
-    assert "frontiers" in payload
-    assert list(payload["frontiers"]["lenses"]) == _PLAN_LENSES
+    assert "frontiers" not in payload
+    assert list(payload["pending_lenses"]) == _PLAN_LENSES
+    assert payload["pending_lenses"]["CTX"] == {"frontier_kw": 0}
     assert "facts_digest" not in payload
     assert "lens_digest" not in payload
     assert "opens_digest" not in payload
@@ -363,9 +374,130 @@ def test_detect_context_fetches_registry_from_skill_without_slice_file(
     code, payload = _run(slice_dir, "detect-context", project_root=root)
     assert code == 0, payload
     assert "lens_registry" not in payload
-    assert list(payload["frontiers"]["lenses"]) == _PLAN_LENSES
+    assert list(payload["pending_lenses"]) == _PLAN_LENSES
     assert not (slice_dir / "section-registry.json").exists()
     assert not (slice_dir / "section-kw-criteria.md").exists()
+
+
+def _skip_clean_env(tmp_path: Path) -> dict[str, str]:
+    path = tmp_path / "compose-config.json"
+    path.write_text(json.dumps({"detect_skip_clean": True}), encoding="utf-8")
+    return {"LULU_COMPOSE_CONFIG": str(path)}
+
+
+def _write_facts(slice_dir: Path, ctx_text: str) -> None:
+    (slice_dir / "_facts.json").write_text(
+        json.dumps([{"id": "F-ctx", "text": ctx_text, "lens_tags": ["CTX"]}]),
+        encoding="utf-8",
+    )
+
+
+def test_empty_detect_records_clean_but_switch_off_keeps_all_pending(tmp_path: Path):
+    slice_dir, root = _slice_env(tmp_path)
+    code, payload = _run(
+        slice_dir,
+        "add-opens",
+        "--opens-json",
+        "[]",
+        "--detect-json",
+        _detect_json(slice_dir, [], root),
+        project_root=root,
+    )
+    assert code == 0, payload
+    frontier = load_lens_frontier(lens_frontier_path(slice_dir))
+    assert all(entry.get("clean") for entry in frontier["lenses"].values())
+    code, payload = _run(slice_dir, "detect-context", project_root=root)
+    assert code == 0, payload
+    assert list(payload["pending_lenses"]) == _PLAN_LENSES
+    assert "clean" not in json.dumps(payload["pending_lenses"])
+
+
+def test_switch_on_skips_clean_lenses_until_facts_change(tmp_path: Path):
+    slice_dir, root = _slice_env(tmp_path)
+    skip_env = _skip_clean_env(tmp_path)
+    _write_facts(slice_dir, "ctx v1")
+    code, payload = _run(
+        slice_dir,
+        "add-opens",
+        "--opens-json",
+        "[]",
+        "--detect-json",
+        _detect_json(slice_dir, [], root),
+        project_root=root,
+        extra_env=skip_env,
+    )
+    assert code == 0, payload
+    code, payload = _run(
+        slice_dir, "detect-context", project_root=root, extra_env=skip_env
+    )
+    assert code == 0, payload
+    assert payload["pending_lenses"] == {}
+    _write_facts(slice_dir, "ctx v2")
+    code, payload = _run(
+        slice_dir, "detect-context", project_root=root, extra_env=skip_env
+    )
+    assert code == 0, payload
+    assert list(payload["pending_lenses"]) == ["CTX"]
+
+
+def test_switch_on_add_opens_fills_carried_lenses_and_rejects_extra(tmp_path: Path):
+    slice_dir, root = _slice_env(tmp_path)
+    skip_env = _skip_clean_env(tmp_path)
+    _write_facts(slice_dir, "ctx v1")
+    code, payload = _run(
+        slice_dir,
+        "add-opens",
+        "--opens-json",
+        "[]",
+        "--detect-json",
+        _detect_json(slice_dir, [], root),
+        project_root=root,
+        extra_env=skip_env,
+    )
+    assert code == 0, payload
+    _write_facts(slice_dir, "ctx v2")
+    code, payload = _run(
+        slice_dir,
+        "add-opens",
+        "--opens-json",
+        "[]",
+        "--detect-json",
+        _detect_json(slice_dir, [], root),
+        project_root=root,
+        extra_env=skip_env,
+    )
+    assert code == 1
+    assert "unknown lenses" in payload["error"]
+    raw = [
+        {
+            "question": "q",
+            "basis": "b",
+            "blocking": True,
+            "lens": "CTX",
+            "source": {"actor": "ai", "means": "probe"},
+        }
+    ]
+    verdicts = {"verdicts": [{"lens": "CTX", "gap_kw": 1, "candidates": raw}]}
+    code, payload = _run(
+        slice_dir,
+        "add-opens",
+        "--opens-json",
+        json.dumps(raw),
+        "--detect-json",
+        json.dumps(verdicts),
+        project_root=root,
+        extra_env=skip_env,
+    )
+    assert code == 0, payload
+    receipt = payload["receipt"]
+    assert [item["lens"] for item in receipt["lens_measurements"]] == _PLAN_LENSES
+    by_lens = {item["lens"]: item["gap_kw"] for item in receipt["lens_measurements"]}
+    assert by_lens["CTX"] == 1
+    assert all(by_lens[lens] is None for lens in _PLAN_LENSES if lens != "CTX")
+    frontier = load_lens_frontier(lens_frontier_path(slice_dir))
+    assert frontier["lenses"]["CTX"]["frontier_kw"] == 1
+    assert "clean" not in frontier["lenses"]["CTX"]
+    assert frontier["lenses"]["GO"].get("clean")
 
 
 def test_detect_lens_context_filters_facts_and_rejects_unknown(tmp_path: Path):
@@ -395,8 +527,7 @@ def test_detect_lens_context_filters_facts_and_rejects_unknown(tmp_path: Path):
     assert payload["lens_registry"]["heading"] == "Context"
     assert isinstance(payload["kw_criteria"], str)
     assert "KW0" in payload["kw_criteria"]
-    assert [item["id"] for item in payload["facts_snapshot"]] == ["F-ctx"]
-    assert payload["facts_snapshot"][0]["origin"] == {"type": "seed"}
+    assert payload["facts_snapshot"] == [{"id": "F-ctx", "text": "ctx"}]
     assert "opens_snapshot" not in payload
     assert "frontiers" not in payload
     assert not (slice_dir / "section-registry.json").exists()

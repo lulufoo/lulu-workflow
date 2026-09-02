@@ -7,7 +7,7 @@ makes that method inert. Do not invent gaps to fill a method. Do not
 restore a capability catalog.
 
 AI candidates must leave the coarsest remaining KW predicate false for
-their `lens`, measuring from that lens's `frontiers` start. Finer rows
+their `lens`, measuring from that lens's `frontier_kw`. Finer rows
 are dropped. Human-pointed gaps skip this filter.
 
 When more than one method hits the same gap, register one Open. Stamp the

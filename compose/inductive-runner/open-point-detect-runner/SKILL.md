@@ -37,15 +37,15 @@ Parent supplies invoke arguments only.
    represented in `opens_snapshot` are not candidates.
 2. The per-lens `lens_registry` row is a non-exhaustive prompt, not a
    questionnaire. Follow the available evidence; do not invent gaps.
-   Coverage order is `frontiers.lenses`.
+   Coverage order is `pending_lenses`.
 
 ## Detection
 
 1. Fetch `$OPEN_POINT_CTL detect-lens-context --lens <key>` for every
-   key in `frontiers.lenses`, batched in one message.
-2. Judge one lens at a time in `frontiers.lenses` order: detect gaps
+   key in `pending_lenses`, batched in one message.
+2. Judge one lens at a time in `pending_lenses` order: detect gaps
    against that lens's `kw_criteria`, measured from that lens's
-   `frontiers` start, with the methods and evidence scopes in
+   `frontier_kw`, with the methods and evidence scopes in
    `references/detect-means.md`. Conclude the lens's verdict before
    the next lens.
 3. A lens is complete when its remaining `kw_criteria` rows are judged
@@ -57,7 +57,7 @@ Parent supplies invoke arguments only.
 ## Return
 
 - One object after complete lens coverage: one verdict per
-  `frontiers.lenses` key.
+  `pending_lenses` key.
 - `gap_kw` is the coarsest remaining KW predicate left false, or null
   when none — null exactly when `candidates` is empty.
 - `means` is `scan`, `intent`, or `probe`.
@@ -81,7 +81,7 @@ Parent supplies invoke arguments only.
 ## Boundaries
 
 - Read-only. Control calls: `detect-context` at Input;
-  `detect-lens-context` once per `frontiers.lenses` key.
+  `detect-lens-context` once per `pending_lenses` key.
 - Evidence closure: the two control stdout payloads, this SKILL, and
   `references/detect-means.md` are the whole evidence for one Detect
   pass.

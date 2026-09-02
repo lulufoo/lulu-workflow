@@ -46,7 +46,7 @@ After an explicit human Detect request from `idle`:
    prompt carries the invoke arguments `--out-dir` and `--project-root`
    only — no contract or return-shape restatement. The runner fetches
    `$OPEN_POINT_CTL detect-context`, then `detect-lens-context` per
-   `frontiers.lenses` key. Parent does not.
+   `pending_lenses` key. Parent does not.
 3. Review the candidates with the human, then call
    `$OPEN_POINT_CTL add-opens --opens-json --detect-json`. Contract in
    `--help`.

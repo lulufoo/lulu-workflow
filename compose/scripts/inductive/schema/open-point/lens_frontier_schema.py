@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """Schema and I/O for slice ``lens-frontier.json``.
 
-Caches per-lens ``frontier_kw`` (0..4) and skip flags. ``frontier_kw`` is
-the last found gap KW for that lens (resume start; default 0). The script
-does not judge KW truth; it only stores values written through commands.
+Caches per-lens ``frontier_kw`` (0..4), skip flags, and an optional ``clean``
+fingerprint. ``frontier_kw`` is the last found gap KW for that lens (resume
+start; default 0). ``clean`` is the Detect payload digest recorded when the
+lens was last judged gap-free; a stale digest means the lens is due again.
+The script does not judge KW truth; it only stores values written through
+commands.
 
 Design rationale:
 docs/domain/archive/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
+docs/domain/archive/compose/archive-68.0/compose-g3-detect-clean-skip-design.md
 """
 
 from __future__ import annotations
@@ -26,7 +30,7 @@ from compose_state_lock import durable_write_json  # noqa: E402
 FRONTIER_BASENAME = "lens-frontier.json"
 FRONTIER_VERSION = 1
 _ENVELOPE_KEYS = frozenset({"version", "lenses"})
-_LENS_KEYS = frozenset({"frontier_kw", "skipped"})
+_LENS_KEYS = frozenset({"frontier_kw", "skipped", "clean"})
 _H2_RE = re.compile(r"(?m)^##[ \t]+(\S+)[ \t]*$")
 
 
@@ -67,6 +71,9 @@ def _validate_lens_entry(prefix: str, entry: Any) -> list[str]:
         errors.append(f"{prefix}.frontier_kw must be an int 0..4")
     if not isinstance(entry.get("skipped"), bool):
         errors.append(f"{prefix}.skipped must be a bool")
+    clean = entry.get("clean")
+    if clean is not None and (not isinstance(clean, str) or not clean.strip()):
+        errors.append(f"{prefix}.clean must be a non-empty string when present")
     return errors
 
 
@@ -100,10 +107,14 @@ def normalize_lens_frontier(data: dict[str, Any]) -> dict[str, Any]:
             lens = str(key).strip().upper()
             if not lens or not isinstance(entry, dict):
                 continue
-            lenses[lens] = {
+            normalized = {
                 "frontier_kw": int(entry.get("frontier_kw", 0)),
                 "skipped": bool(entry.get("skipped", False)),
             }
+            clean = entry.get("clean")
+            if isinstance(clean, str) and clean.strip():
+                normalized["clean"] = clean.strip()
+            lenses[lens] = normalized
     return {"version": FRONTIER_VERSION, "lenses": lenses}
 
 
