@@ -86,35 +86,24 @@ def _human_open(**overrides):
     return base
 
 
-def _lens_measurements(out_dir: Path, checked, raw_candidates):
-    path = lens_frontier_path(out_dir)
-    lenses = load_lens_frontier(path)["lenses"] if path.is_file() else {}
-    hit = {
-        str(item.get("lens", "")).strip().upper()
-        for item in raw_candidates
-        if isinstance(item, dict) and item.get("lens")
-    }
-    out = []
-    for lens in checked:
-        key = str(lens).strip().upper()
-        entry = lenses.get(key) or default_lens_entry()
-        start = int(entry.get("frontier_kw") or 0)
-        out.append(
-            {"lens": key, "start_kw": start, "gap_kw": start if key in hit else None}
-        )
-    return out
-
-
 def _detect_json(out_dir: Path, raw_candidates, project_root: str):
     ensure_frontier(out_dir, project_root)
-    checked = list(_PLAN_LENSES)
-    return json.dumps(
-        {
-            "checked_lenses": checked,
-            "raw_candidates": raw_candidates,
-            "lens_measurements": _lens_measurements(out_dir, checked, raw_candidates),
-        }
-    )
+    path = lens_frontier_path(out_dir)
+    lenses = load_lens_frontier(path)["lenses"] if path.is_file() else {}
+    by_lens: dict[str, list] = {}
+    for item in raw_candidates:
+        if isinstance(item, dict) and item.get("lens"):
+            key = str(item["lens"]).strip().upper()
+            by_lens.setdefault(key, []).append(dict(item))
+    verdicts = []
+    for key in _PLAN_LENSES:
+        entry = lenses.get(key) or default_lens_entry()
+        start = int(entry.get("frontier_kw") or 0)
+        hits = by_lens.get(key, [])
+        verdicts.append(
+            {"lens": key, "gap_kw": start if hits else None, "candidates": hits}
+        )
+    return json.dumps({"verdicts": verdicts})
 
 
 def test_detect_context_refused_when_processing(tmp_path: Path):
@@ -335,7 +324,7 @@ def test_add_opens_rejects_inert_intent_means(tmp_path: Path):
         slice_dir,
         "add-opens",
         "--opens-json",
-        json.dumps(detect["raw_candidates"]),
+        json.dumps(raw),
         "--detect-json",
         json.dumps(detect),
         project_root=root,

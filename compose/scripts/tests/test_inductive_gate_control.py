@@ -190,28 +190,20 @@ def _detect_meta(slice_dir: Path, raw_candidates, **overrides):
     _isolate_lenses(slice_dir, root)
     path = lens_frontier_path(slice_dir)
     frontier_lenses = load_lens_frontier(path)["lenses"] if path.is_file() else {}
-    raw = list(raw_candidates)
-    checked = overrides.get("checked_lenses") or registry_lens_keys(
-        lens_snapshot(slice_dir, root)
-    )
-    hit = {
-        str(item.get("lens", "")).strip().upper()
-        for item in raw
-        if isinstance(item, dict) and item.get("lens")
-    }
-    measurements = []
-    for lens in checked:
-        key = str(lens).strip().upper()
-        entry = frontier_lenses.get(key) or default_lens_entry()
+    by_lens: dict[str, list] = {}
+    for item in raw_candidates:
+        if isinstance(item, dict) and item.get("lens"):
+            key = str(item["lens"]).strip().upper()
+            by_lens.setdefault(key, []).append(dict(item))
+    verdicts = []
+    for lens in registry_lens_keys(lens_snapshot(slice_dir, root)):
+        entry = frontier_lenses.get(lens) or default_lens_entry()
         start = int(entry.get("frontier_kw") or 0)
-        measurements.append(
-            {"lens": key, "start_kw": start, "gap_kw": start if key in hit else None}
+        hits = by_lens.get(lens, [])
+        verdicts.append(
+            {"lens": lens, "gap_kw": start if hits else None, "candidates": hits}
         )
-    meta = {
-        "checked_lenses": checked,
-        "raw_candidates": raw,
-        "lens_measurements": measurements,
-    }
+    meta = {"verdicts": verdicts}
     meta.update(overrides)
     return meta
 

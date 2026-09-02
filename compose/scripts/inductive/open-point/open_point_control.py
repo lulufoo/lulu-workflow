@@ -12,6 +12,7 @@ docs/domain/archive/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
 docs/domain/archive/compose/archive-43.0/compose-g3-gate-phase-map-design.md
 docs/domain/archive/compose/compose-g3-detect-context-slim-design.md
 docs/domain/archive/compose/archive-50.0/compose-g3-detect-lens-context-design.md
+docs/domain/archive/compose/archive-67.0/compose-g3-detect-verdict-slim-design.md
 """
 
 from __future__ import annotations
@@ -295,11 +296,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "add-opens",
         help=(
             "Register 0..N opens. Detect must pass --detect-json "
-            "(checked_lenses, raw_candidates, lens_measurements). Empty "
-            "--opens-json is legal only with detect metadata. "
-            "zero_result is raw_candidates length == 0. "
-            "AI Detect means must be scan|intent|probe and not inert. "
-            "Non-null gap_kw writes that lens frontier_kw."
+            '{"verdicts": [{lens, gap_kw, candidates[]}, ...]} covering '
+            "every registry lens; gap_kw is null exactly when candidates "
+            "is empty. Empty --opens-json is legal only with detect "
+            "metadata. Coverage, measurements, and the receipt derive "
+            "from verdicts. AI Detect means must be scan|intent|probe "
+            "and not inert. Non-null gap_kw writes that lens frontier_kw."
         ),
     )
     add.add_argument("--opens-json", required=True)
@@ -337,7 +339,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     _SET_FRONTIER = (
         "Human override of one lens resume start X. Not for Detect gaps "
-        "(those write via add-opens measurements). Detect again before "
+        "(those write via add-opens verdicts). Detect again before "
         "cleared."
     )
     frontier = sub.add_parser(

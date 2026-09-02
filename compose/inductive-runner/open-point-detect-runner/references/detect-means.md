@@ -19,8 +19,12 @@ Ask whether design or facts at the coarsest remaining KW match code
 reality: paths the change touches, caller assumptions, and cross-module
 contracts.
 
-Evidence is `project_evidence_scope` (symbols and necessary lines, not
-whole files). Missing `project_evidence_scope` makes this method inert.
+Evidence is the code locations this lens's facts already reference —
+symbols and necessary lines, not whole files.
+`project_evidence_scope.project_root` only resolves those paths; it is
+not a scan scope. Facts that reference no code leave this method
+nothing to scan. Missing `project_evidence_scope` makes this method
+inert.
 
 Stamp `actor=ai`, `means=scan`.
 

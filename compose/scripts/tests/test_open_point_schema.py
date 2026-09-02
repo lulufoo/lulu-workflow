@@ -20,6 +20,8 @@ from open_point_batch_schema import (  # noqa: E402
 from open_point_detect_receipt_schema import (  # noqa: E402
     empty_open_point_receipts,
     normalize_open_point_receipts,
+    parse_detect_verdicts,
+    validate_detect_verdicts,
     validate_open_point_receipts,
 )
 from open_point_state_schema import (  # noqa: E402
@@ -76,18 +78,20 @@ def _receipts(*items):
 def _receipt(**overrides):
     base = {
         "id": "R-1",
-        "checked_lenses": ["I", "FL"],
         "raw_candidate_count": 0,
-        "raw_candidate_digest": _DIGEST,
-        "final_open_ids": [],
-        "zero_result": True,
         "lens_measurements": [
-            {"lens": "I", "start_kw": 0, "gap_kw": None},
-            {"lens": "FL", "start_kw": 0, "gap_kw": None},
+            {"lens": "I", "gap_kw": None},
+            {"lens": "FL", "gap_kw": None},
         ],
     }
     base.update(overrides)
     return base
+
+
+def _verdict(lens="I", gap_kw=None, candidates=None, **extra):
+    item = {"lens": lens, "gap_kw": gap_kw, "candidates": list(candidates or [])}
+    item.update(extra)
+    return item
 
 
 def _txn(**overrides):
@@ -165,42 +169,34 @@ def test_empty_batches_shape():
     assert validate_open_point_batches(empty) == []
 
 
-def test_receipt_zero_result_only_when_raw_count_zero():
+def test_receipt_slim_shape_valid():
     assert validate_open_point_receipts(_receipts(_receipt())) == []
-    errs = validate_open_point_receipts(
-        _receipts(_receipt(raw_candidate_count=2, zero_result=True))
-    )
-    assert any("zero_result" in e for e in errs)
-    errs = validate_open_point_receipts(
-        _receipts(_receipt(raw_candidate_count=0, zero_result=False))
-    )
-    assert any("zero_result" in e for e in errs)
-
-
-def test_receipt_accepts_non_zero_with_empty_final_ids():
     payload = _receipts(
         _receipt(
             raw_candidate_count=3,
-            zero_result=False,
-            final_open_ids=[],
             lens_measurements=[
-                {"lens": "I", "start_kw": 0, "gap_kw": 1},
-                {"lens": "FL", "start_kw": 0, "gap_kw": None},
+                {"lens": "I", "gap_kw": 1},
+                {"lens": "FL", "gap_kw": None},
             ],
         )
     )
     assert validate_open_point_receipts(payload) == []
 
 
-def test_receipt_requires_checked_lenses():
-    raw = _receipt()
-    del raw["checked_lenses"]
-    errs = validate_open_point_receipts(_receipts(raw))
-    assert any("checked_lenses" in e for e in errs)
-    errs = validate_open_point_receipts(
-        _receipts(_receipt(checked_lenses=[]))
+def test_receipt_accepts_and_drops_legacy_fields():
+    legacy = _receipt(
+        checked_lenses=["I", "FL"],
+        raw_candidate_digest=_DIGEST,
+        final_open_ids=[],
+        zero_result=True,
+        lens_measurements=[
+            {"lens": "I", "start_kw": 0, "gap_kw": None},
+            {"lens": "FL", "start_kw": 0, "gap_kw": None},
+        ],
     )
-    assert any("checked_lenses" in e for e in errs)
+    assert validate_open_point_receipts(_receipts(legacy)) == []
+    normalized = normalize_open_point_receipts(_receipts(legacy))
+    assert normalized["receipts"][0] == _receipt()
 
 
 def test_receipt_requires_lens_measurements():
@@ -209,9 +205,47 @@ def test_receipt_requires_lens_measurements():
     errs = validate_open_point_receipts(_receipts(raw))
     assert any("lens_measurements" in e for e in errs)
     errs = validate_open_point_receipts(
-        _receipts(_receipt(raw_candidate_count=1, zero_result=False))
+        _receipts(_receipt(lens_measurements=[{"lens": "I", "gap_kw": 9}]))
     )
     assert any("gap_kw" in e for e in errs)
+
+
+def test_verdicts_require_registry_coverage():
+    verdicts = [_verdict("I"), _verdict("FL")]
+    assert validate_detect_verdicts(verdicts, registry_lenses=["I", "FL"]) == []
+    errs = validate_detect_verdicts([_verdict("I")], registry_lenses=["I", "FL"])
+    assert any("missing" in e for e in errs)
+    errs = validate_detect_verdicts(
+        [_verdict("I"), _verdict("FL"), _verdict("XX")],
+        registry_lenses=["I", "FL"],
+    )
+    assert any("unknown" in e for e in errs)
+
+
+def test_verdicts_gap_and_candidates_move_together():
+    errs = validate_detect_verdicts(
+        [_verdict("I", gap_kw=1, candidates=[])], registry_lenses=["I"]
+    )
+    assert any("candidates" in e for e in errs)
+    errs = validate_detect_verdicts(
+        [_verdict("I", gap_kw=None, candidates=[{"question": "q"}])],
+        registry_lenses=["I"],
+    )
+    assert any("candidates" in e for e in errs)
+
+
+def test_parse_detect_verdicts_normalizes():
+    parsed = parse_detect_verdicts(
+        [
+            _verdict("i", gap_kw=1, candidates=[{"question": "q"}]),
+            _verdict("FL"),
+        ],
+        registry_lenses=["I", "FL"],
+    )
+    assert parsed[0]["lens"] == "I"
+    assert parsed[0]["gap_kw"] == 1
+    assert parsed[0]["candidates"] == [{"question": "q"}]
+    assert parsed[1] == {"lens": "FL", "gap_kw": None, "candidates": []}
 
 
 def test_empty_receipts_shape():

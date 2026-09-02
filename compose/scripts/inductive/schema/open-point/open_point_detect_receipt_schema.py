@@ -2,10 +2,18 @@
 """Schema and I/O for slice ``open-point-detect-receipts.json``.
 
 Receipts are immutable once written; this module only validates shape.
+Receipts are slim: ``id``, ``raw_candidate_count``, and per-lens
+``lens_measurements`` (``lens`` + ``gap_kw``). Legacy fields from older
+receipts are accepted on load and dropped by normalization.
+
+Detect input arrives as per-lens verdicts (``lens``, ``gap_kw``,
+``candidates``); ``parse_detect_verdicts`` enforces registry coverage and
+the per-lens invariant ``gap_kw is null iff candidates is empty``.
 
 Design rationale:
 docs/domain/archive/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
 docs/domain/archive/compose/compose-g3-detect-context-slim-design.md
+docs/domain/archive/compose/archive-67.0/compose-g3-detect-verdict-slim-design.md
 """
 
 from __future__ import annotations
@@ -25,20 +33,12 @@ from compose_state_lock import durable_write_json  # noqa: E402
 RECEIPTS_BASENAME = "open-point-detect-receipts.json"
 RECEIPTS_VERSION = 1
 _ENVELOPE_KEYS = frozenset({"version", "receipts"})
-_RECEIPT_KEYS = frozenset(
-    {
-        "id",
-        "checked_lenses",
-        "raw_candidate_count",
-        "raw_candidate_digest",
-        "final_open_ids",
-        "zero_result",
-        "lens_measurements",
-    }
+_RECEIPT_KEYS = frozenset({"id", "raw_candidate_count", "lens_measurements"})
+_LEGACY_RECEIPT_KEYS = frozenset(
+    {"checked_lenses", "raw_candidate_digest", "final_open_ids", "zero_result"}
 )
+_VERDICT_KEYS = frozenset({"lens", "gap_kw", "candidates"})
 _RECEIPT_ID_RE = re.compile(r"^R-([1-9]\d*)$")
-_OPEN_ID_RE = re.compile(r"^O-([1-9]\d*)$")
-_HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 def open_point_receipts_path(slice_dir: Path) -> Path:
@@ -64,34 +64,21 @@ def next_receipt_seq(receipts: list[dict[str, Any]]) -> int:
     return max_n + 1
 
 
-def _validate_digest(prefix: str, field: str, value: Any) -> list[str]:
-    if not isinstance(value, str) or not _HEX64_RE.match(value):
-        return [f"{prefix}.{field} must be a lowercase SHA-256 hex digest"]
-    return []
-
-
 def _kw_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 4
 
 
-def validate_lens_measurements(
-    raw: Any,
-    *,
-    prefix: str,
-    checked_lenses: list[str] | None = None,
-    raw_candidate_count: int | None = None,
-) -> list[str]:
+def validate_lens_measurements(raw: Any, *, prefix: str) -> list[str]:
     if not isinstance(raw, list) or not raw:
         return [f"{prefix} must be a non-empty array"]
     errors: list[str] = []
     seen: set[str] = set()
-    gaps: list[Any] = []
     for index, item in enumerate(raw):
         where = f"{prefix}[{index}]"
         if not isinstance(item, dict):
             errors.append(f"{where} must be an object")
             continue
-        extra = set(item) - {"lens", "start_kw", "gap_kw"}
+        extra = set(item) - {"lens", "gap_kw", "start_kw"}
         if extra:
             errors.append(f"{where} unexpected fields {sorted(extra)}")
         lens = str(item.get("lens", "")).strip().upper()
@@ -101,29 +88,9 @@ def validate_lens_measurements(
             errors.append(f"{where}.lens duplicate: {lens!r}")
         else:
             seen.add(lens)
-        if not _kw_int(item.get("start_kw")):
-            errors.append(f"{where}.start_kw must be an int 0..4")
         gap = item.get("gap_kw")
         if gap is not None and not _kw_int(gap):
             errors.append(f"{where}.gap_kw must be null or an int 0..4")
-        elif (
-            gap is not None
-            and _kw_int(item.get("start_kw"))
-            and int(gap) < int(item["start_kw"])
-        ):
-            errors.append(f"{where}.gap_kw must be >= start_kw")
-        gaps.append(gap)
-    if checked_lenses is not None:
-        required = {str(item).strip().upper() for item in checked_lenses if str(item).strip()}
-        missing = sorted(required - seen)
-        if missing:
-            errors.append(f"{prefix} missing checked lenses {missing}")
-    if raw_candidate_count is not None:
-        all_null = bool(gaps) and all(item is None for item in gaps)
-        if raw_candidate_count == 0 and not all_null:
-            errors.append(f"{prefix} must have null gap_kw when raw_candidate_count is 0")
-        if raw_candidate_count > 0 and all_null:
-            errors.append(f"{prefix} must include a gap_kw when raw_candidate_count > 0")
     return errors
 
 
@@ -138,28 +105,71 @@ def normalize_lens_measurements(raw: Any) -> list[dict[str, Any]]:
         out.append(
             {
                 "lens": str(item.get("lens", "")).strip().upper(),
-                "start_kw": int(item.get("start_kw") or 0),
                 "gap_kw": None if gap is None else int(gap),
             }
         )
     return out
 
 
-def parse_lens_measurements(
-    raw: Any,
-    *,
-    checked_lenses: list[str] | None = None,
-    raw_candidate_count: int | None = None,
+def validate_detect_verdicts(raw: Any, *, registry_lenses: list[str]) -> list[str]:
+    if not isinstance(raw, list) or not raw:
+        return ["verdicts must be a non-empty array"]
+    errors: list[str] = []
+    seen: set[str] = set()
+    for index, item in enumerate(raw):
+        where = f"verdicts[{index}]"
+        if not isinstance(item, dict):
+            errors.append(f"{where} must be an object")
+            continue
+        extra = set(item) - _VERDICT_KEYS
+        if extra:
+            errors.append(f"{where} unexpected fields {sorted(extra)}")
+        lens = str(item.get("lens", "")).strip().upper()
+        if not lens:
+            errors.append(f"{where}.lens must be a non-empty string")
+        elif lens in seen:
+            errors.append(f"{where}.lens duplicate: {lens!r}")
+        else:
+            seen.add(lens)
+        gap = item.get("gap_kw")
+        if gap is not None and not _kw_int(gap):
+            errors.append(f"{where}.gap_kw must be null or an int 0..4")
+        candidates = item.get("candidates")
+        if not isinstance(candidates, list) or any(
+            not isinstance(entry, dict) for entry in candidates
+        ):
+            errors.append(f"{where}.candidates must be an array of objects")
+        elif (gap is None) != (len(candidates) == 0):
+            errors.append(
+                f"{where} gap_kw must be null exactly when candidates is empty"
+            )
+    required = {str(item).strip().upper() for item in registry_lenses if str(item).strip()}
+    missing = sorted(required - seen)
+    if missing:
+        errors.append(f"verdicts missing lenses {missing}")
+    unknown = sorted(seen - required)
+    if unknown:
+        errors.append(f"verdicts unknown lenses {unknown}")
+    return errors
+
+
+def parse_detect_verdicts(
+    raw: Any, *, registry_lenses: list[str]
 ) -> list[dict[str, Any]]:
-    errors = validate_lens_measurements(
-        raw,
-        prefix="lens_measurements",
-        checked_lenses=checked_lenses,
-        raw_candidate_count=raw_candidate_count,
-    )
+    errors = validate_detect_verdicts(raw, registry_lenses=registry_lenses)
     if errors:
         raise ValueError("; ".join(errors))
-    return normalize_lens_measurements(raw)
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        gap = item.get("gap_kw")
+        out.append(
+            {
+                "lens": str(item["lens"]).strip().upper(),
+                "gap_kw": None if gap is None else int(gap),
+                "candidates": [dict(entry) for entry in item.get("candidates") or []],
+            }
+        )
+    return out
 
 
 def _validate_receipt(entry: Any, index: int) -> list[str]:
@@ -167,7 +177,7 @@ def _validate_receipt(entry: Any, index: int) -> list[str]:
     if not isinstance(entry, dict):
         return [f"{prefix} must be an object"]
     errors: list[str] = []
-    extra = set(entry) - _RECEIPT_KEYS
+    extra = set(entry) - _RECEIPT_KEYS - _LEGACY_RECEIPT_KEYS
     if extra:
         errors.append(f"{prefix} unexpected fields {sorted(extra)}")
     for field in _RECEIPT_KEYS:
@@ -176,42 +186,13 @@ def _validate_receipt(entry: Any, index: int) -> list[str]:
     receipt_id = str(entry.get("id", "")).strip()
     if not _RECEIPT_ID_RE.match(receipt_id):
         errors.append(f"{prefix}.id must match R-<n> with n>=1")
-    lenses = entry.get("checked_lenses")
-    if not isinstance(lenses, list) or not lenses:
-        errors.append(f"{prefix}.checked_lenses must be a non-empty string list")
-    elif any(not isinstance(item, str) or not item.strip() for item in lenses):
-        errors.append(f"{prefix}.checked_lenses entries must be non-empty strings")
-    errors.extend(_validate_digest(prefix, "raw_candidate_digest", entry.get("raw_candidate_digest")))
     count = entry.get("raw_candidate_count")
     if not isinstance(count, int) or isinstance(count, bool) or count < 0:
         errors.append(f"{prefix}.raw_candidate_count must be an int >= 0")
-        count = None
-    if not isinstance(entry.get("zero_result"), bool):
-        errors.append(f"{prefix}.zero_result must be a bool")
-    elif count is not None and entry["zero_result"] is not (count == 0):
-        errors.append(f"{prefix}.zero_result must be true only when raw_candidate_count is 0")
-    final_ids = entry.get("final_open_ids")
-    if not isinstance(final_ids, list):
-        errors.append(f"{prefix}.final_open_ids must be an array")
-    else:
-        seen: set[str] = set()
-        for oid_index, oid in enumerate(final_ids):
-            if not isinstance(oid, str) or not _OPEN_ID_RE.match(oid.strip()):
-                errors.append(f"{prefix}.final_open_ids[{oid_index}] must match O-<n>")
-                continue
-            cleaned = oid.strip()
-            if cleaned in seen:
-                errors.append(f"{prefix}.final_open_ids duplicate: {cleaned!r}")
-            seen.add(cleaned)
-    checked = None
-    if isinstance(lenses, list) and lenses:
-        checked = [str(item).strip() for item in lenses if isinstance(item, str)]
     errors.extend(
         validate_lens_measurements(
             entry.get("lens_measurements"),
             prefix=f"{prefix}.lens_measurements",
-            checked_lenses=checked,
-            raw_candidate_count=count,
         )
     )
     return errors
@@ -245,11 +226,7 @@ def validate_open_point_receipts(data: Any) -> list[str]:
 def normalize_receipt(entry: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": str(entry["id"]).strip(),
-        "checked_lenses": [str(item).strip() for item in entry.get("checked_lenses") or []],
         "raw_candidate_count": int(entry["raw_candidate_count"]),
-        "raw_candidate_digest": str(entry["raw_candidate_digest"]).strip(),
-        "final_open_ids": [str(item).strip() for item in entry.get("final_open_ids") or []],
-        "zero_result": bool(entry["zero_result"]),
         "lens_measurements": normalize_lens_measurements(entry.get("lens_measurements")),
     }
 

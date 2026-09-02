@@ -40,6 +40,7 @@ from open_point_store import (  # noqa: E402
     lens_snapshot,
     load_bundle,
     reconcile,
+    registry_lens_keys,
     reject_open,
     set_frontier,
     settle_open,
@@ -106,36 +107,29 @@ def _human_open(**overrides):
     return raw
 
 
-def _lens_measurements(slice_dir: Path, checked, raw_candidates):
+def _verdicts(slice_dir: Path, raw_candidates):
+    ensure_frontier(slice_dir)
     path = lens_frontier_path(slice_dir)
     lenses = load_lens_frontier(path)["lenses"] if path.is_file() else {}
-    hit = {
-        str(item.get("lens", "")).strip().upper()
-        for item in raw_candidates
-        if isinstance(item, dict) and item.get("lens")
-    }
+    by_lens: dict[str, list] = {}
+    for item in raw_candidates:
+        if isinstance(item, dict) and item.get("lens"):
+            key = str(item["lens"]).strip().upper()
+            by_lens.setdefault(key, []).append(dict(item))
     out = []
-    for lens in checked:
-        key = str(lens).strip().upper()
+    for key in registry_lens_keys(lens_snapshot(slice_dir)):
         entry = lenses.get(key) or default_lens_entry()
         start = int(entry.get("frontier_kw") or 0)
+        hits = by_lens.get(key, [])
         out.append(
-            {"lens": key, "start_kw": start, "gap_kw": start if key in hit else None}
+            {"lens": key, "gap_kw": start if hits else None, "candidates": hits}
         )
     return out
 
 
 def _detect_meta(slice_dir: Path, raw_candidates, **overrides):
-    ensure_frontier(slice_dir)
-    meta = {
-        "checked_lenses": ["I", "FL"],
-        "raw_candidates": list(raw_candidates),
-    }
+    meta = {"verdicts": _verdicts(slice_dir, raw_candidates)}
     meta.update(overrides)
-    if "lens_measurements" not in overrides:
-        meta["lens_measurements"] = _lens_measurements(
-            slice_dir, meta["checked_lenses"], meta["raw_candidates"]
-        )
     return meta
 
 
@@ -201,9 +195,8 @@ def test_empty_detect_writes_receipt_only_and_stays_idle(tmp_path: Path):
     assert bundle["opens"] == []
     receipts = bundle["receipts"]["receipts"]
     assert len(receipts) == 1
-    assert receipts[0]["zero_result"] is True
     assert receipts[0]["raw_candidate_count"] == 0
-    assert receipts[0]["final_open_ids"] == []
+    assert receipts[0]["lens_measurements"] == [{"lens": "I", "gap_kw": None}]
     assert result["receipt"]["id"] == receipts[0]["id"]
 
 
@@ -223,8 +216,7 @@ def test_nonempty_detect_from_idle_creates_batch_and_processing(tmp_path: Path):
     assert batch["status"] == "active"
     assert batch["detect_receipt_id"] == result["receipt"]["id"]
     assert batch["open_ids"] == ["O-1", "O-2"]
-    assert result["receipt"]["zero_result"] is False
-    assert result["receipt"]["final_open_ids"] == ["O-1", "O-2"]
+    assert result["receipt"]["raw_candidate_count"] == 2
 
 
 def test_detect_from_processing_errors(tmp_path: Path):
@@ -353,9 +345,8 @@ def test_deleted_detect_candidates_write_nonzero_receipt_no_batch(tmp_path: Path
     assert bundle["batches"]["batches"] == []
     assert bundle["opens"] == []
     receipt = bundle["receipts"]["receipts"][0]
-    assert receipt["zero_result"] is False
     assert receipt["raw_candidate_count"] == 2
-    assert receipt["final_open_ids"] == []
+    assert receipt["lens_measurements"] == [{"lens": "I", "gap_kw": 0}]
 
 
 def test_cleared_and_hard_skip_predicates(tmp_path: Path):
@@ -536,15 +527,13 @@ def test_cleared_does_not_require_frontier_digest_match(tmp_path: Path):
 
 def test_detect_writes_last_gap_kw(tmp_path: Path):
     _write_registry_and_kw(tmp_path)
+    ensure_frontier(tmp_path)
     add_opens(
         tmp_path,
         opens=[_candidate()],
-        detect=_detect_meta(
-            tmp_path,
-            [_candidate()],
-            checked_lenses=["I"],
-            lens_measurements=[{"lens": "I", "start_kw": 0, "gap_kw": 1}],
-        ),
+        detect={
+            "verdicts": [{"lens": "I", "gap_kw": 1, "candidates": [_candidate()]}]
+        },
     )
     frontier = load_lens_frontier(lens_frontier_path(tmp_path))
     assert frontier["lenses"]["I"]["frontier_kw"] == 1
@@ -553,36 +542,55 @@ def test_detect_writes_last_gap_kw(tmp_path: Path):
     assert "frontier_digest" not in receipt
 
 
-def test_detect_rejects_start_kw_mismatch(tmp_path: Path):
+def test_detect_rejects_gap_below_frontier(tmp_path: Path):
     _write_registry_and_kw(tmp_path)
-    with pytest.raises(ValueError, match="start_kw"):
+    ensure_frontier(tmp_path)
+    set_frontier(tmp_path, "I", 2)
+    with pytest.raises(ValueError, match="frontier"):
         add_opens(
             tmp_path,
             opens=[_candidate()],
-            detect=_detect_meta(
-                tmp_path,
-                [_candidate()],
-                checked_lenses=["I"],
-                lens_measurements=[{"lens": "I", "start_kw": 2, "gap_kw": 2}],
-            ),
+            detect={
+                "verdicts": [
+                    {"lens": "I", "gap_kw": 1, "candidates": [_candidate()]}
+                ]
+            },
         )
 
 
 def test_settle_does_not_reset_frontier_kw(tmp_path: Path):
     _write_registry_and_kw(tmp_path)
+    ensure_frontier(tmp_path)
     add_opens(
         tmp_path,
         opens=[_candidate()],
-        detect=_detect_meta(
-            tmp_path,
-            [_candidate()],
-            checked_lenses=["I"],
-            lens_measurements=[{"lens": "I", "start_kw": 0, "gap_kw": 1}],
-        ),
+        detect={
+            "verdicts": [{"lens": "I", "gap_kw": 1, "candidates": [_candidate()]}]
+        },
     )
     settle_open(tmp_path, "O-1", ["F-1"])
     frontier = load_lens_frontier(lens_frontier_path(tmp_path))
     assert frontier["lenses"]["I"]["frontier_kw"] == 1
+
+
+def test_detect_rejects_unknown_verdict_lens(tmp_path: Path):
+    _write_registry_and_kw(tmp_path)
+    ensure_frontier(tmp_path)
+    with pytest.raises(ValueError, match="unknown lenses"):
+        add_opens(
+            tmp_path,
+            opens=[],
+            detect={
+                "verdicts": [
+                    {"lens": "I", "gap_kw": None, "candidates": []},
+                    {
+                        "lens": "NOPE",
+                        "gap_kw": 0,
+                        "candidates": [_candidate(lens="NOPE")],
+                    },
+                ]
+            },
+        )
 
 
 def test_detect_rejects_unknown_registry_lens(tmp_path: Path):
@@ -591,11 +599,7 @@ def test_detect_rejects_unknown_registry_lens(tmp_path: Path):
         add_opens(
             tmp_path,
             opens=[_candidate(lens="NOPE")],
-            detect=_detect_meta(
-                tmp_path,
-                [_candidate(lens="NOPE")],
-                checked_lenses=["I", "NOPE"],
-            ),
+            detect=_detect_meta(tmp_path, [_candidate()]),
         )
 
 

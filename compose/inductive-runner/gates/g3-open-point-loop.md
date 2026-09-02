@@ -42,8 +42,9 @@ never start Detect automatically.
 After an explicit human Detect request from `idle`:
 
 1. `$OPEN_POINT_CTL ensure-frontier`.
-2. Dispatch `../open-point-detect-runner/SKILL.md` with `--out-dir` and
-   `--project-root` only. The runner fetches
+2. Dispatch `../open-point-detect-runner/SKILL.md`. The dispatch
+   prompt carries the invoke arguments `--out-dir` and `--project-root`
+   only — no contract or return-shape restatement. The runner fetches
    `$OPEN_POINT_CTL detect-context`, then `detect-lens-context` per
    `frontiers.lenses` key. Parent does not.
 3. Review the candidates with the human, then call

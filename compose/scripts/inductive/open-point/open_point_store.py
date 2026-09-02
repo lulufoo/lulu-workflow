@@ -12,6 +12,7 @@ docs/domain/archive/compose/compose-g3-detect-context-slim-design.md
 docs/domain/archive/compose/archive-49.0/compose-g3-section-registry-skill-fetch-design.md
 docs/domain/archive/compose/archive-50.0/compose-g3-detect-lens-context-design.md
 docs/domain/archive/compose/archive-52.0/compose-script-layer-contract-lock-design.md
+docs/domain/archive/compose/archive-67.0/compose-g3-detect-verdict-slim-design.md
 """
 
 from __future__ import annotations
@@ -71,7 +72,7 @@ from open_point_detect_receipt_schema import (  # noqa: E402
     next_receipt_seq,
     normalize_open_point_receipts,
     open_point_receipts_path,
-    parse_lens_measurements,
+    parse_detect_verdicts,
     save_open_point_receipts,
     validate_open_point_receipts,
 )
@@ -762,18 +763,12 @@ def _frontier_after_gaps(
 def _build_receipt(
     existing: list[dict[str, Any]],
     *,
-    checked_lenses: list[Any],
-    raw_candidates: list[Any],
-    final_open_ids: list[str],
+    raw_candidate_count: int,
     lens_measurements: list[dict[str, Any]],
 ) -> dict[str, Any]:
     return {
         "id": mint_receipt_id(next_receipt_seq(existing)),
-        "checked_lenses": list(checked_lenses),
-        "raw_candidate_count": len(raw_candidates),
-        "raw_candidate_digest": canonical_digest(raw_candidates),
-        "final_open_ids": list(final_open_ids),
-        "zero_result": len(raw_candidates) == 0,
+        "raw_candidate_count": int(raw_candidate_count),
         "lens_measurements": list(lens_measurements),
     }
 
@@ -796,32 +791,21 @@ def prepare_add_opens(
             raise ValueError("detect is only legal from idle")
         if _active_batch(bundle) is not None:
             raise ValueError("detect refused: active batch exists")
-        raw_candidates = detect.get("raw_candidates")
-        if not isinstance(raw_candidates, list):
-            raise ValueError("detect.raw_candidates must be a list")
-        checked = detect.get("checked_lenses")
-        if not isinstance(checked, list) or not checked:
-            raise ValueError("detect.checked_lenses must be a non-empty list")
-        checked_norm = [str(item).strip().upper() for item in checked if str(item).strip()]
-        registry_keys = registry_lens_keys(lens_snapshot(slice_dir, project_root))
-        missing_checked = [key for key in registry_keys if key not in checked_norm]
-        if missing_checked:
-            raise ValueError(
-                f"checked_lenses must cover registry {missing_checked}"
-            )
-        current_frontier_data = frontier_snapshot(slice_dir)
-        measurements = parse_lens_measurements(
-            detect.get("lens_measurements"),
-            checked_lenses=checked_norm,
-            raw_candidate_count=len(raw_candidates),
+        verdicts = parse_detect_verdicts(
+            detect.get("verdicts"), registry_lenses=allowed
         )
-        for item in measurements:
-            expected = _frontier_kw(current_frontier_data, item["lens"])
-            if int(item["start_kw"]) != expected:
+        current_frontier_data = frontier_snapshot(slice_dir)
+        for item in verdicts:
+            gap = item["gap_kw"]
+            start = _frontier_kw(current_frontier_data, item["lens"])
+            if gap is not None and int(gap) < start:
                 raise ValueError(
-                    f"lens {item['lens']} start_kw {item['start_kw']} "
-                    f"!= frontier {expected}"
+                    f"lens {item['lens']} gap_kw {gap} < frontier {start}"
                 )
+        measurements = [
+            {"lens": item["lens"], "gap_kw": item["gap_kw"]} for item in verdicts
+        ]
+        raw_candidate_count = sum(len(item["candidates"]) for item in verdicts)
         intent_refs, code_grounding = load_detect_materials(slice_dir, project_root)
         current_inert = compute_inert_means(intent_refs, code_grounding)
         for raw in opens:
@@ -845,9 +829,7 @@ def prepare_add_opens(
         )
         receipt = _build_receipt(
             bundle["receipts"]["receipts"],
-            checked_lenses=checked,
-            raw_candidates=raw_candidates,
-            final_open_ids=[item["id"] for item in registered],
+            raw_candidate_count=raw_candidate_count,
             lens_measurements=measurements,
         )
         receipts = {
@@ -1203,8 +1185,8 @@ def check_close(
             reasons.append("no detect receipt")
         else:
             latest = receipts[-1]
-            if latest.get("zero_result") is not True:
-                reasons.append("latest receipt is not zero_result")
+            if latest.get("raw_candidate_count") != 0:
+                reasons.append("latest receipt has raw candidates")
         if any(item.get("status") == "open" for item in bundle["opens"]):
             reasons.append("open items remain")
         try:
