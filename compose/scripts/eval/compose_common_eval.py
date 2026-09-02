@@ -32,7 +32,7 @@ from scope_package_schema import (  # noqa: E402
 
 COMMON_DIMENSION_IDS: tuple[str, ...] = (
     "intent-fidelity",
-    "parent-continuity",
+    "scope-continuity",
     "norm-conformance",
 )
 SKIP_EMPTY_INTENT = "empty_intent_baseline_refs"
@@ -90,7 +90,7 @@ def resolve_sot_file(
     return resolved
 
 
-def resolve_parent_continuity_sot(
+def resolve_scope_continuity_sot(
     revision_dir: Path,
     *,
     focus_l: str,
@@ -98,7 +98,7 @@ def resolve_parent_continuity_sot(
     scope_ref: DeliveredRef | None,
     extra_roots: list[Path] | None = None,
 ) -> Path:
-    """Resolve the single readable parent document for Parent Continuity."""
+    """Resolve the single readable parent document for Scope Continuity."""
     if scope_ref is None or not str(scope_ref.path).strip():
         raise ComposeCommonEvalError("scope_ref missing")
     roots = list(extra_roots or [])
@@ -174,7 +174,7 @@ def compose_common_dimensions(
     project_root: Path,
     extra_roots: list[Path] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, str]]:
-    """Return Common Dimensions in Intent → Parent → Norm order plus skip reasons."""
+    """Return Common Dimensions in Intent → Scope → Norm order plus skip reasons."""
     roots = list(extra_roots or [])
     if _WORKFLOW_ROOT not in roots:
         roots.append(_WORKFLOW_ROOT)
@@ -189,8 +189,8 @@ def compose_common_dimensions(
     else:
         intent["sots"] = []
         skip_reasons["intent-fidelity"] = SKIP_EMPTY_INTENT
-    parent = load_common_dimension_def("parent-continuity")
-    parent["sots"] = [{"ref": Path(parent_sot).as_posix()}]
+    scope = load_common_dimension_def("scope-continuity")
+    scope["sots"] = [{"ref": Path(parent_sot).as_posix()}]
     norm = load_common_dimension_def("norm-conformance")
     if refs.norm_constraint_refs:
         norm["sots"] = _sots_from_refs(
@@ -201,7 +201,7 @@ def compose_common_dimensions(
     else:
         norm["sots"] = []
         skip_reasons["norm-conformance"] = SKIP_EMPTY_NORM
-    return [intent, parent, norm], skip_reasons
+    return [intent, scope, norm], skip_reasons
 
 
 def assert_one_symbol_namespace(dimensions: list[dict[str, Any]]) -> None:

@@ -1,6 +1,6 @@
-# Parent Continuity Method
+# Scope Continuity Method
 
-**Role:** EvalMethod template for Compose common dimension `parent-continuity`.
+**Role:** EvalMethod template for Compose common dimension `scope-continuity`.
 
 ## Boundary
 

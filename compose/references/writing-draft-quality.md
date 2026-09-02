@@ -19,7 +19,7 @@ Chapter body artifacts make Writing synthesis inspectable and gate-able. Section
 | Preserve each placed fact's `anchors` into its chapter body (§ Anchor fidelity) | Abstract away a discovered fact's anchors (paths / symbols) |
 | Load lens writing cognition as Write input (What) | Invent beyond ticket facts; empty shell chapters |
 
-Inductive Detect owns formal KW gaps. Intent fidelity and parent continuity are Eval dimensions. Writing does not close those gaps.
+Inductive Detect owns formal KW gaps. Intent fidelity and scope continuity are Eval dimensions. Writing does not close those gaps.
 
 ## Per-chapter artifacts (fact-first)
 

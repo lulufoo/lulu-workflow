@@ -27,7 +27,7 @@ from compose_common_eval import (
     ComposeCommonEvalError,
     compose_common_dimensions,
     merge_common_and_stage,
-    resolve_parent_continuity_sot,
+    resolve_scope_continuity_sot,
 )
 from inductive_gate_state_schema import (
     close_gate,
@@ -163,12 +163,12 @@ class TestComposeCommonDimensions:
             merge_common_and_stage(common, stage)
 
 
-class TestParentContinuity:
+class TestScopeContinuity:
     def test_direct_document(self, tmp_path: Path):
         parent = tmp_path / "parent.md"
         parent.write_text("# parent\n", encoding="utf-8")
         refs = _refs(tmp_path, scope=parent)
-        resolved = resolve_parent_continuity_sot(
+        resolved = resolve_scope_continuity_sot(
             tmp_path,
             focus_l="L1",
             project_root=tmp_path,
@@ -178,7 +178,7 @@ class TestParentContinuity:
 
     def test_missing_scope_fails(self, tmp_path: Path):
         with pytest.raises(ComposeCommonEvalError, match="scope_ref missing"):
-            resolve_parent_continuity_sot(
+            resolve_scope_continuity_sot(
                 tmp_path,
                 focus_l="L1",
                 project_root=tmp_path,
@@ -202,7 +202,7 @@ class TestParentContinuity:
         (tmp_path / "L1").mkdir(exist_ok=True)
         (tmp_path / "L2").mkdir(exist_ok=True)
         scope_ref = DeliveredRef(type="scope", path=str(pkg_path.resolve()))
-        resolved = resolve_parent_continuity_sot(
+        resolved = resolve_scope_continuity_sot(
             tmp_path,
             focus_l="L2",
             project_root=tmp_path,
@@ -219,7 +219,7 @@ class TestParentContinuity:
         pkg_path = save_scope_package(tmp_path, package)
         scope_ref = DeliveredRef(type="scope", path=str(pkg_path.resolve()))
         with pytest.raises(ComposeCommonEvalError, match="mirror"):
-            resolve_parent_continuity_sot(
+            resolve_scope_continuity_sot(
                 tmp_path,
                 focus_l="L1",
                 project_root=tmp_path,
@@ -238,7 +238,7 @@ class TestParentContinuity:
         write_scope_ref_mirror(tmp_path, "L1", source_path=str(stale.resolve()))
         scope_ref = DeliveredRef(type="scope", path=str(pkg_path.resolve()))
         with pytest.raises(ComposeCommonEvalError, match="stale"):
-            resolve_parent_continuity_sot(
+            resolve_scope_continuity_sot(
                 tmp_path,
                 focus_l="L1",
                 project_root=tmp_path,

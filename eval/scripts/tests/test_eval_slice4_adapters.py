@@ -34,7 +34,7 @@ class _AdmissionMixin:
 _DIMENSION_DEFS = sorted(_WORKFLOW_ROOT.glob("**/dimension-defs/*.json"))
 _HUMAN_FIRST_DEFS = (
     _WORKFLOW_ROOT / "compose" / "eval" / "dimension-defs" / "intent-fidelity.json",
-    _WORKFLOW_ROOT / "compose" / "eval" / "dimension-defs" / "parent-continuity.json",
+    _WORKFLOW_ROOT / "compose" / "eval" / "dimension-defs" / "scope-continuity.json",
     _WORKFLOW_ROOT / "compose" / "eval" / "dimension-defs" / "norm-conformance.json",
 )
 _FULL_REMEDIATION_PROFILES = (

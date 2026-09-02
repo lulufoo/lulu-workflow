@@ -32,7 +32,7 @@ from eval_handoff_schema import (  # noqa: E402
 from compose_common_eval import (
     compose_common_dimensions,
     merge_common_and_stage,
-    resolve_parent_continuity_sot,
+    resolve_scope_continuity_sot,
 )
 from compose_corpus_versions import compose_corpus_id, compose_corpus_ref, compose_corpus_version
 from compose_eval_envelope import canonical_profile_digest
@@ -603,7 +603,7 @@ class ComposeEvalAdapter:
             expected_cycle_id=cycle_id,
             expected_stage=self._workflow_id(),
         )
-        parent = resolve_parent_continuity_sot(
+        parent = resolve_scope_continuity_sot(
             ctx.revision_dir,
             focus_l=ctx.focus_l,
             project_root=project_root,

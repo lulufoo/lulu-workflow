@@ -32,7 +32,7 @@ from tech_arch_eval_policy import select_dimension_ids  # noqa: E402
 from workflow_state_schema import init_compose_session  # noqa: E402
 from init_working_helpers import seed_resolved_refs_for_eval  # noqa: E402
 
-_COMMON_IDS = ["intent-fidelity", "parent-continuity", "norm-conformance"]
+_COMMON_IDS = ["intent-fidelity", "scope-continuity", "norm-conformance"]
 
 _CYCLE = "topic-arch-adapter"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")

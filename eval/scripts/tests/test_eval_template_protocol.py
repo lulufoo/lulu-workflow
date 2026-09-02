@@ -18,7 +18,7 @@ _ACTIVE_DEFINITIONS = (
     "lulu-design/dimension-defs/codebase-consistency.json",
     "lulu-design/dimension-defs/solution-quality.json",
     "compose/eval/dimension-defs/intent-fidelity.json",
-    "compose/eval/dimension-defs/parent-continuity.json",
+    "compose/eval/dimension-defs/scope-continuity.json",
     "compose/eval/dimension-defs/norm-conformance.json",
     "lulu-spec/dimension-defs/product-doc-quality.json",
     "lulu-arch/dimension-defs/arch-quality.json",

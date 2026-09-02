@@ -34,7 +34,7 @@ from init_working_helpers import (  # noqa: E402
     seed_resolved_refs_for_eval,
 )
 
-_COMMON_IDS = ["intent-fidelity", "parent-continuity", "norm-conformance"]
+_COMMON_IDS = ["intent-fidelity", "scope-continuity", "norm-conformance"]
 
 _CYCLE = "feat-design-adapter"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")

@@ -10,7 +10,7 @@ from typing import Any, Protocol
 
 _REVIEW_PREFIX = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _COMMON_DIMENSION_IDS = frozenset(
-    {"intent-fidelity", "parent-continuity", "norm-conformance"}
+    {"intent-fidelity", "scope-continuity", "norm-conformance"}
 )
 
 

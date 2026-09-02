@@ -31,7 +31,7 @@ from product_spec_eval_policy import select_dimension_ids  # noqa: E402
 from workflow_state_schema import init_compose_session  # noqa: E402
 from init_working_helpers import seed_delivered_refs_file, seed_provenance_artifacts  # noqa: E402
 
-_COMMON_IDS = ["intent-fidelity", "parent-continuity", "norm-conformance"]
+_COMMON_IDS = ["intent-fidelity", "scope-continuity", "norm-conformance"]
 
 _CYCLE = "feat-lulu-spec-adapter"
 _CACHE = Path(".cache/cursor/lulu-dev-workflow")
