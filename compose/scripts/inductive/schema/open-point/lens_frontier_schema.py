@@ -11,6 +11,7 @@ commands.
 Design rationale:
 docs/domain/archive/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
 docs/domain/archive/compose/archive-68.0/compose-g3-detect-clean-skip-design.md
+docs/domain/archive/compose/archive-70.0/compose-g3-detect-lens-payload-complete-design.md
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ FRONTIER_VERSION = 1
 _ENVELOPE_KEYS = frozenset({"version", "lenses"})
 _LENS_KEYS = frozenset({"frontier_kw", "skipped", "clean"})
 _H2_RE = re.compile(r"(?m)^##[ \t]+(\S+)[ \t]*$")
+_KW_ROW_RE = re.compile(r"^\|[ \t]*KW(\d+)[ \t]*\|")
 
 
 def lens_frontier_path(slice_dir: Path) -> Path:
@@ -57,6 +59,23 @@ def slice_kw_criteria(kw_raw: str, lens: str) -> str | None:
         end = matches[index + 1].start() if index + 1 < len(matches) else len(kw_raw)
         return kw_raw[start:end].strip("\n")
     return None
+
+
+def slice_kw_rows(body: str, start_kw: int) -> str:
+    """Drop ``| KWn |`` table rows with ``n < max(start_kw, 1)``.
+
+    KW0 (``Cannot be named``) is never emitted: an empty facts snapshot is
+    the KW0 verdict and needs no row. Header, separator, and note lines
+    are kept as-is.
+    """
+    floor = max(int(start_kw), 1)
+    kept: list[str] = []
+    for line in body.splitlines():
+        match = _KW_ROW_RE.match(line)
+        if match and int(match.group(1)) < floor:
+            continue
+        kept.append(line)
+    return "\n".join(kept)
 
 
 def _validate_lens_entry(prefix: str, entry: Any) -> list[str]:

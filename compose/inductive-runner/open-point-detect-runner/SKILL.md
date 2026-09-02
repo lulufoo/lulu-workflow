@@ -42,25 +42,23 @@ Parent supplies invoke arguments only.
 ## Detection
 
 1. Fetch `$OPEN_POINT_CTL detect-lens-context --lens <key>` for every
-   key in `pending_lenses`, batched in one message.
-2. Judge one lens at a time in `pending_lenses` order: detect gaps
-   against that lens's `kw_criteria`, measured from that lens's
-   `frontier_kw`, with the methods and evidence scopes in
-   `references/detect-means.md`. Conclude the lens's verdict before
-   the next lens.
-3. A lens is complete when its remaining `kw_criteria` rows are judged
-   against its payload. The pass is complete when every lens has a
-   verdict.
-4. Each candidate carries a recommended primary `means` for the parent
-   to stamp.
+   key in `pending_lenses`, batched in one message. A failed fetch
+   fails the whole pass.
+2. Judge one lens at a time in `pending_lenses` order, from its own
+   payload only. Walk `kw_criteria` rows top-down; the first row that
+   `facts_snapshot` cannot state is `gap_kw`. Every row stated:
+   `gap_kw` is null. Empty `facts_snapshot`: `gap_kw` is `frontier_kw`.
+   Candidates are the `references/detect-means.md` questions asked at
+   that row. Conclude the lens's verdict before the next lens.
+3. The pass is complete when every lens has a verdict.
 
 ## Return
 
 - One object after complete lens coverage: one verdict per
   `pending_lenses` key.
-- `gap_kw` is the coarsest remaining KW predicate left false, or null
-  when none — null exactly when `candidates` is empty.
-- `means` is `scan`, `intent`, or `probe`.
+- `gap_kw` is the row found in Detection; null exactly when
+  `candidates` is empty.
+- `means` is `probe`.
 
 ```json
 {
@@ -81,8 +79,10 @@ Parent supplies invoke arguments only.
 ## Boundaries
 
 - Read-only. Control calls: `detect-context` at Input;
-  `detect-lens-context` once per `pending_lenses` key.
+  `detect-lens-context` once per `pending_lenses` key. Run no control
+  command beyond these two.
 - Evidence closure: the two control stdout payloads, this SKILL, and
   `references/detect-means.md` are the whole evidence for one Detect
-  pass.
+  pass. Read nothing outside the closure. An unclear term is judged
+  from the payload, not looked up.
 - Do not produce options, leanings, or solutions.

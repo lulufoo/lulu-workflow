@@ -14,6 +14,7 @@ docs/domain/archive/compose/archive-50.0/compose-g3-detect-lens-context-design.m
 docs/domain/archive/compose/archive-52.0/compose-script-layer-contract-lock-design.md
 docs/domain/archive/compose/archive-67.0/compose-g3-detect-verdict-slim-design.md
 docs/domain/archive/compose/archive-68.0/compose-g3-detect-clean-skip-design.md
+docs/domain/archive/compose/archive-70.0/compose-g3-detect-lens-payload-complete-design.md
 """
 
 from __future__ import annotations
@@ -64,6 +65,7 @@ from lens_frontier_schema import (  # noqa: E402
     normalize_lens_frontier,
     save_lens_frontier,
     slice_kw_criteria,
+    slice_kw_rows,
     validate_lens_frontier,
 )
 from open_point_config_schema import detect_skip_clean_enabled  # noqa: E402
@@ -323,7 +325,11 @@ def detect_lens_registry_entry(snapshot: Any, lens: str) -> dict[str, str]:
 def detect_lens_context(
     slice_dir: Path, lens: str, project_root: Path | str | None = None
 ) -> dict[str, Any]:
-    """KW slice, one registry row, and ``id``/``text`` of facts tagged ``lens``."""
+    """Everything one lens's Detect judges from, in one payload.
+
+    ``frontier_kw`` plus the KW rows still to judge (rows below it and KW0
+    dropped), one registry row, and ``id``/``text`` of facts tagged ``lens``.
+    """
     key = str(lens).strip().upper()
     if not key:
         raise ValueError("unknown lens")
@@ -331,8 +337,10 @@ def detect_lens_context(
     sliced = slice_kw_criteria(load_published_kw_raw(slice_dir, project_root), key)
     if sliced is None:
         raise ValueError(f"KW criteria missing for {key}")
+    start = _frontier_kw(frontier_snapshot(slice_dir), key)
     return {
-        "kw_criteria": sliced,
+        "frontier_kw": start,
+        "kw_criteria": slice_kw_rows(sliced, start),
         "lens_registry": entry,
         "facts_snapshot": [
             {"id": item.get("id"), "text": item.get("text")}
@@ -411,17 +419,6 @@ def load_published_kw_raw(
     return _skill_template_text("section-kw-criteria", slice_dir, project_root)
 
 
-def _runtime_profile(slice_dir: Path, project_root: Path | str | None) -> Any:
-    if not project_root:
-        return None
-    from workflow_paths import resolve_revision_runtime_profile  # noqa: WPS433
-
-    try:
-        return resolve_revision_runtime_profile(Path(slice_dir), Path(project_root))
-    except (OSError, ValueError, FileNotFoundError):
-        return None
-
-
 def detect_skip_clean(
     slice_dir: Path | None = None,
     project_root: Path | str | None = None,
@@ -433,57 +430,22 @@ def detect_skip_clean(
 
 def pending_lenses(
     slice_dir: Path, project_root: Path | str | None = None
-) -> dict[str, dict[str, int]]:
-    """Registry lenses due for Detect with their resume start.
+) -> list[str]:
+    """Registry-ordered lens keys due for Detect.
 
     With ``detect_skip_clean`` on, a lens whose ``clean`` fingerprint still
     matches its current Detect payload is omitted.
     """
     frontier_lenses = frontier_snapshot(slice_dir).get("lenses") or {}
     skip = detect_skip_clean(slice_dir, project_root)
-    out: dict[str, dict[str, int]] = {}
+    out: list[str] = []
     for lens in registry_lens_keys(lens_snapshot(slice_dir, project_root)):
         entry = frontier_lenses.get(lens) or default_lens_entry()
         clean = entry.get("clean")
         if skip and clean and clean == detect_lens_digest(slice_dir, lens, project_root):
             continue
-        out[lens] = {"frontier_kw": int(entry.get("frontier_kw") or 0)}
+        out.append(lens)
     return out
-
-
-def load_detect_materials(
-    slice_dir: Path, project_root: Path | str | None
-) -> tuple[list[dict[str, Any]], bool]:
-    """Load intent refs and code_grounding. Missing project_root is true inert."""
-    runtime = _runtime_profile(slice_dir, project_root)
-    if runtime is None:
-        return [], False
-    from resolved_refs_schema import intent_baseline_from_workflow  # noqa: WPS433
-
-    try:
-        cycle_id = runtime.session_base.parent.name
-        refs = intent_baseline_from_workflow(
-            cycle_id, Path(project_root), runtime.profile_id
-        )
-        pipeline = runtime.profile_data.get("pipeline") or {}
-        return [item.to_dict() for item in refs], bool(pipeline.get("code_grounding"))
-    except FileNotFoundError:
-        return [], False
-    except ImportError:
-        raise
-    except (OSError, ValueError, KeyError) as exc:
-        raise ValueError(f"detect materials: intent baseline unavailable: {exc}") from exc
-
-
-def compute_inert_means(
-    intent_refs: list[Any], code_grounding: bool
-) -> list[str]:
-    inert: list[str] = []
-    if not intent_refs:
-        inert.append("intent")
-    if not code_grounding:
-        inert.append("scan")
-    return inert
 
 
 def require_detect_ruler(
@@ -864,8 +826,6 @@ def prepare_add_opens(
             for item in verdicts
             if item["gap_kw"] is None
         }
-        intent_refs, code_grounding = load_detect_materials(slice_dir, project_root)
-        current_inert = compute_inert_means(intent_refs, code_grounding)
         for raw in opens:
             if not isinstance(raw, dict):
                 raise ValueError("open must be an object")
@@ -874,11 +834,7 @@ def prepare_add_opens(
             if isinstance(source, dict):
                 means = str(source.get("means", "")).strip().lower()
             if means not in DETECT_MEANS:
-                raise ValueError(
-                    "detect open source.means must be scan, intent, or probe"
-                )
-            if means in current_inert:
-                raise ValueError(f"detect open source.means {means} is inert")
+                raise ValueError("detect open source.means must be probe")
         registered = _mint_opens(
             bundle["opens"],
             opens,

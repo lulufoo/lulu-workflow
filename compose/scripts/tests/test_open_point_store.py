@@ -477,7 +477,7 @@ def _write_registry_and_kw(slice_dir: Path) -> None:
 
 
 def test_detect_rejects_legacy_detect_means(tmp_path: Path):
-    with pytest.raises(ValueError, match="scan, intent, or probe"):
+    with pytest.raises(ValueError, match="must be probe"):
         add_opens(
             tmp_path,
             opens=[_candidate(source={"actor": "ai", "means": "detect"})],
@@ -609,9 +609,9 @@ def test_detect_rejects_unknown_registry_lens(tmp_path: Path):
         )
 
 
-def test_detect_rejects_inert_means(tmp_path: Path):
+def test_detect_rejects_non_probe_means(tmp_path: Path):
     _write_registry_and_kw(tmp_path)
-    with pytest.raises(ValueError, match="inert"):
+    with pytest.raises(ValueError, match="must be probe"):
         add_opens(
             tmp_path,
             opens=[_candidate(source={"actor": "ai", "means": "intent"})],
@@ -776,7 +776,25 @@ def test_detect_lens_context_filters_facts(tmp_path: Path):
     )
     payload = detect_lens_context(tmp_path, "I", tmp_path)
     assert payload["lens_registry"]["lens"] == "I"
-    assert "KW0" in payload["kw_criteria"]
+    assert payload["frontier_kw"] == 0
+    assert "| KW |" in payload["kw_criteria"]
+    assert "KW0" not in payload["kw_criteria"]
+    assert "KW1" in payload["kw_criteria"]
+    assert "KW3" in payload["kw_criteria"]
     assert payload["facts_snapshot"] == [{"id": "F-I", "text": "intent"}]
     with pytest.raises(ValueError, match="unknown lens"):
         detect_lens_context(tmp_path, "GO", tmp_path)
+
+
+def test_detect_lens_context_slices_kw_rows_from_frontier(tmp_path: Path):
+    (tmp_path / "_facts.json").write_text("[]", encoding="utf-8")
+    ensure_frontier(tmp_path)
+    set_frontier(tmp_path, "I", 2)
+    payload = detect_lens_context(tmp_path, "I", tmp_path)
+    assert payload["frontier_kw"] == 2
+    assert "KW0" not in payload["kw_criteria"]
+    assert "KW1" not in payload["kw_criteria"]
+    assert "KW2" in payload["kw_criteria"]
+    assert "KW3" in payload["kw_criteria"]
+    assert "| KW |" in payload["kw_criteria"]
+    assert payload["facts_snapshot"] == []

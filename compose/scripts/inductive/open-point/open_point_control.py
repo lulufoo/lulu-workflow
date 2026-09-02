@@ -14,6 +14,8 @@ docs/domain/archive/compose/compose-g3-detect-context-slim-design.md
 docs/domain/archive/compose/archive-50.0/compose-g3-detect-lens-context-design.md
 docs/domain/archive/compose/archive-67.0/compose-g3-detect-verdict-slim-design.md
 docs/domain/archive/compose/archive-68.0/compose-g3-detect-clean-skip-design.md
+docs/domain/archive/compose/archive-69.0/compose-g3-detect-probe-only-design.md
+docs/domain/archive/compose/archive-70.0/compose-g3-detect-lens-payload-complete-design.md
 """
 
 from __future__ import annotations
@@ -58,7 +60,6 @@ from open_point_store import (  # noqa: E402
     detect_lens_context,
     detect_opens_snapshot,
     load_bundle,
-    load_detect_materials,
     pending_lenses,
     require_detect_ruler,
     reject_open,
@@ -130,15 +131,12 @@ def cmd_detect_context(slice_dir: Path, args: argparse.Namespace) -> None:
         raise ValueError("detect-context requires idle (currently processing)")
     project_root = Path(args.project_root).resolve() if args.project_root else None
     require_detect_ruler(slice_dir, project_root)
-    intent_refs, code_grounding = load_detect_materials(slice_dir, project_root)
-    payload: dict[str, Any] = {
-        "opens_snapshot": detect_opens_snapshot(bundle["opens"]),
-        "pending_lenses": pending_lenses(slice_dir, project_root),
-        "intent_baseline_refs": intent_refs,
-    }
-    if code_grounding and project_root is not None:
-        payload["project_evidence_scope"] = {"project_root": str(project_root)}
-    _ok(payload)
+    _ok(
+        {
+            "opens_snapshot": detect_opens_snapshot(bundle["opens"]),
+            "pending_lenses": pending_lenses(slice_dir, project_root),
+        }
+    )
 
 
 def cmd_detect_lens_context(slice_dir: Path, args: argparse.Namespace) -> None:
@@ -263,7 +261,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--project-root",
         default="",
-        help="Session root for detect-context materials and process-context scope",
+        help="Session root for skill templates, frontier, and process-context scope",
     )
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
@@ -275,9 +273,8 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser(
         "detect-context",
         help=(
-            "Read-only opens, pending_lenses, intent refs, and means "
-            "materials. pending_lenses = lenses due for detection this pass "
-            "with frontier_kw (last found gap KW, resume start); lenses "
+            "Read-only opens_snapshot and pending_lenses. pending_lenses = "
+            "registry-ordered lens keys due for detection this pass; lenses "
             "whose clean fingerprint still holds are carried by control and "
             "omitted. Does not emit facts, KW, or lens registry."
         ),
@@ -285,8 +282,10 @@ def _build_parser() -> argparse.ArgumentParser:
     lens_ctx = sub.add_parser(
         "detect-lens-context",
         help=(
-            "Read-only KW slice, one registry row, and facts whose "
-            "lens_tags contain --lens. Unknown lens errors."
+            "Read-only, one lens: frontier_kw (last found gap KW), "
+            "kw_criteria with only rows KW>=max(frontier_kw,1) (KW0 never), "
+            "one registry row, and id/text of facts whose lens_tags "
+            "contain --lens. Unknown lens errors."
         ),
     )
     lens_ctx.add_argument("--lens", required=True)
@@ -304,7 +303,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "exactly when candidates is empty. Empty --opens-json is legal "
             "only with detect metadata. Measurements and the receipt derive "
             "from verdicts; carried lenses get gap_kw null. AI Detect means "
-            "must be scan|intent|probe and not inert. Non-null gap_kw writes "
+            "must be probe. Non-null gap_kw writes "
             "that lens frontier_kw and drops clean; null records clean."
         ),
     )

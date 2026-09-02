@@ -304,22 +304,22 @@ def test_detect_context_emits_slim_snapshots(tmp_path: Path):
     assert "lenses" not in payload
     assert "opens" not in payload
     assert "frontiers" not in payload
-    assert list(payload["pending_lenses"]) == _PLAN_LENSES
-    assert payload["pending_lenses"]["CTX"] == {"frontier_kw": 0}
+    assert payload["pending_lenses"] == _PLAN_LENSES
+    assert "frontier_kw" not in json.dumps(payload)
     assert "facts_digest" not in payload
     assert "lens_digest" not in payload
     assert "opens_digest" not in payload
     assert "frontier_digest" not in payload
     assert "code_grounding" not in payload
     assert "inert_means" not in payload
-    assert payload["intent_baseline_refs"] == []
-    assert payload["project_evidence_scope"]["project_root"] == str(Path(root).resolve())
+    assert "intent_baseline_refs" not in payload
+    assert "project_evidence_scope" not in payload
     assert (slice_dir / "lens-frontier.json").read_text(encoding="utf-8") == before
     assert not (slice_dir / "section-registry.json").exists()
     assert not (slice_dir / "section-kw-criteria.md").exists()
 
 
-def test_add_opens_rejects_inert_intent_means(tmp_path: Path):
+def test_add_opens_rejects_non_probe_detect_means(tmp_path: Path):
     slice_dir, root = _slice_env(tmp_path)
     raw = [
         {
@@ -341,7 +341,8 @@ def test_add_opens_rejects_inert_intent_means(tmp_path: Path):
         project_root=root,
     )
     assert code == 1
-    assert "inert" in payload["error"]
+    assert "must be probe" in payload["error"]
+    assert "inert" not in payload["error"]
 
 
 def test_set_frontier_does_not_block_cleared(tmp_path: Path):
@@ -374,7 +375,7 @@ def test_detect_context_fetches_registry_from_skill_without_slice_file(
     code, payload = _run(slice_dir, "detect-context", project_root=root)
     assert code == 0, payload
     assert "lens_registry" not in payload
-    assert list(payload["pending_lenses"]) == _PLAN_LENSES
+    assert payload["pending_lenses"] == _PLAN_LENSES
     assert not (slice_dir / "section-registry.json").exists()
     assert not (slice_dir / "section-kw-criteria.md").exists()
 
@@ -408,7 +409,7 @@ def test_empty_detect_records_clean_but_switch_off_keeps_all_pending(tmp_path: P
     assert all(entry.get("clean") for entry in frontier["lenses"].values())
     code, payload = _run(slice_dir, "detect-context", project_root=root)
     assert code == 0, payload
-    assert list(payload["pending_lenses"]) == _PLAN_LENSES
+    assert payload["pending_lenses"] == _PLAN_LENSES
     assert "clean" not in json.dumps(payload["pending_lenses"])
 
 
@@ -431,13 +432,13 @@ def test_switch_on_skips_clean_lenses_until_facts_change(tmp_path: Path):
         slice_dir, "detect-context", project_root=root, extra_env=skip_env
     )
     assert code == 0, payload
-    assert payload["pending_lenses"] == {}
+    assert payload["pending_lenses"] == []
     _write_facts(slice_dir, "ctx v2")
     code, payload = _run(
         slice_dir, "detect-context", project_root=root, extra_env=skip_env
     )
     assert code == 0, payload
-    assert list(payload["pending_lenses"]) == ["CTX"]
+    assert payload["pending_lenses"] == ["CTX"]
 
 
 def test_switch_on_add_opens_fills_carried_lenses_and_rejects_extra(tmp_path: Path):
@@ -525,8 +526,10 @@ def test_detect_lens_context_filters_facts_and_rejects_unknown(tmp_path: Path):
     assert code == 0, payload
     assert payload["lens_registry"]["lens"] == "CTX"
     assert payload["lens_registry"]["heading"] == "Context"
+    assert payload["frontier_kw"] == 0
     assert isinstance(payload["kw_criteria"], str)
-    assert "KW0" in payload["kw_criteria"]
+    assert "KW0" not in payload["kw_criteria"]
+    assert "KW1" in payload["kw_criteria"]
     assert payload["facts_snapshot"] == [{"id": "F-ctx", "text": "ctx"}]
     assert "opens_snapshot" not in payload
     assert "frontiers" not in payload

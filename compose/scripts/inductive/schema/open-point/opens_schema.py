@@ -37,7 +37,7 @@ MEANS = frozenset(
         "probe",
     }
 )
-DETECT_MEANS = frozenset({"scan", "intent", "probe"})
+DETECT_MEANS = frozenset({"probe"})
 
 _OPEN_REQUIRED = ("id", "status", "source", "question", "basis", "blocking", "lens")
 _OPEN_OPTIONAL = frozenset({"resolved_by", "note", "reason", "code_refs"})
