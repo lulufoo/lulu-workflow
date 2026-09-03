@@ -38,17 +38,30 @@ Slice materials from the two control commands.
 4. `$OPEN_POINT_CTL detect-lens-context --lens <key>` is one lens
    packet: `kw_criteria`, `lens_registry`, and `facts_snapshot`.
 
+## Cognition
+
+Packet terms carry the meanings defined in these units.
+
+| Term | Unit |
+|---|---|
+| `facts_snapshot`, fact | `../../references/cognition/fact.md` |
+| `lens_registry`, lens | `../../references/cognition/lens.md` |
+| `kw_criteria` | `../../references/cognition/kw-ruler.md` |
+
+One Detect pass composes them per lens:
+
+```text
+candidates(lens) = Detect(lens; kw rows, facts)
+                   − SettledBy(facts)
+                   − RepresentedBy(opens_snapshot)
+```
+
 ## Detection dimensions
 
 Rulers for judgment. Question type lives in `references/detect-means.md`.
 
 1. Completeness obligation is the `kw_criteria` rows in the lens packet.
-2. Lens is the bookkeeping identity of a verdict.
-3. A question the packet's `facts_snapshot` already settles, or that
-   `opens_snapshot` already holds, is not a candidate.
-4. The packet's `lens_registry` row is a non-exhaustive prompt, not a
-   questionnaire.
-5. `gap_kw` names the coarsest `kw_criteria` row the facts cannot state.
+2. `gap_kw` names the coarsest `kw_criteria` row the facts cannot state.
 
 ## Boundaries
 
@@ -57,10 +70,10 @@ Invariants for this pass.
 - Read-only. Control calls: `detect-context` once; `detect-lens-context`
   once per `pending_lenses` key. A failed fetch fails the pass. Run no
   control command beyond these two.
-- Evidence closure: the two control stdout payloads, this SKILL, and
-  `references/detect-means.md` are the whole evidence for one Detect
-  pass. Read nothing outside the closure. An unclear term is judged
-  from the payload, not looked up.
+- Evidence closure: the two control stdout payloads, this SKILL,
+  `references/detect-means.md`, and the three Cognition units are the
+  whole evidence for one Detect pass. Read nothing outside the closure.
+  An unclear term is judged from the closure, not looked up.
 - Do not produce options, leanings, or solutions.
 
 ## Return
