@@ -47,6 +47,7 @@ Packet terms carry the meanings defined in these units.
 | `facts_snapshot`, fact | `../../references/cognition/fact.md` |
 | `lens_registry`, lens | `../../references/cognition/lens.md` |
 | `kw_criteria` | `../../references/cognition/kw-ruler.md` |
+| `$CTX.guide` (D1, D2) | `../../references/cognition/profile/domain.md` |
 
 One Detect pass composes them per lens:
 
@@ -71,7 +72,7 @@ Invariants for this pass.
   once per `pending_lenses` key. A failed fetch fails the pass. Run no
   control command beyond these two.
 - Evidence closure: the two control stdout payloads, this SKILL,
-  `references/detect-means.md`, and the three Cognition units are the
+  `references/detect-means.md`, and the four Cognition units are the
   whole evidence for one Detect pass. Read nothing outside the closure.
   An unclear term is judged from the closure, not looked up.
 - Do not produce options, leanings, or solutions.

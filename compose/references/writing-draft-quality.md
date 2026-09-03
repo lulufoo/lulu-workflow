@@ -1,7 +1,7 @@
 # Writing Draft Quality
 
 > Referenced by: writing-runner (chapter artifacts + package validate).  
-> Cognition: [`cognition/fact.md`](cognition/fact.md) (anchors) · [`cognition/chapter.md`](cognition/chapter.md).
+> Cognition: [`cognition/fact.md`](cognition/fact.md) (anchors) · [`cognition/writing/chapter.md`](cognition/writing/chapter.md).
 
 ## Purpose
 

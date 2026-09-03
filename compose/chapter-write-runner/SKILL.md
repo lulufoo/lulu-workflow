@@ -27,9 +27,11 @@ Ticket terms carry the meanings defined in these units.
 |---|---|
 | ticket facts, `fact_ids`, anchors | `../references/cognition/fact.md` |
 | ticket `lens`, `lens_intent` | `../references/cognition/lens.md` |
-| arc, leaf, chapter order | `../references/cognition/narrative-arc.md` |
-| chapter, `cid`, body | `../references/cognition/chapter.md` |
+| arc, leaf, chapter order | `../references/cognition/writing/narrative-arc.md` |
+| chapter, `cid`, body | `../references/cognition/writing/chapter.md` |
 | ticket `writing_cognition` | `references/writing-cognition.md` |
+| `context.domain` | `../references/cognition/profile/domain.md` |
+| `context.role` | `../references/cognition/profile/role.md` |
 
 One chapter composes them:
 
@@ -37,6 +39,9 @@ One chapter composes them:
 body(chapter) = Write( facts_ℓ ; writing_cognition_ℓ )
   content ⊆ facts_ℓ        anchors(facts_ℓ) ⊆ tokens(body)
 ```
+
+`context.domain` and `context.role` are soft attention on Write: they
+shape voice and register, never content.
 
 ## Load rule
 

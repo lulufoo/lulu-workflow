@@ -41,8 +41,10 @@ Context terms carry the meanings defined in these units.
 |---|---|
 | `context` facts, `fact_ids` | `../references/cognition/fact.md` |
 | `lens_tags`, registry lens relations | `../references/cognition/lens.md` |
-| arc, group, leaf, station, `mapped` / `write_ready` | `../references/cognition/narrative-arc.md` |
-| chapter, placement | `../references/cognition/chapter.md` |
+| arc, group, leaf, station, `mapped` / `write_ready` | `../references/cognition/writing/narrative-arc.md` |
+| chapter, placement | `../references/cognition/writing/chapter.md` |
+| Domain `cognitive_frame`, `expression_conventions.scannability`, `audience_type` | `../references/cognition/profile/domain.md` |
+| Role `priority_tendency` | `../references/cognition/profile/role.md` |
 
 Placement composes them:
 
@@ -51,6 +53,8 @@ place(fact) = one leaf → one chapter,  chapter.lens ∈ fact.lens_tags
 ```
 
 The arc gives topology and titles; `lens_tags` decide membership only.
+Role orders the stations; Domain sets the through-line and split rule.
+How binding each is lives in `references/semantic-build-protocol.md`.
 
 ## Load rule
 
