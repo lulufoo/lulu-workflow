@@ -13,8 +13,9 @@ lens, supplied by the stage's section-form registry.
 2. `reading_axis` is the chapter's abstract narrative axis — how it is
    read, not a content outline.
 3. `presentation` holds the lens's carrier mechanisms: `guidance` in
-   plain language, `allowed` carriers each with a `when`, and
-   `forbidden` carriers or structures.
+   plain language; `allowed` entries, each naming a carrier, its
+   structure, and the `when` under which it applies; and `forbidden`
+   carriers or structures.
 4. `expression` holds manner-of-expression constraints as `required` and
    `forbidden` lists. It shapes wording, not substance.
 
