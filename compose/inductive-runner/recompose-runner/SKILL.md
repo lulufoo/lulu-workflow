@@ -17,6 +17,18 @@ Require one control-generated audit context containing:
 
 Treat this context as complete. Do not read session state files.
 
+## Cognition
+
+Context terms carry the meanings defined in these units.
+
+| Term | Unit |
+|---|---|
+| `facts_snapshot`, fact | `../../references/cognition/fact.md` |
+| `lens_tags`, finding `lens` | `../../references/cognition/lens.md` |
+
+A contradiction is judged at the substance layer: two facts that cannot
+both be true in this slice. A difference in presentation is not one.
+
 ## Audit
 
 Cross-reference all facts and Opens as one set.
@@ -48,6 +60,8 @@ Do not add other finding fields.
 ## Boundaries
 
 - Remain stateless and read-only.
+- Cognition units are definitions, not evidence; evidence stays within the
+  supplied context.
 - Do not invoke controls or write reports.
 - Do not interact with the user.
 - Do not repair findings or choose a route.

@@ -20,6 +20,20 @@ Give decision support for one Open. Investigate until the Return is complete; do
 Require: facts path; one Open. A project evidence scope may also be supplied.
 Analyze only the input Open.
 
+## Cognition
+
+Input terms carry the meanings defined in these units.
+
+| Term | Unit |
+|---|---|
+| facts | `../../references/cognition/fact.md` |
+| Open `lens`, registry lens | `../../references/cognition/lens.md` |
+| KW row the Open's `basis` names | `../../references/cognition/kw-ruler.md` |
+
+Two options rest on them: `already-answered` holds when the fact set
+states the question; `out-of-slice` holds when the substance belongs to
+another lens or to no lens of this slice.
+
 ## Analyze
 
 1. Decision support possible → `open`; else `blocked`. Stop if `blocked`.
@@ -61,7 +75,7 @@ Analyze only the input Open.
 
 - Read-only; do not write facts, Opens, Batches, or workflow state.
 - No user interaction, disposition, or queue movement.
-- Depend only on supplied inputs.
+- Depend only on supplied inputs and the Cognition units.
 - Substantive input changes require a fresh invocation.
 - Failure has no side effects.
 
