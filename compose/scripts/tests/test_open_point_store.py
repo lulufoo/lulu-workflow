@@ -776,7 +776,7 @@ def test_detect_lens_context_filters_facts(tmp_path: Path):
     )
     payload = detect_lens_context(tmp_path, "I", tmp_path)
     assert payload["lens_registry"]["lens"] == "I"
-    assert payload["frontier_kw"] == 0
+    assert "frontier_kw" not in payload
     assert "| KW |" in payload["kw_criteria"]
     assert "KW0" not in payload["kw_criteria"]
     assert "KW1" in payload["kw_criteria"]
@@ -791,7 +791,7 @@ def test_detect_lens_context_slices_kw_rows_from_frontier(tmp_path: Path):
     ensure_frontier(tmp_path)
     set_frontier(tmp_path, "I", 2)
     payload = detect_lens_context(tmp_path, "I", tmp_path)
-    assert payload["frontier_kw"] == 2
+    assert "frontier_kw" not in payload
     assert "KW0" not in payload["kw_criteria"]
     assert "KW1" not in payload["kw_criteria"]
     assert "KW2" in payload["kw_criteria"]

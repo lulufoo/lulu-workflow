@@ -16,6 +16,7 @@ docs/domain/archive/compose/archive-67.0/compose-g3-detect-verdict-slim-design.m
 docs/domain/archive/compose/archive-68.0/compose-g3-detect-clean-skip-design.md
 docs/domain/archive/compose/archive-69.0/compose-g3-detect-probe-only-design.md
 docs/domain/archive/compose/archive-70.0/compose-g3-detect-lens-payload-complete-design.md
+docs/domain/archive/compose/archive-71.0/compose-g3-detect-cognition-skill-design.md
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ _INDUCTIVE = _HERE.parent
 _COMPOSE_SCRIPTS = _INDUCTIVE.parent
 _SESSION = _COMPOSE_SCRIPTS / "schema" / "session"
 _KERNEL = _COMPOSE_SCRIPTS / "_kernel"
+_SCOPE = _COMPOSE_SCRIPTS / "schema" / "section" / "scope"
 _TEMPLATES = _COMPOSE_SCRIPTS / "templates"
 _SCHEMA_DIRS = (
     _INDUCTIVE / "schema" / "gate",
@@ -38,12 +40,15 @@ _SCHEMA_DIRS = (
     _INDUCTIVE / "schema" / "open-point",
     _INDUCTIVE / "schema" / "recompose",
 )
-for _path in (_HERE, *_SCHEMA_DIRS, _SESSION, _KERNEL, _TEMPLATES):
+for _path in (_HERE, *_SCHEMA_DIRS, _SESSION, _KERNEL, _SCOPE, _TEMPLATES):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
 from compose_state_lock import compose_state_lock  # noqa: E402
+from domain_instance_schema import load_and_validate_domain_instance  # noqa: E402
+from inductive_gate_state_schema import load_gate_state  # noqa: E402
 from l_ledger_schema import working_slice_dir  # noqa: E402
+from workflow_common import detect_cycle_type  # noqa: E402
 from open_point_store import (  # noqa: E402
     RepairRequiredError,
     StaleError,
@@ -93,6 +98,44 @@ def _active_open(bundle: dict[str, Any]) -> dict[str, Any] | None:
     return next((item for item in bundle["opens"] if item["id"] == open_id), None)
 
 
+def _gate_state_path(slice_dir: Path, args: argparse.Namespace) -> Path:
+    seen: set[Path] = set()
+    for base in (Path(args.out_dir), slice_dir, slice_dir.parent):
+        path = Path(base).resolve() / "inductive-gate-state.json"
+        if path in seen:
+            continue
+        seen.add(path)
+        if path.is_file():
+            return path
+    raise ValueError("detect-context failed: gate state not found; run init-session first")
+
+
+def _detect_guide(slice_dir: Path, args: argparse.Namespace) -> dict[str, str]:
+    root = str(getattr(args, "project_root", "") or "").strip()
+    if not root:
+        raise ValueError("detect-context failed: --project-root is required to load guide")
+    state = load_gate_state(_gate_state_path(slice_dir, args))
+    stage = str(state.get("stage") or "").strip()
+    if not stage:
+        raise ValueError(
+            "detect-context failed: gate-state.stage is empty; "
+            "cannot resolve domain instance"
+        )
+    cycle_type = detect_cycle_type(str(state.get("cycle_id") or ""))
+    try:
+        domain = load_and_validate_domain_instance(
+            cycle_type,
+            project_root=Path(root).resolve(),
+            profile_id=stage,
+        )
+    except (OSError, ValueError, FileNotFoundError) as exc:
+        raise ValueError(f"guide unresolved: {exc}") from exc
+    return {
+        "cognitive_frame": str(domain["cognitive_frame"]),
+        "intent_anchor": str(domain["intent_anchor"]),
+    }
+
+
 def cmd_resolve_context(slice_dir: Path, _args: argparse.Namespace) -> None:
     bundle = load_bundle(slice_dir)
     _ok(
@@ -135,6 +178,7 @@ def cmd_detect_context(slice_dir: Path, args: argparse.Namespace) -> None:
         {
             "opens_snapshot": detect_opens_snapshot(bundle["opens"]),
             "pending_lenses": pending_lenses(slice_dir, project_root),
+            "guide": _detect_guide(slice_dir, args),
         }
     )
 
@@ -273,19 +317,22 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser(
         "detect-context",
         help=(
-            "Read-only opens_snapshot and pending_lenses. pending_lenses = "
-            "registry-ordered lens keys due for detection this pass; lenses "
-            "whose clean fingerprint still holds are carried by control and "
-            "omitted. Does not emit facts, KW, or lens registry."
+            "Read-only opens_snapshot, pending_lenses, and guide. "
+            "pending_lenses = registry-ordered lens keys due for detection "
+            "this pass; lenses whose clean fingerprint still holds are "
+            "carried by control and omitted. guide is Domain "
+            "cognitive_frame + intent_anchor; fails if --project-root, "
+            "gate-state, stage, or Domain is missing. Does not emit facts, "
+            "KW, or lens registry."
         ),
     )
     lens_ctx = sub.add_parser(
         "detect-lens-context",
         help=(
-            "Read-only, one lens: frontier_kw (last found gap KW), "
-            "kw_criteria with only rows KW>=max(frontier_kw,1) (KW0 never), "
-            "one registry row, and id/text of facts whose lens_tags "
-            "contain --lens. Unknown lens errors."
+            "Read-only, one lens: kw_criteria with only rows "
+            "KW>=max(ledger frontier,1) (KW0 never), one registry row, "
+            "and id/text of facts whose lens_tags contain --lens. "
+            "Does not emit frontier_kw. Unknown lens errors."
         ),
     )
     lens_ctx.add_argument("--lens", required=True)

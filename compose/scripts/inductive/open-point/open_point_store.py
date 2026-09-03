@@ -327,8 +327,8 @@ def detect_lens_context(
 ) -> dict[str, Any]:
     """Everything one lens's Detect judges from, in one payload.
 
-    ``frontier_kw`` plus the KW rows still to judge (rows below it and KW0
-    dropped), one registry row, and ``id``/``text`` of facts tagged ``lens``.
+    KW rows still to judge (below the ledger frontier and KW0 dropped),
+    one registry row, and ``id``/``text`` of facts tagged ``lens``.
     """
     key = str(lens).strip().upper()
     if not key:
@@ -339,7 +339,6 @@ def detect_lens_context(
         raise ValueError(f"KW criteria missing for {key}")
     start = _frontier_kw(frontier_snapshot(slice_dir), key)
     return {
-        "frontier_kw": start,
         "kw_criteria": slice_kw_rows(sliced, start),
         "lens_registry": entry,
         "facts_snapshot": [

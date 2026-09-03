@@ -17,6 +17,10 @@ sys.path.insert(0, str(_INDUCTIVE_DIR))
 for _name in ("gate", "topic", "open-point", "recompose"):
     sys.path.insert(0, str(_INDUCTIVE_DIR / "schema" / _name))
 
+from inductive_gate_state_schema import (  # noqa: E402
+    init_gate_state,
+    save_gate_state,
+)
 from lens_frontier_schema import (  # noqa: E402
     default_lens_entry,
     lens_frontier_path,
@@ -26,6 +30,9 @@ from open_point_store import add_opens, ensure_frontier  # noqa: E402
 
 _PLAN_PROFILE = (
     Path(__file__).resolve().parents[3] / "lulu-plan" / "compose-profile.json"
+)
+_PLAN_DOMAIN = (
+    Path(__file__).resolve().parents[3] / "lulu-plan" / "templates" / "domain-instance.json"
 )
 _PLAN_LENSES = ["CTX", "GO", "SC", "AR", "I", "SK", "T", "VF"]
 
@@ -47,11 +54,27 @@ def _bind_session(session_base: Path, profile_path: Path) -> None:
     )
 
 
+def _write_gate_state(slice_dir: Path, *, stage: str = "lulu-plan") -> None:
+    save_gate_state(
+        slice_dir / "inductive-gate-state.json",
+        init_gate_state(cycle_id="c1", stage=stage),
+    )
+
+
 def _slice_env(tmp_path: Path) -> tuple[Path, str]:
     _bind_session(tmp_path, _PLAN_PROFILE)
     slice_dir = tmp_path / "revision1" / "L1"
     slice_dir.mkdir(parents=True)
+    _write_gate_state(slice_dir)
     return slice_dir, str(tmp_path)
+
+
+def _plan_guide() -> dict[str, str]:
+    domain = json.loads(_PLAN_DOMAIN.read_text(encoding="utf-8"))
+    return {
+        "cognitive_frame": domain["cognitive_frame"],
+        "intent_anchor": domain["intent_anchor"],
+    }
 
 
 def _ready_cleared(slice_dir: Path, project_root: str) -> None:
@@ -305,6 +328,8 @@ def test_detect_context_emits_slim_snapshots(tmp_path: Path):
     assert "opens" not in payload
     assert "frontiers" not in payload
     assert payload["pending_lenses"] == _PLAN_LENSES
+    assert payload["guide"] == _plan_guide()
+    assert set(payload["guide"]) == {"cognitive_frame", "intent_anchor"}
     assert "frontier_kw" not in json.dumps(payload)
     assert "facts_digest" not in payload
     assert "lens_digest" not in payload
@@ -317,6 +342,40 @@ def test_detect_context_emits_slim_snapshots(tmp_path: Path):
     assert (slice_dir / "lens-frontier.json").read_text(encoding="utf-8") == before
     assert not (slice_dir / "section-registry.json").exists()
     assert not (slice_dir / "section-kw-criteria.md").exists()
+
+
+def test_detect_context_fails_without_gate_state(tmp_path: Path):
+    slice_dir, root = _slice_env(tmp_path)
+    (slice_dir / "inductive-gate-state.json").unlink()
+    code, payload = _run(slice_dir, "ensure-frontier", project_root=root)
+    assert code == 0, payload
+    code, payload = _run(slice_dir, "detect-context", project_root=root)
+    assert code == 1
+    assert payload["ok"] is False
+    assert "gate state" in payload["error"]
+
+
+def test_detect_context_fails_when_stage_empty(tmp_path: Path):
+    slice_dir, root = _slice_env(tmp_path)
+    _write_gate_state(slice_dir, stage="")
+    code, payload = _run(slice_dir, "ensure-frontier", project_root=root)
+    assert code == 0, payload
+    code, payload = _run(slice_dir, "detect-context", project_root=root)
+    assert code == 1
+    assert payload["ok"] is False
+    assert "stage" in payload["error"].lower()
+
+
+def test_detect_context_fails_when_domain_unresolved(tmp_path: Path):
+    slice_dir, root = _slice_env(tmp_path)
+    _write_gate_state(slice_dir, stage="not-a-compose-profile")
+    code, payload = _run(slice_dir, "ensure-frontier", project_root=root)
+    assert code == 0, payload
+    code, payload = _run(slice_dir, "detect-context", project_root=root)
+    assert code == 1
+    assert payload["ok"] is False
+    error = payload["error"].lower()
+    assert "guide" in error or "profile" in error or "domain" in error
 
 
 def test_add_opens_rejects_non_probe_detect_means(tmp_path: Path):
@@ -526,7 +585,7 @@ def test_detect_lens_context_filters_facts_and_rejects_unknown(tmp_path: Path):
     assert code == 0, payload
     assert payload["lens_registry"]["lens"] == "CTX"
     assert payload["lens_registry"]["heading"] == "Context"
-    assert payload["frontier_kw"] == 0
+    assert "frontier_kw" not in payload
     assert isinstance(payload["kw_criteria"], str)
     assert "KW0" not in payload["kw_criteria"]
     assert "KW1" in payload["kw_criteria"]
