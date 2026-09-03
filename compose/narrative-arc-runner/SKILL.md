@@ -33,6 +33,25 @@ MOUNT: true|false
 Default when `MOUNT` omitted: `false`.  
 Do **not** paste fact bodies — read via `context`.
 
+## Cognition
+
+Context terms carry the meanings defined in these units.
+
+| Term | Unit |
+|---|---|
+| `context` facts, `fact_ids` | `../references/cognition/fact.md` |
+| `lens_tags`, registry lens relations | `../references/cognition/lens.md` |
+| arc, group, leaf, station, `mapped` / `write_ready` | `../references/cognition/narrative-arc.md` |
+| chapter, placement | `../references/cognition/chapter.md` |
+
+Placement composes them:
+
+```text
+place(fact) = one leaf → one chapter,  chapter.lens ∈ fact.lens_tags
+```
+
+The arc gives topology and titles; `lens_tags` decide membership only.
+
 ## Load rule
 
 1. Bind Input.  

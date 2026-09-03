@@ -8,10 +8,11 @@ What a chapter is and what its body owes to its facts.
 
 1. A chapter is one narrative-arc leaf × one lens × the facts placed
    there. It is the unit of writing.
-2. Under one lens, a fact is placed in exactly one chapter.
-3. The narrative arc is the topology: it decides where chapters sit and
-   what titles they carry. Chapter order comes from the arc, not from the
-   lens chain.
+2. A fact is placed exactly once: one leaf, one chapter, under one lens
+   drawn from its lens tags.
+3. The narrative arc (`narrative-arc.md`) is the topology: it decides
+   where chapters sit and what titles they carry. Chapter order comes from
+   the arc, not from the lens chain.
 
 ## Body obligations
 

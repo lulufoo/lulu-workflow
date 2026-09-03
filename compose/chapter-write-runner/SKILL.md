@@ -27,6 +27,7 @@ Ticket terms carry the meanings defined in these units.
 |---|---|
 | ticket facts, `fact_ids`, anchors | `../references/cognition/fact.md` |
 | ticket `lens`, `lens_intent` | `../references/cognition/lens.md` |
+| arc, leaf, chapter order | `../references/cognition/narrative-arc.md` |
 | chapter, `cid`, body | `../references/cognition/chapter.md` |
 | ticket `writing_cognition` | `references/writing-cognition.md` |
 
