@@ -17,9 +17,12 @@ _HOLDER_LINE_THRESHOLD = 60
 
 
 def test_engine_skill_contains_full_orchestration() -> None:
-    """Item 2: engine SKILL owns outer Working loop + Delivery."""
+    """Item 2: engine SKILL owns the state machine; l-chain owns the Working loop."""
     text = _ENGINE_SKILL.read_text(encoding="utf-8")
     inner = (_WORKFLOW_ROOT / "compose" / "references" / "l-execution.md").read_text(
+        encoding="utf-8"
+    )
+    chain = (_WORKFLOW_ROOT / "compose" / "references" / "l-chain.md").read_text(
         encoding="utf-8"
     )
 
@@ -32,20 +35,23 @@ def test_engine_skill_contains_full_orchestration() -> None:
         "### Bind context",
         "## Split",
         "## Working",
-        "### Principles",
-        "### Current focus",
-        "### Move forward",
-        "### Revise prefix",
-        "### Observe",
-        "### Exit",
         "## ReadyForDelivery",
         "## Delivery",
     ):
         assert heading in text, f"engine SKILL missing {heading!r}"
 
     assert "stateDiagram-v2" in text
+    assert "compose/references/compose-ontology.md" in text
     working = text.split("## Working", 1)[1].split("## ReadyForDelivery", 1)[0]
-    assert "#### " not in working
+    assert "compose/references/l-chain.md" in working
+    assert "### " not in working
+
+    for heading in ("## Loop", "## Actions", "## Exit"):
+        assert heading in chain, f"l-chain.md missing {heading!r}"
+    for action in ("Execute", "Reopen", "Advance", "Align and unfreeze", "Backtrack", "View"):
+        assert f"| {action} |" in chain, f"l-chain.md missing action {action!r}"
+    assert "$L_SHELL" in chain
+    assert "$L_STEP" not in chain
 
     for heading in (
         "## Script Macros",

@@ -50,6 +50,7 @@ Route only from `$SESSION_INFO` / `$L_SHELL` stdout. Do not compute the next L b
 ### Start
 
 Run `$START_COMPOSE`. On failure → Blocking.
+Load `{SKILL_ROOT}/compose/references/compose-ontology.md` once.
 
 **Done:** `$CURRENT_STATE=Split`.
 
@@ -78,40 +79,9 @@ Run `$SESSION_INFO --view session`, then bind:
 
 **Session state:** `Working`.
 
-Loop: run `$L_SHELL status` and follow `next_actions`. On inner failure → Blocking; do not advance focus.
+Load `{SKILL_ROOT}/compose/references/l-chain.md` and follow it: status loop, focus, advance, align, backtrack, view. Running the focus L is `references/l-execution.md`, loaded from l-chain.
 
-### Principles
-
-- **Status governs routing.** Follow `$L_SHELL status.next_actions`; never derive legal actions from the ledger.
-- **One focus at a time.** Work only on the current unfrozen L; return to Working when it reaches `Completed`.
-- **Advance only to the direct successor.** Move from a `Completed` focus only to its unfrozen `Lx+1`; never skip an L.
-- **Backtrack freezes the reached suffix.** Move focus to a completed predecessor in `FreeEdit`; freeze every reached successor while preserving its state and document.
-- **Align before unfreezing.** Unfreeze the direct successor only when it still aligns with the completed, unfrozen prefix; unfreezing moves focus to it.
-- **Ready means settled.** Leave `Working` only when every L is `Completed` and unfrozen.
-
-### Current focus
-
-- **Execute.** Load `{SKILL_ROOT}/compose/references/l-execution.md` and follow it for the current focus. When that L is `Completed`, return to Working.
-
-- **Reopen.** Load `{SKILL_ROOT}/compose/references/l-execution.md` and follow **Reopen**.
-
-### Move forward
-
-- **Advance.** Run `$L_SHELL advance`. No confirm. On `alignment_required` → **Align and unfreeze**. On `next_action=ready-for-delivery` → **Ready for delivery**.
-
-- **Align and unfreeze.** Read-only: review whether the frozen successor still holds given the completed prefix. If yes, run `$L_SHELL unfreeze --expected-fingerprint <stdout fingerprint> --confirm`.
-
-### Revise prefix
-
-- **Backtrack.** Run `$L_SHELL backtrack --target Lx --confirm`. Then load `{SKILL_ROOT}/compose/references/l-execution.md` and continue from **FreeEdit**.
-
-### Observe
-
-- **View.** Run `$L_SHELL view --target Lx`. Allowed in any session macrostate. Zero writes.
-
-### Exit
-
-- **Ready for delivery.** Confirm leaving Working, then `$SESSION_CONTROL ready-for-delivery`. On failure → Blocking.
+**Done:** every L `Completed` and unfrozen → ## ReadyForDelivery.
 
 ## ReadyForDelivery
 
@@ -134,6 +104,8 @@ Stage-agenda items live under the revision dir; orchestration: `{SKILL_ROOT}/age
 
 | Document | When |
 |----------|------|
-| `{SKILL_ROOT}/compose/references/l-execution.md` | Execute, Reopen, Backtrack |
+| `{SKILL_ROOT}/compose/references/compose-ontology.md` | Start, once per session |
+| `{SKILL_ROOT}/compose/references/l-chain.md` | Working |
+| `{SKILL_ROOT}/compose/references/l-execution.md` | Execute, Reopen, Backtrack (from l-chain) |
 | `{SKILL_ROOT}/eval/SKILL.md` | Loaded from l-execution Evaluating |
 | `{SKILL_ROOT}/agenda/SKILL.md` | Delivery blockers |
