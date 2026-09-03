@@ -188,4 +188,4 @@ doc = Assemble-arc(
 
 **Intent text:** Use `sections.{key}.intent` when present; else `sections.{key}.desc` (legacy).
 
-Display-layer quality gates: see [`writing-draft-quality.md`](writing-draft-quality.md).
+Chapter body contract: see [`../chapter-write-runner/references/chapter-body-contract.md`](../chapter-write-runner/references/chapter-body-contract.md).

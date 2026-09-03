@@ -1,6 +1,6 @@
 # Write protocol
 
-Chapter quality contract: [`../../references/writing-draft-quality.md`](../../references/writing-draft-quality.md).  
+Chapter body contract: [`chapter-body-contract.md`](chapter-body-contract.md).  
 Cognition: `../SKILL.md` § Cognition.
 
 ## Operating Model
