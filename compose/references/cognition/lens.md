@@ -20,7 +20,7 @@ What a lens is, and how a stage's lenses connect into one chain.
 
 1. A stage's lenses form one ordered chain declared by its section
    registry: `section_order` gives the order, each lens's `upstream` gives
-   the lenses it builds on.
+   the lenses it builds on. Each `upstream` link is one edge of the chain.
 2. `upstream` points only to earlier lenses in the order. A downstream lens
    presupposes its upstream substance and does not restate it.
 3. `intent_boundary` names where a lens hands substance off; `upstream`

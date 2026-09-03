@@ -14,6 +14,9 @@ its rows.
 3. KW0 means the intent cannot be named: no fact under this lens.
 4. The ruler measures altitude, not inventory. Rows are not a checklist of
    content to produce.
+5. A lens is thin when the facts leave its ruler below the altitude the
+   stage asks of that lens. Thickening raises altitude with facts, not
+   with wording.
 
 ## Instance
 

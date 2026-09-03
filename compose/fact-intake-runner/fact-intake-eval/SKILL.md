@@ -23,6 +23,19 @@ CYCLE_ID: <cycle id>
 SOURCE_PATH: <abs intake SoT>
 ```
 
+## Cognition
+
+Eval terms carry the meanings defined in these units.
+
+| Term | Unit |
+|---|---|
+| fact, one unit per `F-n`, weakening | `../../references/cognition/fact.md` |
+| `derivation.disposition`, `upstream_ref`, source span | `../../references/cognition/producer/provenance.md` |
+
+E1 asks whether every doc obligation reached one disposition without
+weakening; E2 asks whether every fact can be traced back to a doc span.
+Neither asks whether the doc is right.
+
 ## Script Macros
 
 | Macro | Command |

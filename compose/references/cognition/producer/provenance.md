@@ -25,9 +25,9 @@ facts into the set. Readers of facts do not load this unit.
 2. `disposition` is the author's verdict on that input: `carried` enters
    this stage's substance and carries lens tags; `quarantined` and
    `not_needed` stay out and carry none.
-3. `not_needed` must cite one rule of the Role's `consume_policy` by
-   `rule_id`. Without a rule the verdict is `quarantined`, not
-   `not_needed`.
+3. `not_needed` must cite one rule of the Role's `consume_policy`
+   (`../profile/role.md`) by `rule_id`. Without a rule the verdict is
+   `quarantined`, not `not_needed`.
 4. Cut sets lineage; disposition sets the verdict. A fact cut without a
    verdict is unclassified, not carried.
 
