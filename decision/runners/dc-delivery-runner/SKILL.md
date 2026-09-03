@@ -43,8 +43,7 @@ Eval owns probe-runner dispatch; Decision never dispatches Eval runners or remed
 
 1. Pin `$EVAL_ADAPTER_CONFIG` = `$SKILL_DIR/eval/eval-profile.json`.
 2. Load `$SKILL_ROOT/eval/SKILL.md` and execute its **Begin Eval** probe-only
-   segment. Do not call `$SUBAGENT_TOOL`, load `dimension-probe-runner`, or run
-   remediation.
+   segment.
 3. Pin the successful `complete-probe-only` JSON as `probe_result`.
 4. Run `$DEC_EVAL route-probe-result --probe-result-json '<probe_result JSON>'`.
    - `outcome: pass` → continue to `$SESSION_INTEGRITY render`.
