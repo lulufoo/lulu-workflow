@@ -29,6 +29,7 @@ Input terms carry the meanings defined in these units.
 | facts | `../../references/cognition/fact.md` |
 | Open `lens`, registry lens | `../../references/cognition/lens.md` |
 | KW row the Open's `basis` names | `../../references/cognition/kw-ruler.md` |
+| Open, decision support, the human decides | `../../references/cognition/producer/induce.md` |
 
 Two options rest on them: `already-answered` holds when the fact set
 states the question; `out-of-slice` holds when the substance belongs to

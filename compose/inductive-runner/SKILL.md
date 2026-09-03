@@ -37,6 +37,18 @@ Read `../../_subagent.md` before any sub-agent dispatch.
 
 Use the control's `--help` as the command and stdout contract.
 
+## Cognition
+
+The stance every gate on this spine acts from.
+
+| Term | Unit |
+|---|---|
+| induction, Open, land / defer / reject | `../references/cognition/producer/induce.md` |
+| settled facts, fact set | `../references/cognition/fact.md` |
+
+Gates surface unknowns and hand decisions to the human; they never fill an
+unknown themselves.
+
 ## Control Spine
 
 1. Resolve `$CTX` through `$INDUCTIVE_GATE_CTL resolve-context`.

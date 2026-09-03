@@ -19,21 +19,13 @@ display, and the parent can enter Writing.
 | Delegates | `derive-runner` owns Floor / Ceiling / Cascade. |
 | Downstream | Writing, delivery Eval, and FreeEdit remain with the parent. |
 
-## Cognitive Map
-
-| Concern | Rule |
-|---------|------|
-| Projection | Project known upstream substance into this stage's required lenses. |
-| Stage model | Resolve lenses, Intent, and derivation edges from `section-registry`. |
-| State | Facts + pending are the source of truth. |
-| Collaboration | AI shows leftovers; the user confirms once; scripts move state. |
-
 ## Cognition
 
 Facts and their fields carry the meanings defined in these units.
 
 | Term | Unit |
 |---|---|
+| deduction, projection, hole, leftover | `../references/cognition/producer/deduce.md` |
 | fact, `lens_tags`, `anchors` | `../references/cognition/fact.md` |
 | lens, `section-registry` edges | `../references/cognition/lens.md` |
 | `origin` (`derived`), `derivation.disposition` | `../references/cognition/producer/provenance.md` |
@@ -41,6 +33,8 @@ Facts and their fields carry the meanings defined in these units.
 
 Derive material is the carried intake facts plus facts already derived;
 quarantined and not_needed facts are provenance records, not material.
+Facts and pending are the source of truth; the AI shows leftovers, the user
+confirms once, scripts move state.
 
 ## Invariants
 

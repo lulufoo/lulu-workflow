@@ -35,6 +35,7 @@ Context terms carry the meanings defined in these units.
 | `section_order`, `section_registry` edges, hole lens | `../../references/cognition/lens.md` |
 | published KW table, thin lens | `../../references/cognition/kw-ruler.md` |
 | `origin.type=derived`, `ref`, `derive_mode` | `../../references/cognition/producer/provenance.md` |
+| projection, hole, never invent | `../../references/cognition/producer/deduce.md` |
 
 One derived fact composes them:
 
