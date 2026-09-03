@@ -1,7 +1,7 @@
 # Write protocol
 
 Chapter quality contract: [`../../references/writing-draft-quality.md`](../../references/writing-draft-quality.md).  
-Theory: [`../../references/compose-theory.md`](../../references/compose-theory.md).
+Cognition: `../SKILL.md` § Cognition.
 
 ## Operating Model
 
@@ -38,7 +38,7 @@ $CHAPTER_WRITE_STATE begin \
 1. `lens` = ticket.lens; `facts_ℓ` = ticket.facts (authoritative substance —
    id set must match `fact_ids`; do not expand).
 2. Use ticket.`writing_cognition` (`reading_axis`, `presentation`,
-   `expression`) — What mechanisms; see `compose-theory.md`.
+   `expression`) — What mechanisms; see `writing-cognition.md`.
 3. Soft attention (not machine-gated) while choosing how to write:
    - session `context.domain`
    - session `context.role`

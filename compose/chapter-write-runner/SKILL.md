@@ -19,6 +19,24 @@ OUTPUT_DOC_PATH: <abs path to compose output doc>
 ARC_PATH: _narrative-arc.json
 ```
 
+## Cognition
+
+Ticket terms carry the meanings defined in these units.
+
+| Term | Unit |
+|---|---|
+| ticket facts, `fact_ids`, anchors | `../references/cognition/fact.md` |
+| ticket `lens`, `lens_intent` | `../references/cognition/lens.md` |
+| chapter, `cid`, body | `../references/cognition/chapter.md` |
+| ticket `writing_cognition` | `references/writing-cognition.md` |
+
+One chapter composes them:
+
+```text
+body(chapter) = Write( facts_ℓ ; writing_cognition_ℓ )
+  content ⊆ facts_ℓ        anchors(facts_ℓ) ⊆ tokens(body)
+```
+
 ## Load rule
 
 1. Load `references/write-protocol.md`.  

@@ -1,7 +1,7 @@
 # Writing Draft Quality
 
 > Referenced by: writing-runner (chapter artifacts + package validate).  
-> Theory: [`compose-theory.md`](compose-theory.md).
+> Cognition: [`cognition/fact.md`](cognition/fact.md) (anchors) · [`cognition/chapter.md`](cognition/chapter.md).
 
 ## Purpose
 
@@ -64,7 +64,7 @@ Selection among `allowed` is soft How; Writing does not hard-gate a chosen carri
 
 ## Anchor fidelity (L6)
 
-A fact's `anchors` (§1.5 of `compose-theory.md`) are born-with substance and must survive into the chapter body. Write contract for each listed chapter:
+A fact's `anchors` (`cognition/fact.md` § Anchors) are born-with substance and must survive into the chapter body. Write contract for each listed chapter:
 
 ```text
 propositions ⊆ semantic(facts.text)          # existing: invent no propositions
