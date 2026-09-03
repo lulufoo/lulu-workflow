@@ -24,6 +24,17 @@ SOURCE_PATH: <abs intake SoT>
 REQUIRE_SEED_ORIGIN: <true|false; default false>
 ```
 
+## Cognition
+
+Output terms carry the meanings defined in these units.
+
+| Term | Unit |
+|---|---|
+| fact atom, `anchors` | `../../references/cognition/fact.md` |
+| `origin.type=seed`, `derivation.upstream_ref` | `../../references/cognition/producer/provenance.md` |
+
+Cut sets lineage only: every atom is `seed` with `upstream_ref`; no verdict.
+
 ## Script Macros
 
 | Macro | Command |

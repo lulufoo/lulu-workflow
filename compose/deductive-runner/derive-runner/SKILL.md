@@ -25,6 +25,26 @@ PROJECT_ROOT: <abs project root>
 CYCLE_ID: <cycle id>
 ```
 
+## Cognition
+
+Context terms carry the meanings defined in these units.
+
+| Term | Unit |
+|---|---|
+| intake facts, `anchors` | `../../references/cognition/fact.md` |
+| `section_order`, `section_registry` edges, hole lens | `../../references/cognition/lens.md` |
+| published KW table, thin lens | `../../references/cognition/kw-ruler.md` |
+| `origin.type=derived`, `ref`, `derive_mode` | `../../references/cognition/producer/provenance.md` |
+
+One derived fact composes them:
+
+```text
+derived(lens) = Project( material facts on upstream edges → lens )
+  material   = carried ∪ already derived   (never quarantined / not_needed)
+  origin.ref = the projected facts        derive_mode ∈ {floor, ceiling}
+  anchors inherited from ref
+```
+
 ## Script Macros
 
 | Macro | Command |

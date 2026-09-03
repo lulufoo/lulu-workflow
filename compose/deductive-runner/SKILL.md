@@ -28,6 +28,20 @@ display, and the parent can enter Writing.
 | State | Facts + pending are the source of truth. |
 | Collaboration | AI shows leftovers; the user confirms once; scripts move state. |
 
+## Cognition
+
+Facts and their fields carry the meanings defined in these units.
+
+| Term | Unit |
+|---|---|
+| fact, `lens_tags`, `anchors` | `../references/cognition/fact.md` |
+| lens, `section-registry` edges | `../references/cognition/lens.md` |
+| `origin` (`derived`), `derivation.disposition` | `../references/cognition/producer/provenance.md` |
+| role `consume_policy` | `../references/cognition/profile/role.md` |
+
+Derive material is the carried intake facts plus facts already derived;
+quarantined and not_needed facts are provenance records, not material.
+
 ## Invariants
 
 1. Steps use this stage's facts only; the intake source remains unchanged.

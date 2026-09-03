@@ -23,6 +23,25 @@ CYCLE_ID: <cycle id>
 SOURCE_PATH: <abs intake SoT>
 ```
 
+## Cognition
+
+Context terms carry the meanings defined in these units.
+
+| Term | Unit |
+|---|---|
+| fact atom, `lens_tags` | `../../references/cognition/fact.md` |
+| registry `intent`, `intent_boundary` | `../../references/cognition/lens.md` |
+| `derivation.disposition`, `rule_id` | `../../references/cognition/producer/provenance.md` |
+| role `consume_policy` | `../../references/cognition/profile/role.md` |
+
+One verdict per atom:
+
+```text
+not_needed  ⇐ one consume_policy rule holds        (cite rule_id; no tags)
+carried     ⇐ some lens intent owns it             (tags = those lenses)
+quarantined ⇐ otherwise                            (no tags)
+```
+
 ## Script Macros
 
 | Macro | Command |

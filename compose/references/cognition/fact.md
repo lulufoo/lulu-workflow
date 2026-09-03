@@ -33,7 +33,6 @@ producer writes and every consumer reads.
    path, artifact, symbol, API, or code reference.
 2. Anchors are substance. They are lens-invariant and say what is true,
    never how it is shown.
-3. Anchors are set once, at fact birth: declared on a seed or discovered
-   fact, inherited by a derived fact from its sources.
+3. Anchors are set once, at fact birth, and never mutated afterwards.
 4. Anchors come from declaration, never from parsing prose. Backticks in
    fact text are a readability hint, not a data contract.
