@@ -176,7 +176,13 @@ def test_apply_r_before_r_writes_rk(
         != 0
     )
     assert cmd_complete_assumption(
-        project_root, cycle_id, stage, entry_id="RK1", release_terms=_H_TERMS
+        project_root,
+        cycle_id,
+        stage,
+        entry_id="RK1",
+        release_terms=_H_TERMS,
+        check_result="pass",
+        check_evidence="integration test run: export succeeded",
     ) == 0
     assert (
         cmd_gate_close(

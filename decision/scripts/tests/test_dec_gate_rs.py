@@ -408,6 +408,8 @@ def test_stale_from_d_after_r_closed_preserves_completed_risk(
             stage,
             entry_id="A1",
             release_terms=release_terms,
+            check_result="pass",
+            check_evidence="integration test run: export succeeded",
         )
         == 0
     )
@@ -565,6 +567,8 @@ def test_stale_r_dc_requires_confirmed_review_receipt(
             "Method: integration test / Owner: QA / Timing: pre-release / "
             "Release condition: export succeeds"
         ),
+        check_result="pass",
+        check_evidence="integration test run: export succeeded",
     )
     assert (
         cmd_gate_close(

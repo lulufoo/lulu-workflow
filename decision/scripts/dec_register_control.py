@@ -226,6 +226,8 @@ def _apply_update_operation(
         "risk_state",
         "risk_consequence",
         "release_terms",
+        "check_result",
+        "check_evidence",
     ):
         if field in payload:
             raise ValueError(f"{field} is written on RK# via gate-control, not register-update")

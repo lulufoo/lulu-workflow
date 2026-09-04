@@ -57,8 +57,9 @@ into a Constraint.
    `$GATE_CONTROL apply-r-assumptions` (`--help`); pin `$CTX` if returned.
    If this Diff left `open`, load
    `$SKILL_DIR/runners/risk-release-runner/SKILL.md` for each such row. Return
-   `SCAN_COMPLETE` only when none of those rows remain `open`, or the user
-   routed away.
+   `SCAN_COMPLETE` once each such row returned `RELEASE_COMPLETE` or
+   `RELEASE_PENDING`, or the user routed away. `RELEASE_PENDING` rows stay
+   `open` and keep blocking ordinary close.
 3. **full:** return the draft to the caller — no user confirm, no
    `apply-r-assumptions`. Return `SCAN_COMPLETE` with the draft; `open` is
    not persisted.

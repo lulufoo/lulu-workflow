@@ -31,6 +31,10 @@ _H_TERMS = (
     "Method: integration test / Owner: QA / Timing: pre-release / "
     "Release condition: export succeeds for 10k rows"
 )
+_H_CHECK = {
+    "check_result": "pass",
+    "check_evidence": "integration test run: 10k-row export succeeded",
+}
 
 
 @pytest.fixture
@@ -138,6 +142,7 @@ def test_r_handle_complete_assumption_dc_deliver(
             stage,
             entry_id="A1",
             release_terms=_H_TERMS,
+            **_H_CHECK,
         )
         == 0
     )
@@ -258,6 +263,7 @@ def test_r_dc_allows_implementation_class(
         project_root,
         cycle_id,
         stage,
+        risk_level="M",
         risk_class="implementation",
         risk_consequence="May overturn later",
         text="Post-impl behavior",

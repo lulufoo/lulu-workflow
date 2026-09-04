@@ -20,7 +20,11 @@ Subcommands:
                            decision-doc). Nested approach main/Dx skips cycle
                            delivered-refs (holder stage deliver owns them).
                            Alias: deliver.
-    complete-assumption    Write release_terms + risk_state=completed on RK# (or leftover A#)
+    complete-assumption    Write release_terms + check evidence + risk_state=completed on
+                           RK# (or leftover A#). Structured terms need
+                           --check-result pass --check-evidence; `Accepted` is M/L only.
+                           Evidence gate: docs/domain/archive/decision/
+                           decision-risk-release-evidence-gate-design.md
     set-risk-state         Set risk_state to ignore|open on RK# (or leftover A#)
     apply-r-assumptions    Persist risk rows on risks[] without requiring active_gate=R
     migrate-session        Bootstrap gate-state/registers for legacy sessions
@@ -73,6 +77,7 @@ from dec_gate_state_schema import (  # noqa: E402
 from dec_register_schema import (  # noqa: E402
     RISK_CLASSES,
     RISK_LEVELS,
+    RELEASE_RECORD_KEYS,
     RISK_STATES,
     find_risk_by_id,
     find_risk_by_source,
@@ -81,6 +86,7 @@ from dec_register_schema import (  # noqa: E402
     next_constraint_id,
     next_risk_id,
     save_registers,
+    validate_release_record,
     validate_release_terms,
 )
 from dec_session_render import render_reply_header  # noqa: E402
@@ -631,6 +637,11 @@ def _risk_state_of(entry: dict[str, Any]) -> str:
     return str(entry.get("risk_state", entry.get("disposition", ""))).strip()
 
 
+def _clear_release_record(entry: dict[str, Any]) -> None:
+    for key in RELEASE_RECORD_KEYS:
+        entry.pop(key, None)
+
+
 def _validate_r_assumption_payload(item: dict[str, Any], *, exit_path: str) -> None:
     entry_id = str(item.get("id", "")).strip()
     if not entry_id:
@@ -898,7 +909,7 @@ def _apply_risk_fields(
         elif risk_level in {"H", "M"}:
             target["risk_state"] = "open"
     if prior_state == "completed" and _risk_state_of(target) == "open":
-        target.pop("release_terms", None)
+        _clear_release_record(target)
     text = str(update.get("text", "")).strip()
     if text:
         target["text"] = text
@@ -973,6 +984,8 @@ def cmd_complete_assumption(
     *,
     entry_id: str,
     release_terms: str,
+    check_result: str | None = None,
+    check_evidence: str | None = None,
     constraints_path: Path | None = None,
     session_dir: Path | None = None,
 ) -> int:
@@ -999,8 +1012,17 @@ def cmd_complete_assumption(
             return _emit_error(
                 f"{entry_id}: risk_state must be open (got {_risk_state_of(target)!r})"
             )
-        validate_release_terms(release_terms, entry_id=entry_id)
+        validate_release_record(
+            entry_id=entry_id,
+            risk_level=_risk_level_of(target),
+            release_terms=release_terms,
+            check_result=check_result,
+            check_evidence=check_evidence,
+        )
         target["release_terms"] = release_terms.strip()
+        if release_terms.strip() != "Accepted":
+            target["check_result"] = str(check_result).strip()
+            target["check_evidence"] = str(check_evidence).strip()
         target["risk_state"] = "completed"
         save_registers(paths["registers"], registers, **reg_flags)
     except (FileNotFoundError, ValueError) as exc:
@@ -1042,7 +1064,7 @@ def cmd_set_risk_state(
         if not _is_risk_row(target):
             return _emit_error(f"{entry_id}: not a risk row (none triad)")
         if _risk_state_of(target) == "completed" and new_state == "open":
-            target.pop("release_terms", None)
+            _clear_release_record(target)
         target["risk_state"] = new_state
         save_registers(paths["registers"], registers, **reg_flags)
     except (FileNotFoundError, ValueError) as exc:
@@ -1182,6 +1204,13 @@ def _collect_delivery_errors(
                     validate_release_terms(terms, entry_id=entry_id)
                 except ValueError as exc:
                     errors.append(str(exc))
+            # Check fields are validated only when present (legacy completed
+            # rows written before the evidence gate carry none).
+            result = str(entry.get("check_result") or "").strip()
+            if result and result != "pass":
+                errors.append(f"{entry_id}: completed with check_result={result!r}")
+            if result and not str(entry.get("check_evidence") or "").strip():
+                errors.append(f"{entry_id}: completed missing check_evidence")
     return errors
 
 
@@ -2151,10 +2180,27 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     complete_assumption = sub.add_parser(
         "complete-assumption",
-        help="Write release_terms and mark assumption risk_state=completed.",
+        help=(
+            "Release one open risk row: write release_terms plus check evidence and "
+            "mark risk_state=completed. Structured terms require --check-result pass "
+            "and --check-evidence; literal Accepted is legal for M/L only. The call "
+            "itself is the user's acknowledgement of the stated check."
+        ),
     )
     complete_assumption.add_argument("--id", required=True, dest="entry_id")
     complete_assumption.add_argument("--release-terms", required=True)
+    complete_assumption.add_argument(
+        "--check-result",
+        choices=["pass", "fail"],
+        help="Outcome of the Method against the Release condition. Only pass releases.",
+    )
+    complete_assumption.add_argument(
+        "--check-evidence",
+        help=(
+            "AI's one-line record of what was checked and observed (any form: probe "
+            "output, command result, document, user-supplied material)."
+        ),
+    )
 
     set_risk = sub.add_parser(
         "set-risk-state",
@@ -2324,6 +2370,8 @@ def main(argv: list[str] | None = None) -> int:
             stage,
             entry_id=args.entry_id.strip(),
             release_terms=args.release_terms,
+            check_result=args.check_result,
+            check_evidence=args.check_evidence,
             **common,
         )
     if args.command == "set-risk-state":

@@ -15,6 +15,7 @@ if str(_DIAG_SCRIPTS) not in sys.path:
 
 from dec_gate_control import (  # noqa: E402
     cmd_apply_r_assumptions,
+    cmd_check_delivery_ready,
     cmd_complete_assumption,
     cmd_gate_close,
     cmd_init_session,
@@ -30,6 +31,10 @@ _H_TERMS = (
     "Method: integration test / Owner: QA / Timing: pre-release / "
     "Release condition: export succeeds"
 )
+_H_CHECK = {
+    "check_result": "pass",
+    "check_evidence": "integration test run 2026-09-04: export of 10k rows succeeded",
+}
 
 
 @pytest.fixture
@@ -162,6 +167,7 @@ def test_complete_assumption_during_active_r(
             stage,
             entry_id="A1",
             release_terms=_H_TERMS,
+            **_H_CHECK,
         )
         == 0
     )
@@ -172,6 +178,124 @@ def test_complete_assumption_during_active_r(
     entry = risk_for_source(registers, "A1")
     assert entry["risk_state"] == "completed"
     assert entry["release_terms"] == _H_TERMS
+    assert entry["check_result"] == "pass"
+    assert entry["check_evidence"] == _H_CHECK["check_evidence"]
+
+
+def test_complete_assumption_requires_check_evidence_for_terms(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-evidence-1"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+
+    # Drafted terms alone are not a release.
+    assert (
+        cmd_complete_assumption(
+            project_root, cycle_id, stage, entry_id="A1", release_terms=_H_TERMS
+        )
+        != 0
+    )
+    # A pass without evidence is not a release either.
+    assert (
+        cmd_complete_assumption(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id="A1",
+            release_terms=_H_TERMS,
+            check_result="pass",
+        )
+        != 0
+    )
+    # A failed check keeps the row open.
+    assert (
+        cmd_complete_assumption(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id="A1",
+            release_terms=_H_TERMS,
+            check_result="fail",
+            check_evidence="probe FAIL: post button stayed disabled",
+        )
+        != 0
+    )
+
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    entry = risk_for_source(registers, "A1")
+    assert entry["risk_state"] == "open"
+    assert "release_terms" not in entry
+    assert "check_result" not in entry
+
+
+def test_delivery_ready_tolerates_legacy_but_rejects_failed_check(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-evidence-3"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+    cmd_complete_assumption(
+        project_root, cycle_id, stage, entry_id="A1", release_terms=_H_TERMS, **_H_CHECK
+    )
+    assert (
+        cmd_gate_close(
+            project_root, cycle_id, stage, "R", {"exit": "dc", "assumptions": []}
+        )
+        == 0
+    )
+    reg_path = project_root / registers_path(cycle_id, stage)
+
+    def _rewrite(**fields: object) -> None:
+        registers = json.loads(reg_path.read_text(encoding="utf-8"))
+        entry = risk_for_source(registers, "A1")
+        for key in ("check_result", "check_evidence"):
+            entry.pop(key, None)
+        entry.update(fields)
+        reg_path.write_text(json.dumps(registers, indent=2), encoding="utf-8")
+
+    def _ready() -> dict[str, object]:
+        capsys.readouterr()
+        assert cmd_check_delivery_ready(project_root, cycle_id, stage) == 0
+        return json.loads(capsys.readouterr().out)
+
+    # Legacy completed row (no check fields) still passes delivery audit.
+    _rewrite()
+    assert _ready()["ready"] is True
+    # Inconsistent record: completed with a failed check is rejected.
+    _rewrite(check_result="fail", check_evidence="probe FAIL")
+    report = _ready()
+    assert report["ready"] is False
+    assert any("check_result" in str(err) for err in report["errors"])
+
+
+def test_complete_assumption_rejects_accepted_for_high_risk(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-complete-evidence-2"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+
+    _close_through_r_active(project_root, cycle_id, stage)
+    assert (
+        cmd_complete_assumption(
+            project_root, cycle_id, stage, entry_id="A1", release_terms="Accepted"
+        )
+        != 0
+    )
+    registers = json.loads(
+        (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert risk_for_source(registers, "A1")["risk_state"] == "open"
 
 
 def test_reopening_completed_risk_clears_release_terms(
@@ -190,6 +314,7 @@ def test_reopening_completed_risk_clears_release_terms(
             stage,
             entry_id="A1",
             release_terms=_H_TERMS,
+            **_H_CHECK,
         )
         == 0
     )
@@ -210,6 +335,8 @@ def test_reopening_completed_risk_clears_release_terms(
     entry = risk_for_source(registers, "A1")
     assert entry["risk_state"] == "open"
     assert "release_terms" not in entry
+    assert "check_result" not in entry
+    assert "check_evidence" not in entry
 
 
 def test_apply_r_reopening_completed_risk_clears_release_terms(
@@ -227,6 +354,7 @@ def test_apply_r_reopening_completed_risk_clears_release_terms(
         stage,
         entry_id="A1",
         release_terms=_H_TERMS,
+        **_H_CHECK,
     )
     assert (
         cmd_apply_r_assumptions(
@@ -254,6 +382,7 @@ def test_apply_r_reopening_completed_risk_clears_release_terms(
     entry = risk_for_source(registers, "A1")
     assert entry["risk_state"] == "open"
     assert "release_terms" not in entry
+    assert "check_evidence" not in entry
 
 
 def test_register_update_rejects_risk_state(
@@ -271,6 +400,7 @@ def test_register_update_rejects_risk_state(
         stage,
         entry_id="A1",
         release_terms=_H_TERMS,
+        **_H_CHECK,
     )
     assert (
         cmd_register_update(
@@ -279,6 +409,16 @@ def test_register_update_rejects_risk_state(
             stage,
             entry_id="A1",
             payload={"risk_state": "open"},
+        )
+        != 0
+    )
+    assert (
+        cmd_register_update(
+            project_root,
+            cycle_id,
+            stage,
+            entry_id="A1",
+            payload={"check_result": "fail"},
         )
         != 0
     )
@@ -348,8 +488,11 @@ def test_complete_assumption_requires_open_state(
     monkeypatch.chdir(project_root)
 
     _close_through_r_active(project_root, cycle_id, stage)
-    cmd_complete_assumption(
-        project_root, cycle_id, stage, entry_id="A1", release_terms="Accepted"
+    assert (
+        cmd_complete_assumption(
+            project_root, cycle_id, stage, entry_id="A1", release_terms=_H_TERMS, **_H_CHECK
+        )
+        == 0
     )
     assert (
         cmd_complete_assumption(
@@ -357,7 +500,8 @@ def test_complete_assumption_requires_open_state(
             cycle_id,
             stage,
             entry_id="A1",
-            release_terms="Accepted",
+            release_terms=_H_TERMS,
+            **_H_CHECK,
         )
         != 0
     )
@@ -581,7 +725,7 @@ def test_r_dc_forbids_open_risk_state(
     )
 
     cmd_complete_assumption(
-        project_root, cycle_id, stage, entry_id="A1", release_terms="Accepted"
+        project_root, cycle_id, stage, entry_id="A1", release_terms=_H_TERMS, **_H_CHECK
     )
     assert (
         cmd_gate_close(

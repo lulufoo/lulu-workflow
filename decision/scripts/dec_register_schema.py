@@ -2,6 +2,8 @@
 """Schema and I/O for decision registers.json.
 
 Design rationale: docs/domain/archive/decision/decision-risk-release-timing-design.md
+Evidence gate (check_result / check_evidence):
+    docs/domain/archive/decision/decision-risk-release-evidence-gate-design.md
 """
 
 from __future__ import annotations
@@ -25,13 +27,20 @@ RISK_LEVELS = frozenset({"H", "M", "L", "none"})
 RISK_CLASSES = frozenset({"decision", "implementation", "pending", "none"})
 RISK_STATES = frozenset({"open", "ignore", "completed", "none"})
 RISK_SOURCE_KINDS = frozenset({"prior", "assumption", "constraint"})
+CHECK_RESULTS = frozenset({"pass", "fail"})
+# Levels allowed to release with literal `Accepted` (no check evidence).
+ACCEPTED_RISK_LEVELS = frozenset({"M", "L"})
 _RISK_FIELD_KEYS = (
     "risk_level",
     "risk_class",
     "risk_state",
     "risk_consequence",
     "release_terms",
+    "check_result",
+    "check_evidence",
 )
+# Fields cleared together when a completed row reopens.
+RELEASE_RECORD_KEYS = ("release_terms", "check_result", "check_evidence")
 
 
 def _now_iso() -> str:
@@ -75,6 +84,62 @@ def validate_release_terms(terms: str, *, entry_id: str) -> None:
     for part in RELEASE_TERMS_PARTS:
         if part not in text:
             raise ValueError(f"{entry_id}: release_terms missing {part!r}")
+
+
+def validate_release_record(
+    *,
+    entry_id: str,
+    risk_level: str,
+    release_terms: str,
+    check_result: str | None,
+    check_evidence: str | None,
+) -> None:
+    """Validate a completed release as a whole (terms + check evidence).
+
+    `Accepted` is legal only for M/L and needs no check. Structured terms
+    require `check_result == "pass"` and non-empty `check_evidence`; a `fail`
+    result is not a release — the row must stay open.
+    """
+    validate_release_terms(release_terms, entry_id=entry_id)
+    terms = str(release_terms).strip()
+    level = str(risk_level).strip()
+    if terms == "Accepted":
+        if level not in ACCEPTED_RISK_LEVELS:
+            raise ValueError(
+                f"{entry_id}: Accepted is legal only for M/L (risk_level={level!r}); "
+                "H requires release terms plus check evidence"
+            )
+        return
+    result = str(check_result or "").strip()
+    evidence = str(check_evidence or "").strip()
+    if not result:
+        raise ValueError(
+            f"{entry_id}: check_result is required to complete a release "
+            "(drafted terms are not a release)"
+        )
+    if result not in CHECK_RESULTS:
+        raise ValueError(f"{entry_id}: check_result must be pass|fail (got {result!r})")
+    if result == "fail":
+        raise ValueError(
+            f"{entry_id}: check_result=fail is not a release; keep the row open, "
+            "revise terms and re-run the Method, or route RS / human_decision"
+        )
+    if not evidence:
+        raise ValueError(f"{entry_id}: check_evidence is required when check_result=pass")
+
+
+def _validate_check_fields(entry: dict[str, Any], *, label: str) -> list[str]:
+    errors: list[str] = []
+    result = entry.get("check_result")
+    if result is not None:
+        if not isinstance(result, str):
+            errors.append(f"{label}.check_result must be a string")
+        elif result.strip() not in CHECK_RESULTS:
+            errors.append(f"{label}.check_result invalid: {result!r}")
+    evidence = entry.get("check_evidence")
+    if evidence is not None and not isinstance(evidence, str):
+        errors.append(f"{label}.check_evidence must be a string")
+    return errors
 
 
 def validate_registers(
@@ -255,6 +320,7 @@ def _validate_assumption_entry(
         errors.append(f"assumptions[{index}].risk_consequence must be a string")
     if release_terms is not None and not isinstance(release_terms, str):
         errors.append(f"assumptions[{index}].release_terms must be a string")
+    errors.extend(_validate_check_fields(entry, label=f"assumptions[{index}]"))
 
     return errors
 
@@ -343,6 +409,7 @@ def _validate_risk_entry(entry: Any, index: int, seen: set[str]) -> list[str]:
     terms = entry.get("release_terms")
     if terms is not None and not isinstance(terms, str):
         errors.append(f"risks[{index}].release_terms must be a string")
+    errors.extend(_validate_check_fields(entry, label=f"risks[{index}]"))
     return errors
 
 
