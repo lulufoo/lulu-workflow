@@ -9,7 +9,7 @@ Open pending and unreferenced quarantine do not block. Step 3 is display
 plus one user confirm.
 
 Design rationale (source repo, why-only):
-docs/domain/archive/compose/archive-48.0/compose-pending-confirm-display-only-design.md.
+docs/archive/lulu-dev-workflow/compose/archive-48.0/compose-pending-confirm-display-only-design.md.
 """
 
 from __future__ import annotations

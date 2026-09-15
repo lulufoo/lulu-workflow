@@ -5,10 +5,10 @@ Control layers call these functions, then validate + atomic-save via
 ``l_ledger_schema``. This module does not read or write files.
 
 Design rationale:
-docs/domain/archive/compose/archive-33.0/compose-outer-shell-management-subdesign.md
-docs/domain/archive/compose/archive-33.0/compose-l-execution-subdesign.md
-docs/domain/archive/compose/archive-35.0/compose-fact-intake-extract-subdesign.md
-docs/domain/archive/compose/archive-35.0/compose-producer-serial-subdesign.md
+docs/archive/lulu-dev-workflow/compose/archive-33.0/compose-outer-shell-management-subdesign.md
+docs/archive/lulu-dev-workflow/compose/archive-33.0/compose-l-execution-subdesign.md
+docs/archive/lulu-dev-workflow/compose/archive-35.0/compose-fact-intake-extract-subdesign.md
+docs/archive/lulu-dev-workflow/compose/archive-35.0/compose-producer-serial-subdesign.md
 """
 
 from __future__ import annotations

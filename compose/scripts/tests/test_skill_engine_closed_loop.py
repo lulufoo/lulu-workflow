@@ -2,7 +2,7 @@
 """Hard-gate tests for the compose SKILL orchestration layer closed loop.
 
 Acceptance criteria for holder thin-shell + engine closed loop:
-this file is the executable SSOT (see also docs/domain/ssot/compose/business-ssot/compose-business-ssot.md §7).
+this file is the executable SSOT (see also docs/ssot/compose/business-ssot/compose-business-ssot.md §7).
 """
 
 from __future__ import annotations

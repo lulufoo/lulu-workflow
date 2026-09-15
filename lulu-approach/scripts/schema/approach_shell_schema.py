@@ -17,7 +17,7 @@ On-disk ``discussion-pointer.json`` at the approach root::
 
 ``path_choice`` is the human Path A/B mark after Main is Completed (null =
 unconfirmed). Missing key loads as null. Design:
-``docs/domain/archive/approach/archive-1.1/approach-main-complete-path-choice-gate-design.md``.
+``docs/archive/lulu-dev-workflow/approach/archive-1.1/approach-main-complete-path-choice-gate-design.md``.
 
 ``split_delivered`` stubs Split-phase completion until P2.split owns the cut.
 Ready sets are computed, not persisted.

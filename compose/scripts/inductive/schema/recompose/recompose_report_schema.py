@@ -6,7 +6,7 @@ Empty findings are valid only when buildable, reversible, and verifiable
 are all true.
 
 Design rationale:
-docs/domain/archive/compose/archive-37.0/compose-g3-detect-execution-closure-design.md
+docs/archive/lulu-dev-workflow/compose/archive-37.0/compose-g3-detect-execution-closure-design.md
 """
 
 from __future__ import annotations

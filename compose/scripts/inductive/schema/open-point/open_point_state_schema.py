@@ -4,7 +4,7 @@
 Loop position only: idle|processing plus the active batch/open ids.
 
 Design rationale:
-docs/domain/archive/compose/archive-34.0/compose-g3-open-point-loop-refactor-design.md
+docs/archive/lulu-dev-workflow/compose/archive-34.0/compose-g3-open-point-loop-refactor-design.md
 """
 
 from __future__ import annotations

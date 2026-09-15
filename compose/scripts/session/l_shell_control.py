@@ -9,7 +9,7 @@ Subcommands:
     unfreeze --expected-fingerprint <sha256> --confirm
 
 Design rationale:
-docs/domain/archive/compose/archive-33.0/compose-outer-shell-management-subdesign.md
+docs/archive/lulu-dev-workflow/compose/archive-33.0/compose-outer-shell-management-subdesign.md
 
 Stdout contracts live in this module docstring / ``--help``.
 """

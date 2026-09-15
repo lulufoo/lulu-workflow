@@ -5,7 +5,7 @@ JSON array of open objects (no envelope). IDs are ``O-n`` (n >= 1),
 monotonic and never reused; gaps are allowed.
 
 Design rationale:
-docs/domain/archive/compose/archive-34.0/compose-g3-open-point-loop-refactor-design.md
+docs/archive/lulu-dev-workflow/compose/archive-34.0/compose-g3-open-point-loop-refactor-design.md
 """
 
 from __future__ import annotations

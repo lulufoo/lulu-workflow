@@ -18,7 +18,7 @@ All subcommands print JSON to stdout; exit 0 on success, exit 1 on failure.
 Global flags: --out-dir PATH (required). Platform session identity is hook-managed.
 
 Design rationale:
-docs/domain/archive/compose/archive-37.0/compose-g3-detect-execution-closure-design.md
+docs/archive/lulu-dev-workflow/compose/archive-37.0/compose-g3-detect-execution-closure-design.md
 """
 
 from __future__ import annotations

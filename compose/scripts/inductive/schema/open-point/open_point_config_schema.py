@@ -5,7 +5,7 @@
 ``LULU_COMPOSE_CONFIG`` overrides the path (tests).
 
 Design rationale:
-docs/domain/archive/compose/archive-68.0/compose-g3-detect-clean-skip-design.md
+docs/archive/lulu-dev-workflow/compose/archive-68.0/compose-g3-detect-clean-skip-design.md
 """
 
 from __future__ import annotations

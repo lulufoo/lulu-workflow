@@ -5,7 +5,7 @@ Since the compose SKILL closed-loop refactor, the `start.py` invocation is
 defined once (generically) in the compose engine SKILL's `$START_COMPOSE`
 macro / § start; holders bind `$PROFILE_PATH` (start reads `profile_id` from
 that JSON) rather than repeating CLI flags or the raw script invocation
-(see docs/domain/ssot/compose/business-ssot/compose-business-ssot.md §7; this test is the executable check).
+(see docs/ssot/compose/business-ssot/compose-business-ssot.md §7; this test is the executable check).
 """
 
 from __future__ import annotations

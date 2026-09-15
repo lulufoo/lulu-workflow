@@ -13,7 +13,7 @@ On-disk shape (exact keys only — no legacy fields)::
     }
 
 Design rationale:
-docs/domain/archive/compose/archive-33.0/compose-outer-shell-management-subdesign.md
+docs/archive/lulu-dev-workflow/compose/archive-33.0/compose-outer-shell-management-subdesign.md
 """
 
 from __future__ import annotations

@@ -2,7 +2,7 @@
 """Schema and I/O for revision ``_chapter-write-state.json`` (archive-5.0).
 
 Serial Writing Write progress per ``chapter_id`` (``{leaf.id}-{lens}``).
-Process how: docs/domain/archive/compose/archive-5.0/compose-chapter-write-state-design.md
+Process how: docs/archive/lulu-dev-workflow/compose/archive-5.0/compose-chapter-write-state-design.md
 """
 
 from __future__ import annotations

@@ -3,7 +3,7 @@
 
 Since the compose SKILL closed-loop refactor, `$L_STEP` is defined
 once in `compose/references/l-execution.md`; holders no longer redefine it
-locally (see docs/domain/ssot/compose/business-ssot/compose-business-ssot.md §7;
+locally (see docs/ssot/compose/business-ssot/compose-business-ssot.md §7;
 this test is the executable check).
 """
 

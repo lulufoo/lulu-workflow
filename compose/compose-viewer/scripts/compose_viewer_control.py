@@ -13,7 +13,7 @@ Subcommands: mount · status · stop
 
 CLI: ``python3 compose_viewer_control.py --help``
 
-Process how: docs/domain/archive/compose/archive-25.0/
+Process how: docs/archive/lulu-dev-workflow/compose/archive-25.0/
 """
 
 from __future__ import annotations

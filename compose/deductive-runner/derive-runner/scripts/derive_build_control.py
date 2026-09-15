@@ -5,7 +5,7 @@ Subcommands:
     context       Registry + section_order; require intake eval done
     lens-bundle   Per-lens KW slice (## LENS) + Ceiling material facts
 
-Rationale (design): docs/domain/archive/compose/archive-32.0/
+Rationale (design): docs/archive/lulu-dev-workflow/compose/archive-32.0/
 compose-derive-edge-holes-lifecycle-scheme-draft.md
 """
 

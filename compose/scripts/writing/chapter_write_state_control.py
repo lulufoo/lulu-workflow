@@ -14,9 +14,9 @@ Arc I/O uses slice ``_narrative-arc.json`` only (no --arc-path in this wave).
 CLI: ``python3 chapter_write_state_control.py --help``
 
 Process how:
-docs/domain/archive/compose/archive-5.0/compose-chapter-write-claim-current-design.md
-docs/domain/archive/compose/archive-5.0/compose-chapter-write-begin-facts-ticket-design.md
-docs/domain/archive/compose/archive-26.0/chapter-write-runner-extract-design.md
+docs/archive/lulu-dev-workflow/compose/archive-5.0/compose-chapter-write-claim-current-design.md
+docs/archive/lulu-dev-workflow/compose/archive-5.0/compose-chapter-write-begin-facts-ticket-design.md
+docs/archive/lulu-dev-workflow/compose/archive-26.0/chapter-write-runner-extract-design.md
 """
 
 from __future__ import annotations

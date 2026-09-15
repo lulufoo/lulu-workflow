@@ -9,7 +9,7 @@ Macro transitions::
 Path A/B after Main Completed requires ``record-path-choice`` (human
 ``--confirm``). ``enter-package-ready`` / ``enter-split`` read ``path_choice``;
 they do not take a path CLI flag. Design:
-``docs/domain/archive/approach/archive-1.1/approach-main-complete-path-choice-gate-design.md``.
+``docs/archive/lulu-dev-workflow/approach/archive-1.1/approach-main-complete-path-choice-gate-design.md``.
 
 Working: single focus; reject mid-switch until current focus is Completed.
 PackageReady: human ``--confirm`` required before stage ``deliver`` (Path A:

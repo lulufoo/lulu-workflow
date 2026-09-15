@@ -17,11 +17,11 @@ Intake Disposition Confirm uses fact-intake disposition control
 (fact-intake-disposition-review.patch), not these subcommands.
 
 Design rationale (source repo, why-only):
-docs/domain/archive/compose/archive-3.0/compose-deductive-runner-architecture-design.md §4.5;
-docs/domain/archive/compose/archive-6.0/compose-plan-deductive-consume-disposition-design.md;
-docs/domain/archive/compose/archive-45.0/compose-floor-edge-hole-pending-replace-design.md;
-docs/domain/archive/compose/archive-47.0/compose-cascade-only-exit-edge-hole-ledger-design.md;
-docs/domain/archive/compose/archive-48.0/compose-pending-confirm-display-only-design.md.
+docs/archive/lulu-dev-workflow/compose/archive-3.0/compose-deductive-runner-architecture-design.md §4.5;
+docs/archive/lulu-dev-workflow/compose/archive-6.0/compose-plan-deductive-consume-disposition-design.md;
+docs/archive/lulu-dev-workflow/compose/archive-45.0/compose-floor-edge-hole-pending-replace-design.md;
+docs/archive/lulu-dev-workflow/compose/archive-47.0/compose-cascade-only-exit-edge-hole-ledger-design.md;
+docs/archive/lulu-dev-workflow/compose/archive-48.0/compose-pending-confirm-display-only-design.md.
 """
 
 from __future__ import annotations

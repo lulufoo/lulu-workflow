@@ -8,7 +8,7 @@ digest for ``narrative_arc_control.py write``.
 
 This control never authors or persists an arc.
 
-Process how: docs/domain/archive/compose/archive-25.0/
+Process how: docs/archive/lulu-dev-workflow/compose/archive-25.0/
 """
 
 from __future__ import annotations

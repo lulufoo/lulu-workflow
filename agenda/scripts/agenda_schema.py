@@ -2,7 +2,7 @@
 """Schema and I/O for revision ``agenda.json`` (stage agenda).
 
 Design rationale (source repo, why-only):
-docs/domain/archive/workflow/stage-agenda-design.md
+docs/archive/lulu-dev-workflow/workflow/stage-agenda-design.md
 """
 
 from __future__ import annotations

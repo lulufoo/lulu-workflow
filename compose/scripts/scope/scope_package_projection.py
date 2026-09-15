@@ -7,7 +7,7 @@ D1: empty decision slices → single ``L1`` from ``main.decision_doc_path``.
 D2: norm ``kind`` closed set (validated here when building norm refs).
 D3: write once under the caller revision dir; refuse same-rev overwrite.
 
-Design rationale: docs/domain/archive/decision/
+Design rationale: docs/archive/lulu-dev-workflow/decision/
 decision-fact-retire-doc-ssot-design.md
 """
 
