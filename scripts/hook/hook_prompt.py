@@ -50,7 +50,7 @@ def handle_before_submit_prompt(payload: dict, *, platform: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="lulu-dev-workflow prompt hook for externalPathGuard.sessionAllow"
+        description="lulu-workflow prompt hook for externalPathGuard.sessionAllow"
     )
     parser.add_argument("--platform", default="cursor", choices=["cursor", "copilot", "claude"])
     args = parser.parse_args()

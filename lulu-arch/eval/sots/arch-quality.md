@@ -112,5 +112,5 @@ substitutes for architecture substance.
 ## Finding Record
 
 Set `root_cause` to `WO-ERROR`; cite
-`lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md#P{n}` or `#A{n}` as
+`lulu-workflow/lulu-arch/eval/sots/arch-quality.md#P{n}` or `#A{n}` as
 `sot_ref`; quote B as evidence.

@@ -2,9 +2,9 @@
 """Schema and I/O for revision ``_facts.json`` (compose fact-first SoT).
 
 Design rationale (source repo, why-only): docs/ssot/compose/mechanism-ssot/compose-fact-architecture.md;
-process how archive: docs/archive/lulu-dev-workflow/compose/archive-2.0/compose-fact-first-display-layer-design.md §3.1;
+process how archive: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact-first-display-layer-design.md §3.1;
 K1 ``source``: living docs/ssot/compose/mechanism-ssot/compose-fact-architecture.md;
-process how: docs/archive/lulu-dev-workflow/compose/archive-2.0/compose-fact-first-k1-pd-design.md §3.
+process how: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact-first-k1-pd-design.md §3.
 
 Shape: JSON array of ``{id, text, lens_tags}`` plus optional ``source``
 (non-empty string array; Step-3-derived facts only) and optional ``origin``

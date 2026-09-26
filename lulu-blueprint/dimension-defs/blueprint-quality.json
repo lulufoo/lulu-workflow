@@ -7,11 +7,11 @@
   },
   "sots": [
     {
-      "ref": "lulu-dev-workflow/lulu-blueprint/eval/sots/blueprint-quality.md"
+      "ref": "lulu-workflow/lulu-blueprint/eval/sots/blueprint-quality.md"
     }
   ],
   "method": {
-    "ref": "lulu-dev-workflow/lulu-blueprint/eval/methods/blueprint-quality.md",
+    "ref": "lulu-workflow/lulu-blueprint/eval/methods/blueprint-quality.md",
     "focus": "Blueprint quality"
   },
   "review": {

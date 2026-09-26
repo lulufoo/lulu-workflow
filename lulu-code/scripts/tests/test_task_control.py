@@ -48,7 +48,7 @@ def _write_wo_session_state(cycle_dir: Path) -> None:
 
 
 def _write_workflow_config(project_root: Path) -> None:
-    config_dir = project_root / ".cursor" / "lulu-dev-workflow"
+    config_dir = project_root / ".cursor" / "lulu-workflow"
     config_dir.mkdir(parents=True, exist_ok=True)
     (config_dir / "workflow-config.json").write_text(
         json.dumps(

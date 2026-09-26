@@ -46,7 +46,7 @@ def test_spec_k0b_profile_points_to_direct_templates() -> None:
         ("role-instance", "role-instance.json"),
         ("domain-instance", "domain-instance.json"),
     ):
-        expected = f"lulu-dev-workflow/lulu-spec/templates/{filename}"
+        expected = f"lulu-workflow/lulu-spec/templates/{filename}"
         assert compose[key] == expected
         assert (_REPO / expected.split("/", 1)[1]).is_file(), key
 def test_spec_k0b_profile_has_no_display_layer_flag() -> None:

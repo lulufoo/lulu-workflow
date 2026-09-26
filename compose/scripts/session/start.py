@@ -5,7 +5,7 @@ Requires ``--profile-path`` and ``--scope-package``. Does not load holder adapte
 After publish, commits cycle-visible stage pointers and holder_finalized=true.
 
 Design rationale:
-docs/archive/lulu-dev-workflow/compose/archive-33.0/compose-outer-shell-management-subdesign.md
+docs/archive/lulu-workflow/compose/archive-33.0/compose-outer-shell-management-subdesign.md
 """
 
 from __future__ import annotations

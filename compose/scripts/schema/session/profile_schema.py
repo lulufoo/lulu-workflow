@@ -105,10 +105,10 @@ def _validate_active_compose_profile(path: Path, data: dict) -> list[str]:
                 f"{path.name}: framework_templates[{scheme_key!r}] "
                 "must be a non-empty string",
             )
-        elif not value.strip().startswith("lulu-dev-workflow/"):
+        elif not value.strip().startswith("lulu-workflow/"):
             errors.append(
                 f"{path.name}: framework_templates[{scheme_key!r}] "
-                "must be a SKILL path starting with 'lulu-dev-workflow/'",
+                "must be a SKILL path starting with 'lulu-workflow/'",
             )
     pipeline = data.get("pipeline")
     if isinstance(pipeline, dict):

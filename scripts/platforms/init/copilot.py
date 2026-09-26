@@ -1,4 +1,4 @@
-"""Register lulu-dev-workflow preToolUse hook in Copilot hooks.json."""
+"""Register lulu-workflow preToolUse hook in Copilot hooks.json."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def register_copilot_hook(project_root: Path) -> None:
     pre_tool_use = hooks.get("PreToolUse", [])
     pre_tool_use = [
         e for e in pre_tool_use
-        if "lulu-dev-workflow" not in e.get("command", "")
+        if "lulu-workflow" not in e.get("command", "")
     ]
     pre_tool_use.append({"type": "command", "command": command, "timeout": 5})
     hooks["PreToolUse"] = pre_tool_use

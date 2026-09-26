@@ -9,11 +9,11 @@ from remote_ref import read_ref  # noqa: E402
 
 
 _REPO = Path(__file__).resolve().parents[4]
-_WORKFLOW = _REPO / "lulu-dev-workflow"
+_WORKFLOW = _REPO / "lulu-workflow"
 _DIMENSION_DEF = _WORKFLOW / "lulu-plan" / "dimension-defs" / "solution-quality.json"
 _RUNNER_SKILL = _WORKFLOW / "eval" / "dimension-probe-runner" / "SKILL.md"
-_METHOD_REF = "lulu-dev-workflow/lulu-plan/eval/methods/solution-quality.md"
-_SOT_REF = "lulu-dev-workflow/lulu-plan/eval/sots/solution-quality.md"
+_METHOD_REF = "lulu-workflow/lulu-plan/eval/methods/solution-quality.md"
+_SOT_REF = "lulu-workflow/lulu-plan/eval/sots/solution-quality.md"
 _P5_FIXTURE = (
     _WORKFLOW
     / "eval"

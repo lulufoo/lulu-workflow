@@ -16,7 +16,7 @@ _COMPOSE_SCRIPTS = Path(__file__).resolve().parents[4] / "scripts"  # compose/sc
 _COMPOSE_KERNEL = _COMPOSE_SCRIPTS / "_kernel"
 _COMPOSE_TESTS = _COMPOSE_SCRIPTS / "tests"
 _COMPOSE_SCHEMA = _COMPOSE_SCRIPTS / "schema" / "session"
-_EVAL = Path(__file__).resolve().parents[5] / "eval" / "scripts"  # lulu-dev-workflow/eval/scripts
+_EVAL = Path(__file__).resolve().parents[5] / "eval" / "scripts"  # lulu-workflow/eval/scripts
 for p in (_ATOMIZE, _COMPOSE_KERNEL, _COMPOSE_TESTS, _COMPOSE_SCHEMA, _EVAL):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
@@ -42,7 +42,7 @@ from evaluate_state_binding import init_evaluate_state_for_corpus  # noqa: E402
 from evaluate_state_schema import load_evaluate_state, parse_handling_policy  # noqa: E402
 
 _CYCLE = "feat-fact-intake-eval"
-_CACHE = Path(".cache/cursor/lulu-dev-workflow")
+_CACHE = Path(".cache/cursor/lulu-workflow")
 
 
 def _seed(tmp_path: Path) -> Path:

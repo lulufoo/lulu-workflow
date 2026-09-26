@@ -1,4 +1,4 @@
-"""Cross-tree pytest hooks for lulu-dev-workflow (compose import hygiene)."""
+"""Cross-tree pytest hooks for lulu-workflow (compose import hygiene)."""
 
 from __future__ import annotations
 

@@ -34,7 +34,7 @@ def _normalize_cycle_type(raw: object) -> str:
 
 def context_path(project_root: Path, platform: str) -> Path:
     plat = _normalize_platform(platform)
-    return project_root / f".cache/{plat}/lulu-dev-workflow/active-context.json"
+    return project_root / f".cache/{plat}/lulu-workflow/active-context.json"
 
 
 def is_legacy_flat(data: object) -> bool:

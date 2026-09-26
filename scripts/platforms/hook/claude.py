@@ -68,7 +68,7 @@ def format_response(
         reason = (
             response.get("agent_message")
             or response.get("user_message")
-            or "Blocked by lulu-dev-workflow hook"
+            or "Blocked by lulu-workflow hook"
         )
         return _pretooluse_output(
             permission_decision="deny",

@@ -14,7 +14,7 @@ HOOK_PROMPT = _HOOK / "hook_prompt.py"
 
 
 def _write_config(tmp_path: Path, *, session_allow: bool) -> None:
-    cfg_dir = tmp_path / ".cursor" / "lulu-dev-workflow"
+    cfg_dir = tmp_path / ".cursor" / "lulu-workflow"
     cfg_dir.mkdir(parents=True)
     (cfg_dir / "workflow-guard-config.json").write_text(
         json.dumps(
@@ -57,7 +57,7 @@ def test_hook_prompt_writes_session_state(tmp_path):
         tmp_path
         / ".cache"
         / "cursor"
-        / "lulu-dev-workflow"
+        / "lulu-workflow"
         / "session-paths"
         / "conv-p.json"
     )
@@ -87,7 +87,7 @@ def test_hook_prompt_noop_when_session_allow_disabled(tmp_path):
         tmp_path
         / ".cache"
         / "cursor"
-        / "lulu-dev-workflow"
+        / "lulu-workflow"
         / "session-paths"
         / "conv-d.json"
     )

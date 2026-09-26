@@ -160,7 +160,7 @@ def _resolve_skill_runtime_prefix(
     *,
     contain_under: Path | None,
 ) -> Path:
-    if not raw.startswith("lulu-dev-workflow/"):
+    if not raw.startswith("lulu-workflow/"):
         raise ValueError(f"source ref not found: {raw}")
     local = resolve_local_template_path(raw)
     if local is None or not local.exists():

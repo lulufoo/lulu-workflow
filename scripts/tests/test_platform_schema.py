@@ -84,10 +84,10 @@ def test_detect_platform_non_strict_defaults_cursor(monkeypatch):
 
 
 def test_resolve_skill_root(tmp_path):
-    script = tmp_path / "lulu-dev-workflow" / "scripts" / "runtime_control.py"
+    script = tmp_path / "lulu-workflow" / "scripts" / "runtime_control.py"
     script.parent.mkdir(parents=True)
     script.write_text("", encoding="utf-8")
-    assert resolve_skill_root(script_path=script) == (tmp_path / "lulu-dev-workflow").resolve()
+    assert resolve_skill_root(script_path=script) == (tmp_path / "lulu-workflow").resolve()
 
 
 def test_resolve_platform_context_defaults_cursor(tmp_path, monkeypatch):
@@ -112,6 +112,6 @@ def test_resolve_platform_context_defaults_cursor(tmp_path, monkeypatch):
     assert payload == {
         "platform": "cursor",
         "skill_root": str((tmp_path / "skill").resolve()),
-        "workflow_dir": ".cursor/lulu-dev-workflow",
-        "cache_dir": ".cache/cursor/lulu-dev-workflow",
+        "workflow_dir": ".cursor/lulu-workflow",
+        "cache_dir": ".cache/cursor/lulu-workflow",
     }

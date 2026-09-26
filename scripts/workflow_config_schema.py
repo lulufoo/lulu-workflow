@@ -10,7 +10,7 @@ Layout:
     workflow-guard-config.json
 
 Same-dir leftover workflow-config.json is still readable. Leftover
-config.json pointers and skill-config/lulu-dev-workflow/ are ignored.
+config.json pointers and skill-config/lulu-workflow/ are ignored.
 """
 
 from __future__ import annotations
@@ -299,7 +299,7 @@ def compose_framework_config_keys(stage: str) -> frozenset[str]:
         return frozenset(keys)
     for value in templates.values():
         ref = str(value).strip() if isinstance(value, str) else ""
-        if ref and not ref.startswith("lulu-dev-workflow/"):
+        if ref and not ref.startswith("lulu-workflow/"):
             keys.add(ref)
     return frozenset(keys)
 

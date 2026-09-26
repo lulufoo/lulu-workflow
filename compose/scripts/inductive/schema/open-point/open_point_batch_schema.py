@@ -2,7 +2,7 @@
 """Schema and I/O for slice ``open-point-batches.json``.
 
 Design rationale:
-docs/archive/lulu-dev-workflow/compose/archive-34.0/compose-g3-open-point-loop-refactor-design.md
+docs/archive/lulu-workflow/compose/archive-34.0/compose-g3-open-point-loop-refactor-design.md
 """
 
 from __future__ import annotations

@@ -25,7 +25,7 @@ _FEATURE_CYCLE = [
 
 
 def _cache_dir(tmp_path: Path) -> Path:
-    return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+    return tmp_path / ".cache" / "copilot" / "lulu-workflow"
 
 
 def _make_cycles_json(cache_dir: Path, cycle_id: str) -> None:
@@ -101,7 +101,7 @@ def test_parse_work_order_task_list_accepts_letter_suffix_ids_and_escaped_pipes(
 
 | task_id | 标题 | 目标文件 | 依赖 | TDD 豁免 |
 | --- | --- | --- | --- | --- |
-| t10 | workflow-config.json nested product-plan.shaping\\|spec | `skill-config/lulu-dev-workflow/workflow-config.json` | t7 | 是 |
+| t10 | workflow-config.json nested product-plan.shaping\\|spec | `skill-config/lulu-workflow/workflow-config.json` | t7 | 是 |
 | t12b | product-plan/SKILL.md shaping/spec 双路径 + G6 规则 | `product-plan/SKILL.md` | t12 | 是 |
 | t16c | [P2] lulu-code/SKILL.md gate-model 门控步骤 | `lulu-code/SKILL.md` | t6, t13 | 是 |
 """
@@ -109,7 +109,7 @@ def test_parse_work_order_task_list_accepts_letter_suffix_ids_and_escaped_pipes(
 
     assert [task["id"] for task in tasks] == ["t10", "t12b", "t16c"]
     assert tasks[0]["title"] == "workflow-config.json nested product-plan.shaping|spec"
-    assert tasks[0]["target_file"] == "skill-config/lulu-dev-workflow/workflow-config.json"
+    assert tasks[0]["target_file"] == "skill-config/lulu-workflow/workflow-config.json"
     assert tasks[1]["depends"] == ["t12"]
     assert tasks[2]["depends"] == ["t6", "t13"]
     assert all(task["tdd_exempt"] for task in tasks)
@@ -121,7 +121,7 @@ def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
 | task_id | 标题 | 目标文件 | 依赖 | TDD 豁免 |
 | --- | --- | --- | --- | --- |
 | t1 | cycle_init.py mode slug 重命名 + 测试 | `scripts/cycle_init.py`, `scripts/test_cycle_init.py` | — | 否 |
-| t10 | workflow-config.json nested product-plan.shaping\\|spec | `skill-config/lulu-dev-workflow/workflow-config.json` | t7 | 是 |
+| t10 | workflow-config.json nested product-plan.shaping\\|spec | `skill-config/lulu-workflow/workflow-config.json` | t7 | 是 |
 | t12b | product-plan/SKILL.md shaping/spec 双路径 + G6 规则 | `product-plan/SKILL.md` | t12 | 是 |
 | t16c | [P2] lulu-code/SKILL.md gate-model 门控步骤 | `lulu-code/SKILL.md` | t6, t13 | 是 |
 """
@@ -148,7 +148,7 @@ def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
         tmp_path
         / ".cache"
         / "copilot"
-        / "lulu-dev-workflow"
+        / "lulu-workflow"
         / _FID
         / "lulu-code"
         / "s1"
@@ -163,7 +163,7 @@ def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
         tmp_path
         / ".cache"
         / "copilot"
-        / "lulu-dev-workflow"
+        / "lulu-workflow"
         / _FID
         / "lulu-code"
         / "s1"
@@ -236,7 +236,7 @@ def test_cli_creates_new_round_when_active_preparing(tmp_path):
         tmp_path
         / ".cache"
         / "copilot"
-        / "lulu-dev-workflow"
+        / "lulu-workflow"
         / _FID
         / "lulu-code"
         / "session-state.md"
@@ -266,7 +266,7 @@ def test_cli_creates_new_round_when_active_preparing(tmp_path):
         tmp_path
         / ".cache"
         / "copilot"
-        / "lulu-dev-workflow"
+        / "lulu-workflow"
         / _FID
         / "lulu-code"
         / "s2"

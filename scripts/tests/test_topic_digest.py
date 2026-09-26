@@ -18,7 +18,7 @@ _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
 
 
 def _cache_dir(tmp_path: Path) -> Path:
-    return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+    return tmp_path / ".cache" / "copilot" / "lulu-workflow"
 
 
 def _write_cycles(cache_dir: Path, data: dict) -> None:

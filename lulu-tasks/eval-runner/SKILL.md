@@ -1,7 +1,7 @@
 ---
 name: work-order-eval-runner
 description: >-
-  Single-round work-order evaluation executor for lulu-dev-workflow /lulu-tasks sessions.
+  Single-round work-order evaluation executor for lulu-workflow /lulu-tasks sessions.
   Invoked by the parent lulu-tasks/SKILL.md orchestrator per evaluation round.
   Runs TDA → W0 → W1 → W2 phases and returns exit_code.
   Use when: dispatched by lulu-tasks/SKILL.md Rule E2 for a single evaluation round.
@@ -10,7 +10,7 @@ meta-skill-version: 1.0.0
 
 # work-order-eval-runner
 
-Sub-agent executing a single work-order evaluation round within a lulu-dev-workflow /lulu-tasks session.
+Sub-agent executing a single work-order evaluation round within a lulu-workflow /lulu-tasks session.
 Runs TDA → W0 → W1 → W2 in sequence. Writes one report file per phase. Returns exit_code to parent.
 
 ---

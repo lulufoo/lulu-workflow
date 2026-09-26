@@ -126,5 +126,5 @@ observable in B only.
 ## Finding Record
 
 Set `root_cause` to `WO-ERROR`; cite
-`lulu-dev-workflow/lulu-design/eval/sots/solution-quality.md#P{n}` or `#D{n}`
+`lulu-workflow/lulu-design/eval/sots/solution-quality.md#P{n}` or `#D{n}`
 as `sot_ref`; quote B as evidence.

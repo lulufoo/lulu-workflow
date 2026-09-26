@@ -7,7 +7,7 @@
   },
   "sots": [],
   "method": {
-    "ref": "lulu-dev-workflow/compose/eval/methods/scope-continuity.md",
+    "ref": "lulu-workflow/compose/eval/methods/scope-continuity.md",
     "focus": "Scope continuity — does the delivery document conflict with or omit an explicit parent decision?"
   },
   "review": {

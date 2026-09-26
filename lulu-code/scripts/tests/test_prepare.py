@@ -34,7 +34,7 @@ def test_build_worktree_paths_returns_expected_values():
 
 
 def test_write_workspace_writes_absolute_paths(tmp_path: Path):
-    cycle_dir = tmp_path / ".cache" / "copilot" / "lulu-dev-workflow" / "fid-123"
+    cycle_dir = tmp_path / ".cache" / "copilot" / "lulu-workflow" / "fid-123"
     session_dir = cycle_dir / "lulu-code" / "s1"
     session_dir.mkdir(parents=True, exist_ok=True)
     project_root = tmp_path
@@ -56,7 +56,7 @@ def test_write_workspace_writes_absolute_paths(tmp_path: Path):
 
 
 def test_write_workspace_extra_repo_only_still_writes_extra_index(tmp_path: Path):
-    cycle_dir = tmp_path / ".cache" / "copilot" / "lulu-dev-workflow" / "fid-123"
+    cycle_dir = tmp_path / ".cache" / "copilot" / "lulu-workflow" / "fid-123"
     project_root = tmp_path
     paths = {"worktree_dir": ".cache/worktrees/slug-1/", "branch": "wt/feat-slug-1"}
     tasks = [
@@ -71,7 +71,7 @@ def test_write_workspace_extra_repo_only_still_writes_extra_index(tmp_path: Path
 
 
 def test_write_workspace_extra_repo_first_does_not_depend_on_repo_order(tmp_path: Path):
-    cycle_dir = tmp_path / ".cache" / "copilot" / "lulu-dev-workflow" / "fid-123"
+    cycle_dir = tmp_path / ".cache" / "copilot" / "lulu-workflow" / "fid-123"
     project_root = tmp_path
     paths = {"worktree_dir": ".cache/worktrees/slug-1/", "branch": "wt/feat-slug-1"}
     tasks = [
@@ -121,7 +121,7 @@ def _setup_full_preparing_session(tmp_path: Path) -> tuple[Path, Path]:
     init_preparing(ws_path, mode="work-order", task_list_ref=str(session_dir / "code-task-list.md"))
     (session_dir / "code-task-list.md").write_text("- [ ] t1 · task\n", encoding="utf-8")
 
-    config_dir = tmp_path / ".cursor" / "lulu-dev-workflow"
+    config_dir = tmp_path / ".cursor" / "lulu-workflow"
     config_dir.mkdir(parents=True)
     (config_dir / "workflow-config.json").write_text(
         json.dumps({

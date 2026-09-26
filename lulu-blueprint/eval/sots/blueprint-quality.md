@@ -110,5 +110,5 @@ PRD; or technical-architecture narrative substitutes for product substance.
 ## Finding Record
 
 Set `root_cause` to `WO-ERROR`; cite
-`lulu-dev-workflow/lulu-blueprint/eval/sots/blueprint-quality.md#P{n}` or
+`lulu-workflow/lulu-blueprint/eval/sots/blueprint-quality.md#P{n}` or
 `#A{n}` as `sot_ref`; quote B as evidence.

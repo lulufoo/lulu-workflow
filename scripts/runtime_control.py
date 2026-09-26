@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Runtime bootstrap control for lulu-dev-workflow.
+"""Runtime bootstrap control for lulu-workflow.
 
 Subcommands:
     resolve-platform-context   Emit platform context JSON for session bootstrap

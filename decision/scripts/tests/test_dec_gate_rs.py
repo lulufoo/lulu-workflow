@@ -40,7 +40,7 @@ from test_dec_gate_loop_a import _close_qe, _full_template  # noqa: E402
 
 @pytest.fixture
 def template_config(tmp_path: Path) -> Path:
-    cfg_dir = tmp_path / ".cursor" / "lulu-dev-workflow"
+    cfg_dir = tmp_path / ".cursor" / "lulu-workflow"
     cfg_dir.mkdir(parents=True)
     local_template = tmp_path / "decision-doc.template.md"
     local_template.write_text(_full_template(), encoding="utf-8")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Workflow-config CLI for lulu-dev-workflow.
+"""Workflow-config CLI for lulu-workflow.
 
 Subcommands:
     get-model       Resolve subagent model for a workflow stage (JSON stdout)

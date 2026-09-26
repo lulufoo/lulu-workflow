@@ -11,7 +11,7 @@ Subcommands: propose · ack · consume · revoke · reconcile
 
 CLI: ``python3 fact_production_control.py --help``
 
-Process how: docs/archive/lulu-dev-workflow/compose/archive-11.0/
+Process how: docs/archive/lulu-workflow/compose/archive-11.0/
 """
 
 from __future__ import annotations

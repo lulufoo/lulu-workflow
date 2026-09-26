@@ -33,7 +33,7 @@ from test_dec_gate_loop_a import _close_gl, _close_o, _gl_payload  # noqa: E402
 
 @pytest.fixture
 def template_config(tmp_path: Path) -> Path:
-    cfg_dir = tmp_path / ".cursor" / "lulu-dev-workflow"
+    cfg_dir = tmp_path / ".cursor" / "lulu-workflow"
     cfg_dir.mkdir(parents=True)
     template = (
         "# Decision: {title}\n\n"
@@ -67,7 +67,7 @@ def test_init_and_q_e_gate_close(template_config: Path, monkeypatch: pytest.Monk
     stage = "decision"
 
     monkeypatch.chdir(project_root)
-    cache_root = project_root / ".cursor" / "lulu-dev-workflow"
+    cache_root = project_root / ".cursor" / "lulu-workflow"
     cache_root.mkdir(parents=True, exist_ok=True)
 
     assert cmd_init_session(project_root, cycle_id, stage) == 0
@@ -145,7 +145,7 @@ def test_stale_from_e_marks_reached_downstream(
     cycle_id = "feature-test-002"
     stage = "decision"
     monkeypatch.chdir(project_root)
-    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+    (project_root / ".cursor" / "lulu-workflow").mkdir(parents=True, exist_ok=True)
 
     assert cmd_init_session(project_root, cycle_id, stage) == 0
     _close_o(project_root, cycle_id, stage)
@@ -196,7 +196,7 @@ def test_stale_from_q_keeps_payloads(
     cycle_id = "feature-test-004"
     stage = "decision"
     monkeypatch.chdir(project_root)
-    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+    (project_root / ".cursor" / "lulu-workflow").mkdir(parents=True, exist_ok=True)
 
     cmd_init_session(project_root, cycle_id, stage)
     _close_o(project_root, cycle_id, stage)
@@ -246,7 +246,7 @@ def test_gate_close_e_rejects_four_directions(
     cycle_id = "feature-test-005"
     stage = "decision"
     monkeypatch.chdir(project_root)
-    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+    (project_root / ".cursor" / "lulu-workflow").mkdir(parents=True, exist_ok=True)
 
     cmd_init_session(project_root, cycle_id, stage)
     _close_o(project_root, cycle_id, stage)
@@ -287,7 +287,7 @@ def test_resolve_context_empty_header_without_registers(
     cycle_id = "feature-test-006"
     stage = "decision"
     monkeypatch.chdir(project_root)
-    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+    (project_root / ".cursor" / "lulu-workflow").mkdir(parents=True, exist_ok=True)
 
     cmd_init_session(project_root, cycle_id, stage)
     buffer = io.StringIO()
@@ -306,7 +306,7 @@ def test_resolve_context_includes_registers(template_config: Path, monkeypatch: 
     cycle_id = "feature-test-003"
     stage = "decision"
     monkeypatch.chdir(project_root)
-    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+    (project_root / ".cursor" / "lulu-workflow").mkdir(parents=True, exist_ok=True)
 
     cmd_init_session(project_root, cycle_id, stage)
     cmd_register_append(
@@ -331,7 +331,7 @@ def test_init_session_starts_at_gate_o(template_config: Path, monkeypatch: pytes
     cycle_id = "feature-test-o-init"
     stage = "decision"
     monkeypatch.chdir(project_root)
-    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+    (project_root / ".cursor" / "lulu-workflow").mkdir(parents=True, exist_ok=True)
 
     assert cmd_init_session(project_root, cycle_id, stage) == 0
     gate_state = json.loads(
@@ -346,7 +346,7 @@ def test_gate_close_o_advances_to_q(template_config: Path, monkeypatch: pytest.M
     cycle_id = "feature-test-o-close"
     stage = "decision"
     monkeypatch.chdir(project_root)
-    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+    (project_root / ".cursor" / "lulu-workflow").mkdir(parents=True, exist_ok=True)
 
     cmd_init_session(project_root, cycle_id, stage)
     _close_o(project_root, cycle_id, stage)
@@ -364,7 +364,7 @@ def test_legacy_open_gate_id_normalizes(template_config: Path, monkeypatch: pyte
     cycle_id = "feature-test-o-legacy"
     stage = "decision"
     monkeypatch.chdir(project_root)
-    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+    (project_root / ".cursor" / "lulu-workflow").mkdir(parents=True, exist_ok=True)
 
     cmd_init_session(project_root, cycle_id, stage)
     path = project_root / gate_state_path(cycle_id, stage)
@@ -393,7 +393,7 @@ def test_register_commit_g0_returns_full_ctx(
     cycle_id = "feature-register-commit"
     stage = "decision"
     monkeypatch.chdir(project_root)
-    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+    (project_root / ".cursor" / "lulu-workflow").mkdir(parents=True, exist_ok=True)
 
     assert cmd_init_session(project_root, cycle_id, stage) == 0
     capsys.readouterr()
@@ -437,7 +437,7 @@ def test_gate_close_q_advances_to_gl(template_config: Path, monkeypatch: pytest.
     cycle_id = "feature-test-gl-advance"
     stage = "decision"
     monkeypatch.chdir(project_root)
-    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+    (project_root / ".cursor" / "lulu-workflow").mkdir(parents=True, exist_ok=True)
 
     cmd_init_session(project_root, cycle_id, stage)
     _close_o(project_root, cycle_id, stage)
@@ -465,7 +465,7 @@ def test_gate_close_e_blocked_until_gl_closed(
     cycle_id = "feature-test-e-needs-gl"
     stage = "decision"
     monkeypatch.chdir(project_root)
-    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+    (project_root / ".cursor" / "lulu-workflow").mkdir(parents=True, exist_ok=True)
 
     cmd_init_session(project_root, cycle_id, stage)
     _close_o(project_root, cycle_id, stage)
@@ -500,7 +500,7 @@ def test_gl_close_rejects_missing_lens(
     cycle_id = "feature-test-gl-m5"
     stage = "decision"
     monkeypatch.chdir(project_root)
-    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+    (project_root / ".cursor" / "lulu-workflow").mkdir(parents=True, exist_ok=True)
 
     cmd_init_session(project_root, cycle_id, stage)
     _close_o(project_root, cycle_id, stage)
@@ -528,7 +528,7 @@ def test_resolve_context_injects_gl(
     cycle_id = "feature-test-ctx-gl"
     stage = "decision"
     monkeypatch.chdir(project_root)
-    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+    (project_root / ".cursor" / "lulu-workflow").mkdir(parents=True, exist_ok=True)
 
     cmd_init_session(project_root, cycle_id, stage)
     _close_o(project_root, cycle_id, stage)
@@ -557,7 +557,7 @@ def test_g0_source_is_gl_while_gl_active(
     cycle_id = "feature-test-g0-gl-source"
     stage = "decision"
     monkeypatch.chdir(project_root)
-    (project_root / ".cursor" / "lulu-dev-workflow").mkdir(parents=True, exist_ok=True)
+    (project_root / ".cursor" / "lulu-workflow").mkdir(parents=True, exist_ok=True)
 
     cmd_init_session(project_root, cycle_id, stage)
     _close_o(project_root, cycle_id, stage)

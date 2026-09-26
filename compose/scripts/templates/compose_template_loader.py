@@ -4,7 +4,7 @@ Library only: import ``load_compose_template`` or
 ``resolve_compose_template_path``. No agent CLI.
 
 Design rationale:
-docs/archive/lulu-dev-workflow/compose/archive-51.0/compose-template-skill-only-load-design.md
+docs/archive/lulu-workflow/compose/archive-51.0/compose-template-skill-only-load-design.md
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from compose_template_registry import (  # noqa: E402
     resolve_template_ref,
 )
 
-_SKILL_PREFIX = "lulu-dev-workflow/"
+_SKILL_PREFIX = "lulu-workflow/"
 
 
 class ComposeTemplateLoadError(Exception):

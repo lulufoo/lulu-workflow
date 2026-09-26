@@ -11,4 +11,4 @@ round_token: round-1
 
 | ID | root_cause | handling_mode | sot_ref | location | severity | evidence | description | status | decision | resolution |
 |----|------------|---------------|---------|----------|----------|----------|-------------|--------|----------|------------|
-| arch-quality-A1-structure-2 | WO-ERROR | direct | lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md#A1 | structure#2 | critical | `- [ ] Update src/retrieval/index.py`; `Run: pytest tests/test_retrieval.py` | A1 — downstream register in arch-doc: file-level change list, checkbox task step, and Run command line | pending | — | |
+| arch-quality-A1-structure-2 | WO-ERROR | direct | lulu-workflow/lulu-arch/eval/sots/arch-quality.md#A1 | structure#2 | critical | `- [ ] Update src/retrieval/index.py`; `Run: pytest tests/test_retrieval.py` | A1 — downstream register in arch-doc: file-level change list, checkbox task step, and Run command line | pending | — | |

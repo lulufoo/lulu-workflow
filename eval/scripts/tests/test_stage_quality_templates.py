@@ -13,31 +13,31 @@ from remote_ref import read_ref  # noqa: E402
 
 
 _REPO = Path(__file__).resolve().parents[4]
-_WORKFLOW = _REPO / "lulu-dev-workflow"
+_WORKFLOW = _REPO / "lulu-workflow"
 _FIXTURE_DIR = Path(__file__).parent / "fixtures" / "stage_quality"
 
 _STAGES = (
     {
         "id": "lulu-design",
         "dimension": "solution-quality",
-        "method": "lulu-dev-workflow/lulu-design/eval/methods/solution-quality.md",
-        "sot": "lulu-dev-workflow/lulu-design/eval/sots/solution-quality.md",
+        "method": "lulu-workflow/lulu-design/eval/methods/solution-quality.md",
+        "sot": "lulu-workflow/lulu-design/eval/sots/solution-quality.md",
         "focus": "Design solution quality",
         "supplements": ("D1", "D2", "D3", "D4"),
     },
     {
         "id": "lulu-arch",
         "dimension": "arch-quality",
-        "method": "lulu-dev-workflow/lulu-arch/eval/methods/arch-quality.md",
-        "sot": "lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md",
+        "method": "lulu-workflow/lulu-arch/eval/methods/arch-quality.md",
+        "sot": "lulu-workflow/lulu-arch/eval/sots/arch-quality.md",
         "focus": "Architecture quality",
         "supplements": ("A1", "A2", "A3", "A4", "A5"),
     },
     {
         "id": "lulu-blueprint",
         "dimension": "blueprint-quality",
-        "method": "lulu-dev-workflow/lulu-blueprint/eval/methods/blueprint-quality.md",
-        "sot": "lulu-dev-workflow/lulu-blueprint/eval/sots/blueprint-quality.md",
+        "method": "lulu-workflow/lulu-blueprint/eval/methods/blueprint-quality.md",
+        "sot": "lulu-workflow/lulu-blueprint/eval/sots/blueprint-quality.md",
         "focus": "Blueprint quality",
         "supplements": ("A1", "A2", "A3", "A4", "A5"),
     },

@@ -10,7 +10,7 @@
     }
   ],
   "method": {
-    "ref": "lulu-dev-workflow/compose/fact-intake-runner/fact-intake-eval/methods/e2-fact-provenance.md",
+    "ref": "lulu-workflow/compose/fact-intake-runner/fact-intake-eval/methods/e2-fact-provenance.md",
     "focus": "E2: Every fact (one unit per F-n) must have a locatable source span in the input delivery doc. Remediate only _facts.json. Do not edit the SoT doc."
   },
   "review": {

@@ -1,4 +1,4 @@
-"""Register lulu-dev-workflow preToolUse hook in Claude settings.json."""
+"""Register lulu-workflow preToolUse hook in Claude settings.json."""
 
 from __future__ import annotations
 

@@ -18,7 +18,7 @@ _EXCERPT_MAX_CHARS = 400
 
 def resolve_cache_dir(project_root: Path, platform: Optional[str] = None) -> Path:
     plat = detect_platform(platform)
-    return project_root / ".cache" / plat / "lulu-dev-workflow"
+    return project_root / ".cache" / plat / "lulu-workflow"
 
 
 def generate_cycle_id(cycle_type: str) -> str:

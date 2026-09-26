@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cycle control for lulu-dev-workflow orchestrator.
+"""Cycle control for lulu-workflow orchestrator.
 
 Subcommands:
     init-project          Project-level init (sub-workflows + hooks)
@@ -232,13 +232,13 @@ def cmd_topic_digest(args: argparse.Namespace) -> int:
 
 
 def _cli(argv: Optional[list[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="lulu-dev-workflow cycle control.")
+    parser = argparse.ArgumentParser(description="lulu-workflow cycle control.")
     _add_project_args(parser)
     sub = parser.add_subparsers(dest="command", required=True)
 
     init_project = sub.add_parser(
         _CMD_INIT_PROJECT,
-        help="Initialize lulu-dev-workflow in a project (all sub-workflows).",
+        help="Initialize lulu-workflow in a project (all sub-workflows).",
     )
     init_project.set_defaults(handler=cmd_init_project)
 

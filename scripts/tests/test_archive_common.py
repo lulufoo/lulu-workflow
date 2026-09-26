@@ -71,7 +71,7 @@ def _setup_rounded_conv(
 
 @pytest.fixture
 def project_root(tmp_path):
-    cache = tmp_path / ".cache" / "lulu-dev-workflow"
+    cache = tmp_path / ".cache" / "lulu-workflow"
     cache.mkdir(parents=True)
     return tmp_path
 

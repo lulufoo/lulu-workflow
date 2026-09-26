@@ -1,4 +1,4 @@
-"""Tests for lulu-dev-workflow/config/ JSON configuration files."""
+"""Tests for lulu-workflow/config/ JSON configuration files."""
 import json
 import pathlib
 

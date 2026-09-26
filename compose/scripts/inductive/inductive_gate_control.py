@@ -29,8 +29,8 @@ Close per gate:
         + matching facts/opens digests
 
 Design rationale:
-docs/archive/lulu-dev-workflow/compose/archive-34.0/compose-g3-open-point-loop-refactor-design.md
-docs/archive/lulu-dev-workflow/compose/archive-41.0/compose-resolve-context-guide-design.md
+docs/archive/lulu-workflow/compose/archive-34.0/compose-g3-open-point-loop-refactor-design.md
+docs/archive/lulu-workflow/compose/archive-41.0/compose-resolve-context-guide-design.md
 """
 
 from __future__ import annotations

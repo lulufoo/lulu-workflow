@@ -34,7 +34,7 @@ from init_working_helpers import seed_delivered_refs_file, seed_provenance_artif
 _COMMON_IDS = ["intent-fidelity", "scope-continuity", "norm-conformance"]
 
 _CYCLE = "feat-lulu-spec-adapter"
-_CACHE = Path(".cache/cursor/lulu-dev-workflow")
+_CACHE = Path(".cache/cursor/lulu-workflow")
 
 
 def _adapter() -> ComposeEvalAdapter:

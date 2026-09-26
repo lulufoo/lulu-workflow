@@ -38,7 +38,7 @@ _CYCLE_ID = "feature-20260607084939-test0001"
 
 
 def _cache_dir(tmp_path: Path) -> Path:
-    return tmp_path / ".cache/cursor/lulu-dev-workflow"
+    return tmp_path / ".cache/cursor/lulu-workflow"
 
 
 def _make_workflow_state(
@@ -115,7 +115,7 @@ class TestReadActiveStage:
 
     def test_legacy_flat_file_returns_none(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        ctx = tmp_path / ".cache/cursor/lulu-dev-workflow/active-context.json"
+        ctx = tmp_path / ".cache/cursor/lulu-workflow/active-context.json"
         ctx.parent.mkdir(parents=True, exist_ok=True)
         ctx.write_text(
             json.dumps({"cycle_id": _FID_A, "stage": "lulu-plan"}),
@@ -128,18 +128,18 @@ class TestShouldInjectConversationId:
     @pytest.mark.parametrize(
         "command",
         [
-            "python3 ~/.cursor/skills/lulu-dev-workflow/decision/scripts/dec_start.py --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/runtime_control.py --project-root /tmp resolve-session-context",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py --project-root /tmp bind-context --cycle-id fid1 --skill-dir /tmp/lulu-plan",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/session/start.py --profile lulu-blueprint --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/session/start.py --profile lulu-spec --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/session/start.py --profile lulu-plan --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/session/start.py --profile lulu-design --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-tasks/scripts/tt_start.py --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-code/scripts/tc_start.py --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/lulu-code/scripts/tc_task_control.py resolve-context --task-id t1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/inductive_gate_control.py init-session --out-dir /tmp/r1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/recompose/inductive_recompose_control.py record-recompose-report --out-dir /tmp/r1 --json '{}'",
+            "python3 ~/.cursor/skills/lulu-workflow/decision/scripts/dec_start.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-workflow/scripts/runtime_control.py --project-root /tmp resolve-session-context",
+            "python3 ~/.cursor/skills/lulu-workflow/scripts/cycle_control.py --project-root /tmp bind-context --cycle-id fid1 --skill-dir /tmp/lulu-plan",
+            "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/start.py --profile lulu-blueprint --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/start.py --profile lulu-spec --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/start.py --profile lulu-plan --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/start.py --profile lulu-design --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-workflow/lulu-tasks/scripts/tt_start.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-workflow/lulu-code/scripts/tc_start.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-workflow/lulu-code/scripts/tc_task_control.py resolve-context --task-id t1",
+            "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/inductive/inductive_gate_control.py init-session --out-dir /tmp/r1",
+            "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/inductive/recompose/inductive_recompose_control.py record-recompose-report --out-dir /tmp/r1 --json '{}'",
         ],
     )
     def test_start_py_invocation(self, command):
@@ -148,29 +148,29 @@ class TestShouldInjectConversationId:
     @pytest.mark.parametrize(
         "command",
         [
-            'git commit -m "docs(lulu-dev-workflow): subject"',
-            "git diff lulu-dev-workflow/SKILL.md",
-            "git add lulu-dev-workflow/scripts/hook/hook_guard.py",
+            'git commit -m "docs(lulu-workflow): subject"',
+            "git diff lulu-workflow/SKILL.md",
+            "git add lulu-workflow/scripts/hook/hook_guard.py",
             "git status",
             "python3 cycle_control.py --project-root /tmp start --name test",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/hook/hook_guard.py",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/session/l_step_control.py --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py start --name test",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py resolve-token --token F1",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/cycle_control.py menu",
-            "python3 ~/.cursor/skills/lulu-dev-workflow/scripts/runtime_control.py --project-root /tmp resolve-platform-context",
+            "python3 ~/.cursor/skills/lulu-workflow/scripts/hook/hook_guard.py",
+            "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/l_step_control.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-workflow/scripts/cycle_control.py start --name test",
+            "python3 ~/.cursor/skills/lulu-workflow/scripts/cycle_control.py resolve-token --token F1",
+            "python3 ~/.cursor/skills/lulu-workflow/scripts/cycle_control.py menu",
+            "python3 ~/.cursor/skills/lulu-workflow/scripts/runtime_control.py --project-root /tmp resolve-platform-context",
         ],
     )
     def test_non_workflow_py_invocation(self, command):
         assert hook_entry._should_inject_conversation_id(command) is False
 
     def test_already_has_conv_id(self):
-        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/decision/scripts/dec_start.py --conversation-id existing"
+        cmd = "python3 ~/.cursor/skills/lulu-workflow/decision/scripts/dec_start.py --conversation-id existing"
         assert hook_entry._should_inject_conversation_id(cmd) is False
 
     def test_inductive_override_replaces_agent_conv_id(self):
         cmd = (
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/"
+            "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/inductive/"
             "inductive_gate_control.py init-session --out-dir /tmp/r1 "
             '--conversation-id "feature-20260703084622-3b3a7fdd-lulu-design"'
         )
@@ -181,7 +181,7 @@ class TestShouldInjectConversationId:
 
     def test_inductive_injects_when_flag_absent(self):
         cmd = (
-            "python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/"
+            "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/inductive/"
             "recompose/inductive_recompose_control.py record-recompose-report --out-dir /tmp/r1 --json '{}'"
         )
         updated = hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d")
@@ -197,9 +197,9 @@ class TestShouldInjectConversationId:
         """
         cmd = (
             'OUT="/tmp/r1"\n'
-            'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/inductive/'
+            'python3 ~/.cursor/skills/lulu-workflow/compose/scripts/inductive/'
             'inductive_gate_control.py --out-dir "$OUT" gate-close --gate G3\n'
-            'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/session/'
+            'python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/'
             'l_step_control.py --cycle-id fid1 enter-deductive 2>&1\n'
         )
         updated = hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d")
@@ -218,16 +218,16 @@ class TestShouldInjectConversationId:
     def test_multiline_command_no_injectable_line_returns_none(self):
         cmd = (
             'OUT="/tmp/r1"\n'
-            'python3 ~/.cursor/skills/lulu-dev-workflow/compose/scripts/session/'
+            'python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/'
             'l_step_control.py --cycle-id fid1 enter-deductive 2>&1\n'
         )
         assert hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d") is None
 
     def test_single_line_chain_injects_target_segment_only(self):
         cmd = (
-            'python3 ~/.cursor/skills/lulu-dev-workflow/scripts/runtime_control.py '
+            'python3 ~/.cursor/skills/lulu-workflow/scripts/runtime_control.py '
             '--project-root /tmp resolve-platform-context && '
-            'python3 ~/.cursor/skills/lulu-dev-workflow/scripts/runtime_control.py '
+            'python3 ~/.cursor/skills/lulu-workflow/scripts/runtime_control.py '
             '--project-root /tmp resolve-session-context && '
             'cat /tmp/demo.json'
         )
@@ -241,7 +241,7 @@ class TestShouldInjectConversationId:
 
     def test_single_line_semicolon_chain_injects_target_segment_only(self):
         cmd = (
-            'python3 ~/.cursor/skills/lulu-dev-workflow/scripts/runtime_control.py '
+            'python3 ~/.cursor/skills/lulu-workflow/scripts/runtime_control.py '
             '--project-root /tmp resolve-session-context; '
             'echo done'
         )
@@ -328,7 +328,7 @@ class TestMainRouting:
 
     def test_legacy_file_allows(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        ctx = tmp_path / ".cache/cursor/lulu-dev-workflow/active-context.json"
+        ctx = tmp_path / ".cache/cursor/lulu-workflow/active-context.json"
         ctx.parent.mkdir(parents=True, exist_ok=True)
         ctx.write_text(
             json.dumps({"cycle_id": _FID_A, "stage": "lulu-plan"}),
@@ -359,7 +359,7 @@ class TestMainRouting:
 
     def test_shell_workflow_command_injects_conv_id(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/decision/scripts/dec_start.py --cycle-id fid1 --project-root /tmp"
+        cmd = "python3 ~/.cursor/skills/lulu-workflow/decision/scripts/dec_start.py --cycle-id fid1 --project-root /tmp"
         payload = json.dumps({
             "tool_name": "Shell",
             "tool_input": {"command": cmd},
@@ -375,7 +375,7 @@ class TestMainRouting:
 
     def test_shell_already_has_conv_id_no_duplicate(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/decision/scripts/dec_start.py --conversation-id existing"
+        cmd = "python3 ~/.cursor/skills/lulu-workflow/decision/scripts/dec_start.py --conversation-id existing"
         payload = json.dumps({
             "tool_name": "Shell",
             "tool_input": {"command": cmd},
@@ -391,7 +391,7 @@ class TestMainRouting:
 
     def test_shell_workflow_command_no_conv_id_allows(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        cmd = "python3 ~/.cursor/skills/lulu-dev-workflow/decision/scripts/dec_start.py --cycle-id fid1"
+        cmd = "python3 ~/.cursor/skills/lulu-workflow/decision/scripts/dec_start.py --cycle-id fid1"
         payload = json.dumps({
             "tool_name": "Shell",
             "tool_input": {"command": cmd},
@@ -467,7 +467,7 @@ class TestDeliveredBypass:
         assert hook_entry.main() == 0
         result = json.loads(captured.getvalue())
         assert result["permission"] == "deny"
-        assert "[lulu-dev-workflow]" in result["user_message"]
+        assert "[lulu-workflow]" in result["user_message"]
         assert "STOP" in result["agent_message"]
         assert "report this message to the user" in result["agent_message"].lower()
 
@@ -718,7 +718,7 @@ class TestClaudePlatformOutput:
         active_context_schema.write_entry(
             tmp_path, "claude", "sess-1", _CYCLE_ID, "lulu-plan"
         )
-        cache = tmp_path / ".cache/claude/lulu-dev-workflow"
+        cache = tmp_path / ".cache/claude/lulu-workflow"
         _make_workflow_state(cache, _CYCLE_ID, "lulu-plan", "Working")
         payload = json.dumps(
             {

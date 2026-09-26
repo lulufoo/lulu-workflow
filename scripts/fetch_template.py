@@ -23,7 +23,7 @@ from subagent_config import (
     workflow_config_is_present,
 )
 
-CACHE_ROOT_NAME = "lulu-dev-workflow"
+CACHE_ROOT_NAME = "lulu-workflow"
 CACHE_TEMPLATE_SUBDIR = ".template"
 
 _BLOB_RE = re.compile(
@@ -33,7 +33,7 @@ _BLOB_RE = re.compile(
 # Parse refs from right to left by locating known template roots.
 # This avoids incorrectly splitting multi-segment refs as path.
 _KNOWN_TEMPLATE_ROOTS: tuple[tuple[str, ...], ...] = (
-    ("lulu-dev-workflow", "template"),
+    ("lulu-workflow", "template"),
 )
 
 GhFetcher = Callable[[str, str, str, str], str]
@@ -69,7 +69,7 @@ def is_direct_template_ref(template_ref: str) -> bool:
     """Return whether a profile value is a direct local or remote reference."""
     ref = normalize_template_ref(template_ref)
     return ref.startswith(
-        ("lulu-dev-workflow/", "file://", "/", "http://", "https://")
+        ("lulu-workflow/", "file://", "/", "http://", "https://")
     )
 
 
@@ -231,9 +231,9 @@ def resolve_local_template_path(
     *,
     skill_root: Path | None = None,
 ) -> Path | None:
-    """Resolve local template paths (file://, absolute, or skill-runtime ``lulu-dev-workflow/…``).
+    """Resolve local template paths (file://, absolute, or skill-runtime ``lulu-workflow/…``).
 
-    The ``lulu-dev-workflow/`` prefix names the skill runtime directory
+    The ``lulu-workflow/`` prefix names the skill runtime directory
     (``SKILL_ROOT``). Remaining segments are relative to that root — not
     ``project_root``.
     """
@@ -242,7 +242,7 @@ def resolve_local_template_path(
         return Path(url[7:])
     if url.startswith("/") and not url.startswith("//"):
         return Path(url)
-    if url.startswith("lulu-dev-workflow/"):
+    if url.startswith("lulu-workflow/"):
         root = (
             skill_root
             if skill_root is not None

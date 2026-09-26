@@ -1,4 +1,4 @@
-"""Session scanning and terminal/delivered state for lulu-dev-workflow cache layouts."""
+"""Session scanning and terminal/delivered state for lulu-workflow cache layouts."""
 
 from __future__ import annotations
 

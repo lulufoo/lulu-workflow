@@ -25,7 +25,7 @@ def _run(*args: str, env=None):
 
 class TestCycleControlStart:
     def _cache_dir(self, tmp_path: Path) -> Path:
-        return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+        return tmp_path / ".cache" / "copilot" / "lulu-workflow"
 
     def test_start_exit_zero(self, tmp_path):
         result = _run(
@@ -68,12 +68,12 @@ class TestCycleControlResolveConfigPath:
             "resolve-config-path",
         )
         assert result.returncode == 0
-        assert ".cursor/lulu-dev-workflow" in result.stdout
+        assert ".cursor/lulu-workflow" in result.stdout
 
 
 class TestCycleControlMenu:
     def _cache_dir(self, tmp_path: Path) -> Path:
-        return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+        return tmp_path / ".cache" / "copilot" / "lulu-workflow"
 
     def _write_cycles(self, tmp_path: Path, data: dict) -> None:
         cache = self._cache_dir(tmp_path)
@@ -236,7 +236,7 @@ _ENV_BIND = {
 
 class TestCycleControlBindContext:
     def _cache_dir(self, tmp_path: Path) -> Path:
-        return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+        return tmp_path / ".cache" / "copilot" / "lulu-workflow"
 
     def test_bind_writes_active_context(self, tmp_path):
         start = _run(

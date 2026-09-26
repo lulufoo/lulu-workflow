@@ -1,7 +1,7 @@
 ---
 name: code-task-runner
 description: >-
-  Single-task TDD executor for lulu-dev-workflow /code sessions.
+  Single-task TDD executor for lulu-workflow /code sessions.
   Invoked by the parent code/SKILL.md orchestrator per task.
   Input: dispatch coordinates; bootstraps $CTX via task_control resolve-context.
   Output: TASK_COMPLETE or TASK_FAILED.
@@ -11,7 +11,7 @@ meta-skill-version: 1.0.0
 
 # code-task-runner
 
-Sub-agent executing a single TDD task within a lulu-dev-workflow /code session.
+Sub-agent executing a single TDD task within a lulu-workflow /code session.
 Mechanical side effects (log, tests, commit, checkbox) are driven by `task_control.py`.
 Agent owns creative work: WriteTests, WriteImpl, Refactor.
 
@@ -36,7 +36,7 @@ Received as JSON via the invocation prompt `## Input` block:
 ```json
 {
   "task_id":     "<task_id>",
-  "cycle_dir":   "<abs_path>/.cache/<platform>/lulu-dev-workflow/<cycle_id>",
+  "cycle_dir":   "<abs_path>/.cache/<platform>/lulu-workflow/<cycle_id>",
   "project_root": "<abs_path>/to/project"
 }
 ```

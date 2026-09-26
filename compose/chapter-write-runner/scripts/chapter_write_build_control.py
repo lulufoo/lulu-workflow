@@ -7,7 +7,7 @@ never returns facts or full registries.
 
 This control does not claim chapters or persist documents.
 
-Process how: docs/archive/lulu-dev-workflow/compose/archive-26.0/
+Process how: docs/archive/lulu-workflow/compose/archive-26.0/
 chapter-write-runner-extract-design.md
 """
 

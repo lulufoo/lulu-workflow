@@ -19,7 +19,7 @@ from cycle_delivered_refs import load_delivered_refs_file  # noqa: E402
 
 
 def test_deliver_commits_decision_package(tmp_path: Path) -> None:
-    root = tmp_path / ".cache/cursor/lulu-dev-workflow/feature-bet/lulu-bet"
+    root = tmp_path / ".cache/cursor/lulu-workflow/feature-bet/lulu-bet"
     root.mkdir(parents=True)
     (root / "decision-doc.md").write_text("# Decision\n\nSettled.\n", encoding="utf-8")
     (root / "session-state.md").write_text(
@@ -49,7 +49,7 @@ def test_deliver_commits_decision_package(tmp_path: Path) -> None:
 def test_deliver_cli_returns_next_steps(tmp_path: Path, capsys) -> None:
     from decision_package_control import main
 
-    root = tmp_path / ".cache/cursor/lulu-dev-workflow/feature-bet/lulu-bet"
+    root = tmp_path / ".cache/cursor/lulu-workflow/feature-bet/lulu-bet"
     root.mkdir(parents=True)
     (root / "decision-doc.md").write_text("# Decision\n\nSettled.\n", encoding="utf-8")
     (root / "session-state.md").write_text(

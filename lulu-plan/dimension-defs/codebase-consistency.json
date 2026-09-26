@@ -11,7 +11,7 @@
     }
   ],
   "method": {
-    "ref": "lulu-dev-workflow/eval/methods/codebase-consistency.md",
+    "ref": "lulu-workflow/eval/methods/codebase-consistency.md",
     "focus": "Design vs existing code structure, references, conventions"
   },
   "review": {

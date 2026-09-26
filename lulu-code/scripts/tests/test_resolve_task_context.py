@@ -67,7 +67,7 @@ _REQUIRED_KEYS = {
 
 
 def _write_workflow_config(project_root: Path, extra: dict | None = None) -> None:
-    config_dir = project_root / ".cursor" / "lulu-dev-workflow"
+    config_dir = project_root / ".cursor" / "lulu-workflow"
     config_dir.mkdir(parents=True, exist_ok=True)
     payload = {
         "lulu-code": {
@@ -86,7 +86,7 @@ def _write_workflow_config(project_root: Path, extra: dict | None = None) -> Non
 
 
 def _write_platform_config(project_root: Path, workflow_config_rel: str) -> None:
-    cfg_path = project_root / ".cursor/lulu-dev-workflow/config.json"
+    cfg_path = project_root / ".cursor/lulu-workflow/config.json"
     cfg_path.parent.mkdir(parents=True, exist_ok=True)
     cfg_path.write_text(
         json.dumps({"workflowConfig": workflow_config_rel}),
@@ -210,7 +210,7 @@ class TestResolveTaskContext:
     def test_missing_workflow_config(self, tmp_path: Path):
         cycle_dir, project_root, _ = _setup_happy_path(tmp_path)
         config_path = (
-            project_root / ".cursor" / "lulu-dev-workflow" / "workflow-config.json"
+            project_root / ".cursor" / "lulu-workflow" / "workflow-config.json"
         )
         config_path.unlink()
         result = resolve_task_context(cycle_dir, "t1", project_root)

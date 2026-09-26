@@ -4,7 +4,7 @@ Lock order is cycle → session → revision → slice. This module owns session
 and revision locks. Reverse acquisition is forbidden at the call site.
 
 Design rationale:
-docs/archive/lulu-dev-workflow/compose/archive-33.0/compose-outer-shell-management-subdesign.md
+docs/archive/lulu-workflow/compose/archive-33.0/compose-outer-shell-management-subdesign.md
 """
 
 from __future__ import annotations

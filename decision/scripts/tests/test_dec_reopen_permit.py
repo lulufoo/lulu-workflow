@@ -41,7 +41,7 @@ _ctrl = _load("approach_shell_control", _APPROACH_SCRIPTS / "approach_shell_cont
 
 
 def _write_template_config(project_root: Path) -> None:
-    config_dir = project_root / ".cursor" / "lulu-dev-workflow"
+    config_dir = project_root / ".cursor" / "lulu-workflow"
     config_dir.mkdir(parents=True)
     template = project_root / "decision-doc.template.md"
     template.write_text(_full_template(), encoding="utf-8")

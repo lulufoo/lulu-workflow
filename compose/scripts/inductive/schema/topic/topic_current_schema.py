@@ -4,7 +4,7 @@
 Persists the current topic as part of **adopt**. Does not store dialogue text
 or What-phase ordering. Not a topic tree. Gap-state topics are not stored here.
 
-Process how: docs/archive/lulu-dev-workflow/compose/archive-10.0/
+Process how: docs/archive/lulu-workflow/compose/archive-10.0/
 """
 
 from __future__ import annotations

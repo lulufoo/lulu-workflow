@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared archive/restore logic for lulu-dev-workflow stages."""
+"""Shared archive/restore logic for lulu-workflow stages."""
 
 from __future__ import annotations
 

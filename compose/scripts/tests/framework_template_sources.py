@@ -13,7 +13,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-_TEMPLATE_PREFIX = Path("lulu-dev-workflow") / "template"
+_TEMPLATE_PREFIX = Path("lulu-workflow") / "template"
 
 
 def framework_repo_root() -> Path:

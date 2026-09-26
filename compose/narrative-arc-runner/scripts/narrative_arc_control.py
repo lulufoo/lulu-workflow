@@ -9,7 +9,7 @@ Subcommands:
 
 CLI: ``python3 narrative_arc_control.py --help``
 
-Process how: docs/archive/lulu-dev-workflow/compose/archive-25.0/
+Process how: docs/archive/lulu-workflow/compose/archive-25.0/
 """
 
 from __future__ import annotations

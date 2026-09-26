@@ -220,7 +220,7 @@ class TestCurrentEffectiveDelivered:
 
 
 # ---------------------------------------------------------------------------
-# check_gate  (uses real config files from lulu-dev-workflow/config/)
+# check_gate  (uses real config files from lulu-workflow/config/)
 # ---------------------------------------------------------------------------
 
 class TestCheckGate:

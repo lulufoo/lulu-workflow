@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Eval control for lulu-dev-workflow eval domain.
+"""Eval control for lulu-workflow eval domain.
 
 Owns mechanical writes to evaluate-state.md. Workflow-specific paths and state
 transitions go through an injected WorkflowAdapter, loaded per-profile by
@@ -455,7 +455,7 @@ def _emit(payload: dict[str, Any]) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="lulu-dev-workflow eval control")
+    parser = argparse.ArgumentParser(description="lulu-workflow eval control")
     parser.add_argument(
         "--workflow",
         required=False,

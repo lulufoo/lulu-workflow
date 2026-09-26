@@ -27,7 +27,7 @@ _STAGE_WC = {
 
 
 def _workflow_common_path(stage: str) -> Path:
-    root = _SRC / "lulu-dev-workflow"
+    root = _SRC / "lulu-workflow"
     return root / stage / "scripts" / _STAGE_WC[stage]
 
 
@@ -114,6 +114,6 @@ class TestCodeStageConstraints:
         assert callable(mod.code_hot_root)
 
     def test_code_hot_root_source_has_archive_only_comment(self):
-        path = _SRC / "lulu-dev-workflow/lulu-code/scripts/tc_workflow_common.py"
+        path = _SRC / "lulu-workflow/lulu-code/scripts/tc_workflow_common.py"
         source = path.read_text(encoding="utf-8")
         assert "# archive-only" in source

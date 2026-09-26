@@ -4,7 +4,7 @@ run git P1–P3, and transition Preparing -> Executing.
 
 Usage:
     python3 prepare.py \\
-        --cycle-dir /abs/path/.cache/cursor/lulu-dev-workflow/<cycle_id> \\
+        --cycle-dir /abs/path/.cache/cursor/lulu-workflow/<cycle_id> \\
         --project-root /abs/path/to/project
 
     python3 prepare.py ... --validate   # recovery / idempotent query only

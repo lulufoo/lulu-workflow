@@ -26,23 +26,23 @@ class TestResolveTemplateRef:
         [
             (
                 "section-kw-criteria",
-                "lulu-dev-workflow/lulu-plan/templates/section-kw-criteria.md",
+                "lulu-workflow/lulu-plan/templates/section-kw-criteria.md",
             ),
             (
                 "section-registry",
-                "lulu-dev-workflow/lulu-plan/templates/section-registry.json",
+                "lulu-workflow/lulu-plan/templates/section-registry.json",
             ),
             (
                 "section-form-registry",
-                "lulu-dev-workflow/lulu-plan/templates/section-form-registry.json",
+                "lulu-workflow/lulu-plan/templates/section-form-registry.json",
             ),
             (
                 "role-instance",
-                "lulu-dev-workflow/lulu-plan/templates/role-instance.json",
+                "lulu-workflow/lulu-plan/templates/role-instance.json",
             ),
             (
                 "domain-instance",
-                "lulu-dev-workflow/lulu-plan/templates/domain-instance.json",
+                "lulu-workflow/lulu-plan/templates/domain-instance.json",
             ),
         ],
     )
@@ -51,14 +51,14 @@ class TestResolveTemplateRef:
 
     def test_resolve_template_ref_tech_design(self) -> None:
         assert resolve_template_ref("section-registry", "lulu-design") == (
-            "lulu-dev-workflow/lulu-design/templates/section-registry.json"
+            "lulu-workflow/lulu-design/templates/section-registry.json"
         )
         with pytest.raises(ComposeTemplateError, match="Invalid compose template role"):
             resolve_template_ref("intent-eval-framework")
 
     def test_resolve_template_ref_product_spec(self) -> None:
         assert resolve_template_ref("section-form-registry", "lulu-spec") == (
-            "lulu-dev-workflow/lulu-spec/templates/section-form-registry.json"
+            "lulu-workflow/lulu-spec/templates/section-form-registry.json"
         )
 
     def test_scheme_keys(self) -> None:
@@ -122,7 +122,7 @@ class TestLoadComposeTemplate:
             profile["framework_templates"]["section-registry"] = ref
             profile_path = tmp_path / f"profile-{hash(ref)}.json"
             profile_path.write_text(json.dumps(profile), encoding="utf-8")
-            with pytest.raises(ComposeTemplateLoadError, match="lulu-dev-workflow/"):
+            with pytest.raises(ComposeTemplateLoadError, match="lulu-workflow/"):
                 load_compose_template(
                     "section-registry", tmp_path, profile_path=profile_path
                 )

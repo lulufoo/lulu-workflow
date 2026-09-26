@@ -11,4 +11,4 @@ round_token: round-1
 
 | ID | root_cause | handling_mode | sot_ref | location | severity | evidence | description | status | decision | resolution |
 |----|------------|---------------|---------|----------|----------|----------|-------------|--------|----------|------------|
-| blueprint-quality-A1-product-shape-2 | WO-ERROR | direct | lulu-dev-workflow/lulu-blueprint/eval/sots/blueprint-quality.md#A1 | product-shape#2 | critical | `- [ ] Add GET /api/discovery`; `- [ ] Implement the discovery page component` | A1 — downstream register in product-doc: technical API specification and implementation task list | pending | — | |
+| blueprint-quality-A1-product-shape-2 | WO-ERROR | direct | lulu-workflow/lulu-blueprint/eval/sots/blueprint-quality.md#A1 | product-shape#2 | critical | `- [ ] Add GET /api/discovery`; `- [ ] Implement the discovery page component` | A1 — downstream register in product-doc: technical API specification and implementation task list | pending | — | |

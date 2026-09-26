@@ -11,7 +11,7 @@ from remote_ref import read_ref  # noqa: E402
 
 
 _REPO = Path(__file__).resolve().parents[4]
-_WORKFLOW = _REPO / "lulu-dev-workflow"
+_WORKFLOW = _REPO / "lulu-workflow"
 _ACTIVE_DEFINITIONS = (
     "lulu-plan/dimension-defs/codebase-consistency.json",
     "lulu-plan/dimension-defs/solution-quality.json",
@@ -43,7 +43,7 @@ def test_active_eval_dimensions_use_only_template_refs(relative_path: str):
 
 def test_shared_codebase_consistency_method_defines_the_evidence_contract():
     method = read_ref(
-        "lulu-dev-workflow/eval/methods/codebase-consistency.md",
+        "lulu-workflow/eval/methods/codebase-consistency.md",
         project_root=_REPO,
     )
 
