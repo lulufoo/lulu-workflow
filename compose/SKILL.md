@@ -27,7 +27,6 @@ Macro expansion: `{SKILL_ROOT}/_runtime.md` § Script Macros → Macro expansion
 | `$START_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/session/start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile-path "$PROFILE_PATH" --scope-package "$SCOPE_PACKAGE"` |
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose/scripts/session/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/session/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
-| `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" [args...]` |
 
 Subcommands and stdout: script module docstrings or `--help`.
 
@@ -85,10 +84,8 @@ Ask: Deliver or Modify.
 1. Run `$SESSION_INFO --view delivery-preview`. On failure → Blocking. Show the preview; full compose document only if asked.
 2. Wait for explicit delivery confirmation.
 3. **Demand manifest (only when `$DEMAND_MANIFEST` is present):** enumerate delivered demands per `$DEMAND_MANIFEST.unit_rule`, then `$SESSION_CONTROL write-demand-manifest --units-json '<JSON array>'`. Skip when `$DEMAND_MANIFEST` is null. On failure → Blocking.
-4. Run `$SESSION_CONTROL deliver --confirm`. On failure → Blocking (including open stage-agenda blockers — resolve via `$AGENDA_CTL` then retry).
+4. Run `$SESSION_CONTROL deliver --confirm`. On failure → Blocking (including leftover `agenda.json` blockers).
 5. Run `$SESSION_INFO --view stage-transitions`. On non-zero exit → Blocking. Prompt next stages when present.
-
-Stage-agenda items live under the revision dir; orchestration: `{SKILL_ROOT}/agenda/SKILL.md`.
 
 ## Reference
 
@@ -97,4 +94,3 @@ Stage-agenda items live under the revision dir; orchestration: `{SKILL_ROOT}/age
 | `{SKILL_ROOT}/compose/references/compose-ontology.md` | Start, once per session |
 | `{SKILL_ROOT}/compose/references/execution.md` | Working |
 | `{SKILL_ROOT}/eval/SKILL.md` | Loaded from execution Evaluating |
-| `{SKILL_ROOT}/agenda/SKILL.md` | Delivery blockers |
