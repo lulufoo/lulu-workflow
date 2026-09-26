@@ -8,7 +8,7 @@ disable-model-invocation: true
 argument-hint: "[pd=lulu-bet | td=lulu-approach | ps=lulu-spec | pa=lulu-blueprint | ta=lulu-arch | ds=lulu-design | t=lulu-plan | w=lulu-tasks | c=lulu-code]"
 ---
 
-# lulu-dev-workflow
+# lulu-workflow
 
 A staged development workflow framework. Each stage is an independent sub-module
 under this directory.
