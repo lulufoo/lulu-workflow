@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Test cache seeding helpers; framework templates load from lulu-workflow-framework SSOT."""
+"""Test cache seeding helpers. Templates load from this skill's stage templates."""
 
 from __future__ import annotations
 
@@ -148,7 +148,7 @@ def seed_template_cache(project_root: Path, section: str, key: str, payload: dic
 
 
 def seed_tech_plan_test_caches(project_root: Path) -> None:
-    """Seed lulu-plan template caches for pytest from lulu-workflow-framework SSOT."""
+    """Seed lulu-plan template caches for pytest from this skill's stage templates."""
     seed_template_cache(
         project_root,
         "lulu-plan",
@@ -176,7 +176,7 @@ def seed_tech_plan_test_caches(project_root: Path) -> None:
 
 
 def seed_tech_arch_test_caches(project_root: Path) -> None:
-    """Seed lulu-arch topic role/domain caches for pytest from framework SSOT."""
+    """Seed lulu-arch topic role/domain caches for pytest from this skill's stage templates."""
     seed_template_cache(
         project_root,
         "lulu-arch",
@@ -192,7 +192,7 @@ def seed_tech_arch_test_caches(project_root: Path) -> None:
 
 
 def seed_product_spec_test_caches(project_root: Path) -> None:
-    """Seed lulu-spec template caches for pytest from lulu-workflow-framework SSOT."""
+    """Seed lulu-spec template caches for pytest from this skill's stage templates."""
     seed_template_cache(
         project_root,
         "lulu-spec",

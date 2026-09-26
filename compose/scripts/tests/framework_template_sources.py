@@ -1,52 +1,11 @@
 #!/usr/bin/env python3
-"""Load compose templates from lulu-workflow-framework (runtime SSOT).
-
-Tests must not duplicate framework JSON under tests/fixtures.
-Set LULU_WORKFLOW_FRAMEWORK_ROOT when the checkout is not at ~/Code/lulu-workflow-framework.
-"""
+"""Load compose stage templates shipped under this skill."""
 
 from __future__ import annotations
 
 import json
-import os
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
-
-_TEMPLATE_PREFIX = Path("lulu-workflow") / "template"
-
-
-def framework_repo_root() -> Path:
-    env = os.environ.get("LULU_WORKFLOW_FRAMEWORK_ROOT", "").strip()
-    if env:
-        root = Path(env).expanduser().resolve()
-        if root.is_dir():
-            return root
-        raise FileNotFoundError(
-            f"LULU_WORKFLOW_FRAMEWORK_ROOT is not a directory: {root}",
-        )
-    sibling = Path(__file__).resolve().parents[4].parent / "lulu-workflow-framework"
-    if sibling.is_dir():
-        return sibling
-    home_default = Path.home() / "Code" / "lulu-workflow-framework"
-    if home_default.is_dir():
-        return home_default
-    raise FileNotFoundError(
-        "lulu-workflow-framework checkout required for compose tests; "
-        "clone it or set LULU_WORKFLOW_FRAMEWORK_ROOT",
-    )
-
-
-def framework_template_path(stage: str, filename: str) -> Path:
-    return framework_repo_root() / _TEMPLATE_PREFIX / stage / filename
-
-
-@lru_cache(maxsize=32)
-def load_framework_json(stage: str, filename: str) -> dict[str, Any]:
-    path = framework_template_path(stage, filename)
-    if not path.is_file():
-        raise FileNotFoundError(f"framework template not found: {path}")
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _skill_builtin_template(stage_dir: str, filename: str) -> dict[str, Any]:
