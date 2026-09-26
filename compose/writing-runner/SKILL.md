@@ -80,7 +80,6 @@ REVISION_DIR: <$REVISION_DIR>
 PROJECT_ROOT: <abs project root = $(pwd)>
 CYCLE_ID: <$CYCLE_ID>
 OUTPUT_PATH: _narrative-arc.json
-MOUNT: false
 ```
 
 ### Step 4 — Validate narrative arc

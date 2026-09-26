@@ -50,17 +50,16 @@ human-adopted Topics **in dialogue**.
 - `narrative-arc-runner`
   - **Human request:** Any time while G2 is active.
   - **Dispatch:** `$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_ASYNC`; do not block or auto-run.
-  - **Runner Input** (pin while Viewer HTML still client-guards Formal basename):
+  - **Runner Input:**
 
     ```text
     REVISION_DIR: <inductive out dir>
     PROJECT_ROOT: <abs project root>
     CYCLE_ID: <cycle id>
     OUTPUT_PATH: _narrative-arc.collab.json
-    MOUNT: true
     ```
 
-  - **G2:** dispatch and report its Summary (`wrote` / `write_ready` / `mounted`).
+  - **G2:** dispatch and report its Summary (`wrote` / `write_ready`).
     Protocol lives in `narrative-arc-runner/SKILL.md` + `contracts/delivery.md`.
 - Keep tool-internal arguments and output handling in their owning contracts.
 
