@@ -7,14 +7,14 @@ This module never takes the lock. Extra txn targets may include
 ``None`` deletes a target after recording before/after digests.
 
 Design rationale:
-docs/archive/lulu-dev-workflow/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
-docs/archive/lulu-dev-workflow/compose/compose-g3-detect-context-slim-design.md
-docs/archive/lulu-dev-workflow/compose/archive-49.0/compose-g3-section-registry-skill-fetch-design.md
-docs/archive/lulu-dev-workflow/compose/archive-50.0/compose-g3-detect-lens-context-design.md
-docs/archive/lulu-dev-workflow/compose/archive-52.0/compose-script-layer-contract-lock-design.md
-docs/archive/lulu-dev-workflow/compose/archive-67.0/compose-g3-detect-verdict-slim-design.md
-docs/archive/lulu-dev-workflow/compose/archive-68.0/compose-g3-detect-clean-skip-design.md
-docs/archive/lulu-dev-workflow/compose/archive-70.0/compose-g3-detect-lens-payload-complete-design.md
+docs/archive/lulu-workflow/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
+docs/archive/lulu-workflow/compose/compose-g3-detect-context-slim-design.md
+docs/archive/lulu-workflow/compose/archive-49.0/compose-g3-section-registry-skill-fetch-design.md
+docs/archive/lulu-workflow/compose/archive-50.0/compose-g3-detect-lens-context-design.md
+docs/archive/lulu-workflow/compose/archive-52.0/compose-script-layer-contract-lock-design.md
+docs/archive/lulu-workflow/compose/archive-67.0/compose-g3-detect-verdict-slim-design.md
+docs/archive/lulu-workflow/compose/archive-68.0/compose-g3-detect-clean-skip-design.md
+docs/archive/lulu-workflow/compose/archive-70.0/compose-g3-detect-lens-payload-complete-design.md
 """
 
 from __future__ import annotations

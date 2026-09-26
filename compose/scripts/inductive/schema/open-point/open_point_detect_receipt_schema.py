@@ -11,9 +11,9 @@ Detect input arrives as per-lens verdicts (``lens``, ``gap_kw``,
 the per-lens invariant ``gap_kw is null iff candidates is empty``.
 
 Design rationale:
-docs/archive/lulu-dev-workflow/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
-docs/archive/lulu-dev-workflow/compose/compose-g3-detect-context-slim-design.md
-docs/archive/lulu-dev-workflow/compose/archive-67.0/compose-g3-detect-verdict-slim-design.md
+docs/archive/lulu-workflow/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
+docs/archive/lulu-workflow/compose/compose-g3-detect-context-slim-design.md
+docs/archive/lulu-workflow/compose/archive-67.0/compose-g3-detect-verdict-slim-design.md
 """
 
 from __future__ import annotations

@@ -6,7 +6,7 @@
   },
   "sots": [],
   "method": {
-    "ref": "lulu-dev-workflow/decision/eval/methods/decision-consistency.md",
+    "ref": "lulu-workflow/decision/eval/methods/decision-consistency.md",
     "focus": "Single probe of decision-eval-target.md: run all three cross-checks in decision-consistency.md. Each blocker issue MUST set realign_gate to E, D, or X. Do not edit EvalTarget; Decision routes fail→RS."
   },
   "review": {

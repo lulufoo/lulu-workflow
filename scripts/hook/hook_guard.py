@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""preToolUse entry point for lulu-dev-workflow hooks."""
+"""preToolUse entry point for lulu-workflow hooks."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ from workflow_sessions import current_effective_delivered  # noqa: E402
 from logs.hook_dispatch import maybe_log_tool_io  # noqa: E402
 
 _WORKFLOW_PY_PATH = re.compile(
-    r"lulu-dev-workflow[/\\][^\s;|&\"']+\.py\b"
+    r"lulu-workflow[/\\][^\s;|&\"']+\.py\b"
 )
 
 # Literal $SKILL_ROOT / ${SKILL_ROOT} / $SKILL_DIR / ${SKILL_DIR} ...py paths

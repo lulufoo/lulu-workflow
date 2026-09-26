@@ -27,7 +27,7 @@ class TestParseBlobUrl:
     def test_parses_github_blob_url(self):
         url = (
             "https://github.com/example/workflow-framework/blob/main/"
-            "lulu-dev-workflow/template/plan/43-tech-plan-section-kw-criteria.md"
+            "lulu-workflow/template/plan/43-tech-plan-section-kw-criteria.md"
         )
         parsed = parse_blob_url(url)
         assert parsed["owner"] == "example"
@@ -38,23 +38,23 @@ class TestParseBlobUrl:
     def test_parses_multi_segment_ref(self):
         url = (
             "https://github.com/example/workflow-framework/blob/release/2026.06/"
-            "lulu-dev-workflow/template/plan/43-tech-plan-section-kw-criteria.md"
+            "lulu-workflow/template/plan/43-tech-plan-section-kw-criteria.md"
         )
         parsed = parse_blob_url(url)
         assert parsed["ref"] == "release/2026.06"
         assert parsed["path"] == (
-            "lulu-dev-workflow/template/plan/43-tech-plan-section-kw-criteria.md"
+            "lulu-workflow/template/plan/43-tech-plan-section-kw-criteria.md"
         )
 
     def test_parses_multi_segment_ref_with_nested_path(self):
         url = (
             "https://github.com/example/workflow-framework/blob/release/candidate/v2/"
-            "lulu-dev-workflow/template/decision/decision-doc.template.md"
+            "lulu-workflow/template/decision/decision-doc.template.md"
         )
         parsed = parse_blob_url(url)
         assert parsed["ref"] == "release/candidate/v2"
         assert parsed["path"] == (
-            "lulu-dev-workflow/template/decision/decision-doc.template.md"
+            "lulu-workflow/template/decision/decision-doc.template.md"
         )
 
     def test_rejects_blob_url_with_ref_only(self):
@@ -82,7 +82,7 @@ class TestParseBlobUrl:
 
 class TestFetchTemplate:
     def _write_config(self, tmp_path: Path, payload: dict) -> None:
-        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/workflow-config.json"
+        cfg_path = tmp_path / ".cursor/lulu-workflow/workflow-config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(json.dumps(payload), encoding="utf-8")
 
@@ -185,7 +185,7 @@ class TestFetchTemplate:
         local.write_text('{"local": true}\n', encoding="utf-8")
         self._write_config(
             tmp_path,
-            {"lulu-plan": {"tpt_url": "lulu-dev-workflow/local-template.json"}},
+            {"lulu-plan": {"tpt_url": "lulu-workflow/local-template.json"}},
         )
         cache = cache_path(tmp_path, "cursor", "lulu-plan", "tpt_url")
         cache.parent.mkdir(parents=True, exist_ok=True)
@@ -219,7 +219,7 @@ class TestFetchTemplate:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text('{"ok": 1}\n', encoding="utf-8")
         resolved = resolve_local_template_path(
-            "lulu-dev-workflow/lulu-design/templates/section-form-registry.json",
+            "lulu-workflow/lulu-design/templates/section-form-registry.json",
             tmp_path / "some-project",
             skill_root=skill_root,
         )
@@ -229,7 +229,7 @@ class TestFetchTemplate:
     def test_fetches_decision_template(self, tmp_path):
         url = (
             "https://github.com/example/workflow-framework/blob/main/"
-            "lulu-dev-workflow/template/decision/decision-doc.template.md"
+            "lulu-workflow/template/decision/decision-doc.template.md"
         )
         self._write_config(tmp_path, {"decision": {"decision_doc_template_url": url}})
 
@@ -237,7 +237,7 @@ class TestFetchTemplate:
             assert owner == "example"
             assert repo == "workflow-framework"
             assert ref == "main"
-            assert path == "lulu-dev-workflow/template/decision/decision-doc.template.md"
+            assert path == "lulu-workflow/template/decision/decision-doc.template.md"
             return "# diagnostic template\n"
 
         content = fetch_template(
@@ -344,7 +344,7 @@ class TestFetchTemplate:
 
 class TestMainCli:
     def test_cli_success_prints_stdout(self, tmp_path, capsys):
-        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/workflow-config.json"
+        cfg_path = tmp_path / ".cursor/lulu-workflow/workflow-config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(json.dumps({
             "lulu-plan": {

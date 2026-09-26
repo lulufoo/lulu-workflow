@@ -102,7 +102,7 @@ def test_shared_is_an_allowlisted_leaf():
 
 
 def test_fresh_install_carries_shared_protocol(tmp_path: Path):
-    target = tmp_path / "lulu-dev-workflow"
+    target = tmp_path / "lulu-workflow"
     shutil.copytree(_WORKFLOW, target)
 
     installed_ask = target / "shared" / "references" / "ask-protocol.md"

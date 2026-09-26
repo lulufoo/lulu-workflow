@@ -1,4 +1,4 @@
-"""Platform detection and path SSOT for lulu-dev-workflow."""
+"""Platform detection and path SSOT for lulu-workflow."""
 
 from __future__ import annotations
 
@@ -6,21 +6,21 @@ import os
 from pathlib import Path
 from typing import Optional
 
-SKILL_NAME = "lulu-dev-workflow"
+SKILL_NAME = "lulu-workflow"
 SUPPORTED_PLATFORMS = ("cursor", "copilot", "claude")
 
 PLATFORM_PATHS: dict[str, dict[str, Path]] = {
     "cursor": {
-        "workflow_dir": Path(".cursor/lulu-dev-workflow"),
-        "cache_dir": Path(".cache/cursor/lulu-dev-workflow"),
+        "workflow_dir": Path(".cursor/lulu-workflow"),
+        "cache_dir": Path(".cache/cursor/lulu-workflow"),
     },
     "copilot": {
-        "workflow_dir": Path(".github/lulu-dev-workflow"),
-        "cache_dir": Path(".cache/copilot/lulu-dev-workflow"),
+        "workflow_dir": Path(".github/lulu-workflow"),
+        "cache_dir": Path(".cache/copilot/lulu-workflow"),
     },
     "claude": {
-        "workflow_dir": Path(".claude/lulu-dev-workflow"),
-        "cache_dir": Path(".cache/claude/lulu-dev-workflow"),
+        "workflow_dir": Path(".claude/lulu-workflow"),
+        "cache_dir": Path(".cache/claude/lulu-workflow"),
     },
 }
 

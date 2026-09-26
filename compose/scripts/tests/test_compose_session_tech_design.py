@@ -38,7 +38,7 @@ from test_template_data import seed_template_cache  # noqa: E402
 
 _CYCLE = "feature-composesession001-abc12345"
 _PROFILE = "lulu-design"
-_CACHE = Path(".cache/cursor/lulu-dev-workflow")
+_CACHE = Path(".cache/cursor/lulu-workflow")
 
 
 def _seed_design_role_cache(tmp_path: Path) -> None:

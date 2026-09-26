@@ -29,16 +29,16 @@ class TestResolveSubagentModel:
         self, tmp_path: Path, payload: dict, platform: str = "cursor"
     ) -> None:
         rel = (
-            ".cursor/lulu-dev-workflow"
+            ".cursor/lulu-workflow"
             if platform == "cursor"
-            else ".github/lulu-dev-workflow"
+            else ".github/lulu-workflow"
         )
         cfg_path = tmp_path / rel / "workflow-config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(json.dumps(payload), encoding="utf-8")
 
     def _write_platform_config(self, tmp_path: Path, payload: dict, platform: str = "cursor") -> None:
-        rel = ".cursor/lulu-dev-workflow" if platform == "cursor" else ".github/lulu-dev-workflow"
+        rel = ".cursor/lulu-workflow" if platform == "cursor" else ".github/lulu-workflow"
         cfg_path = tmp_path / rel / "config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(json.dumps(payload), encoding="utf-8")
@@ -107,7 +107,7 @@ class TestResolveSubagentModel:
     def test_invalid_workflow_config_json_returns_none(self, tmp_path):
         from subagent_config import resolve_subagent_model
 
-        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/workflow-config.json"
+        cfg_path = tmp_path / ".cursor/lulu-workflow/workflow-config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text("{not json", encoding="utf-8")
         assert resolve_subagent_model(tmp_path, "lulu-code", "cursor") is None
@@ -131,14 +131,14 @@ class TestPlatformConfigPath:
         from subagent_config import platform_config_path
 
         assert platform_config_path(tmp_path, "cursor") == (
-            tmp_path / ".cursor/lulu-dev-workflow/config.json"
+            tmp_path / ".cursor/lulu-workflow/config.json"
         )
 
     def test_copilot_path(self, tmp_path):
         from subagent_config import platform_config_path
 
         assert platform_config_path(tmp_path, "copilot") == (
-            tmp_path / ".github/lulu-dev-workflow/config.json"
+            tmp_path / ".github/lulu-workflow/config.json"
         )
 
 
@@ -147,20 +147,20 @@ class TestResolveWorkflowConfigPath:
         from subagent_config import resolve_workflow_config_path
 
         assert resolve_workflow_config_path(tmp_path, "cursor") == (
-            tmp_path / ".cursor/lulu-dev-workflow"
+            tmp_path / ".cursor/lulu-workflow"
         )
 
     def test_leftover_pointer_does_not_change_root(self, tmp_path):
         from subagent_config import resolve_workflow_config_path
 
-        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/config.json"
+        cfg_path = tmp_path / ".cursor/lulu-workflow/config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(
             json.dumps({"workflowConfig": "custom/workflow-config.json"}),
             encoding="utf-8",
         )
         assert resolve_workflow_config_path(tmp_path, "cursor") == (
-            tmp_path / ".cursor/lulu-dev-workflow"
+            tmp_path / ".cursor/lulu-workflow"
         )
 
 
@@ -172,13 +172,13 @@ class TestEnsurePlatformConfig:
         cfg = read_platform_config(tmp_path, platform="cursor")
         assert cfg == {}
         assert not (
-            tmp_path / ".cursor/lulu-dev-workflow/config.json"
+            tmp_path / ".cursor/lulu-workflow/config.json"
         ).exists()
 
     def test_does_not_overwrite_existing_config(self, tmp_path):
         from subagent_config import ensure_platform_config, read_platform_config
 
-        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/config.json"
+        cfg_path = tmp_path / ".cursor/lulu-workflow/config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(
             json.dumps({"version": 1, "workflowConfig": "custom/workflow-config.json"}),
@@ -191,7 +191,7 @@ class TestEnsurePlatformConfig:
 
 class TestResolveSubagentCli:
     def _write_workflow_config(self, tmp_path: Path, payload: dict) -> None:
-        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/workflow-config.json"
+        cfg_path = tmp_path / ".cursor/lulu-workflow/workflow-config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(json.dumps(payload), encoding="utf-8")
 

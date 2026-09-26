@@ -23,7 +23,7 @@ def _write_adapter_module(workflow_root: Path, content: str) -> Path:
 
 
 def test_loads_adapter_from_config_file(tmp_path: Path) -> None:
-    workflow_root = tmp_path / "lulu-dev-workflow"
+    workflow_root = tmp_path / "lulu-workflow"
     _write_adapter_module(
         workflow_root,
         "class NonComposeEvalAdapter:\n    marker = 'loaded-from-config'\n",
@@ -51,7 +51,7 @@ def test_loads_adapter_from_config_file(tmp_path: Path) -> None:
 
 
 def test_flat_adapter_from_config_receives_payload(tmp_path: Path) -> None:
-    workflow_root = tmp_path / "lulu-dev-workflow"
+    workflow_root = tmp_path / "lulu-workflow"
     _write_adapter_module(
         workflow_root,
         "class NonComposeEvalAdapter:\n"
@@ -76,7 +76,7 @@ def test_flat_adapter_from_config_receives_payload(tmp_path: Path) -> None:
 
 
 def test_rejects_missing_adapter_class(tmp_path: Path) -> None:
-    workflow_root = tmp_path / "lulu-dev-workflow"
+    workflow_root = tmp_path / "lulu-workflow"
     _write_adapter_module(workflow_root, "class PresentAdapter:\n    pass\n")
     with pytest.raises(ValueError, match="adapter class 'MissingAdapter' not found"):
         eac.load_eval_adapter_from_config(
@@ -92,7 +92,7 @@ def test_rejects_missing_adapter_class(tmp_path: Path) -> None:
 
 
 def test_rejects_path_traversal(tmp_path: Path) -> None:
-    workflow_root = tmp_path / "lulu-dev-workflow"
+    workflow_root = tmp_path / "lulu-workflow"
     workflow_root.mkdir()
     with pytest.raises(ValueError, match="path traversal"):
         eac.load_eval_adapter_from_config(
@@ -199,7 +199,7 @@ def test_entry_loads_config_before_handoff(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_loads_decorator_adapter_and_delegate(tmp_path: Path) -> None:
-    workflow_root = tmp_path / "lulu-dev-workflow"
+    workflow_root = tmp_path / "lulu-workflow"
     adapter_dir = workflow_root / "compose" / "scripts" / "eval"
     adapter_dir.mkdir(parents=True)
     (adapter_dir / "compose_eval_adapter.py").write_text(
@@ -255,7 +255,7 @@ def test_loads_decorator_adapter_and_delegate(tmp_path: Path) -> None:
 
 
 def test_decorator_rejects_delegate_traversal(tmp_path: Path) -> None:
-    workflow_root = tmp_path / "lulu-dev-workflow"
+    workflow_root = tmp_path / "lulu-workflow"
     adapter_dir = workflow_root / "compose" / "scripts" / "eval"
     adapter_dir.mkdir(parents=True)
     (adapter_dir / "compose_eval_adapter.py").write_text(

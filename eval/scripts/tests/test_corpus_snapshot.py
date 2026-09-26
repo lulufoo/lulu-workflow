@@ -388,7 +388,7 @@ def test_directory_sot_subdir_skips_sibling_files(tmp_path: Path) -> None:
 
 
 def test_method_must_stay_under_workflow_root(tmp_path: Path) -> None:
-    workflow = tmp_path / "lulu-dev-workflow"
+    workflow = tmp_path / "lulu-workflow"
     workflow.mkdir()
     leaked = tmp_path / "leaked.md"
     leaked.write_text("outside", encoding="utf-8")
@@ -407,7 +407,7 @@ def test_method_must_stay_under_workflow_root(tmp_path: Path) -> None:
 
 
 def test_repo_relative_method_stays_under_workflow_root(tmp_path: Path) -> None:
-    workflow = tmp_path / "lulu-dev-workflow"
+    workflow = tmp_path / "lulu-workflow"
     method = workflow / "eval" / "methods" / "quality.md"
     method.parent.mkdir(parents=True)
     method.write_text("method-body", encoding="utf-8")
@@ -417,7 +417,7 @@ def test_repo_relative_method_stays_under_workflow_root(tmp_path: Path) -> None:
     template.write_text("tpl", encoding="utf-8")
     dest = tmp_path / "snap"
     corpus = _corpus(
-        Path("lulu-dev-workflow/eval/methods/quality.md"),
+        Path("lulu-workflow/eval/methods/quality.md"),
         sot,
         Path("eval/review.template.md"),
     )
@@ -434,8 +434,8 @@ def test_repo_relative_method_stays_under_workflow_root(tmp_path: Path) -> None:
     ) == "method-body"
 
 
-_PLAN_SOT_REF = "lulu-dev-workflow/lulu-plan/eval/sots/solution-quality.md"
-_PLAN_METHOD_REF = "lulu-dev-workflow/lulu-plan/eval/methods/solution-quality.md"
+_PLAN_SOT_REF = "lulu-workflow/lulu-plan/eval/sots/solution-quality.md"
+_PLAN_METHOD_REF = "lulu-workflow/lulu-plan/eval/methods/solution-quality.md"
 
 
 def test_skill_prefix_sot_resolves_when_absent_from_project(tmp_path: Path) -> None:
@@ -445,7 +445,7 @@ def test_skill_prefix_sot_resolves_when_absent_from_project(tmp_path: Path) -> N
     template = project / "review.md"
     method.write_text("m", encoding="utf-8")
     template.write_text("t", encoding="utf-8")
-    assert not (project / "lulu-dev-workflow").exists()
+    assert not (project / "lulu-workflow").exists()
     dest = tmp_path / "snap"
     manifest = materialize_corpus_snapshot(
         dest,
@@ -459,7 +459,7 @@ def test_skill_prefix_sot_resolves_when_absent_from_project(tmp_path: Path) -> N
 
 
 def test_skill_prefix_fixture_tree_wins_over_installed_skill(tmp_path: Path) -> None:
-    fixture = tmp_path / "lulu-dev-workflow" / "lulu-plan" / "eval" / "sots"
+    fixture = tmp_path / "lulu-workflow" / "lulu-plan" / "eval" / "sots"
     fixture.mkdir(parents=True)
     (fixture / "solution-quality.md").write_text("fixture-sot\n", encoding="utf-8")
     method = tmp_path / "method.md"
@@ -506,7 +506,7 @@ def test_skill_prefix_unknown_ref_still_missing(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="source ref not found"):
         materialize_corpus_snapshot(
             tmp_path / "snap",
-            _corpus(method, Path("lulu-dev-workflow/no-such-sot.md"), template),
+            _corpus(method, Path("lulu-workflow/no-such-sot.md"), template),
             method_roots=[tmp_path],
             sot_roots=[tmp_path],
         )

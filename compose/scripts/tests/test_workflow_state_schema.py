@@ -127,7 +127,7 @@ class TestResolveWorkflowStatePathFromCycle:
         seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
         from session_state_schema import save_active_doc  # noqa: WPS433
 
-        base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
+        base = tmp_path / ".cache" / "cursor" / "lulu-workflow" / cycle_id / "lulu-plan"
         save_active_doc(base / "session-state.md", 2)
         path = resolve_workflow_state_path_from_cycle(cycle_id, tmp_path)
         assert path.name == "workflow-state.md"

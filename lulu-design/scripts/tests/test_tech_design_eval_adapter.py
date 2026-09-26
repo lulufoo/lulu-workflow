@@ -37,7 +37,7 @@ from init_working_helpers import (  # noqa: E402
 _COMMON_IDS = ["intent-fidelity", "scope-continuity", "norm-conformance"]
 
 _CYCLE = "feat-design-adapter"
-_CACHE = Path(".cache/cursor/lulu-dev-workflow")
+_CACHE = Path(".cache/cursor/lulu-workflow")
 
 
 def _adapter() -> ComposeEvalAdapter:

@@ -4,7 +4,7 @@
 A *demand manifest* is a producer-side delivery artifact: an atomized list of
 demand units that a downstream stage may consume as its ``intent_baseline``
 (design rationale, source repo, why-only: ``docs/ssot/compose/inductive-ssot/compose-intent-role-theory.md``;
-process how archive: ``docs/archive/lulu-dev-workflow/compose/archive-1.0/inductive-intent-baseline-source.md`` §5.10).
+process how archive: ``docs/archive/lulu-workflow/compose/archive-1.0/inductive-intent-baseline-source.md`` §5.10).
 
 This module is **mechanical only** — it mints sequential ids, validates shape,
 and reads/writes the file. It never enumerates or judges demand *content*: the

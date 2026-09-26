@@ -31,11 +31,11 @@ def deny_internal_path_guard(
     allowed_text = ", ".join(path.as_posix() for path in allowed_dirs) or "(none)"
     target_str = target_path.as_posix()
     user_message = (
-        f"[lulu-dev-workflow] {tool_kind} 被拦截：{stage} 阶段仅允许访问 {allowed_text}。"
+        f"[lulu-workflow] {tool_kind} 被拦截：{stage} 阶段仅允许访问 {allowed_text}。"
         "请确认是否继续本阶段、完成交付，或切换到下一阶段。"
     )
     agent_message = agent_stop_message(
-        f"[lulu-dev-workflow] {tool_kind} blocked in stage '{stage}': "
+        f"[lulu-workflow] {tool_kind} blocked in stage '{stage}': "
         "outside internalPathGuard allowed directories.\n"
         f"Target: {target_str}\n"
         f"Allowed directories: {allowed_text}",
@@ -56,11 +56,11 @@ deny_rw_boundary = deny_internal_path_guard
 def deny_external_path_guard(*, tool_kind: str, target_path: Path) -> dict:
     target_str = target_path.as_posix()
     user_message = (
-        f"[lulu-dev-workflow] {tool_kind} 被拦截：目标在仓库外且未列入 "
+        f"[lulu-workflow] {tool_kind} 被拦截：目标在仓库外且未列入 "
         "externalPathGuard 允许列表（含 sessionAllow）。"
     )
     agent_message = agent_stop_message(
-        f"[lulu-dev-workflow] {tool_kind} blocked by externalPathGuard.\n"
+        f"[lulu-workflow] {tool_kind} blocked by externalPathGuard.\n"
         f"Target: {target_str}",
         forbidden=f"this {tool_kind.lower()}",
         workarounds="Add the path to externalPathGuard allowlists, or mention it in the prompt when sessionAllow is on.",

@@ -7,11 +7,11 @@
   },
   "sots": [
     {
-      "ref": "lulu-dev-workflow/lulu-spec/eval/sots/product-doc-quality.md"
+      "ref": "lulu-workflow/lulu-spec/eval/sots/product-doc-quality.md"
     }
   ],
   "method": {
-    "ref": "lulu-dev-workflow/lulu-spec/eval/methods/product-doc-quality.md",
+    "ref": "lulu-workflow/lulu-spec/eval/methods/product-doc-quality.md",
     "focus": "Independent PDQA audit on product-doc (12 dimensions, 4 layers, aligned to ten lenses PB→AC); not compose Round/probe iteration"
   },
   "review": {

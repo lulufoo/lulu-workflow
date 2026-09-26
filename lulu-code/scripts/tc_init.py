@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""lulu-code project init — workflow-config is applied via lulu-dev-workflow configure only."""
+"""lulu-code project init — workflow-config is applied via lulu-workflow configure only."""
 
 import argparse
 import sys

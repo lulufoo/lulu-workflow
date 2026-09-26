@@ -7,7 +7,7 @@
   },
   "sots": [],
   "method": {
-    "ref": "lulu-dev-workflow/compose/eval/methods/norm-conformance.md",
+    "ref": "lulu-workflow/compose/eval/methods/norm-conformance.md",
     "focus": "Norm conformance — does the delivery document violate a declared normative constraint?"
   },
   "review": {

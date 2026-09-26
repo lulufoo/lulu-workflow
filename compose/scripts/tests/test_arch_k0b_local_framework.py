@@ -55,15 +55,15 @@ def test_arch_k0b_profile_uses_direct_template_refs() -> None:
         ("role-instance", "role-instance.json"),
         ("domain-instance", "domain-instance.json"),
     ):
-        expected = f"lulu-dev-workflow/lulu-arch/templates/{filename}"
+        expected = f"lulu-workflow/lulu-arch/templates/{filename}"
         assert compose[key] == expected
         assert (_REPO / expected.split("/", 1)[1]).is_file(), key
 
     dimension = json.loads(_DIMENSION_DEF.read_text(encoding="utf-8"))
-    assert dimension["method"]["ref"] == "lulu-dev-workflow/lulu-arch/eval/methods/arch-quality.md"
+    assert dimension["method"]["ref"] == "lulu-workflow/lulu-arch/eval/methods/arch-quality.md"
     assert dimension["sots"] == [
         {
-            "ref": "lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md",
+            "ref": "lulu-workflow/lulu-arch/eval/sots/arch-quality.md",
         },
     ]
     assert _METHOD.is_file()

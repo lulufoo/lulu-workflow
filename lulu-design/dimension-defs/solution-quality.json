@@ -7,11 +7,11 @@
   },
   "sots": [
     {
-      "ref": "lulu-dev-workflow/lulu-design/eval/sots/solution-quality.md"
+      "ref": "lulu-workflow/lulu-design/eval/sots/solution-quality.md"
     }
   ],
   "method": {
-    "ref": "lulu-dev-workflow/lulu-design/eval/methods/solution-quality.md",
+    "ref": "lulu-workflow/lulu-design/eval/methods/solution-quality.md",
     "focus": "Design solution quality"
   },
   "review": {

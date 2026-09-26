@@ -139,7 +139,7 @@ class TestCLI:
         return subprocess.run(cmd, capture_output=True, text=True, env=_ENV_COPILOT)
 
     def _cache_dir(self, tmp_path):
-        return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+        return tmp_path / ".cache" / "copilot" / "lulu-workflow"
 
     def test_exit_zero(self, tmp_path):
         result = self._run(tmp_path)
@@ -342,7 +342,7 @@ class TestCLITypeTopic:
         return subprocess.run(cmd, capture_output=True, text=True, env=_ENV_COPILOT)
 
     def _cache_dir(self, tmp_path):
-        return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+        return tmp_path / ".cache" / "copilot" / "lulu-workflow"
 
     def test_exit_zero(self, tmp_path):
         result = self._run(tmp_path)
@@ -397,7 +397,7 @@ class TestCLITypeFeature:
         return subprocess.run(cmd, capture_output=True, text=True, env=_ENV_COPILOT)
 
     def _cache_dir(self, tmp_path):
-        return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+        return tmp_path / ".cache" / "copilot" / "lulu-workflow"
 
     def test_type_feature_exit_zero(self, tmp_path):
         result = self._run(tmp_path)

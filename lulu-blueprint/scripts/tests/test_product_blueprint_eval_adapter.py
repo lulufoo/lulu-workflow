@@ -40,7 +40,7 @@ from init_working_helpers import seed_resolved_refs_for_eval  # noqa: E402
 _COMMON_IDS = ["intent-fidelity", "scope-continuity", "norm-conformance"]
 
 _CYCLE = "topic-blueprint-adapter"
-_CACHE = Path(".cache/cursor/lulu-dev-workflow")
+_CACHE = Path(".cache/cursor/lulu-workflow")
 
 
 def _adapter() -> ComposeEvalAdapter:

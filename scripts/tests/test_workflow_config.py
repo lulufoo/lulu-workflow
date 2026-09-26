@@ -44,7 +44,7 @@ class TestStageConfigLoader:
             json.dumps({"lulu-code": {"test_command": "pnpm test"}}),
             encoding="utf-8",
         )
-        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/config.json"
+        cfg_path = tmp_path / ".cursor/lulu-workflow/config.json"
         cfg_path.parent.mkdir(parents=True)
         cfg_path.write_text(
             json.dumps({"workflowConfig": "custom/workflow-config.json"}),
@@ -69,11 +69,11 @@ class TestStageConfigLoader:
 
     def test_leftover_pointer_ignored_when_stages_present(self, tmp_path: Path) -> None:
         write_stage_config(tmp_path, "lulu-code", {"test_command": "npm test"})
-        cfg_path = tmp_path / ".cursor/lulu-dev-workflow/config.json"
+        cfg_path = tmp_path / ".cursor/lulu-workflow/config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(
             json.dumps(
-                {"workflowConfig": "skill-config/lulu-dev-workflow/workflow-config.json"}
+                {"workflowConfig": "skill-config/lulu-workflow/workflow-config.json"}
             ),
             encoding="utf-8",
         )
@@ -83,7 +83,7 @@ class TestStageConfigLoader:
         }
 
     def test_skill_config_dir_is_not_read(self, tmp_path: Path) -> None:
-        leftover = tmp_path / "skill-config/lulu-dev-workflow/stages"
+        leftover = tmp_path / "skill-config/lulu-workflow/stages"
         leftover.mkdir(parents=True)
         (leftover / "lulu-code.json").write_text(
             json.dumps({"test_command": "UNIQUE_SKILL_CONFIG"}),
@@ -227,7 +227,7 @@ class TestConfigureWorkflowConfig:
             check=False,
         )
         assert result.returncode == 0
-        assert result.stdout.strip().endswith(".cursor/lulu-dev-workflow")
+        assert result.stdout.strip().endswith(".cursor/lulu-workflow")
 
     def test_cli_resolve_path(self, tmp_path: Path) -> None:
         result = subprocess.run(
@@ -245,7 +245,7 @@ class TestConfigureWorkflowConfig:
             check=False,
         )
         assert result.returncode == 0
-        assert result.stdout.strip().endswith(".cursor/lulu-dev-workflow")
+        assert result.stdout.strip().endswith(".cursor/lulu-workflow")
 
     def test_cli_resolve_stage_path(self, tmp_path: Path) -> None:
         write_stage_config(tmp_path, "lulu-code", {"test_command": "npm test"})
@@ -267,7 +267,7 @@ class TestConfigureWorkflowConfig:
         )
         assert result.returncode == 0
         assert result.stdout.strip().endswith(
-            ".cursor/lulu-dev-workflow/stages/lulu-code.json"
+            ".cursor/lulu-workflow/stages/lulu-code.json"
         )
         assert resolve_stage_config_path(tmp_path, "lulu-code", "cursor").exists()
 
@@ -295,7 +295,7 @@ class TestConfigureWorkflowConfig:
 class TestEnsureBuiltinStageConfigs:
     def test_writes_missing_builtin_stages(self, tmp_path: Path) -> None:
         created = ensure_builtin_stage_configs(tmp_path, "cursor")
-        root = tmp_path / ".cursor/lulu-dev-workflow"
+        root = tmp_path / ".cursor/lulu-workflow"
         names = {path.name for path in created}
         assert "lulu-code.json" in names
         assert "lulu-tasks.json" not in names

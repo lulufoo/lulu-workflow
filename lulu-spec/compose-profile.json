@@ -25,11 +25,11 @@
   "cache_subdir": "lulu-spec",
   "framework_section": "lulu-spec",
   "framework_templates": {
-    "section-registry": "lulu-dev-workflow/lulu-spec/templates/section-registry.json",
-    "section-form-registry": "lulu-dev-workflow/lulu-spec/templates/section-form-registry.json",
-    "section-kw-criteria": "lulu-dev-workflow/lulu-spec/templates/section-kw-criteria.md",
-    "role-instance": "lulu-dev-workflow/lulu-spec/templates/role-instance.json",
-    "domain-instance": "lulu-dev-workflow/lulu-spec/templates/domain-instance.json"
+    "section-registry": "lulu-workflow/lulu-spec/templates/section-registry.json",
+    "section-form-registry": "lulu-workflow/lulu-spec/templates/section-form-registry.json",
+    "section-kw-criteria": "lulu-workflow/lulu-spec/templates/section-kw-criteria.md",
+    "role-instance": "lulu-workflow/lulu-spec/templates/role-instance.json",
+    "domain-instance": "lulu-workflow/lulu-spec/templates/domain-instance.json"
   },
   "eval": {
     "enabled": true,

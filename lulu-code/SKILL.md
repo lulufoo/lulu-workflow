@@ -2,7 +2,7 @@
 name: lulu-code
 description: >-
   Use when: TDD, code session, 测试驱动开发, 写测试代码, 写实现代码, task-from-work-order, lulu-code workflow,
-  lulu-dev-workflow lulu-code, git worktree delivery.
+  lulu-workflow lulu-code, git worktree delivery.
 disable-model-invocation: true
 ---
 

@@ -30,7 +30,7 @@ _DEFAULT_HOOK_CONFIG: dict[str, Any] = {
         "enable": True,
         "defaults": {
             "readDirs": ["."],
-            "writeDirs": [".cache/{platform}/lulu-dev-workflow"],
+            "writeDirs": [".cache/{platform}/lulu-workflow"],
         },
         "stages": {
             "lulu-code": {
@@ -224,7 +224,7 @@ def resolve_internal_path_guard(
     read_dirs = stage_cfg.get("readDirs", defaults.get("readDirs", ["."]))
     write_dirs = stage_cfg.get(
         "writeDirs",
-        defaults.get("writeDirs", [f".cache/{plat}/lulu-dev-workflow"]),
+        defaults.get("writeDirs", [f".cache/{plat}/lulu-workflow"]),
     )
 
     return {

@@ -15,7 +15,7 @@ _FID = "20260601141338-3764ab2b"
 
 
 def _cache_dir(tmp_path: Path, platform: str = "cursor") -> Path:
-    return tmp_path / ".cache" / platform / "lulu-dev-workflow"
+    return tmp_path / ".cache" / platform / "lulu-workflow"
 
 
 def _ctx_file(tmp_path: Path, platform: str = "cursor") -> Path:

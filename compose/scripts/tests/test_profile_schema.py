@@ -26,10 +26,10 @@ _MINIMAL_ACTIVE_PROFILE = {
     "cache_subdir": "tech/foo",
     "framework_section": "tech-foo",
     "framework_templates": {
-        "section-registry": "lulu-dev-workflow/tech-foo/templates/section-registry.json",
-        "section-kw-criteria": "lulu-dev-workflow/tech-foo/templates/section-kw-criteria.md",
-        "role-instance": "lulu-dev-workflow/tech-foo/templates/role-instance.json",
-        "domain-instance": "lulu-dev-workflow/tech-foo/templates/domain-instance.json",
+        "section-registry": "lulu-workflow/tech-foo/templates/section-registry.json",
+        "section-kw-criteria": "lulu-workflow/tech-foo/templates/section-kw-criteria.md",
+        "role-instance": "lulu-workflow/tech-foo/templates/role-instance.json",
+        "domain-instance": "lulu-workflow/tech-foo/templates/domain-instance.json",
     },
     "pipeline": {
         "inductive": False,
@@ -169,4 +169,4 @@ def test_active_profile_rejects_non_skill_template_ref(tmp_path: Path) -> None:
     data["framework_templates"]["section-registry"] = "file:///tmp/section-registry.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     errors = _validate_profile(path)
-    assert any("lulu-dev-workflow/" in err for err in errors)
+    assert any("lulu-workflow/" in err for err in errors)

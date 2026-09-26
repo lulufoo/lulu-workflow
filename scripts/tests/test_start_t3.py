@@ -11,7 +11,7 @@ from typing import Optional
 import pytest
 
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
-_LDEV = _SRC / "lulu-dev-workflow"
+_LDEV = _SRC / "lulu-workflow"
 _STAGES = ["decision", "lulu-blueprint", "lulu-arch", "lulu-plan", "lulu-tasks", "lulu-code"]
 # compose start.py never integrated run_archive; other stages defer via comment.
 _STAGES_WITH_DEFERRED_ARCHIVE = [
@@ -48,17 +48,17 @@ def _diag_holder_args(stage: str = "lulu-bet") -> list[str]:
 def _start_py(stage: str) -> Path:
     if stage in ("lulu-plan", "lulu-arch", "lulu-blueprint"):
         return _KERNEL_START
-    return _SRC / "lulu-dev-workflow" / stage / "scripts" / ({"lulu-code": "tc_start.py", "decision": "dec_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
+    return _SRC / "lulu-workflow" / stage / "scripts" / ({"lulu-code": "tc_start.py", "decision": "dec_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
     if stage in ("lulu-plan", "lulu-arch", "lulu-blueprint"):
         return _KERNEL_START.parent
-    return _SRC / "lulu-dev-workflow" / stage / "scripts"
+    return _SRC / "lulu-workflow" / stage / "scripts"
 
 
 def _cache_dir(tmp_path: Path) -> Path:
-    return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+    return tmp_path / ".cache" / "copilot" / "lulu-workflow"
 
 
 def _seed_work_order_handoff(tmp_path: Path, cycle_id: str, active_doc: int = 1) -> None:
@@ -103,7 +103,7 @@ def _make_cycle_state(cache_dir: Path, cycle_id: str, stage: str) -> None:
 
 
 def _make_session(cache_dir: Path, cycle_id: str, stage: str, revision: str) -> None:
-    scripts_root = _SRC / "lulu-dev-workflow" / "scripts"
+    scripts_root = _SRC / "lulu-workflow" / "scripts"
     if str(scripts_root) not in sys.path:
         sys.path.insert(0, str(scripts_root))
     from workflow_sessions import STAGE_FLAT, stage_subdir  # noqa: E402
@@ -253,7 +253,7 @@ def _seed_gate_for_stage(tmp_path: Path, to_stage: str, *, cycle_id: str = _FID)
 
 def _seed_decision_config(tmp_path: Path) -> None:
     """Seed workflow-config + local decision-doc template for dec_start init-session."""
-    cfg_dir = tmp_path / ".github" / "lulu-dev-workflow"
+    cfg_dir = tmp_path / ".github" / "lulu-workflow"
     cfg_dir.mkdir(parents=True)
     local_template = tmp_path / "decision-doc.template.md"
     local_template.write_text(

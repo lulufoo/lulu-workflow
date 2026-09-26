@@ -12,7 +12,7 @@ from tech_arch_start_adapter import TechArchStartAdapter  # noqa: E402
 
 
 def _seed_tech_diagnostic(tmp_path: Path, cycle_id: str) -> Path:
-    diag_dir = tmp_path / ".cache/cursor/lulu-dev-workflow" / cycle_id / "lulu-approach"
+    diag_dir = tmp_path / ".cache/cursor/lulu-workflow" / cycle_id / "lulu-approach"
     diag_dir.mkdir(parents=True)
     (diag_dir / "decision-doc.md").write_text("# Decision\n", encoding="utf-8")
     package = diag_dir / "decision-package.json"

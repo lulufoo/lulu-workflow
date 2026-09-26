@@ -40,7 +40,7 @@ def _setup_cycle(tmp_path: Path) -> tuple[Path, str]:
     cycle_id = "feat-session-info"
     seed_tech_plan_test_caches(tmp_path)
     seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
-    base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
+    base = tmp_path / ".cache" / "cursor" / "lulu-workflow" / cycle_id / "lulu-plan"
     revision = base / "revision1"
     revision.mkdir(parents=True)
     seed_revision_profile_pointer(revision)
@@ -104,7 +104,7 @@ class TestSessionSnapshot:
             project_root
             / ".cache"
             / "cursor"
-            / "lulu-dev-workflow"
+            / "lulu-workflow"
             / cycle_id
             / "lulu-plan"
             / "revision1"
@@ -118,7 +118,7 @@ class TestSessionSnapshot:
         cycle_id = "feat-session-info-split"
         seed_tech_plan_test_caches(tmp_path)
         seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
-        base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
+        base = tmp_path / ".cache" / "cursor" / "lulu-workflow" / cycle_id / "lulu-plan"
         revision = base / "revision1"
         revision.mkdir(parents=True)
         seed_revision_profile_pointer(revision)
@@ -219,7 +219,7 @@ class TestCli:
         cycle_id = "feat-session-info-cli-pending"
         seed_tech_plan_test_caches(tmp_path)
         seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
-        base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
+        base = tmp_path / ".cache" / "cursor" / "lulu-workflow" / cycle_id / "lulu-plan"
         revision = base / "revision1"
         revision.mkdir(parents=True)
         seed_revision_profile_pointer(revision)

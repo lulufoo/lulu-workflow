@@ -51,10 +51,10 @@ def test_design_k0b_profile_points_to_direct_templates() -> None:
     profile = json.loads(_PROFILE.read_text(encoding="utf-8"))
     compose = profile["framework_templates"]
     assert compose["section-registry"] == (
-        "lulu-dev-workflow/lulu-design/templates/section-registry.json"
+        "lulu-workflow/lulu-design/templates/section-registry.json"
     )
     assert compose["section-form-registry"] == (
-        "lulu-dev-workflow/lulu-design/templates/section-form-registry.json"
+        "lulu-workflow/lulu-design/templates/section-form-registry.json"
     )
     # Prefix = skill runtime root; remainder is under installed/source skill tree.
     skill_root = _REPO
@@ -65,7 +65,7 @@ def test_design_k0b_profile_points_to_direct_templates() -> None:
         ("role-instance", "role-instance.json"),
         ("domain-instance", "domain-instance.json"),
     ):
-        expected = f"lulu-dev-workflow/lulu-design/templates/{filename}"
+        expected = f"lulu-workflow/lulu-design/templates/{filename}"
         assert compose[key] == expected
         assert (skill_root / expected.split("/", 1)[1]).is_file(), key
     form = json.loads(

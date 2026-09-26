@@ -9,9 +9,9 @@ The script does not judge KW truth; it only stores values written through
 commands.
 
 Design rationale:
-docs/archive/lulu-dev-workflow/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
-docs/archive/lulu-dev-workflow/compose/archive-68.0/compose-g3-detect-clean-skip-design.md
-docs/archive/lulu-dev-workflow/compose/archive-70.0/compose-g3-detect-lens-payload-complete-design.md
+docs/archive/lulu-workflow/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
+docs/archive/lulu-workflow/compose/archive-68.0/compose-g3-detect-clean-skip-design.md
+docs/archive/lulu-workflow/compose/archive-70.0/compose-g3-detect-lens-payload-complete-design.md
 """
 
 from __future__ import annotations

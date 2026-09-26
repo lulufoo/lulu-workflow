@@ -57,7 +57,7 @@ def _scripts_dir(stage: str) -> Path:
 
 
 def _cache_dir(tmp_path: Path) -> Path:
-    return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
+    return tmp_path / ".cache" / "copilot" / "lulu-workflow"
 
 
 def _make_cycles_json(cache_dir: Path, cycle_id: str, extra: dict = None, name: str = "Test Cycle") -> None:
@@ -217,7 +217,7 @@ def _assert_topic_unresolved(result: subprocess.CompletedProcess, stage: str) ->
 
 def _seed_decision_config(tmp_path: Path) -> None:
     """Seed workflow-config + local decision-doc template for dec_start init-session."""
-    cfg_dir = tmp_path / ".github" / "lulu-dev-workflow"
+    cfg_dir = tmp_path / ".github" / "lulu-workflow"
     cfg_dir.mkdir(parents=True)
     local_template = tmp_path / "decision-doc.template.md"
     local_template.write_text(

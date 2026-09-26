@@ -36,9 +36,9 @@ class TestResolvePlatformContext:
         payload = json.loads(result.stdout.strip())
         assert payload["platform"] == "cursor"
         assert payload["project_root"] == str(tmp_path.resolve())
-        assert payload["workflow_dir"] == ".cursor/lulu-dev-workflow"
-        assert payload["cache_dir"] == ".cache/cursor/lulu-dev-workflow"
-        assert Path(payload["skill_root"]).name == "lulu-dev-workflow"
+        assert payload["workflow_dir"] == ".cursor/lulu-workflow"
+        assert payload["cache_dir"] == ".cache/cursor/lulu-workflow"
+        assert Path(payload["skill_root"]).name == "lulu-workflow"
 
     def test_copilot_agent_signal(self, tmp_path: Path):
         env = {**_ENV_CLEAN, "COPILOT_AGENT": "1"}
@@ -73,13 +73,13 @@ class TestResolveSessionContext:
             **_ENV_CLEAN,
             "LULU_CONVERSATION_ID": "conv-123",
         }
-        cache = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow"
+        cache = tmp_path / ".cache" / "cursor" / "lulu-workflow"
         cache.mkdir(parents=True)
         cycle_id = "feature-20260101000000-11111111"
         (cache / "cycles.json").write_text(
             json.dumps({cycle_id: {"name": "demo"}})
         )
-        active = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / "active-context.json"
+        active = tmp_path / ".cache" / "cursor" / "lulu-workflow" / "active-context.json"
         active.write_text(
             json.dumps(
                 {
@@ -109,7 +109,7 @@ class TestResolveSessionContext:
             **_ENV_CLEAN,
             "LULU_CONVERSATION_ID": "env-conv",
         }
-        cache = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow"
+        cache = tmp_path / ".cache" / "cursor" / "lulu-workflow"
         cache.mkdir(parents=True)
         cycle_id = "feature-20260101000000-55555555"
         (cache / "cycles.json").write_text(

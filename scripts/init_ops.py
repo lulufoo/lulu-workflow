@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Project-level init operations for lulu-dev-workflow."""
+"""Project-level init operations for lulu-workflow."""
 
 from __future__ import annotations
 
@@ -42,28 +42,28 @@ def run_init_project(project_root: Path, platform: str) -> int:
     for sub in SUB_WORKFLOWS:
         init_py = _init_script(sub)
         if not init_py.exists():
-            print(f"[lulu-dev-workflow init] WARNING: {init_py} not found, skipping.")
+            print(f"[lulu-workflow init] WARNING: {init_py} not found, skipping.")
             continue
-        print(f"\n[lulu-dev-workflow init] Running {sub} init...")
+        print(f"\n[lulu-workflow init] Running {sub} init...")
         result = subprocess.run(
             [sys.executable, str(init_py), "--project-root", str(project_root)],
             env={**os.environ, "LULU_PLATFORM": platform},
             check=False,
         )
         if result.returncode != 0:
-            print(f"[lulu-dev-workflow init] ERROR: {sub} init failed (exit {result.returncode}).")
+            print(f"[lulu-workflow init] ERROR: {sub} init failed (exit {result.returncode}).")
             return result.returncode
 
     hook_command = register_hook(project_root, platform)
-    print(f"\n[lulu-dev-workflow init] {platform} hook registered: {hook_command}")
+    print(f"\n[lulu-workflow init] {platform} hook registered: {hook_command}")
 
     hook_path, hook_created = ensure_hook_config(project_root, platform=platform)
     if hook_created:
-        print(f"\n[lulu-dev-workflow init] Created workflow-guard-config: {hook_path}")
+        print(f"\n[lulu-workflow init] Created workflow-guard-config: {hook_path}")
 
     created_stages = ensure_builtin_stage_configs(project_root, platform=platform)
     for stage_path in created_stages:
-        print(f"\n[lulu-dev-workflow init] Created stage config: {stage_path}")
+        print(f"\n[lulu-workflow init] Created stage config: {stage_path}")
 
-    print("\n[lulu-dev-workflow init] All sub-workflows initialized successfully.")
+    print("\n[lulu-workflow init] All sub-workflows initialized successfully.")
     return 0

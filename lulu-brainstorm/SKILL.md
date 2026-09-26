@@ -48,7 +48,7 @@ Typical: "My product's experience is poor, I want to redesign it, but I have no 
 | Needs external evidence / industry or competitive synthesis | `landscape` (looks outward; brainstorm looks inward) |
 | Already committed to building a specific thing; needs a spec | superpowers `brainstorming` → writing-plans |
 
-### Relationship to lulu-dev-workflow
+### Relationship to lulu-workflow
 
 Standalone utility — **not** a pipeline stage, not in the Stage Transitions whitelist. Invocable from
 any point. Pure SKILL: no scripts, no persisted artifacts, near-stateless.

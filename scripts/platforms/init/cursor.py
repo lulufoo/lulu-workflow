@@ -1,4 +1,4 @@
-"""Register lulu-dev-workflow preToolUse + beforeSubmitPrompt hooks in Cursor hooks.json."""
+"""Register lulu-workflow preToolUse + beforeSubmitPrompt hooks in Cursor hooks.json."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def register_cursor_hook(project_root: Path) -> None:
     pre_tool_use = [
         e
         for e in hooks.get("preToolUse", [])
-        if "lulu-dev-workflow" not in e.get("command", "")
+        if "lulu-workflow" not in e.get("command", "")
     ]
     pre_tool_use.append({
         "matcher": CURSOR_PRE_TOOL_USE_MATCHER,

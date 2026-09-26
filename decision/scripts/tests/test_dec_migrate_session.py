@@ -149,7 +149,7 @@ def test_migrate_via_start_writes_cycle_state(
 
     doc = _full_template().replace("{title}", "T").replace("{one-line summary of the intent input}", "c")
     doc = doc.replace("TBD", "filled", 2)
-    session_dir = project_root / ".cache/copilot/lulu-dev-workflow" / cycle_id / "decision"
+    session_dir = project_root / ".cache/copilot/lulu-workflow" / cycle_id / "decision"
     session_dir.mkdir(parents=True, exist_ok=True)
     (session_dir / "session-state.md").write_text(
         "---\nversion: 1\ncurrent_state: InProgress\nupdated_at: 2026-01-01T00:00:00+00:00\n---\n",
@@ -174,7 +174,7 @@ def test_migrate_via_start_writes_cycle_state(
     )
     assert result.returncode == 0, result.stderr
 
-    cycle_state = project_root / ".cache/copilot/lulu-dev-workflow" / cycle_id / "cycle-state.json"
+    cycle_state = project_root / ".cache/copilot/lulu-workflow" / cycle_id / "cycle-state.json"
     assert cycle_state.is_file()
     payload = json.loads(cycle_state.read_text(encoding="utf-8"))
     assert payload["current_stage"] == stage

@@ -2,7 +2,7 @@
 """Mechanical shell for kernel Step 3 (deductive derivation, K1).
 
 Design rationale (source repo, why-only): docs/ssot/compose/mechanism-ssot/compose-fact-architecture.md (Pd / source);
-process how archive: docs/archive/lulu-dev-workflow/compose/archive-2.0/compose-fact-first-k1-pd-design.md §2.
+process how archive: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact-first-k1-pd-design.md §2.
 
 Step 3 = AI semantic step + this mechanical shell. Scripts never invent derived
 work-item text — they only:

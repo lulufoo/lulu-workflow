@@ -3,7 +3,7 @@ rule-guard:
   globs:
     - "**/*.md"
 description: >
-  Corpus-driven evaluation probe executor for lulu-dev-workflow. Invoked by
+  Corpus-driven evaluation probe executor for lulu-workflow. Invoked by
   Eval orchestration once per dimension.
 ---
 

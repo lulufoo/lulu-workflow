@@ -25,7 +25,7 @@ class TestRegisterCursorHook:
         register_cursor_hook(tmp_path)
         payload = json.loads((tmp_path / ".cursor" / "hooks.json").read_text(encoding="utf-8"))
         entries = payload["hooks"]["preToolUse"]
-        assert any("lulu-dev-workflow" in e.get("command", "") for e in entries)
+        assert any("lulu-workflow" in e.get("command", "") for e in entries)
         assert any(e.get("matcher") == "Write|Edit|Read|Shell" for e in entries)
 
     def test_writes_before_submit_prompt_entry(self, tmp_path):
@@ -59,7 +59,7 @@ class TestRegisterClaudeHook:
                                 "hooks": [
                                     {
                                         "type": "command",
-                                        "command": "python3 old/lulu-dev-workflow/hook.py",
+                                        "command": "python3 old/lulu-workflow/hook.py",
                                     }
                                 ],
                             }
@@ -128,7 +128,7 @@ class TestRunInitProjectPlatformBranch:
         with patch("init_ops.SUB_WORKFLOWS", []):
             rc = run_init_project(tmp_path, "cursor")
         assert rc == 0
-        root = tmp_path / ".cursor/lulu-dev-workflow"
+        root = tmp_path / ".cursor/lulu-workflow"
         assert not (root / "config.json").exists()
         assert (root / "workflow-guard-config.json").is_file()
         assert (root / "manifest.json").is_file()
@@ -138,7 +138,7 @@ class TestRunInitProjectPlatformBranch:
     def test_does_not_overwrite_existing_stage_config(self, tmp_path):
         from init_ops import run_init_project
 
-        dest = tmp_path / ".cursor/lulu-dev-workflow/stages/lulu-code.json"
+        dest = tmp_path / ".cursor/lulu-workflow/stages/lulu-code.json"
         dest.parent.mkdir(parents=True)
         dest.write_text('{"test_command": "KEEP"}\n', encoding="utf-8")
         with patch("init_ops.SUB_WORKFLOWS", []):

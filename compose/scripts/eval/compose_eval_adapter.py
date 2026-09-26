@@ -567,7 +567,7 @@ class ComposeEvalAdapter:
 
     def _method_roots(self, project_root: Path) -> list[Path]:
         del project_root
-        # Refs are either workflow-relative or repo-relative (`lulu-dev-workflow/...`).
+        # Refs are either workflow-relative or repo-relative (`lulu-workflow/...`).
         return [_WORKFLOW_ROOT, _WORKFLOW_ROOT.parent]
 
     def _expanded_admission_corpus(

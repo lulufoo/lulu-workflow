@@ -17,7 +17,7 @@ _SCRIPT = Path(__file__).resolve().parents[1] / "tc_run_test_suite.py"
 
 
 def _write_config(project_root: Path, test_command: str) -> None:
-    config_dir = project_root / ".cursor" / "lulu-dev-workflow"
+    config_dir = project_root / ".cursor" / "lulu-workflow"
     config_dir.mkdir(parents=True)
     config_dir.joinpath("workflow-config.json").write_text(
         json.dumps({"lulu-code": {"test_command": test_command}}),

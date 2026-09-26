@@ -330,7 +330,7 @@ def test_complete_biz_includes_body_path_and_mtime(
 
     monkeypatch.setenv("LULU_PLATFORM", "cursor")
     monkeypatch.chdir(tmp_path)
-    cfg = tmp_path / ".cursor/lulu-dev-workflow/workflow-guard-config.json"
+    cfg = tmp_path / ".cursor/lulu-workflow/workflow-guard-config.json"
     cfg.parent.mkdir(parents=True, exist_ok=True)
     cfg.write_text(
         json.dumps(
@@ -341,7 +341,7 @@ def test_complete_biz_includes_body_path_and_mtime(
                     "enable": True,
                     "defaults": {
                         "readDirs": ["."],
-                        "writeDirs": [".cache/{platform}/lulu-dev-workflow"],
+                        "writeDirs": [".cache/{platform}/lulu-workflow"],
                     },
                 },
                 "externalPathGuard": {
@@ -366,7 +366,7 @@ def test_complete_biz_includes_body_path_and_mtime(
     capsys.readouterr()
     assert _complete(rev) == 0
 
-    biz_log = tmp_path / ".cache/cursor/lulu-dev-workflow/.logs/biz.log"
+    biz_log = tmp_path / ".cache/cursor/lulu-workflow/.logs/biz.log"
     rows = [
         json.loads(line)
         for line in biz_log.read_text(encoding="utf-8").splitlines()

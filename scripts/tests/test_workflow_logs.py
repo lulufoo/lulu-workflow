@@ -15,7 +15,7 @@ if str(_SCRIPTS) not in sys.path:
 
 
 def _write_hook_config(project_root: Path, *, logs_enabled: bool) -> None:
-    path = project_root / ".cursor/lulu-dev-workflow/workflow-guard-config.json"
+    path = project_root / ".cursor/lulu-workflow/workflow-guard-config.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(
@@ -26,7 +26,7 @@ def _write_hook_config(project_root: Path, *, logs_enabled: bool) -> None:
                     "enable": True,
                     "defaults": {
                         "readDirs": ["."],
-                        "writeDirs": [".cache/{platform}/lulu-dev-workflow"],
+                        "writeDirs": [".cache/{platform}/lulu-workflow"],
                     },
                 },
                 "externalPathGuard": {
@@ -47,7 +47,7 @@ class TestLogsConfig:
     def test_default_disabled_when_logs_missing(self, tmp_path: Path):
         from logs.logs_config_schema import is_logs_enabled, resolve_logs_dir
 
-        path = tmp_path / ".cursor/lulu-dev-workflow/workflow-guard-config.json"
+        path = tmp_path / ".cursor/lulu-workflow/workflow-guard-config.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
             json.dumps(
@@ -61,7 +61,7 @@ class TestLogsConfig:
         )
         assert is_logs_enabled(tmp_path, "cursor") is False
         assert resolve_logs_dir(tmp_path, "cursor") == (
-            tmp_path / ".cache/cursor/lulu-dev-workflow/.logs"
+            tmp_path / ".cache/cursor/lulu-workflow/.logs"
         ).resolve()
 
     def test_enabled_flag(self, tmp_path: Path):
@@ -85,7 +85,7 @@ class TestEmitters:
             tool="Read",
             path=str(tmp_path / "a.md"),
         )
-        io_log = tmp_path / ".cache/cursor/lulu-dev-workflow/.logs/io.log"
+        io_log = tmp_path / ".cache/cursor/lulu-workflow/.logs/io.log"
         assert not io_log.exists()
 
         _write_hook_config(tmp_path, logs_enabled=True)
@@ -126,7 +126,7 @@ class TestEmitters:
             platform="cursor",
             detail={"revision_dir": "/tmp/r"},
         )
-        log_dir = tmp_path / ".cache/cursor/lulu-dev-workflow/.logs"
+        log_dir = tmp_path / ".cache/cursor/lulu-workflow/.logs"
         assert (log_dir / "io.log").is_file()
         assert (log_dir / "biz.log").is_file()
         biz = json.loads((log_dir / "biz.log").read_text(encoding="utf-8").strip())
@@ -157,7 +157,7 @@ class TestHookDispatch:
             path=str(tmp_path / "c.md"),
         )
         lines = (
-            (tmp_path / ".cache/cursor/lulu-dev-workflow/.logs/io.log")
+            (tmp_path / ".cache/cursor/lulu-workflow/.logs/io.log")
             .read_text(encoding="utf-8")
             .strip()
             .splitlines()

@@ -51,7 +51,7 @@ def _setup_cycle(tmp_path: Path, *, active_doc: int = 1) -> tuple[Path, str]:
 
     cycle_id = "feat-session-info"
     seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
-    base = tmp_path / ".cache" / "cursor" / "lulu-dev-workflow" / cycle_id / "lulu-plan"
+    base = tmp_path / ".cache" / "cursor" / "lulu-workflow" / cycle_id / "lulu-plan"
     revision = base / f"revision{active_doc}"
     revision.mkdir(parents=True)
     seed_revision_profile_pointer(revision)

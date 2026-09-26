@@ -11,7 +11,7 @@ round_token: round-1
 
 | ID | root_cause | handling_mode | sot_ref | location | severity | evidence | description | status | decision | resolution |
 |----|------------|---------------|---------|----------|----------|----------|-------------|--------|----------|------------|
-| arch-quality-P1-intent-1 | WO-ERROR | direct | lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md#P1 | intent#1 | critical | `The service must behave appropriately.` | P1 — semantic drift: the behavior cannot be restated without guessing. | pending | — | |
-| arch-quality-P2-admission-1 | WO-ERROR | direct | lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md#P2 | admission#1 | critical | `required security level` | P2 — boundary unclear: the required level is not defined. | pending | — | |
-| arch-quality-P3-interface-1 | WO-ERROR | direct | lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md#P3 | interface#1 | critical | `The public interface is gRPC.` | P3 — logic chain broken: prior chapters do not derive the interface choice. | pending | — | |
-| arch-quality-P4-recovery-1 | WO-ERROR | direct | lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md#P4 | recovery#1 | critical | `recovery is handled appropriately` | P4 — boundary unanswerable: recovery actions and outcomes are not specified. | pending | — | |
+| arch-quality-P1-intent-1 | WO-ERROR | direct | lulu-workflow/lulu-arch/eval/sots/arch-quality.md#P1 | intent#1 | critical | `The service must behave appropriately.` | P1 — semantic drift: the behavior cannot be restated without guessing. | pending | — | |
+| arch-quality-P2-admission-1 | WO-ERROR | direct | lulu-workflow/lulu-arch/eval/sots/arch-quality.md#P2 | admission#1 | critical | `required security level` | P2 — boundary unclear: the required level is not defined. | pending | — | |
+| arch-quality-P3-interface-1 | WO-ERROR | direct | lulu-workflow/lulu-arch/eval/sots/arch-quality.md#P3 | interface#1 | critical | `The public interface is gRPC.` | P3 — logic chain broken: prior chapters do not derive the interface choice. | pending | — | |
+| arch-quality-P4-recovery-1 | WO-ERROR | direct | lulu-workflow/lulu-arch/eval/sots/arch-quality.md#P4 | recovery#1 | critical | `recovery is handled appropriately` | P4 — boundary unanswerable: recovery actions and outcomes are not specified. | pending | — | |

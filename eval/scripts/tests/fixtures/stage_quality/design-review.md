@@ -11,4 +11,4 @@ round_token: round-1
 
 | ID | root_cause | handling_mode | sot_ref | location | severity | evidence | description | status | decision | resolution |
 |----|------------|---------------|---------|----------|----------|----------|-------------|--------|----------|------------|
-| solution-quality-D1-direction-2 | WO-ERROR | direct | lulu-dev-workflow/lulu-design/eval/sots/solution-quality.md#D1 | direction#2 | critical | `- [ ] Update src/commands.py`; `Run: pytest tests/test_commands.py` | D1 — plan register in design-doc: checkbox task decomposition and Run command line | pending | — | |
+| solution-quality-D1-direction-2 | WO-ERROR | direct | lulu-workflow/lulu-design/eval/sots/solution-quality.md#D1 | direction#2 | critical | `- [ ] Update src/commands.py`; `Run: pytest tests/test_commands.py` | D1 — plan register in design-doc: checkbox task decomposition and Run command line | pending | — | |

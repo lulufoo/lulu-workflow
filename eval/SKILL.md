@@ -1,7 +1,7 @@
 ---
 name: eval-library
 description: >
-  Shared Eval orchestration for lulu-dev-workflow. Coordinates dimension probes
+  Shared Eval orchestration for lulu-workflow. Coordinates dimension probes
   and remediation.
 meta-skill-version: 1.0.0
 ---

@@ -19,10 +19,10 @@ from platforms.paths import (  # noqa: E402
 
 class TestPlatformPaths:
     def test_workflow_dir_cursor(self):
-        assert workflow_dir("cursor") == Path(".cursor/lulu-dev-workflow")
+        assert workflow_dir("cursor") == Path(".cursor/lulu-workflow")
 
     def test_cache_dir_claude(self):
-        assert cache_dir("claude") == Path(".cache/claude/lulu-dev-workflow")
+        assert cache_dir("claude") == Path(".cache/claude/lulu-workflow")
 
     def test_hooks_config_path_copilot(self):
         assert hooks_config_path("copilot") == Path(".github/hooks/hooks.json")

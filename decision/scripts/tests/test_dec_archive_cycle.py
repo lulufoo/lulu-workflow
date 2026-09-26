@@ -24,7 +24,7 @@ from dec_archive_cycle import (  # noqa: E402
 from dec_workflow_common import session_base_dir  # noqa: E402
 
 _PLATFORM = "cursor"
-_CACHE_ROOT = Path(".cache/cursor/lulu-dev-workflow")
+_CACHE_ROOT = Path(".cache/cursor/lulu-workflow")
 
 
 def _write_active_context(

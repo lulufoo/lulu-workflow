@@ -7,11 +7,11 @@
   },
   "sots": [
     {
-      "ref": "lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md"
+      "ref": "lulu-workflow/lulu-arch/eval/sots/arch-quality.md"
     }
   ],
   "method": {
-    "ref": "lulu-dev-workflow/lulu-arch/eval/methods/arch-quality.md",
+    "ref": "lulu-workflow/lulu-arch/eval/methods/arch-quality.md",
     "focus": "Architecture quality"
   },
   "review": {

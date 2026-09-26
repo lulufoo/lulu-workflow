@@ -26,6 +26,6 @@ def resolve_logs_dir(
     project_root: Path,
     platform: Optional[str] = None,
 ) -> Path:
-    """Return ``.cache/{platform}/lulu-dev-workflow/.logs`` under project_root."""
+    """Return ``.cache/{platform}/lulu-workflow/.logs`` under project_root."""
     plat = detect_platform(platform)
     return (project_root / platform_cache_dir(plat) / _LOGS_SUBDIR).resolve()
