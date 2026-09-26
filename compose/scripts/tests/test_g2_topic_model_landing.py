@@ -277,7 +277,7 @@ def test_collab_arc_rebuild_is_g2_owned():
     assert "$SUBAGENT_AWAIT_ASYNC" not in runner
     assert "## Input" in runner
     assert "OUTPUT_PATH:" in runner
-    assert "MOUNT:" in runner
+    assert "MOUNT:" not in runner
     assert "contracts/delivery.md" in runner
     assert "target=collab" not in runner
     assert "$SUBAGENT_AWAIT_SYNC" not in gate

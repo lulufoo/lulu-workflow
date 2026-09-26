@@ -18,7 +18,7 @@ or fact list.
 self-check; `validate-candidate` then `write --digest` for each phase.  
 **Must not:** use topic / old arc / lens order as the spine; use lens clusters;
 persist a candidate that failed or skipped self-check; invent a second schema
-or `formal|collab` target fork; change Viewer HTML.
+or `formal|collab` target fork.
 
 ## Input
 
@@ -27,10 +27,8 @@ REVISION_DIR: <revision or inductive out dir>
 PROJECT_ROOT: <abs project root>
 CYCLE_ID: <cycle id>
 OUTPUT_PATH: <arc file relative to slice or absolute>
-MOUNT: true|false
 ```
 
-Default when `MOUNT` omitted: `false`.  
 Do **not** paste fact bodies — read via `context`.
 
 ## Cognition
@@ -69,11 +67,9 @@ How binding each is lives in `references/semantic-build-protocol.md`.
 |-------|---------|
 | `$NARRATIVE_ARC_BUILD` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_build_control.py"` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
-| `$COMPOSE_VIEWER_CTL` | `python3 "$SKILL_ROOT/compose/compose-viewer/scripts/compose_viewer_control.py"` |
 
 Build: `--help` · `context` · `validate-candidate`.  
-Arc: `--help` · `validate` · `write` · `show` · `list-chapters`.  
-Viewer: `--help` · `mount` · `status` · `stop`.
+Arc: `--help` · `validate` · `write` · `show` · `list-chapters`.
 
 ## Summary
 

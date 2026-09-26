@@ -5,8 +5,7 @@ Single delivery path for all callers. Load only after
 
 ## Preconditions
 
-- Input bound: `REVISION_DIR`, `PROJECT_ROOT`, `CYCLE_ID`,
-  `OUTPUT_PATH`, `MOUNT` (`true`|`false`; default `false` if omitted).
+- Input bound: `REVISION_DIR`, `PROJECT_ROOT`, `CYCLE_ID`, `OUTPUT_PATH`.
 - Semantic build protocol completed for the current phase candidate.
 - Do **not** paste fact bodies in the caller prompt — use `context`.
 
@@ -32,21 +31,6 @@ Single delivery path for all callers. Load only after
    --digest <digest> --require-write-ready`
 4. Delete temporary transport candidate file after successful write.
 
-## Mount (optional)
-
-When `MOUNT=true`:
-
-```bash
-$COMPOSE_VIEWER_CTL mount \
-  --revision-dir "$REVISION_DIR" \
-  --arc-file "$OUTPUT_PATH"
-```
-
-- Mount requires on-disk arc at `OUTPUT_PATH` with unified schema and
-  `status=write_ready` (enforced by mount control).
-- Do **not** change Viewer HTML in this contract.
-- When `MOUNT=false`: skip mount; Summary `mounted=false`, `viewer_url` empty.
-
 ## Summary (return exactly)
 
 ```text
@@ -54,17 +38,12 @@ status: done|failed
 output_path: <OUTPUT_PATH>
 wrote: true|false
 write_ready: true|false
-mounted: true|false
-viewer_url: <url or empty>
 error: <empty or message>
 ```
 
 ## DONE / failure
 
-- **DONE:** `wrote=true` · `write_ready=true` · (`MOUNT=false` **or**
-  (`mounted=true` · non-empty `viewer_url`)).
-- **Partial:** `wrote=true` · `write_ready=true` · `MOUNT=true` ·
-  `mounted=false` — arc on disk; do not claim Viewer updated.
+- **DONE:** `wrote=true` · `write_ready=true`.
 - **FAIL:** `wrote=false` — prior file at `OUTPUT_PATH` unchanged (backup kept
   only after a successful overwrite attempt's pre-backup; failed digest/validate
   leaves existing file untouched).
