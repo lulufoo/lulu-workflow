@@ -1,0 +1,252 @@
+{
+  "version": "1",
+  "$schema_id": "section-form-schema",
+  "profile_id": "lulu-arch",
+  "sections": {
+    "CTX": {
+      "presentation": {
+        "guidance": "Topic architecture opens with problem-domain analytical prose covering trigger, current technical situation, and cost of unresolved uncertainty — without stating the adopted architecture direction, mixing boundaries, module layout, or feature-level outcomes.",
+        "allowed": [
+          {
+            "carrier": "Causal analytical prose (trigger → current situation → cost of unresolved uncertainty)",
+            "structure": "prose",
+            "when": "Single causal architecture-pressure narrative; not ≥2 column-aligned items."
+          }
+        ],
+        "forbidden": [
+          "Named adopted architecture direction and direction-success criteria tables (belongs in AD)",
+          "Scope or exclusion tables (belongs in BD)",
+          "Module or capability-domain partition tables (belongs in SH)",
+          "Feature-milestone dependency diagrams (belongs in FD)",
+          "Decision comparison or decision-outcome inventory tables (belongs in KD)",
+          "Open-question / pending-item tracking tables (belongs in OQ)",
+          "Before/after feature outcome tables (feature-solution granularity, out of scope)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "States why architecture shaping happens now and what the current technical situation is",
+          "States the cost of leaving architecture uncertainty unresolved without naming the adopted direction"
+        ],
+        "forbidden": [
+          "Opening paragraphs that lead with file:line or repository path inventories",
+          "Checkbox steps, Run commands, feature task breakdowns, or acceptance criteria"
+        ]
+      },
+      "reading_axis": "trigger → situation → unresolved_cost"
+    },
+    "AD": {
+      "presentation": {
+        "guidance": "States the named topic-level architecture direction, high-level realization actions, and observable direction-success criteria at milestone granularity — without problem-trigger narrative, scope tables, module layout, or feature-level outcomes.",
+        "allowed": [
+          {
+            "carrier": "Direction prose plus optional criteria table (named direction → high-level actions → observable success criteria)",
+            "structure": "prose+table",
+            "when": "Named topic direction plus actions and/or success criteria."
+          }
+        ],
+        "forbidden": [
+          "Repeating CTX trigger narrative without direction semantics",
+          "Scope or exclusion tables (belongs in BD)",
+          "Module or capability-domain partition tables (belongs in SH)",
+          "Feature-milestone dependency diagrams (belongs in FD)",
+          "Decision comparison or decision-outcome inventory tables (belongs in KD)",
+          "Open-question / pending-item tracking tables (belongs in OQ)",
+          "Before/after feature outcome tables (feature-solution granularity, out of scope)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Names an observable topic-level architecture direction without file-level, interface-level, or task-level detail",
+          "States high-level realization actions and/or generic observable criteria that show the direction holds"
+        ],
+        "forbidden": [
+          "Opening paragraphs that lead with file:line or repository path inventories",
+          "Checkbox steps, Run commands, feature task breakdowns, or acceptance criteria"
+        ]
+      },
+      "reading_axis": "direction → actions → success_criteria"
+    },
+    "BD": {
+      "presentation": {
+        "guidance": "Boundaries express shaping scope for a multi-feature topic: in-scope capability domains, excluded architecture paths, and cross-feature invariants; each exclusion binds to what it protects.",
+        "allowed": [
+          {
+            "carrier": "Scope table (capability domain or system | shaping concern in scope)",
+            "structure": "table",
+            "when": "≥2 in-scope domains sharing domain|concern columns."
+          },
+          {
+            "carrier": "Exclusion list (excluded architecture path | protected boundary/invariant)",
+            "structure": "table",
+            "when": "≥1 exclusion needing path|protected columns."
+          },
+          {
+            "carrier": "Invariant list (each self-contained cross-feature proposition)",
+            "structure": "list",
+            "when": "≥1 self-contained cross-feature invariant."
+          }
+        ],
+        "forbidden": [
+          "Feature change-mapping tables (feature-solution granularity, out of scope)",
+          "Module dependency diagrams (belongs in FD)",
+          "Trade-off reasoning with adopted/rejected paths (belongs in KD)",
+          "Open-assumption tracking (belongs in OQ)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Scope, exclusions, and invariants are distinguishable and non-contradictory",
+          "Each exclusion identifies the boundary or invariant it protects"
+        ],
+        "forbidden": [
+          "Repeating CTX trigger narrative without boundary semantics",
+          "Single-feature solution scope framed as topic architecture"
+        ]
+      },
+      "reading_axis": "in_scope → excluded → invariants"
+    },
+    "SH": {
+      "presentation": {
+        "guidance": "Prefer Mermaid architecture structure diagrams (e.g. C4; UML component/package/deployment; layered structure). Choose the kind that best fits the facts. Prefer one coarse diagram; add finer structure diagrams only when facts remain unconsumed. Carrier priority: diagram > table > analytical prose. Use a table only when facts cannot support nodes/edges.",
+        "allowed": [
+          {
+            "carrier": "Architecture structure diagram",
+            "structure": "diagram",
+            "when": "Structure/topology readable as nodes and edges."
+          },
+          {
+            "carrier": "Component/capability table",
+            "structure": "table",
+            "when": "≥2 elements sharing columns; facts cannot support a diagram."
+          },
+          {
+            "carrier": "Analytical prose",
+            "structure": "prose",
+            "when": "Brief non-structural notes; not matrix or diagram."
+          }
+        ],
+        "forbidden": [
+          "Prose or lists as the primary carrier of structure (no real diagram)",
+          "Structure table before its diagram",
+          "Interaction or execution-detail diagrams (e.g. sequence, request-path)",
+          "Implementation-structure inventories (class attribute/method lists, table-level ER)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Named structure elements with responsibilities and dependencies (on diagram or fallback table)",
+          "Each element's link to existing assets is clear (new or extends-existing)"
+        ],
+        "forbidden": [
+          "Placeholder element names",
+          "Restating diagram nodes or edges"
+        ]
+      },
+      "reading_axis": "topology → duty → dependency"
+    },
+    "FD": {
+      "presentation": {
+        "guidance": "Prefer Mermaid feature-dependency diagrams (e.g. milestone dependency graph or flowchart). Carrier priority: diagram > table > analytical prose. Use a table only when facts cannot support milestone nodes/edges.",
+        "allowed": [
+          {
+            "carrier": "Feature-dependency diagram",
+            "structure": "diagram",
+            "when": "Milestone dependency readable as nodes and edges."
+          },
+          {
+            "carrier": "Feature-dependency table",
+            "structure": "table",
+            "when": "≥2 milestones sharing columns; facts cannot support a diagram."
+          },
+          {
+            "carrier": "Analytical prose",
+            "structure": "prose",
+            "when": "Brief dependency notes; not matrix or diagram."
+          }
+        ],
+        "forbidden": [
+          "Module call chains or request paths",
+          "Prose or lists as the primary carrier of dependency (no real diagram)",
+          "Dependency table before its diagram"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Named milestone nodes with depends-on and anchors (on diagram or fallback table)",
+          "Future feature-cycle entry points remain visible"
+        ],
+        "forbidden": [
+          "Placeholder milestone names",
+          "Restating diagram nodes or edges"
+        ]
+      },
+      "reading_axis": "milestone → depends_on → next_entry"
+    },
+    "KD": {
+      "presentation": {
+        "guidance": "When multiple architecture paths were genuinely considered at topic level, a comparison structure carries trade-off semantics; single-path decisions may use analytical prose.",
+        "allowed": [
+          {
+            "carrier": "Architecture path comparison table (path | conclusion | trade-off rationale | reopen condition)",
+            "structure": "table",
+            "when": "≥2 genuinely considered paths sharing path|conclusion|rationale|reopen columns."
+          },
+          {
+            "carrier": "Analytical reasoning prose (single decision, no genuine alternatives)",
+            "structure": "prose",
+            "when": "Single decision; no genuine contrast set."
+          }
+        ],
+        "forbidden": [
+          "Module layout duplicating SH",
+          "Feature dependency graph duplicating FD",
+          "Interface field specs or acceptance matrices (feature-solution granularity, out of scope)",
+          "Phase tags, Owner, or Timing tables (execution-spec granularity, out of scope)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Architecture-level trade-off reasoning beyond stakeholder authorization alone",
+          "Rejected alternatives named when genuinely considered",
+          "Reopen or evolution conditions stated when reversibility matters"
+        ],
+        "forbidden": [
+          "Selected direction rationale consisting solely of authorization references",
+          "Repeating BD exclusion list without decision semantics",
+          "Feature implementation tactics or design patterns at feature-solution granularity"
+        ]
+      },
+      "reading_axis": "options → choice → reopen"
+    },
+    "OQ": {
+      "presentation": {
+        "guidance": "Open items carry topic-level tracking semantics: assumption or risk, related architecture gap, and whether the next feature cycle is blocked.",
+        "allowed": [
+          {
+            "carrier": "Open-item tracking table (item | related gap | blocks-next-cycle or non-blocking | closure condition)",
+            "structure": "table",
+            "when": "≥1 open item needing item|gap|blocks|closure columns."
+          }
+        ],
+        "forbidden": [
+          "Run commands, test file paths, or checkbox steps",
+          "Closed decisions restated from KD",
+          "Acceptance or verification matrices (feature-solution granularity, out of scope)",
+          "blocks-plan labels (feature-cycle disposition, out of scope)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "blocks-next-cycle or non-blocking label on each item",
+          "Closure condition or resolution path when status is non-blocking"
+        ],
+        "forbidden": [
+          "Items that only repeat SH/FD/KD content without unresolved assumptions",
+          "Feature-level verification gaps without topic-level architecture impact"
+        ]
+      },
+      "reading_axis": "assumption → gap → blocks_or_closure"
+    }
+  }
+}

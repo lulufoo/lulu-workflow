@@ -1,0 +1,22 @@
+{
+  "id": "solution-quality",
+  "legacy_alias": "d2",
+  "label": "Design Solution Quality (Intent Probes)",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [
+    {
+      "ref": "lulu-dev-workflow/lulu-design/eval/sots/solution-quality.md"
+    }
+  ],
+  "method": {
+    "ref": "lulu-dev-workflow/lulu-design/eval/methods/solution-quality.md",
+    "focus": "Design solution quality"
+  },
+  "review": {
+    "seq": 2,
+    "output_path": "design-review-e{M}2.md",
+    "template": "eval/review.template.md"
+  }
+}

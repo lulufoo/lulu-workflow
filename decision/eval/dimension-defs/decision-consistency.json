@@ -1,0 +1,17 @@
+{
+  "id": "decision-consistency",
+  "label": "Decision consistency (E↔D / D↔X / gap↔assumptions)",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [],
+  "method": {
+    "ref": "lulu-dev-workflow/decision/eval/methods/decision-consistency.md",
+    "focus": "Single probe of decision-eval-target.md: run all three cross-checks in decision-consistency.md. Each blocker issue MUST set realign_gate to E, D, or X. Do not edit EvalTarget; Decision routes fail→RS."
+  },
+  "review": {
+    "seq": 1,
+    "output_path": "decision-review-e{M}1.md",
+    "template": "eval/review.template.md"
+  }
+}

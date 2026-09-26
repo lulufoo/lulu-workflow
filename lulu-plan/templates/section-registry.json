@@ -1,0 +1,169 @@
+{
+  "version": "1",
+  "section_order": [
+    "CTX",
+    "GO",
+    "SC",
+    "AR",
+    "I",
+    "SK",
+    "T",
+    "VF"
+  ],
+  "document_preamble": "# {Feature Name} Tech Plan\n\n**Date:** YYYY-MM-DD\n**Version:** v1\n**Status:** Draft\n\n**Document References:**\n- Decision-doc: `{/<cycle_id>/tech/diagnostic/decision-doc.md}`\n- Product-doc: `{path}` / N/A\n\n---\n",
+  "sections": {
+    "CTX": {
+      "heading": "Context",
+      "aliases": [
+        "context",
+        "background",
+        "current state"
+      ],
+      "upstream": [],
+      "relations": {},
+      "intent": "Verified current state, problem, and situational facts needed to understand the change. Reusable patterns and reference implementations belong here when relevant to the change.",
+      "intent_boundary": "Goal outcomes, scope commitments, architecture, phases, tasks, invariants, and acceptance/verification belong to GO, SC, AR, SK, T, I, VF.",
+      "presence": "required"
+    },
+    "GO": {
+      "heading": "Goal",
+      "aliases": [
+        "goal",
+        "objective",
+        "north star",
+        "overview"
+      ],
+      "upstream": [
+        "CTX"
+      ],
+      "relations": {
+        "CTX": "operationalize"
+      },
+      "intent": "One clear before→after outcome (checkable states). Observable acceptance criteria and AC mapping belong to VF.",
+      "intent_boundary": "Background, architecture detail, phases, and task steps belong to CTX, AR, SK, T. Touch surfaces belong to SC; checkable post-ship constraints belong to I. Acceptance criteria, layered behavioral verdicts, and verification commands belong to VF.",
+      "presence": "required"
+    },
+    "SC": {
+      "heading": "Scope",
+      "aliases": [
+        "scope",
+        "change boundary",
+        "impact surface"
+      ],
+      "upstream": [
+        "CTX",
+        "GO"
+      ],
+      "relations": {
+        "CTX": "operationalize",
+        "GO": "operationalize"
+      },
+      "intent": "Surfaces, systems, repos, and boundaries this change touches; concrete paths when codebase read supports them; and items explicitly out of scope or deferred (Non-Goals). Surfaces not listed are out of touch for this change unless Scope is explicitly revised.",
+      "intent_boundary": "Checkable post-ship constraints belong to I; architecture, phased execution, and task breakdown belong to AR, SK, T. RACI and collaboration-protocol essays are not Scope substance.",
+      "presence": "required"
+    },
+    "AR": {
+      "heading": "Architecture",
+      "aliases": [
+        "architecture",
+        "approach",
+        "design"
+      ],
+      "upstream": [
+        "GO",
+        "SC"
+      ],
+      "relations": {
+        "GO": "operationalize",
+        "SC": "respect_exclude"
+      },
+      "intent": "Structural approach: components, responsibilities, data or control flow, and module-level interface contracts when modules change; and the rationale for choosing this structural approach. Key flows stay at structural-sketch depth.",
+      "intent_boundary": "Phased execution, checkbox tasks, verification commands, file-level edits, and stepwise implementation recipes belong to SK, T, VF (recipes and per-file edits → T).",
+      "presence": "required"
+    },
+    "I": {
+      "heading": "Invariants",
+      "aliases": [
+        "invariants",
+        "constraints"
+      ],
+      "upstream": [
+        "GO",
+        "SC"
+      ],
+      "relations": {
+        "GO": "operationalize",
+        "SC": "respect_exclude"
+      },
+      "intent": "Constraints that must always hold after ship; each independently checkable.",
+      "intent_boundary": "Option trade-offs are out of scope for the plan; phased skeleton, tasks, and detailed verification belong to SK, T, VF.",
+      "presence": "required"
+    },
+    "SK": {
+      "heading": "Approach Skeleton",
+      "aliases": [
+        "approach skeleton",
+        "phases",
+        "execution skeleton"
+      ],
+      "upstream": [
+        "GO",
+        "AR",
+        "I"
+      ],
+      "relations": {
+        "GO": "operationalize",
+        "AR": "instantiate",
+        "I": "preserve_invariant"
+      },
+      "intent": "Phased execution skeleton: execution arc, stages with Done When, Depends On, Parallel, and reversibility.",
+      "intent_boundary": "Bite-sized checkbox steps and per-file edit lists belong to T; verify commands belong to VF.",
+      "presence": "required"
+    },
+    "T": {
+      "heading": "Tasks",
+      "aliases": [
+        "tasks",
+        "work items"
+      ],
+      "upstream": [
+        "GO",
+        "AR",
+        "I",
+        "SK"
+      ],
+      "relations": {
+        "GO": "operationalize",
+        "AR": "instantiate",
+        "I": "preserve_invariant",
+        "SK": "decompose"
+      },
+      "intent": "Actionable tasks traced to SK ids; code-facing tasks carry codebase-grounded paths (non-code must be explicit).",
+      "intent_boundary": "Goal rewrites and architecture redesign belong to GO, AR.",
+      "presence": "required"
+    },
+    "VF": {
+      "heading": "Verification",
+      "aliases": [
+        "verification",
+        "testing",
+        "acceptance"
+      ],
+      "upstream": [
+        "GO",
+        "SC",
+        "I",
+        "T"
+      ],
+      "relations": {
+        "GO": "operationalize",
+        "SC": "operationalize",
+        "I": "preserve_invariant",
+        "T": "operationalize"
+      },
+      "intent": "How Goal, Scope, Invariants, and Tasks are verified; AC mapping with commands or concrete steps, including AC-to-task-id traceability when AC ids are defined (required when AC rows exist); and pre-implementation checklist rows for any assumptions still open at implementation time, each tagged Must Close Before the phase that depends on it (explicit none if empty). Goal section states Before→After only.",
+      "intent_boundary": "New scope, architecture, or task items belong to SC, AR, T.",
+      "presence": "required"
+    }
+  }
+}

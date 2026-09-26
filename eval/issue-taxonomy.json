@@ -1,0 +1,25 @@
+{
+  "version": "2",
+  "labels": {
+    "SOT-DEFECT": {
+      "desc": "SoT incomplete, ambiguous, or contradictory",
+      "issue_class": "Human-class"
+    },
+    "WO-MISS": {
+      "desc": "Valid SoT not reflected in tech-doc",
+      "issue_class": "Artifact-class"
+    },
+    "WO-ERROR": {
+      "desc": "Tech-doc self-quality issue, SoT not involved",
+      "issue_class": "Artifact-class"
+    },
+    "UNRESOLVABLE": {
+      "desc": "Insufficient evidence; pending reclassification",
+      "issue_class": "Human-class"
+    },
+    "DECISION-REQUIRED": {
+      "desc": "Confirmed material ambiguity in B; human decision required",
+      "issue_class": "Human-class"
+    }
+  }
+}

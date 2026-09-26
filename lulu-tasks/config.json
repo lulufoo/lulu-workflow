@@ -1,0 +1,9 @@
+{
+  "eval": {
+    "task_template_url": "lulu-dev-workflow/lulu-tasks/templates/30-work-order-task-template.md",
+    "tasklist_template_url": "lulu-dev-workflow/lulu-tasks/templates/31-work-order-tasklist-template.md",
+    "woqa_url": "lulu-dev-workflow/lulu-tasks/templates/32-work-order-evaluation-framework.md",
+    "twca_url": "lulu-dev-workflow/lulu-tasks/templates/33-tech-workorder-crosscheck.md",
+    "tda_url": "lulu-dev-workflow/lulu-tasks/templates/34-tech-doc-admission-framework.md"
+  }
+}

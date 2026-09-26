@@ -1,0 +1,26 @@
+[
+  {
+    "stage": "lulu-design",
+    "fixture": "design-plan-register.md",
+    "expected_sot_rule": "D1",
+    "review_file": "design-review.md",
+    "expected_location": "direction#2",
+    "p1_p4_review_file": "design-p1-p4-review.md"
+  },
+  {
+    "stage": "lulu-arch",
+    "fixture": "arch-downstream-register.md",
+    "expected_sot_rule": "A1",
+    "review_file": "arch-review.md",
+    "expected_location": "structure#2",
+    "p1_p4_review_file": "arch-p1-p4-review.md"
+  },
+  {
+    "stage": "lulu-blueprint",
+    "fixture": "blueprint-downstream-register.md",
+    "expected_sot_rule": "A1",
+    "review_file": "blueprint-review.md",
+    "expected_location": "product-shape#2",
+    "p1_p4_review_file": "blueprint-p1-p4-review.md"
+  }
+]

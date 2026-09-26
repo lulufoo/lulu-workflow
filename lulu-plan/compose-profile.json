@@ -1,0 +1,47 @@
+{
+  "profile_id": "lulu-plan",
+  "stage_name": "lulu-plan",
+  "cycle_types": [
+    "feature"
+  ],
+  "shell_dir": "lulu-plan",
+  "shell_paths": {
+    "hook_guard": "scripts/hook/hook_guard.py",
+    "dimension_defs_dir": "lulu-plan/dimension-defs"
+  },
+  "document": {
+    "filename": "tech-doc.md",
+    "schema": "chapter"
+  },
+  "pipeline": {
+    "inductive": true,
+    "freeedit": true,
+    "code_grounding": true,
+    "post_writing_options": [
+      "freeedit",
+      "evaluate"
+    ]
+  },
+  "cache_subdir": "lulu-plan",
+  "framework_section": "lulu-plan",
+  "framework_templates": {
+    "section-registry": "lulu-dev-workflow/lulu-plan/templates/section-registry.json",
+    "section-form-registry": "lulu-dev-workflow/lulu-plan/templates/section-form-registry.json",
+    "section-kw-criteria": "lulu-dev-workflow/lulu-plan/templates/section-kw-criteria.md",
+    "role-instance": "lulu-dev-workflow/lulu-plan/templates/role-instance.json",
+    "domain-instance": "lulu-dev-workflow/lulu-plan/templates/domain-instance.json"
+  },
+  "eval": {
+    "enabled": true,
+    "workflow_id": "lulu-plan",
+    "contributor_module": "lulu-plan/scripts/eval/tech_plan_eval_contributor.py",
+    "contributor_class": "TechPlanEvalContributor",
+    "eval_capability": "full-remediation"
+  },
+  "delivery_index": {
+    "layout": "revision",
+    "state_file": "workflow-state.md",
+    "terminal_state": "Delivered",
+    "doc_filename": "tech-package.json"
+  }
+}

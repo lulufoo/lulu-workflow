@@ -1,0 +1,22 @@
+{
+  "id": "codebase-consistency",
+  "legacy_alias": "e2",
+  "label": "Codebase Consistency",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [
+    {
+      "ref": "."
+    }
+  ],
+  "method": {
+    "ref": "lulu-dev-workflow/eval/methods/codebase-consistency.md",
+    "focus": "Design vs existing code structure, references, conventions"
+  },
+  "review": {
+    "seq": 2,
+    "output_path": "tech-review-e{M}2.md",
+    "template": "eval/review.template.md"
+  }
+}

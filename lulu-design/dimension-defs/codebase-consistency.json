@@ -1,0 +1,22 @@
+{
+  "id": "codebase-consistency",
+  "legacy_alias": "d1",
+  "label": "Codebase Consistency",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [
+    {
+      "ref": "."
+    }
+  ],
+  "method": {
+    "ref": "lulu-dev-workflow/eval/methods/codebase-consistency.md",
+    "focus": "Only when design-doc explicitly cites modules, paths, interfaces, or schema names (ST/IF/CTX): compare cited claims vs verified codebase — skip sub-sections without explicit code references"
+  },
+  "review": {
+    "seq": 1,
+    "output_path": "design-review-e{M}1.md",
+    "template": "eval/review.template.md"
+  }
+}

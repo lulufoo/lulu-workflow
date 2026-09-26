@@ -1,0 +1,296 @@
+{
+  "version": "1",
+  "profile_id": "tech-design",
+  "section_order": [
+    "CTX",
+    "GOAL",
+    "SCOPE",
+    "DECISION",
+    "I",
+    "ST",
+    "IF",
+    "SEAM",
+    "VERIFY",
+    "RISK",
+    "DEP"
+  ],
+  "document_preamble": "# {Feature Name} · Technical Solution Design\n\n**Date:** YYYY-MM-DD\n**Version:** v1\n**Status:** Draft\n\n**Decision-doc:** `{/<cycle_id>/tech/diagnostic/decision-doc.md}`\n\n**Chain domain:** Technical solution design — human–AI design consensus before tech-plan; not enterprise architecture, not execution specs.\n\n---\n",
+  "sections": {
+    "CTX": {
+      "heading": "Context",
+      "aliases": [
+        "background",
+        "current state",
+        "trigger reason"
+      ],
+      "upstream": [],
+      "relations": {},
+      "intent": "The design problem domain with three required elements: (1) trigger—why now; (2) verified current state—what exists; (3) impact—user- or system-level cost of that state. Lead with reviewable narrative; code or path facts support the story, they do not replace it.",
+      "intent_boundary": "Solution selection, structure, interfaces, key decisions, verification, seams, risks, dependencies, and tasks belong to GOALAL, ST, DECISION, IF, SEAM, VERIFY, RISK, and DEP. Before→after success states belong to GOALAL. Enterprise architecture redesign is out of scope for this design.",
+      "presence": "required",
+      "facets": [
+        "touch surfaces",
+        "reference patterns",
+        "other"
+      ]
+    },
+    "GOAL": {
+      "heading": "Goal",
+      "aliases": [
+        "objective",
+        "success criteria",
+        "outcome",
+        "要证明什么"
+      ],
+      "upstream": [
+        "CTX"
+      ],
+      "relations": {
+        "CTX": "operationalize"
+      },
+      "intent": "What must be true when the design is sufficient—observable success line relative to CTX. Prefer before→after contrast at the behavioral or structural level. Acceptance criteria may be referenced at the semantic level without tracing to tasks or commands. (Merged from legacy GOAL and review-slot R-GOAL.)",
+      "intent_boundary": "Background problem narrative belongs to CTX. In/out delivery boundary belongs to SCOPEOPE. Checkable field/state/flow norms belong to I, IF, or ST (not a separate NORM lens). Verification steps belong to VERIFY. Module layout belongs to ST. Aspirational vision without a reviewable success condition does not belong here. Phases, checkboxes, SK/T, metric thresholds, and run commands do not belong here.",
+      "presence": "required"
+    },
+    "SCOPE": {
+      "heading": "Scope",
+      "aliases": [
+        "applies to",
+        "impact surface",
+        "touch surfaces",
+        "non-goals",
+        "in/out",
+        "范围",
+        "非目标"
+      ],
+      "upstream": [
+        "GOAL"
+      ],
+      "relations": {
+        "GOAL": "operationalize"
+      },
+      "intent": "This design's delivery boundary: in-scope surfaces and explicit out-of-scope / deferred items. When implementation areas are named, those touch surfaces must be identifiable in the system under design. (Merged from legacy Scope/Non-Goals lenses and review-slot R-SCOPE.)",
+      "intent_boundary": "Success criteria belong to GOAL. Adopt/reject trade-off rationale belongs to DECISION. Checkable invariants belong to I. File-level task steps do not belong here. State machines and structural behavior detail belong to ST.",
+      "presence": "required",
+      "facets": [
+        "in-scope surfaces",
+        "out-of-scope / deferred",
+        "functions",
+        "modules",
+        "interfaces",
+        "data surfaces",
+        "other"
+      ]
+    },
+    "DECISION": {
+      "heading": "Key Decisions",
+      "aliases": [
+        "decision anchors",
+        "alternatives",
+        "trade-offs",
+        "取舍",
+        "Options"
+      ],
+      "upstream": [
+        "GOAL",
+        "SCOPE"
+      ],
+      "relations": {
+        "GOAL": "operationalize",
+        "SCOPE": "respect_exclude"
+      },
+      "intent": "Locked design choices: what was selected, what was rejected, why, and under what conditions to reopen. Include confirmed premises and design-level choices such as reversibility and data semantics. State the core design insight before option comparison. Rationale must include design reasoning, not stakeholder authorization alone. (Merged from legacy DECISION and review-slot R-DECISION.)",
+      "intent_boundary": "Structural layout and state paths belong to ST. Interface fields belong to IF. External technical dependency ledger belongs to DEP; this lens keeps adopt/reject and upgrade-selection rationale. Do not expand a decision into runtime field/state norms (I/IF/ST). Do not treat acceptance gates as decisions (VERIFY). Phase labels, owners, scheduling, and design-external process blockers do not belong here.",
+      "presence": "required",
+      "facets": [
+        "reversibility",
+        "data semantics",
+        "other"
+      ]
+    },
+    "I": {
+      "heading": "Invariants",
+      "aliases": [
+        "hard constraints",
+        "must always hold"
+      ],
+      "upstream": [
+        "GOAL",
+        "SCOPE"
+      ],
+      "relations": {
+        "GOAL": "operationalize",
+        "SCOPE": "respect_exclude"
+      },
+      "intent": "Checkable statements that must always be true in the intended running system. Include constraint-level user priors. Does not include implementation tactics or runbook steps.",
+      "intent_boundary": "Option comparison belongs to DECISION. Field-level API contracts belong to IF. Structure-level placement and flows belong to ST. Cross-layer obligation assignment belongs to SEAM. Runbooks and operational step inventories do not belong here. Stress-and-failure robustness (concurrency, locking, consistency / last-write semantics) belongs here as checkable always-hold statements when in scope. R-NORM-style checkable rules that always hold map here; contract-shape norms map to IF; structure/flow norms map to ST.",
+      "presence": "required"
+    },
+    "ST": {
+      "heading": "Structure",
+      "aliases": [
+        "system structure",
+        "module boundaries",
+        "components"
+      ],
+      "upstream": [
+        "GOAL",
+        "SCOPE",
+        "I"
+      ],
+      "relations": {
+        "GOAL": "operationalize",
+        "SCOPE": "respect_exclude",
+        "I": "preserve_invariant"
+      },
+      "intent": "Overall structural positioning of this design, including structure-level behavior and how the solution interacts with or calls external systems and other modules at the structural layer. Must be sufficient to support IF without re-deriving behavior. Coarse-grained responsibility-level external dependency ledgers belong to DEP, not ST.",
+      "intent_boundary": "Field-level API contracts belong to IF. Chosen or rejected options belong to DECISION. Cross-layer who-owes-whom obligations belong to SEAM. Execution order, file edit lists, and task steps do not belong here. Coarse-grained external technical dependencies and change commitments belong to DEP. Structure/flow norms from the shared NORM write pattern belong here when the subject is structural.",
+      "presence": "required",
+      "facets": [
+        "module boundaries",
+        "responsibilities",
+        "dependency direction",
+        "cross-boundary flow",
+        "existing assets",
+        "structure-level behavior",
+        "other"
+      ]
+    },
+    "IF": {
+      "heading": "Interfaces",
+      "aliases": [
+        "API",
+        "contracts",
+        "naming contracts"
+      ],
+      "upstream": [
+        "ST",
+        "DECISION"
+      ],
+      "relations": {
+        "ST": "instantiate",
+        "DECISION": "instantiate"
+      },
+      "intent": "Cross-module contracts for this design's current contract shape—verifiable at the semantic level. Cover both provided contracts (this design exposes) and consumed contracts (this design depends on) at the semantic level. When the design changes cross-boundary or user-visible outcomes, include end-state semantics for success, warning, and failure paths.",
+      "intent_boundary": "Module diagrams and dependency direction belong to ST. Implementation steps and concrete file patches do not belong here. Protocol or technology selection belongs to DECISION; IF covers design choices within the chosen contract form (field structure, error classification, provided/consumed shape). Cross-version coexistence narratives are optional arc-leaf topics, not a Lens V2 key. Coarse-grained external technical dependencies belong to DEP. Contract-level success/error terminal semantics under failure belong here; concurrency / shared-state always-hold invariants belong to I; cross-layer obligations belong to SEAM; uncertainty and open bets belong to RISK.",
+      "presence": "required",
+      "facets": [
+        "API contracts",
+        "event contracts",
+        "data schemas",
+        "naming conventions",
+        "error semantics",
+        "other"
+      ]
+    },
+    "SEAM": {
+      "heading": "Seams",
+      "aliases": [
+        "交接面",
+        "跨层",
+        "谁对谁负责",
+        "cross-layer obligations"
+      ],
+      "upstream": [
+        "ST",
+        "IF"
+      ],
+      "relations": {
+        "ST": "instantiate",
+        "IF": "operationalize"
+      },
+      "intent": "Obligation ownership across this layer and adjacent layers/components: who provides, who consumes, and what each side must not demand. Both sides of the seam must be named. (From review-slot R-SEAM; no legacy Lens equivalent.)",
+      "intent_boundary": "Internal state machines and field norms belong to I/IF/ST. Dependency versions and upgrade paths belong to DEP. Do not rewrite seams as a wishlist without assigned obligations.",
+      "presence": "optional",
+      "facets": [
+        "provider obligations",
+        "consumer obligations",
+        "forbidden cross-boundary demands",
+        "other"
+      ]
+    },
+    "VERIFY": {
+      "heading": "Verification Design",
+      "aliases": [
+        "test strategy",
+        "acceptance criteria mapping",
+        "验证",
+        "验收",
+        "怎么证明"
+      ],
+      "upstream": [
+        "GOAL",
+        "IF"
+      ],
+      "relations": {
+        "GOAL": "operationalize",
+        "IF": "operationalize"
+      },
+      "intent": "How to prove the design is satisfied: observation points, minimal acceptance, veto criteria, and the compile-vs-behavior boundary. When verification closes a design assumption, record the closure in DECISION or settled facts. (Merged from legacy VERIFY and review-slot R-VERIFY.)",
+      "intent_boundary": "Run commands, test file paths, checkbox steps, and owner/schedule tables do not belong here. Success-state definition belongs to GOALALAL. Do not invent new norms here (I/IF/ST). Risk mitigation strategy belongs to RISK. Falsifiability is a design-level judgment—not test commands or runbook steps.",
+      "presence": "required",
+      "facets": [
+        "acceptance mapping",
+        "falsifiability",
+        "other"
+      ]
+    },
+    "RISK": {
+      "heading": "Risks & Open Questions",
+      "aliases": [
+        "风险",
+        "开放问题",
+        "脆弱假设",
+        "open questions"
+      ],
+      "upstream": [
+        "DECISION",
+        "ST"
+      ],
+      "relations": {
+        "DECISION": "instantiate",
+        "ST": "operationalize"
+      },
+      "intent": "Known risks, fragile assumptions, accepted costs, and still-open questions. (From review-slot R-RISK; no legacy Lens equivalent. Absorbs design-level uncertainty formerly scattered near stability/operability narrative.)",
+      "intent_boundary": "Do not rewrite already-locked norms as risk prose (I/IF/ST). Dependency ledgers belong to DEP. Verification mapping belongs to VERIFY.",
+      "presence": "optional",
+      "facets": [
+        "known risks",
+        "fragile assumptions",
+        "accepted costs",
+        "open questions",
+        "other"
+      ]
+    },
+    "DEP": {
+      "upstream": [
+        "ST",
+        "IF"
+      ],
+      "relations": {
+        "ST": "operationalize",
+        "IF": "operationalize"
+      },
+      "presence": "optional",
+      "heading": "Technical Dependencies",
+      "aliases": [
+        "technical dependencies",
+        "release collaboration",
+        "dependency upgrades",
+        "依赖",
+        "升级路径",
+        "前置条件"
+      ],
+      "intent": "External dependency objects, upgrade or replacement paths, and how work proceeds when a dependency is not yet ready—at responsibility level, excluding schedules and owners. (Merged from legacy DEP and review-slot R-DEP.)",
+      "intent_boundary": "Overall structure and interaction topology belong to ST. Adopt/reject and upgrade-selection rationale belong to DECISION. Current contract shapes belong to IF. Cross-layer obligations belong to SEAM. Verification steps belong to VERIFY. Schedules, owners, meeting cadence, and organizational RACI do not belong here.",
+      "facets": [
+        "release collaboration",
+        "dependency upgrades",
+        "upstream readiness",
+        "downstream commitments",
+        "collaboration placement",
+        "other"
+      ]
+    }
+  }
+}

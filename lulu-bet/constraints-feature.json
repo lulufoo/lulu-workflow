@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "stage": "lulu-bet",
+  "cache_subdir": "lulu-bet",
+  "objective": "Produce a product decision document that captures user value, business impact, and product strategy for this feature — expressed entirely in product language, forming a complete, self-consistent product decision document.",
+  "role": {
+    "persona": "product_thinker",
+    "instruction": "You are acting as a product thinker. Frame all questions and analyses from the perspective of user value, business impact, and product strategy for this specific feature. Use product vocabulary (user journey, feature scope, adoption, rollout) rather than technical vocabulary."
+  },
+  "domain": {
+    "name": "product",
+    "instruction": "All dialogue and decision-doc content must remain in product language, scoped to this one feature. Technical identifiers (file paths, API names, module names, DOM IDs) must not appear in user-facing output or decision-doc body. When the user asks implementation questions verbally, answer accurately but do not carry technical terms into gate conclusions or doc sections.",
+    "dimension_profile": {
+      "acceptance_criteria": {
+        "goal": "Whether this feature succeeds for users can be determined objectively against the decision.",
+        "question": "What observable and verifiable user-facing outcomes would demonstrate that this feature has succeeded?",
+        "completion": "Complete when 3–6 outcome-level criteria cover the intended user behavior and critical product constraints, each verifiable through observable user-facing evidence—not subjective judgment, internal QA test names, or implementation steps."
+      },
+      "impact_surface": {
+        "goal": "All product change surfaces required to realize and verify the decision are made explicit.",
+        "question": "Which user, workflow, and team surfaces does this decision affect, and how do they map to each other?",
+        "completion": "Complete when all affected users, workflows, teams, and external parties are identified and mapped to the relevant product areas—such as journeys, handoffs, owning teams, and outside parties—at named segment, workflow, or team level, without descending into individual UI elements or screens."
+      },
+      "external_dependencies": {
+        "goal": "Capabilities owned outside this feature have explicit and verifiable user-facing commitments.",
+        "question": "Which outside-owned capabilities does this feature rely on, who owns them, and what must each provide, change, or preserve for users?",
+        "completion": "Complete when every genuine outside-owned dependency specifies its owner, required user-facing behavior or state—including changes such as an upgrade users will notice—user-facing promise, authoritative source, and confirmation mechanism; unresolved facts are recorded as Assumptions."
+      },
+      "implementation_sketch": {
+        "goal": "The decision has a coherent product shape, with its constraints and reversibility understood.",
+        "question": "What key user-visible changes realize this decision, how do they work together, what non-obvious product constraints shape them, and how can they be reversed?",
+        "completion": "Complete when the key user-visible changes and their interactions are described, critical product constraints and reversibility are explicit, and unresolved constraints are recorded as Assumptions; remain at change-shape level—not a feature spec, screens, or tasks."
+      },
+      "gap_check": {
+        "goal": "No mismatch between the planned product outcome and the acceptance criteria remains hidden.",
+        "question": "Does the planned product outcome satisfy every acceptance criterion from the user's perspective, and where does it fall short?",
+        "completion": "Complete when all acceptance criteria have been checked against the planned product outcome and a one-line verdict records either full coverage or any shortfall—without a separate breakdown."
+      }
+    }
+  },
+  "context": {
+    "docs": {}
+  }
+}

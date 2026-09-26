@@ -1,0 +1,47 @@
+{
+  "profile_id": "lulu-arch",
+  "stage_name": "lulu-arch",
+  "cycle_types": [
+    "topic"
+  ],
+  "shell_dir": "lulu-arch",
+  "shell_paths": {
+    "hook_guard": "scripts/hook/hook_guard.py",
+    "dimension_defs_dir": "lulu-arch/dimension-defs"
+  },
+  "document": {
+    "filename": "arch-doc.md",
+    "schema": "chapter"
+  },
+  "pipeline": {
+    "inductive": false,
+    "freeedit": true,
+    "code_grounding": false,
+    "post_writing_options": [
+      "freeedit",
+      "evaluate"
+    ]
+  },
+  "cache_subdir": "lulu-arch",
+  "framework_section": "lulu-arch",
+  "framework_templates": {
+    "section-registry": "lulu-dev-workflow/lulu-arch/templates/section-registry.json",
+    "section-form-registry": "lulu-dev-workflow/lulu-arch/templates/section-form-registry.json",
+    "section-kw-criteria": "lulu-dev-workflow/lulu-arch/templates/section-kw-criteria.md",
+    "role-instance": "lulu-dev-workflow/lulu-arch/templates/role-instance.json",
+    "domain-instance": "lulu-dev-workflow/lulu-arch/templates/domain-instance.json"
+  },
+  "eval": {
+    "enabled": true,
+    "workflow_id": "lulu-arch",
+    "contributor_module": "lulu-arch/scripts/eval/tech_arch_eval_contributor.py",
+    "contributor_class": "TechArchEvalContributor",
+    "eval_capability": "full-remediation"
+  },
+  "delivery_index": {
+    "layout": "revision",
+    "state_file": "workflow-state.md",
+    "terminal_state": "Delivered",
+    "doc_filename": "arch-package.json"
+  }
+}

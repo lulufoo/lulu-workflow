@@ -1,0 +1,18 @@
+{
+  "id": "scope-continuity",
+  "label": "Scope Continuity",
+  "handling_policy": "human-first",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [],
+  "method": {
+    "ref": "lulu-dev-workflow/compose/eval/methods/scope-continuity.md",
+    "focus": "Scope continuity — does the delivery document conflict with or omit an explicit parent decision?"
+  },
+  "review": {
+    "seq": 2,
+    "output_path": "compose-review-e{M}2.md",
+    "template": "eval/review.template.md"
+  }
+}

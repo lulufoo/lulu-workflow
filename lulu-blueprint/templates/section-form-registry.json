@@ -1,0 +1,184 @@
+{
+  "version": "1",
+  "$schema_id": "section-form-schema",
+  "profile_id": "lulu-blueprint",
+  "sections": {
+    "SI": {
+      "presentation": {
+        "guidance": "Topic product architecture opens with problem-domain analytical prose; direction is named at milestone granularity without mixing boundaries, capability layout, or feature-level outcomes.",
+        "allowed": [
+          {
+            "carrier": "Causal analytical prose (trigger → current situation → cost of unresolved uncertainty → named topic direction)",
+            "structure": "prose",
+            "when": "Causal product narrative through named topic direction; not ≥2 column-aligned items."
+          }
+        ],
+        "forbidden": [
+          "Scope or exclusion tables (belongs in BD)",
+          "Capability or journey diagrams (belongs in PS)",
+          "Decision comparison tables (belongs in PR)",
+          "Open-question tracking tables (belongs in OQ)",
+          "Feature user-story tables (belongs in lulu-spec)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "States why product shaping happens now and what the current product situation is",
+          "Names an observable topic-level product direction without feature backlog or technical detail"
+        ],
+        "forbidden": [
+          "Opening paragraphs that lead with repository or implementation inventories",
+          "Checkbox steps, technical module names, or acceptance criteria"
+        ]
+      },
+      "reading_axis": "trigger → situation → direction"
+    },
+    "BD": {
+      "presentation": {
+        "guidance": "Boundaries express shaping scope for a multi-feature topic: in-scope capability domains, excluded product paths, and cross-feature invariants.",
+        "allowed": [
+          {
+            "carrier": "Scope table (capability domain or user segment | shaping concern in scope)",
+            "structure": "table",
+            "when": "≥2 in-scope domains sharing domain|concern columns."
+          },
+          {
+            "carrier": "Exclusion list (excluded product path | protected boundary/invariant)",
+            "structure": "table",
+            "when": "≥1 exclusion needing path|protected columns."
+          },
+          {
+            "carrier": "Invariant list (each self-contained cross-feature proposition)",
+            "structure": "list",
+            "when": "≥1 self-contained cross-feature invariant."
+          }
+        ],
+        "forbidden": [
+          "Feature backlog tables (belongs in lulu-spec)",
+          "Capability dependency diagrams (belongs in PS)",
+          "Trade-off reasoning with adopted/rejected paths (belongs in PR)",
+          "Open-assumption tracking (belongs in OQ)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Scope, exclusions, and invariants are distinguishable and non-contradictory",
+          "Each exclusion identifies the boundary or invariant it protects"
+        ],
+        "forbidden": [
+          "Repeating SI trigger narrative without boundary semantics",
+          "Single-feature PRD scope framed as topic product architecture"
+        ]
+      },
+      "reading_axis": "in_scope → excluded → invariants"
+    },
+    "PS": {
+      "presentation": {
+        "guidance": "Product shape content carries topic-level capability semantics; select carrier by whether partition, dependency, or cross-domain journey must be read without inference.",
+        "allowed": [
+          {
+            "carrier": "Capability responsibility table (capability/domain | responsibility | attachment point for future features)",
+            "structure": "table",
+            "when": "≥2 capabilities sharing responsibility|attachment columns."
+          },
+          {
+            "carrier": "Directed dependency table (dependent → coupling point → dependency)",
+            "structure": "table",
+            "when": "≥2 couplings sharing dependent|point|dependency columns."
+          },
+          {
+            "carrier": "Capability or journey diagram (Mermaid flowchart)",
+            "structure": "diagram",
+            "when": "Capability/journey relation readable as a diagram."
+          },
+          {
+            "carrier": "Topic-level journey boundary view (boundary | trigger | product end-state) when cross-feature flows matter",
+            "structure": "table",
+            "when": "≥2 cross-feature flows sharing boundary|trigger|end-state columns."
+          }
+        ],
+        "forbidden": [
+          "User-story or acceptance-criteria tables (belongs in lulu-spec)",
+          "Technical module or API tables (belongs in lulu-arch)",
+          "Decision rationale tables duplicating PR",
+          "Implementation task lists"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Core capabilities or value domains named with responsibility boundaries at topic granularity",
+          "Future feature attachment points visible without re-deriving partitions"
+        ],
+        "forbidden": [
+          "Placeholder names like 'some capability' or 'related feature'",
+          "Decorative diagrams with no product semantics",
+          "Opening with decision rationale before shape is established (belongs in PR)"
+        ]
+      },
+      "reading_axis": "partition → coupling → journey"
+    },
+    "PR": {
+      "presentation": {
+        "guidance": "When multiple product paths were genuinely considered at topic level, a comparison structure carries trade-off semantics; single-path decisions may use analytical prose.",
+        "allowed": [
+          {
+            "carrier": "Product path comparison table (path | conclusion | trade-off rationale | reopen condition)",
+            "structure": "table",
+            "when": "≥2 genuinely considered paths sharing path|conclusion|rationale|reopen columns."
+          },
+          {
+            "carrier": "Analytical reasoning prose (single decision, no genuine alternatives)",
+            "structure": "prose",
+            "when": "Single decision; no genuine contrast set."
+          }
+        ],
+        "forbidden": [
+          "Capability layout duplicating PS",
+          "Feature acceptance matrices (belongs in lulu-spec)",
+          "Technical architecture trade-offs (belongs in lulu-arch KD)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Product-level trade-off reasoning beyond stakeholder authorization alone",
+          "Rejected alternatives named when genuinely considered",
+          "Reopen or evolution conditions stated when reversibility matters"
+        ],
+        "forbidden": [
+          "Selected direction rationale consisting solely of authorization references",
+          "Repeating BD exclusion list without decision semantics",
+          "Technical implementation tactics"
+        ]
+      },
+      "reading_axis": "options → choice → reopen"
+    },
+    "OQ": {
+      "presentation": {
+        "guidance": "Open items carry topic-level tracking semantics: assumption or risk, related product gap, and whether the next feature cycle is blocked.",
+        "allowed": [
+          {
+            "carrier": "Open-item tracking table (item | related gap | blocks-next-cycle or non-blocking | closure condition)",
+            "structure": "table",
+            "when": "≥1 open item needing item|gap|blocks|closure columns."
+          }
+        ],
+        "forbidden": [
+          "Closed decisions restated from PR",
+          "Feature-level acceptance gaps without topic-level product impact",
+          "Technical verification matrices (belongs in lulu-arch)"
+        ]
+      },
+      "expression": {
+        "required": [
+          "blocks-next-cycle or non-blocking label on each item",
+          "Closure condition or resolution path when status is non-blocking"
+        ],
+        "forbidden": [
+          "Items that only repeat PS/PR content without unresolved assumptions",
+          "Feature-level gaps without topic-level product architecture impact"
+        ]
+      },
+      "reading_axis": "assumption → gap → blocks_or_closure"
+    }
+  }
+}

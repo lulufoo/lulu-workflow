@@ -1,0 +1,22 @@
+{
+  "id": "arch-quality",
+  "legacy_alias": "aq",
+  "label": "Topic Architecture Quality (Intent Probes)",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [
+    {
+      "ref": "lulu-dev-workflow/lulu-arch/eval/sots/arch-quality.md"
+    }
+  ],
+  "method": {
+    "ref": "lulu-dev-workflow/lulu-arch/eval/methods/arch-quality.md",
+    "focus": "Architecture quality"
+  },
+  "review": {
+    "seq": 1,
+    "output_path": "arch-review-e{M}1.md",
+    "template": "eval/review.template.md"
+  }
+}

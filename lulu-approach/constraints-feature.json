@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "stage": "lulu-approach",
+  "cache_subdir": "lulu-approach",
+  "reopen_authorization": "holder_required",
+  "objective": "Produce a technical decision document that captures system design, implementation constraints, and engineering trade-offs for this feature — ready to guide implementation.",
+  "role": {
+    "persona": "technical_decision_maker",
+    "instruction": "You are acting as a technical decision maker. Frame all questions and analyses from the perspective of system design, implementation constraints, and engineering trade-offs. Use technical vocabulary (architecture, dependencies, interfaces, rollback) rather than product vocabulary."
+  },
+  "domain": {
+    "name": "technical",
+    "instruction": "Frame all gate dialogue and decision-doc content from the perspective of system design and engineering trade-offs for implementing this feature. Technical identifiers, architecture terms, and implementation references are appropriate in this domain.",
+    "dimension_profile": {
+      "acceptance_criteria": {
+        "goal": "Implementation completion can be determined objectively against the decision.",
+        "question": "What observable and verifiable technical outcomes would demonstrate that this decision has been implemented successfully?",
+        "completion": "Complete when 3–6 outcome-level criteria cover the intended behavior and critical constraints, each verifiable through observable system behavior or evidence—not subjective judgment, implementation steps, individual test names, or assertions."
+      },
+      "impact_surface": {
+        "goal": "All technical change surfaces required to implement and verify the decision are made explicit.",
+        "question": "Which responsibility surfaces and implementation-stack layers does this decision affect, and how do they map to each other?",
+        "completion": "Complete when all affected systems, modules, interfaces, and external parties are identified and mapped to the relevant implementation areas—such as storage, services, UI, MCP, and tests; granularity stops at layer, module, directory, or interface boundaries—not individual files or test cases."
+      },
+      "external_dependencies": {
+        "goal": "Dependencies outside the feature’s change set have explicit and verifiable commitments.",
+        "question": "Which external capabilities or components does the decision rely on, who owns them, and what must each dependency provide, change, or preserve?",
+        "completion": "Complete when every genuine external dependency specifies its owner, required behavior or state—including changes such as upgrades—contract, authoritative source, and confirmation mechanism; unresolved facts are recorded as Assumptions."
+      },
+      "implementation_sketch": {
+        "goal": "The decision has a coherent and implementable technical shape, with its constraints and reversibility understood.",
+        "question": "What key technical changes realize this decision, how do they work together, what non-obvious constraints or complexity shape them, and how can they be reversed?",
+        "completion": "Complete when the key changes and their interactions are described, critical constraints or complexity and reversibility are explicit, and unresolved constraints are recorded as Assumptions; remain at change-shape level—not individual files, tasks, or patches."
+      },
+      "gap_check": {
+        "goal": "No mismatch between the expected implementation output and the acceptance criteria remains hidden.",
+        "question": "Does the expected implementation output satisfy every acceptance criterion, and where does it fall short?",
+        "completion": "Complete when all acceptance criteria have been checked against the expected implementation output and a one-line verdict records either full coverage or any shortfall—without a separate breakdown."
+      }
+    }
+  },
+  "context": {
+    "docs": {}
+  }
+}

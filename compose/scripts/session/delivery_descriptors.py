@@ -1,0 +1,153 @@
+"""Delivery index descriptors for cycle delivered-refs backfill."""
+
+from __future__ import annotations
+
+import json
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterator
+
+_CORE = Path(__file__).resolve().parent
+_SCRIPTS = _CORE.parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+import kernel_bootstrap  # noqa: E402
+
+kernel_bootstrap.ensure_kernel_paths()
+
+from compose_package_schema import package_filename_from_doc  # noqa: E402
+from workflow_paths import (  # noqa: E402
+    COMPOSE_ROOT,
+    WORKFLOW_ROOT,
+    active_compose_stage_ids,
+    load_profile,
+)
+
+_DELIVERY_SOURCES_PATH = COMPOSE_ROOT / "config" / "delivery-sources.json"
+_DEFAULT_TERMINAL = "Delivered"
+
+
+@dataclass(frozen=True)
+class DeliveryDescriptor:
+    stage_name: str
+    layout: str  # "revision" | "flat"
+    cache_subdir: str
+    state_file: str
+    terminal_state: str
+    doc_filename: str
+
+
+def _descriptor_from_delivery_index(
+    stage_name: str,
+    cache_subdir: str,
+    delivery_index: dict,
+    *,
+    default_doc_filename: str | None = None,
+) -> DeliveryDescriptor | None:
+    layout = str(delivery_index.get("layout", "")).strip()
+    if layout not in ("revision", "flat"):
+        return None
+    state_file = str(delivery_index.get("state_file", "")).strip()
+    doc_filename = str(delivery_index.get("doc_filename", "")).strip() or (
+        default_doc_filename or ""
+    )
+    if not state_file or not doc_filename:
+        return None
+    terminal_state = str(delivery_index.get("terminal_state", _DEFAULT_TERMINAL)).strip()
+    return DeliveryDescriptor(
+        stage_name=stage_name,
+        layout=layout,
+        cache_subdir=cache_subdir,
+        state_file=state_file,
+        terminal_state=terminal_state,
+        doc_filename=doc_filename,
+    )
+
+
+def _compose_descriptor(profile_id: str) -> DeliveryDescriptor | None:
+    profile = load_profile(profile_id)
+    if profile.get("status") == "placeholder_phase2":
+        return None
+    stage_name = str(profile.get("stage_name", profile_id)).strip()
+    cache_subdir = str(profile.get("cache_subdir", "")).strip()
+    if not cache_subdir:
+        return None
+    doc_filename = str((profile.get("document") or {}).get("filename", "")).strip()
+    # Cross-stage marker is *-package.json (hard-cut); ignore legacy prose doc_filename.
+    if not doc_filename:
+        return None
+    marker_filename = package_filename_from_doc(doc_filename)
+    delivery_index = profile.get("delivery_index")
+    if isinstance(delivery_index, dict) and delivery_index:
+        overridden = dict(delivery_index)
+        overridden["doc_filename"] = marker_filename
+        return _descriptor_from_delivery_index(
+            stage_name,
+            cache_subdir,
+            overridden,
+            default_doc_filename=marker_filename,
+        )
+    return DeliveryDescriptor(
+        stage_name=stage_name,
+        layout="revision",
+        cache_subdir=cache_subdir,
+        state_file="workflow-state.md",
+        terminal_state=_DEFAULT_TERMINAL,
+        doc_filename=marker_filename,
+    )
+
+
+def _decision_descriptor(constraints_path: Path) -> DeliveryDescriptor | None:
+    try:
+        data = json.loads(constraints_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    stage_name = str(data.get("stage", "")).strip()
+    cache_subdir = str(data.get("cache_subdir", "")).strip()
+    if not stage_name or not cache_subdir:
+        return None
+    delivery_index = data.get("delivery_index")
+    if isinstance(delivery_index, dict) and delivery_index:
+        return _descriptor_from_delivery_index(stage_name, cache_subdir, delivery_index)
+    return DeliveryDescriptor(
+        stage_name=stage_name,
+        layout="flat",
+        cache_subdir=cache_subdir,
+        state_file="session-state.md",
+        terminal_state=_DEFAULT_TERMINAL,
+        doc_filename="decision-doc.md",
+    )
+
+
+def _load_delivery_sources() -> dict:
+    if not _DELIVERY_SOURCES_PATH.is_file():
+        raise FileNotFoundError(f"delivery-sources not found: {_DELIVERY_SOURCES_PATH}")
+    return json.loads(_DELIVERY_SOURCES_PATH.read_text(encoding="utf-8"))
+
+
+def _decision_constraints_paths() -> list[Path]:
+    data = _load_delivery_sources()
+    raw = data.get("decision_constraints")
+    if not isinstance(raw, list):
+        raise ValueError("delivery-sources.decision_constraints must be a list")
+    paths: list[Path] = []
+    for item in raw:
+        if not isinstance(item, str) or not item.strip():
+            continue
+        paths.append(WORKFLOW_ROOT / item.strip())
+    return paths
+
+
+def iter_delivery_descriptors() -> Iterator[DeliveryDescriptor]:
+    seen: set[str] = set()
+    for stage_id in active_compose_stage_ids():
+        desc = _compose_descriptor(stage_id)
+        if desc is not None and desc.stage_name not in seen:
+            seen.add(desc.stage_name)
+            yield desc
+    for constraints_path in _decision_constraints_paths():
+        desc = _decision_descriptor(constraints_path)
+        if desc is not None and desc.stage_name not in seen:
+            seen.add(desc.stage_name)
+            yield desc

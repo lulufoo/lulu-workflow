@@ -1,0 +1,22 @@
+{
+  "id": "product-doc-quality",
+  "legacy_alias": "pdqa",
+  "label": "Product Document Quality (PDQA)",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [
+    {
+      "ref": "lulu-dev-workflow/lulu-spec/eval/sots/product-doc-quality.md"
+    }
+  ],
+  "method": {
+    "ref": "lulu-dev-workflow/lulu-spec/eval/methods/product-doc-quality.md",
+    "focus": "Independent PDQA audit on product-doc (12 dimensions, 4 layers, aligned to ten lenses PB→AC); not compose Round/probe iteration"
+  },
+  "review": {
+    "seq": 1,
+    "output_path": "product-review-e{M}1.md",
+    "template": "eval/review.template.md"
+  }
+}

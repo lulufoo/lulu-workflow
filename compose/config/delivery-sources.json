@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "decision_constraints": [
+    "lulu-bet/constraints-feature.json",
+    "lulu-bet/constraints-topic.json",
+    "lulu-approach/constraints-feature.json",
+    "lulu-approach/constraints-topic.json"
+  ]
+}

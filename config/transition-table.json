@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "topic_doc_stage": {
+    "lulu-bet": "lulu-blueprint",
+    "lulu-spec": "lulu-blueprint",
+    "lulu-approach": "lulu-arch",
+    "lulu-design": "lulu-arch"
+  },
+  "topic": [
+    { "from": null, "to": ["lulu-bet"], "note": "recommended for full-feature work" },
+    { "from": null, "to": ["lulu-approach"], "note": "for pure tech work" },
+    { "from": "lulu-bet", "to": ["lulu-blueprint"] },
+    { "from": "lulu-blueprint", "to": ["lulu-approach"] },
+    { "from": "lulu-approach", "to": ["lulu-arch"] },
+    { "from": "lulu-arch", "to": [], "note": "shaping 循环完成；推荐创建 feature 并引用此 topic" }
+  ],
+  "feature": [
+    { "from": null, "to": ["lulu-bet", "lulu-approach"] },
+    { "from": "lulu-bet", "to": ["lulu-spec"] },
+    { "from": "lulu-spec", "to": ["lulu-approach"] },
+    { "from": "lulu-approach", "to": ["lulu-design", "lulu-plan"] },
+    { "from": "lulu-design", "to": ["lulu-plan"] },
+    { "from": "lulu-plan", "to": ["lulu-tasks"] },
+    { "from": "lulu-tasks", "to": ["lulu-code"] },
+    { "from": "lulu-code", "to": [] }
+  ]
+}

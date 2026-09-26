@@ -1,0 +1,47 @@
+{
+  "profile_id": "lulu-blueprint",
+  "stage_name": "lulu-blueprint",
+  "cycle_types": [
+    "topic"
+  ],
+  "shell_dir": "lulu-blueprint",
+  "shell_paths": {
+    "hook_guard": "scripts/hook/hook_guard.py",
+    "dimension_defs_dir": "lulu-blueprint/dimension-defs"
+  },
+  "document": {
+    "filename": "product-doc.md",
+    "schema": "chapter"
+  },
+  "pipeline": {
+    "inductive": false,
+    "freeedit": true,
+    "code_grounding": false,
+    "post_writing_options": [
+      "freeedit",
+      "evaluate"
+    ]
+  },
+  "cache_subdir": "lulu-blueprint",
+  "framework_section": "lulu-blueprint",
+  "framework_templates": {
+    "section-registry": "lulu-dev-workflow/lulu-blueprint/templates/section-registry.json",
+    "section-form-registry": "lulu-dev-workflow/lulu-blueprint/templates/section-form-registry.json",
+    "section-kw-criteria": "lulu-dev-workflow/lulu-blueprint/templates/section-kw-criteria.md",
+    "role-instance": "lulu-dev-workflow/lulu-blueprint/templates/role-instance.json",
+    "domain-instance": "lulu-dev-workflow/lulu-blueprint/templates/domain-instance.json"
+  },
+  "eval": {
+    "enabled": true,
+    "workflow_id": "lulu-blueprint",
+    "contributor_module": "lulu-blueprint/scripts/eval/product_blueprint_eval_contributor.py",
+    "contributor_class": "ProductBlueprintEvalContributor",
+    "eval_capability": "full-remediation"
+  },
+  "delivery_index": {
+    "layout": "revision",
+    "state_file": "workflow-state.md",
+    "terminal_state": "Delivered",
+    "doc_filename": "product-package.json"
+  }
+}

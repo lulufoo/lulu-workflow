@@ -1,0 +1,22 @@
+{
+  "id": "blueprint-quality",
+  "legacy_alias": "bq",
+  "label": "Topic Product Architecture Quality (Intent Probes)",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [
+    {
+      "ref": "lulu-dev-workflow/lulu-blueprint/eval/sots/blueprint-quality.md"
+    }
+  ],
+  "method": {
+    "ref": "lulu-dev-workflow/lulu-blueprint/eval/methods/blueprint-quality.md",
+    "focus": "Blueprint quality"
+  },
+  "review": {
+    "seq": 1,
+    "output_path": "blueprint-review-e{M}1.md",
+    "template": "eval/review.template.md"
+  }
+}

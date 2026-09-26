@@ -1,0 +1,22 @@
+{
+  "id": "solution-quality",
+  "legacy_alias": "e3",
+  "label": "Solution Quality (Intent Probes)",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [
+    {
+      "ref": "lulu-dev-workflow/lulu-plan/eval/sots/solution-quality.md"
+    }
+  ],
+  "method": {
+    "ref": "lulu-dev-workflow/lulu-plan/eval/methods/solution-quality.md",
+    "focus": "Plan solution quality"
+  },
+  "review": {
+    "seq": 3,
+    "output_path": "tech-review-e{M}3.md",
+    "template": "eval/review.template.md"
+  }
+}

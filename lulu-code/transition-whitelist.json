@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "session": {
+    "states": ["Starting", "Preparing", "Executing", "Closing", "Delivered"],
+    "allowed_transitions": [
+      { "from": "*", "to": "Starting" },
+      { "from": "Starting", "to": "Preparing" },
+      { "from": "Preparing", "to": "Executing" },
+      { "from": "Executing", "to": "Closing" },
+      { "from": "Closing", "to": "Delivered" }
+    ]
+  },
+  "task": {
+    "states": ["WriteTests", "VerifyRed", "WriteImpl", "VerifyGreen", "Refactor", "Done"],
+    "allowed_transitions": [
+      { "from": "*", "to": "WriteTests" },
+      { "from": "WriteTests", "to": "VerifyRed" },
+      { "from": "VerifyRed", "to": "WriteImpl" },
+      { "from": "WriteImpl", "to": "VerifyGreen" },
+      { "from": "VerifyGreen", "to": "Refactor" },
+      { "from": "VerifyGreen", "to": "Done", "when": "tdd_exempt" },
+      { "from": "Refactor", "to": "Done" },
+      { "from": "Done", "to": "WriteTests", "when": "has_next_task" }
+    ]
+  }
+}

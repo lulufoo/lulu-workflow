@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "stage": "lulu-bet",
+  "cache_subdir": "lulu-bet",
+  "objective": "Produce a product decision document that captures the strategic value, business impact, and product direction of this topic — expressed entirely in product language, forming a complete, self-consistent product decision document for this topic's overall direction.",
+  "role": {
+    "persona": "product_thinker",
+    "instruction": "You are acting as a product thinker. Frame all questions and analyses from the perspective of strategic user value, business impact, and product direction for this topic, which may span multiple future features. Use product vocabulary (user journey, market position, adoption, rollout) rather than technical vocabulary."
+  },
+  "domain": {
+    "name": "product",
+    "instruction": "All dialogue and decision-doc content must remain in product language, scoped to the topic's overall direction rather than a single feature. Technical identifiers (file paths, API names, module names, DOM IDs) must not appear in user-facing output or decision-doc body. When the user asks implementation questions verbally, answer accurately but do not carry technical terms into gate conclusions or doc sections.",
+    "dimension_profile": {
+      "acceptance_criteria": {
+        "goal": "Whether this topic direction is worth pursuing can be determined objectively.",
+        "question": "What observable and verifiable signals would show that this topic direction is validated and worth pursuing?",
+        "completion": "Complete when 3–6 direction-level criteria cover the intended strategic outcomes and critical constraints, each verifiable through observable user or business evidence—not subjective judgment or single-feature success metrics."
+      },
+      "impact_surface": {
+        "goal": "All product change surfaces required to commit to and verify this direction are made explicit.",
+        "question": "Which user, workflow, team, and future-feature surfaces does this direction affect, and how do they map to each other?",
+        "completion": "Complete when all affected users, workflows, teams, and future feature families are identified and mapped to the relevant product areas—such as segments, markets, journeys, and owning teams—at segment, market, or feature-family level, without descending into individual feature impacts or screens."
+      },
+      "external_dependencies": {
+        "goal": "Strategic capabilities this direction relies on have explicit and verifiable commitments.",
+        "question": "Which strategic capabilities or commitments does this direction rely on, who owns them, and what must each provide, change, or preserve?",
+        "completion": "Complete when every genuine strategic dependency specifies its owner, required behavior or state—including changes such as a new commitment—user-facing promise, authoritative source, and confirmation mechanism; unresolved facts are recorded as Assumptions. Exclude feature-specific dependencies."
+      },
+      "implementation_sketch": {
+        "goal": "The topic direction has a coherent product shape, with its strategic constraints and reversibility understood.",
+        "question": "What key directional moves realize this commitment, how do they work together, what non-obvious product constraints shape them, and how reversible is committing to it?",
+        "completion": "Complete when the direction's shape, key interactions, critical strategic constraints, and reversibility are explicit, and unresolved constraints are recorded as Assumptions; remain at direction-shape level—not a feature roadmap, screens, or tasks."
+      },
+      "gap_check": {
+        "goal": "No mismatch between the proposed direction and the strategic need remains hidden.",
+        "question": "Does the proposed direction satisfy every acceptance criterion from the user or business perspective, and where does it fall short?",
+        "completion": "Complete when all acceptance criteria have been checked against the proposed direction and a one-line verdict records either full coverage or any shortfall—without a separate breakdown."
+      }
+    }
+  },
+  "context": {
+    "docs": {}
+  }
+}

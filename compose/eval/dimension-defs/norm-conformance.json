@@ -1,0 +1,18 @@
+{
+  "id": "norm-conformance",
+  "label": "Norm Conformance",
+  "handling_policy": "human-first",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [],
+  "method": {
+    "ref": "lulu-dev-workflow/compose/eval/methods/norm-conformance.md",
+    "focus": "Norm conformance — does the delivery document violate a declared normative constraint?"
+  },
+  "review": {
+    "seq": 3,
+    "output_path": "compose-review-e{M}3.md",
+    "template": "eval/review.template.md"
+  }
+}

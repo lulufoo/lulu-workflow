@@ -1,0 +1,334 @@
+{
+  "version": "1",
+  "$schema_id": "section-form-schema",
+  "profile_id": "tech-design",
+  "sections": {
+    "CTX": {
+      "reading_axis": "frame → pressure → unresolved",
+      "presentation": {
+        "guidance": "Prose is the natural carrier for causal semantics; code anchors are optional and must not dominate.",
+        "allowed": [
+          {
+            "carrier": "narrative prose (causal logic structure)",
+            "structure": "prose",
+            "when": "Single causal problem narrative; not ≥2 column-aligned comparable items."
+          }
+        ],
+        "forbidden": [
+          "Before→after comparison tables or success-state tables",
+          "Structure diagrams or flowcharts"
+        ]
+      },
+      "expression": {
+        "required": [
+          "State the problem and its cost at the user-perception or system-behavior level",
+          "The problem statement is logically independent of GOAL/SCOPE/IF content—does not preview conclusions"
+        ],
+        "forbidden": [
+          "Opening with file paths, module names, or code structure (belongs in SCOPE/ST)",
+          "Steps, commands, or phase markers"
+        ]
+      }
+    },
+    "GOAL": {
+      "reading_axis": "before → after → non_criteria",
+      "presentation": {
+        "guidance": "Comparative semantics naturally suit contrast carriers; structural outcomes must cover engineering-visible dimensions (e.g. module coupling, deployment independence), not only user-visible behavior.",
+        "allowed": [
+          {
+            "carrier": "Before→after comparison table (before → after, one row per dimension)",
+            "structure": "table",
+            "when": "≥2 observable dimensions sharing before|after columns."
+          }
+        ],
+        "forbidden": [
+          "Narrative prose goal statements (without before/after contrast)",
+          "Scope tables or architecture diagrams"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Goal statements must be observable: one can judge whether they are met, not merely a direction",
+          "Before→after contrast view covering behavior-visible or structure-visible dimensions"
+        ],
+        "forbidden": [
+          "Restating the CTX problem narrative (avoid duplication)"
+        ]
+      }
+    },
+    "SCOPE": {
+      "presentation": {
+        "guidance": "Show in-scope surfaces and explicit out-of-scope/deferred items in one boundary view. Each exclusion should bind to the goal or invariant it protects; trade-off rationale belongs in DECISION, not SCOPE.",
+        "allowed": [
+          {
+            "carrier": "Scope mapping table (touch surface → nature of change)",
+            "structure": "table",
+            "when": "≥2 in-scope surfaces sharing surface|change columns."
+          },
+          {
+            "carrier": "Exclusion item list (excluded path | protected boundary/invariant)",
+            "structure": "table",
+            "when": "≥2 exclusions sharing excluded|protected columns."
+          }
+        ],
+        "forbidden": []
+      },
+      "expression": {
+        "required": [
+          "When more than two scope items, present in structured form (object → nature of change)",
+          "In-scope and out-of-scope (or deferred) both present when exclusions exist"
+        ],
+        "forbidden": [
+          "Repeating SCOPE's in-scope list"
+        ]
+      },
+      "reading_axis": "in → out → deferred"
+    },
+    "DECISION": {
+      "presentation": {
+        "guidance": "When multiple paths were genuinely considered, a comparison structure is the natural carrier for reasoning semantics; row count is determined by the number of paths actually considered. When only a single direction was considered, do not force a contrast table.",
+        "allowed": [
+          {
+            "carrier": "Direction comparison table (direction | conclusion | design rationale | reopen conditions)",
+            "structure": "table",
+            "when": "≥2 genuinely considered directions sharing direction|conclusion|rationale|reopen columns."
+          },
+          {
+            "carrier": "Narrative reasoning (single decision, no genuine contrast paths)",
+            "structure": "prose",
+            "when": "Single considered direction; no genuine contrast set."
+          }
+        ],
+        "forbidden": [
+          "Phase, Owner, or Timing tables"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Design reasoning for the chosen direction (grounds beyond stakeholder authorization)",
+          "When multiple considered paths exist, provide a comparable contrast view"
+        ],
+        "forbidden": [
+          "Chosen-direction rationale that is only a stakeholder-authorization citation (belongs in SCOPE/GOAL)"
+        ]
+      },
+      "reading_axis": "options → choice → reopen"
+    },
+    "I": {
+      "presentation": {
+        "guidance": "Invariants are a set of independent propositions; each stands on its own—even if other entries are obscured, each can still be judged true or false in isolation. Nested dependencies or pure reference-chain forms break this independence and do not meet this standard.",
+        "allowed": [
+          {
+            "carrier": "Numbered independent constraint list (each stands alone)",
+            "structure": "list",
+            "when": "≥1 independent invariant; each entry truth-evaluable alone."
+          }
+        ],
+        "forbidden": [
+          "Phase tables or step lists"
+        ]
+      },
+      "expression": {
+        "required": [
+          "When invariants are present, each is semantically self-standing (truth value can be judged without depending on other entries)"
+        ],
+        "forbidden": [
+          "Entries that only say \"see IF\" / \"see GOAL\" / \"see SCOPE\" with no invariant content"
+        ]
+      },
+      "reading_axis": "proposition → breach → judgment"
+    },
+    "ST": {
+      "presentation": {
+        "guidance": "When choosing a carrier, use as the criterion whether a reviewer can read the relation semantics directly from the carrier without inference; the carrier is determined by the content's relation type. When content includes dependency relations, directed forms (A → B) convey direction semantics—a responsibility-assignment table does not convey direction and does not meet this standard. When content includes state transitions, a structured view of state / trigger conditions / terminal state conveys state-machine semantics—narrative sentences do not meet this standard.",
+        "allowed": [
+          {
+            "carrier": "UML diagram (Mermaid classDiagram / sequenceDiagram / stateDiagram)",
+            "structure": "diagram",
+            "when": "Relation type needs class/sequence/state semantics readable without inference."
+          },
+          {
+            "carrier": "C4 architecture diagram (Mermaid C4Context / C4Container / C4Component)",
+            "structure": "diagram",
+            "when": "Context/container/component topology is the relation type."
+          },
+          {
+            "carrier": "Directed flowchart (Mermaid flowchart / graph)",
+            "structure": "diagram",
+            "when": "Directed dependency or control flow (A → B) is the relation type."
+          }
+        ],
+        "forbidden": [
+          "Tables of any kind (directed-dependency tables, responsibility tables, and data-flow tables all fail)",
+          "Narrative sentences describing state transitions"
+        ]
+      },
+      "expression": {
+        "required": [
+          "When the design introduces new modules, components, or services: annotate name and responsibility boundary",
+          "All names must be identifiable system artifacts—existing ones, or explicitly marked as new"
+        ],
+        "forbidden": [
+          "Opening with architectural positioning or design rationale (belongs in DECISION)",
+          "Option comparison and rationale for rejected alternatives (belongs in DECISION)",
+          "Task steps, file-change inventories, or Run commands (belongs in tech-plan)",
+          "Decorative diagrams that do not convey structural semantics",
+          "Placeholder names such as \"some module\" or \"related service\""
+        ]
+      },
+      "reading_axis": "topology → duty → flow"
+    },
+    "IF": {
+      "reading_axis": "address → named_faces → exercise",
+      "presentation": {
+        "guidance": "Use a table only for ≥2 isomorphic items under shared columns; otherwise use a bullet list.",
+        "allowed": [
+          {
+            "carrier": "Comparable contract table",
+            "structure": "table",
+            "when": "≥2 items share the same column meanings (fields, named slots, or multi-path end-states)."
+          },
+          {
+            "carrier": "Caller-facing contract norms",
+            "structure": "bullet_list",
+            "when": "Normative claims that are not comparable under one shared column schema."
+          }
+        ],
+        "forbidden": [
+          "Single-row or mixed-axis tables (one claim only, or rows that do not share column meanings)",
+          "One undifferentiated IF surface mixing address, named faces, and exercise outcomes when more than one caller question is in scope"
+        ]
+      },
+      "expression": {
+        "required": [
+          "When more than one field or endpoint: present cross-boundary semantics in structured form",
+          "When interaction or visible outcomes change: provide terminal-state semantics for success, warning, and failure paths",
+          "Data schemas, naming conventions, or feature-flag contracts: when defining more than one element, use a structured form suited to the contract type",
+          "Contract entries must include function names, command names, typed field definitions, or schema names—behavioral descriptions of data flow (e.g. \"the query layer returns candidates\") do not meet this requirement"
+        ],
+        "forbidden": [
+          "Standalone path-specific discourse that duplicates table-row content"
+        ]
+      }
+    },
+    "SEAM": {
+      "presentation": {
+        "guidance": "Name both sides of each seam and assign obligations or forbidden cross-boundary demands. Prefer a two-sided obligation table over prose wishlists.",
+        "allowed": [
+          {
+            "carrier": "Two-sided obligation table (provider / consumer / must-not)",
+            "structure": "table",
+            "when": "≥2 seams sharing provider|consumer|must-not columns."
+          },
+          {
+            "carrier": "Bullet norms naming both sides",
+            "structure": "bullet_list",
+            "when": "Seam norms not column-aligned under one shared schema."
+          },
+          {
+            "carrier": "Sequence sketch of handoff",
+            "structure": "diagram",
+            "when": "Handoff order/sequence is the primary seam substance."
+          }
+        ],
+        "forbidden": []
+      },
+      "expression": {
+        "required": [
+          "Both sides of each seam are named",
+          "Obligations or prohibitions are assigned"
+        ],
+        "forbidden": [
+          "Seam as aspirational wishlist without owner"
+        ]
+      },
+      "reading_axis": "provider → consumer → must_not"
+    },
+    "VERIFY": {
+      "presentation": {
+        "guidance": "Acceptance intent, verification method, and pass signal together constitute a complete evidence chain; items without a pass signal cannot be used for acceptance.",
+        "allowed": [
+          {
+            "carrier": "Acceptance matrix (acceptance intent | verification method | pass signal | design-error signal)",
+            "structure": "table",
+            "when": "≥2 acceptance items sharing intent|method|pass|error columns."
+          }
+        ],
+        "forbidden": [
+          "Standalone test-strategy tables that heavily overlap acceptance-matrix rows"
+        ]
+      },
+      "expression": {
+        "required": [
+          "Each acceptance intent maps to a verification method and a decidable pass signal",
+          "At least one falsifiable condition (with a clear failure state)",
+          "When closing a verification gap, record closure in DECISION/settled facts; process blockers via stage agenda"
+        ],
+        "forbidden": [
+          "Restating the SCOPE exclusion list as regression-test prose"
+        ]
+      },
+      "reading_axis": "intent → method → falsify"
+    },
+    "RISK": {
+      "presentation": {
+        "guidance": "Expose known risks, fragile assumptions, accepted costs, and open questions. Prefer a risk/open-question table; do not rewrite locked norms as soft risk language.",
+        "allowed": [
+          {
+            "carrier": "Risk / open-question table",
+            "structure": "table",
+            "when": "≥2 risks/open questions sharing comparable risk columns."
+          },
+          {
+            "carrier": "Bullet norms for accepted costs",
+            "structure": "bullet_list",
+            "when": "Accepted-cost norms; not a multi-row risk matrix."
+          }
+        ],
+        "forbidden": []
+      },
+      "expression": {
+        "required": [
+          "Risks or open questions are explicit when bets exist"
+        ],
+        "forbidden": [
+          "Empty risk section when known bets remain"
+        ]
+      },
+      "reading_axis": "assumption → accepted_cost → control"
+    },
+    "DEP": {
+      "presentation": {
+        "guidance": "Technical dependencies are a continuous design narrative at responsibility grain: which external technical entities this design depends on, what version or capability changes are committed, whether peers must change in sync, and where this design sits in that chain. A short structured view is fine for listing independent dependencies without turning the section into a project schedule, RACI, structural diagram (ST), or contract field table (IF).",
+        "allowed": [
+          {
+            "carrier": "Prose stating external technical dependencies, upgrades, and placement",
+            "structure": "prose",
+            "when": "Dependency narrative without ≥2 column-aligned dependency rows."
+          },
+          {
+            "carrier": "Short dependency table (party | dependency or upgrade | readiness/sync condition | placement)",
+            "structure": "table",
+            "when": "≥2 dependencies sharing party|dependency|readiness|placement columns."
+          }
+        ],
+        "forbidden": [
+          "Overall structural diagrams or interaction topology"
+        ]
+      },
+      "expression": {
+        "required": [
+          "State whether external technical dependencies (release collaboration and/or dependency upgrades) are in scope for this demand",
+          "When in scope: name external parties/dependencies, version or capability commitments when relevant, and placement or readiness/sync conditions at design level"
+        ],
+        "forbidden": [
+          "Project schedules, owners, or RACI matrices",
+          "Repeating IF contract field definitions",
+          "Traffic-shifting strategy detail that belongs to RISK when exposing uncertainty, or to ST/IF/I for concrete operability norms",
+          "Replacing ST structural narrative with only a dependency list"
+        ]
+      },
+      "reading_axis": "party → commitment → readiness"
+    }
+  }
+}
