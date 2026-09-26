@@ -1,7 +1,7 @@
 ---
-name: lulu-dev-workflow
+name: lulu-workflow
 description: >-
-  Top-level development workflow framework. Use when mentioning lulu-dev-workflow,
+  Top-level development workflow framework. Use when mentioning lulu-workflow,
   开发工作流, dev workflow, product doc workflow, 产品文档流程, or any sub-stage
   (lulu-bet, lulu-approach, lulu-spec, lulu-blueprint, lulu-arch, lulu-design, lulu-plan, lulu-tasks, lulu-code).
 disable-model-invocation: true
