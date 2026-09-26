@@ -47,7 +47,7 @@ for _path in (_HERE, *_SCHEMA_DIRS, _SESSION, _KERNEL, _SCOPE, _TEMPLATES):
 from compose_state_lock import compose_state_lock  # noqa: E402
 from domain_instance_schema import load_and_validate_domain_instance  # noqa: E402
 from inductive_gate_state_schema import load_gate_state  # noqa: E402
-from l_ledger_schema import working_slice_dir  # noqa: E402
+from execution_state_schema import working_execution_dir  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
 from open_point_store import (  # noqa: E402
     RepairRequiredError,
@@ -420,7 +420,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    slice_dir = working_slice_dir(Path(args.out_dir))
+    slice_dir = working_execution_dir(Path(args.out_dir))
     dispatch = {
         "resolve-context": cmd_resolve_context,
         "ensure-frontier": cmd_ensure_frontier,

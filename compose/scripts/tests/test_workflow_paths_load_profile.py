@@ -124,9 +124,9 @@ def test_resolve_revision_runtime_profile_from_revision_root(tmp_path: Path) -> 
     assert context.profile_data["runtime"] == "session-bound"
 
 
-def test_resolve_revision_runtime_profile_from_nested_lx(tmp_path: Path) -> None:
+def test_resolve_revision_runtime_profile_from_nested_execution(tmp_path: Path) -> None:
     session_base, revision_root, _ = _seed_revision_runtime_profile(tmp_path)
-    slice_dir = revision_root / "L3"
+    slice_dir = revision_root / "execution"
     slice_dir.mkdir()
 
     context = resolve_revision_runtime_profile(slice_dir, tmp_path)

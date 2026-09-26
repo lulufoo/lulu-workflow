@@ -7,10 +7,10 @@ import json
 import sys
 from pathlib import Path
 
-_REPO = Path(__file__).resolve().parents[4]
+_REPO = Path(__file__).resolve().parents[3]
 _SECTION_SCHEMA = (
     _REPO
-    / "lulu-dev-workflow"
+   
     / "compose"
     / "scripts"
     / "schema"
@@ -26,7 +26,7 @@ from section_registry_schema import (  # noqa: E402
     validate_section_registry,
 )
 
-_PROFILE = _REPO / "lulu-dev-workflow" / "lulu-design" / "compose-profile.json"
+_PROFILE = _REPO /  "lulu-design" / "compose-profile.json"
 
 def test_design_k0b_section_registry_has_presence() -> None:
     from section_registry_schema import lens_key_sequence
@@ -57,7 +57,7 @@ def test_design_k0b_profile_points_to_direct_templates() -> None:
         "lulu-dev-workflow/lulu-design/templates/section-form-registry.json"
     )
     # Prefix = skill runtime root; remainder is under installed/source skill tree.
-    skill_root = _REPO / "lulu-dev-workflow"
+    skill_root = _REPO
     for key, filename in (
         ("section-registry", "section-registry.json"),
         ("section-form-registry", "section-form-registry.json"),

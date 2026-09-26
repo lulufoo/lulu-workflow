@@ -51,18 +51,16 @@ def test_request_handoff_translates_compose_context_to_generic_v2(
     legacy_context = {
         "cycle_id": "cycle-1",
         "profile_id": "lulu-design",
-        "focus_l": "L3",
-        "ledger_fingerprint": "private-ledger-fingerprint",
+        "execution_fingerprint": "private-execution-fingerprint",
         "eval_run_id": "run-1",
         "evaluate_round": 2,
         "revision_dir": "/tmp/revision1",
-        "slice_dir": "/tmp/revision1/L3",
-        "compose_doc": "/tmp/revision1/design-doc.md",
-        "evaluate_state_path": "/tmp/revision1/L3/evaluate-state.md",
-        "evaluate_dir": "/tmp/revision1/L3/evaluate2",
-        "write_staging_dir": "/tmp/revision1/L3/.eval-staging/lease-1",
+        "execution_dir": "/tmp/revision1/execution",
+        "compose_doc": "/tmp/revision1/execution/design-doc.md",
+        "evaluate_state_path": "/tmp/revision1/execution/evaluate-state.md",
+        "evaluate_dir": "/tmp/revision1/execution/evaluate2",
+        "write_staging_dir": "/tmp/revision1/execution/.eval-staging/lease-1",
         "lease_id": "lease-1",
-        "layout": "per-l",
         "policy_context": {
             "mode": "tech",
             "cycle_type": "feature",
@@ -81,9 +79,9 @@ def test_request_handoff_translates_compose_context_to_generic_v2(
     assert validate_eval_handoff_v2(handoff) == []
     assert handoff["context"]["workflow_id"] == "lulu-design"
     assert handoff["context"]["cycle_id"] == "cycle-1"
-    assert handoff["context"]["session_key"] == "L3"
+    assert handoff["context"]["session_key"] == "lulu-design"
     assert handoff["context"]["bindings"] == {
-        "eval_target_path": "/tmp/revision1/design-doc.md",
+        "eval_target_path": "/tmp/revision1/execution/design-doc.md",
     }
     assert handoff["context"]["policy_context"]["eval_capability"] == "full-remediation"
     assert {"compose_doc", "focus_l", "ledger_fingerprint"}.isdisjoint(

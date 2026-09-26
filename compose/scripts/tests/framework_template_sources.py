@@ -50,14 +50,8 @@ def load_framework_json(stage: str, filename: str) -> dict[str, Any]:
 
 
 def _skill_builtin_template(stage_dir: str, filename: str) -> dict[str, Any]:
-    """Local skill builtin JSON under lulu-dev-workflow/<stage>/templates/."""
-    path = (
-        Path(__file__).resolve().parents[4]
-        / "lulu-dev-workflow"
-        / stage_dir
-        / "templates"
-        / filename
-    )
+    """Local skill builtin JSON under <workflow root>/<stage>/templates/."""
+    path = Path(__file__).resolve().parents[3] / stage_dir / "templates" / filename
     if not path.is_file():
         raise FileNotFoundError(f"skill builtin template not found: {path}")
     return json.loads(path.read_text(encoding="utf-8"))

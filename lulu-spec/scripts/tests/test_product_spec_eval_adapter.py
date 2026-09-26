@@ -101,7 +101,7 @@ class TestProductSpecEvalAdapter:
             evaluate_round=1,
             es_path=es_path,
         )
-        assert paths["compose_doc"].endswith("/lulu-spec/revision1/product-doc.md")
+        assert paths["compose_doc"].endswith("/lulu-spec/revision1/execution/product-doc.md")
 
     def test_corpus_bind_extensions_has_no_decision_ref(self, tmp_path: Path):
         _seed_session(tmp_path)

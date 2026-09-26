@@ -467,7 +467,6 @@ def _write_decision_package(approach_root: Path) -> dict[str, Any]:
     ensure_approach_layout(root)
     package = build_decision_package(
         main={"decision_doc_path": "decision-doc.md"},
-        slices=[],
         status="draft",
     )
     save_decision_package(root, package)

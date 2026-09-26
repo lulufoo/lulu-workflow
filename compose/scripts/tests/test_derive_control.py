@@ -47,7 +47,7 @@ _PRESENCE = {
 def _seed_facts(rev: Path, facts: list[dict]) -> None:
     rev.mkdir(parents=True, exist_ok=True)
     seed_revision_profile_pointer(rev)
-    slice_dir = rev / "L1"
+    slice_dir = rev / "execution"
     slice_dir.mkdir(parents=True, exist_ok=True)
     (slice_dir / "_facts.json").write_text(
         json.dumps(facts, ensure_ascii=False),
@@ -104,7 +104,7 @@ def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) ->
     ap = json.loads(capsys.readouterr().out)
     assert ap["appended"] == 1
     assert ap["facts_after"] == 3
-    on_disk = json.loads((rev / "L1" / "_facts.json").read_text(encoding="utf-8"))
+    on_disk = json.loads((rev / "execution" / "_facts.json").read_text(encoding="utf-8"))
     assert on_disk[2]["id"] == "F-3"
     assert on_disk[2]["source"] == ["F-2"]
 
@@ -229,7 +229,7 @@ def test_cli_edge_scan_requires_fact_intake_eval_gate(
         save_evaluate_state,
     )
 
-    es_path = evaluate_state_path(rev / "L1")
+    es_path = evaluate_state_path(rev / "execution")
     data = build_initial_evaluate_state(
         dimension_ids=["e1-doc-coverage", "e2-fact-provenance"],
         evaluate_round=1,

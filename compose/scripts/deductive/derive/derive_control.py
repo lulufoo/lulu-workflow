@@ -28,7 +28,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from l_ledger_schema import active_slice_dir  # noqa: E402
+from execution_state_schema import execution_dir  # noqa: E402
 from facts_schema import (  # noqa: E402
     facts_path,
     filter_by_lens,
@@ -159,7 +159,7 @@ def _graph_and_maps(
 
 def cmd_edge_scan(args: argparse.Namespace) -> int:
     """Edge-coverage scan for deductive-runner (holes + topo + true gaps)."""
-    revision_dir = active_slice_dir(args.revision_dir.resolve())
+    revision_dir = execution_dir(args.revision_dir.resolve())
     gate_err = _require_fact_intake_eval_for_derive(revision_dir)
     if gate_err:
         return _fail(gate_err)
@@ -220,7 +220,7 @@ def cmd_edge_scan(args: argparse.Namespace) -> int:
 
 
 def cmd_audit(args: argparse.Namespace) -> int:
-    revision_dir = active_slice_dir(args.revision_dir.resolve())
+    revision_dir = execution_dir(args.revision_dir.resolve())
     try:
         after = load_facts(facts_path(revision_dir))
     except ValueError as exc:
@@ -271,7 +271,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
 
 
 def cmd_append(args: argparse.Namespace) -> int:
-    revision_dir = active_slice_dir(args.revision_dir.resolve())
+    revision_dir = execution_dir(args.revision_dir.resolve())
     try:
         base = load_facts(facts_path(revision_dir))
     except ValueError as exc:
@@ -307,7 +307,7 @@ def cmd_append(args: argparse.Namespace) -> int:
 
 
 def cmd_classify(args: argparse.Namespace) -> int:
-    revision_dir = active_slice_dir(args.revision_dir.resolve())
+    revision_dir = execution_dir(args.revision_dir.resolve())
     try:
         facts = load_facts(facts_path(revision_dir))
     except ValueError as exc:
@@ -380,7 +380,7 @@ def main() -> int:
 
     args = parser.parse_args()
     if args.command == "append":
-        with compose_state_lock(active_slice_dir(args.revision_dir.resolve())):
+        with compose_state_lock(execution_dir(args.revision_dir.resolve())):
             return args.func(args)
     return args.func(args)
 

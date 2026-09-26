@@ -7,9 +7,16 @@ import uuid
 from pathlib import Path
 
 from delivered_refs_schema import DeliveredRef, load_delivered_refs_file, record_delivered_ref
-from l_ledger_schema import build_ledger, ledger_fingerprint, load_l_ledger, save_l_ledger
+from execution_checks import EVAL_RUN_FILE, WRITING_STAMP, write_stamp
+from execution_state_schema import (
+    build_execution_state,
+    execution_dir,
+    execution_fingerprint,
+    execution_state_path,
+    save_execution_state,
+)
 from resolved_refs_schema import freeze_delivered_copy, write_resolved_refs
-from scope_package_schema import build_scope_package, save_scope_package, write_source_path_mirrors
+from scope_package_schema import build_scope_package, save_scope_package
 from start_scope_helpers import first_ref
 from session_state_schema import load_active_doc, resolve_path
 from workflow_common import CACHE_DIR
@@ -18,55 +25,51 @@ from workflow_profile_paths import state_path
 from workflow_state_schema import init_compose_session, save_workflow_state
 
 
-def seed_l1_revision(revision_dir: Path) -> None:
-    """Publish a single-L ledger, scope-package, and L1 dir."""
+def seed_execution_revision(revision_dir: Path, *, state: str = "Pending") -> Path:
+    """Publish scope-package + execution-state and return ``execution/``."""
     rev = Path(revision_dir).resolve()
     src = rev / "_scope-src.md"
     if not src.is_file():
         src.write_text("# scope\n", encoding="utf-8")
-    save_l_ledger(rev, build_ledger(["L1"]))
-    package = build_scope_package(
-        [{"id": "L1", "title": "Only", "source_path": str(src.resolve())}]
-    )
-    save_scope_package(rev, package)
-    write_source_path_mirrors(rev, package)
-    (rev / "L1").mkdir(parents=True, exist_ok=True)
+    save_scope_package(rev, build_scope_package(source_path=str(src.resolve())))
+    save_execution_state(rev, build_execution_state(state))
+    path = execution_dir(rev)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def seed_l1_revision(revision_dir: Path) -> None:
+    """Compatibility name: seed a single-execution revision."""
+    seed_execution_revision(revision_dir)
 
 
 def ensure_l1_revision(revision_dir: Path, *, producer: str = "Inductive") -> Path:
-    """Idempotent: seed a single-L ledger if missing; return the L1 dir."""
+    """Idempotent: seed execution if missing; return the execution dir."""
     rev = Path(revision_dir).resolve()
-    from l_ledger_schema import l_ledger_path  # noqa: WPS433
-
-    if not l_ledger_path(rev).is_file():
-        seed_l1_revision(rev)
-        mark_focus_producer(rev, producer)
-    path = rev / "L1"
+    if not execution_state_path(rev).is_file():
+        seed_execution_revision(rev, state=producer)
+    path = execution_dir(rev)
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def l1_dir(revision_dir: Path) -> Path:
-    """Active-slice directory for a seeded single-L revision."""
-    path = Path(revision_dir).resolve() / "L1"
+    """Execution directory for a seeded revision."""
+    path = execution_dir(Path(revision_dir).resolve())
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def mark_focus_producer(revision_dir: Path, state: str = "Inductive") -> None:
-    """Focus L: Inductive or Deductive (facts write)."""
+    """Set the execution step to Inductive or Deductive (facts write)."""
     if state not in {"Inductive", "Deductive"}:
         raise ValueError(f"producer state must be Inductive or Deductive, got {state!r}")
-    rev = Path(revision_dir).resolve()
-    ledger = load_l_ledger(rev)
-    focus = str(ledger["focus"])
-    ledger["by_id"][focus]["state"] = state
-    save_l_ledger(rev, ledger)
+    save_execution_state(Path(revision_dir).resolve(), build_execution_state(state))
 
 
 def lock_single_l1_tree(revision_dir: Path) -> None:
-    """Compatibility name: seed a single-L ledger revision."""
-    seed_l1_revision(revision_dir)
+    """Compatibility name: seed a single-execution revision."""
+    seed_execution_revision(revision_dir)
 
 
 def init_working_ready(
@@ -76,60 +79,47 @@ def init_working_ready(
     cycle_type: str = "feature",
     evaluate_round: int = 0,
 ) -> None:
-    """Init session at Split, publish L1 ledger, advance to Working."""
+    """Init session at Working and publish the execution dir."""
     init_compose_session(
         path,
         mode=mode,
         cycle_type=cycle_type,
         evaluate_round=evaluate_round,
     )
-    seed_l1_revision(path.parent)
-    save_workflow_state(path, {"current_state": "Working"})
+    seed_execution_revision(path.parent)
 
 
 def mark_all_l_accepted(revision_dir: Path) -> None:
-    """Set every ledger cell to Completed and unfrozen."""
-    rev = Path(revision_dir).resolve()
-    ledger = load_l_ledger(rev)
-    for cell in ledger["by_id"].values():
-        cell["state"] = "Completed"
-        cell["frozen"] = False
-    save_l_ledger(rev, ledger)
+    """Mark execution Completed."""
+    save_execution_state(Path(revision_dir).resolve(), build_execution_state("Completed"))
 
 
 def mark_focus_intake_done(revision_dir: Path) -> None:
-    """Focus L: Writing (ready for enter-evaluating)."""
+    """Execution: Writing (ready for enter-evaluating)."""
     rev = Path(revision_dir).resolve()
-    ledger = load_l_ledger(rev)
-    focus = str(ledger["focus"])
-    ledger["by_id"][focus]["state"] = "Writing"
-    save_l_ledger(rev, ledger)
-    stamp = rev / focus / "_writing.complete"
-    stamp.parent.mkdir(parents=True, exist_ok=True)
-    stamp.write_text("ok\n", encoding="utf-8")
+    save_execution_state(rev, build_execution_state("Writing"))
+    write_stamp(execution_dir(rev), WRITING_STAMP)
 
 
 def mark_focus_evaluating(revision_dir: Path) -> None:
-    """Focus L: Evaluating with an active eval_run_id."""
+    """Execution: Evaluating with an active eval_run_id."""
     rev = Path(revision_dir).resolve()
-    ledger = load_l_ledger(rev)
-    focus = str(ledger["focus"])
-    ledger["by_id"][focus]["state"] = "Evaluating"
-    save_l_ledger(rev, ledger)
-    slice_dir = rev / focus
-    slice_dir.mkdir(parents=True, exist_ok=True)
+    state = build_execution_state("Evaluating")
+    save_execution_state(rev, state)
+    ex = execution_dir(rev)
+    ex.mkdir(parents=True, exist_ok=True)
     payload = {
         "eval_run_id": uuid.uuid4().hex,
-        "ledger_fingerprint": ledger_fingerprint(load_l_ledger(rev)),
+        "execution_fingerprint": execution_fingerprint(state),
     }
-    (slice_dir / "_eval_run.json").write_text(
+    (ex / EVAL_RUN_FILE).write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
 
 
 def seed_frozen_delivered(ws_path: Path, refs: list[DeliveredRef]) -> None:
-    """Write ① delivered-refs.json into the revision dir from an explicit ref list."""
+    """Write delivered-refs.json into the revision dir from an explicit ref list."""
     entries = {
         r.type: {
             "delivered_type": r.type,
@@ -182,7 +172,7 @@ def seed_provenance_artifacts(
     intent_baseline_refs: list[DeliveredRef] | None = None,
     norm_constraint_refs: list[DeliveredRef] | None = None,
 ) -> None:
-    """Mirror start.py: freeze ① and materialize ② into the revision dir."""
+    """Mirror start.py: freeze delivered-refs and materialize resolved-refs."""
     revision_dir = ws_path.parent
     freeze_delivered_copy(revision_dir, load_delivered_refs_file(cycle_id, project_root))
     write_resolved_refs(

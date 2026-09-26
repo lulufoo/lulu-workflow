@@ -86,7 +86,7 @@ class TestInitComposeSession:
             mode="tech",
         )
         loaded = load_workflow_state(path)
-        assert loaded["current_state"] == "Split"
+        assert loaded["current_state"] == "Working"
         assert loaded["mode"] == "tech"
         assert loaded["cycle_type"] == "feature"
         assert loaded["evaluate_round"] == "0"

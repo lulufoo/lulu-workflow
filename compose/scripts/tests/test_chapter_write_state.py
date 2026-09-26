@@ -49,7 +49,7 @@ def _arc() -> dict:
 
 
 def _l1(rev: Path) -> Path:
-    path = rev / "L1"
+    path = rev / "execution"
     path.mkdir(parents=True, exist_ok=True)
     return path
 

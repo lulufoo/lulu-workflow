@@ -41,7 +41,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from l_ledger_schema import active_slice_dir  # noqa: E402
+from execution_state_schema import execution_dir  # noqa: E402
 from narrative_arc_schema import (  # noqa: E402
     DEFAULT_DISPLAY_ARC_BASENAME,
     is_write_ready,
@@ -57,7 +57,7 @@ LOG_NAME = "_compose-viewer.server.log"
 
 
 def _slice(revision_dir: str) -> Path:
-    return active_slice_dir(Path(revision_dir).resolve())
+    return execution_dir(Path(revision_dir).resolve())
 
 
 def _ok(payload: dict[str, Any]) -> int:

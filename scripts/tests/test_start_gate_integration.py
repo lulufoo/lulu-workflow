@@ -16,8 +16,7 @@ from pathlib import Path
 
 import pytest
 
-_SRC = Path(__file__).resolve().parents[3]          # lulu-dev-skills/
-_LDEV = _SRC / "lulu-dev-workflow"
+_LDEV = Path(__file__).resolve().parents[2]
 _CONFIG_DIR = _LDEV / "config"
 
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
@@ -154,12 +153,66 @@ def _make_session(
     return ws
 
 
-def _compose_start_args(profile_id: str, *extra: str) -> list[str]:
+def _write_scope_package(tmp_path: Path, source: Path | None = None) -> Path:
+    src = source if source is not None else (tmp_path / "scope-source.md")
+    if not src.is_file():
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_text("# scope\n", encoding="utf-8")
+    resolved = src.resolve()
+    path = tmp_path / "scope-package.json"
+    path.write_text(
+        json.dumps({"version": 2, "source_path": str(resolved)}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return path.resolve()
+
+
+def _compose_start_args(
+    profile_id: str,
+    tmp_path: Path,
+    source: Path | None = None,
+    *extra: str,
+) -> list[str]:
+    scope = _write_scope_package(tmp_path, source)
     return [
         "--profile-path",
         str(_LDEV / profile_id / "compose-profile.json"),
+        "--scope-package",
+        str(scope),
         *extra,
     ]
+
+
+def _start_payload(result: subprocess.CompletedProcess) -> dict:
+    text = (result.stdout or "").strip()
+    return json.loads(text) if text.startswith("{") else {}
+
+
+def _assert_gate_blocked(result: subprocess.CompletedProcess, stage: str) -> None:
+    assert result.returncode == 1, result.stderr or result.stdout
+    if stage in _COMPOSE_START_STAGES:
+        payload = _start_payload(result)
+        assert payload.get("ok") is False, result.stdout
+        assert payload.get("code") == "gate_blocked", result.stdout
+        return
+    assert "Gate blocked" in result.stderr
+
+
+def _assert_start_ok(result: subprocess.CompletedProcess) -> dict:
+    assert result.returncode == 0, result.stderr or result.stdout
+    payload = _start_payload(result)
+    if payload:
+        assert payload.get("ok") is True, result.stdout
+    return payload
+
+
+def _assert_topic_unresolved(result: subprocess.CompletedProcess, stage: str) -> None:
+    assert result.returncode == 1, result.stderr or result.stdout
+    if stage not in _COMPOSE_START_STAGES:
+        return
+    payload = _start_payload(result)
+    assert payload.get("code") == "topic_unresolved", result.stdout
+    assert "topic" in str(payload.get("error", "")).lower()
 
 
 def _seed_decision_config(tmp_path: Path) -> None:
@@ -200,9 +253,9 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
     if stage == "decision":
         return _diag_holder_args("lulu-bet")
     if stage == "lulu-spec":
-        return _compose_start_args("lulu-spec")
+        return _compose_start_args("lulu-spec", tmp_path)
     if stage == "lulu-plan":
-        return _compose_start_args("lulu-plan")
+        return _compose_start_args("lulu-plan", tmp_path)
     if stage == "lulu-tasks":
         tech_ref = tmp_path / "tech-doc.md"
         tech_ref.write_text("# Tech Doc\n", encoding="utf-8")
@@ -278,10 +331,9 @@ def _seed_product_spec_delivered_refs(
         decision.write_text(
             json.dumps(
                 {
-                    "version": 1,
+                    "version": 2,
                     "status": "package_ready",
                     "main": {"decision_doc_path": "decision-doc.md"},
-                    "slices": [],
                 }
             ),
             encoding="utf-8",
@@ -315,10 +367,9 @@ def _seed_tech_plan_delivered_refs(
         decision.write_text(
             json.dumps(
                 {
-                    "version": 1,
+                    "version": 2,
                     "status": "package_ready",
                     "main": {"decision_doc_path": "decision-doc.md"},
-                    "slices": [],
                 }
             ),
             encoding="utf-8",
@@ -390,8 +441,7 @@ class TestGateBlocked:
         _make_cycles_json(cd, _CYCLE_ID)
         _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Working")
         result = _run_start("lulu-spec", tmp_path)
-        assert result.returncode == 1
-        assert "Gate blocked" in result.stderr
+        _assert_gate_blocked(result, "lulu-spec")
 
     def test_gate_blocked_no_session_created(self, tmp_path):
         """Gate blocked → lulu-spec session file not created."""
@@ -399,8 +449,8 @@ class TestGateBlocked:
         _make_cycles_json(cd, _CYCLE_ID)
         _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Working")
         _run_start("lulu-spec", tmp_path)
-        plan_dir = cd / _CYCLE_ID / "lulu-blueprint"
-        assert not plan_dir.exists() or not any(plan_dir.rglob("workflow-state.md"))
+        spec_dir = cd / _CYCLE_ID / "lulu-spec"
+        assert not spec_dir.exists() or not any(spec_dir.rglob("workflow-state.md"))
 
     def test_intermediate_drafting_blocks_downstream(self, tmp_path):
         """Intermediate stage Drafting blocks further downstream stages."""
@@ -409,8 +459,7 @@ class TestGateBlocked:
         _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
         _make_session(cd, _CYCLE_ID, "lulu-spec", "r1", "Working")
         result = _run_start("lulu-plan", tmp_path)
-        assert result.returncode == 1
-        assert "Gate blocked" in result.stderr
+        _assert_gate_blocked(result, "lulu-plan")
 
 
 # ---------------------------------------------------------------------------
@@ -434,8 +483,7 @@ class TestGatePasses:
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID)
         result = _run_start("lulu-spec", tmp_path)
-        assert result.returncode == 1
-        assert "Gate blocked" in result.stderr
+        _assert_gate_blocked(result, "lulu-spec")
 
     def test_prior_delivered_allows_product_plan(self, tmp_path):
         """lulu-bet Delivered + cycle-state.json set → lulu-spec allowed."""
@@ -444,7 +492,7 @@ class TestGatePasses:
         _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
         _make_cycle_state(cd, _CYCLE_ID, "lulu-bet")
         result = _run_start("lulu-spec", tmp_path)
-        assert result.returncode == 0, result.stderr
+        _assert_start_ok(result)
 
     def test_all_prior_delivered_tech_plan(self, tmp_path):
         """All prior stages Delivered + cycle-state.json set → lulu-plan gate passes."""
@@ -452,7 +500,7 @@ class TestGatePasses:
         _make_cycles_json(cd, _CYCLE_ID)
         _all_prior_delivered(cd, _CYCLE_ID, "lulu-plan")
         result = _run_start("lulu-plan", tmp_path)
-        assert result.returncode == 0, result.stderr
+        _assert_start_ok(result)
 
     def test_start_freezes_and_resolves_refs(self, tmp_path):
         """start.py freezes ① delivered-refs.json copy and materializes ② resolved-refs.json."""
@@ -460,22 +508,16 @@ class TestGatePasses:
         _make_cycles_json(cd, _CYCLE_ID)
         _all_prior_delivered(cd, _CYCLE_ID, "lulu-plan")
         design_dir = tmp_path / "design" / "revision1"
-        design_doc = design_dir / "L1" / "design-doc.md"
+        design_doc = design_dir / "execution" / "design-doc.md"
         design_doc.parent.mkdir(parents=True)
         design_doc.write_text("# Design\n", encoding="utf-8")
         design = design_dir / "design-package.json"
         design.write_text(
             json.dumps(
                 {
-                    "version": 1,
+                    "version": 2,
                     "profile_id": "lulu-design",
-                    "slices": [
-                        {
-                            "id": "L1",
-                            "title": "Design",
-                            "doc_path": "L1/design-doc.md",
-                        }
-                    ],
+                    "doc_path": "execution/design-doc.md",
                 }
             ),
             encoding="utf-8",
@@ -484,16 +526,16 @@ class TestGatePasses:
         result = _run_start(
             "lulu-plan",
             tmp_path,
-            extra_args=_compose_start_args("lulu-plan"),
+            extra_args=_compose_start_args("lulu-plan", tmp_path, design_doc),
         )
-        assert result.returncode == 0, result.stderr or result.stdout
+        _assert_start_ok(result)
         revision = cd / _CYCLE_ID / "lulu-plan" / "revision1"
         # ① frozen full copy of the cycle delivered-refs.json (audit baseline)
         frozen = json.loads((revision / "delivered-refs.json").read_text(encoding="utf-8"))
         assert frozen["entries"]["lulu-design"]["path"] == str(design.resolve())
-        # ② stage-resolved three-ref product (tech-mode scope = lulu-design)
+        # ② compose kernel writes one scope-package; holder already unwrapped design
         resolved = json.loads((revision / "resolved-refs.json").read_text(encoding="utf-8"))
-        assert resolved["scope_ref"]["type"] == "lulu-design"
+        assert resolved["scope_ref"]["type"] == "scope-package"
         assert resolved["scope_ref"]["path"] == str(
             (revision / "scope-package.json").resolve()
         )
@@ -505,9 +547,8 @@ class TestGatePasses:
         result = _run_start("decision", tmp_path)
         assert result.returncode == 0, result.stderr
 
-    def test_topic_doc_merged_into_norm_constraint_refs(self, tmp_path):
-        """Feature with topic_id whose topic lulu-blueprint is delivered → norm_constraint_refs
-        in resolved-refs.json carries the topic's delivered doc (see topic_doc_stage mapping)."""
+    def test_topic_doc_reported_not_merged_into_norm_refs(self, tmp_path):
+        """Delivered topic blueprint is reported on start stdout; compose writes empty norm refs."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
         _make_cycles_json(cd, _TOPIC_ID)
@@ -523,12 +564,12 @@ class TestGatePasses:
             profile_id="lulu-blueprint",
         )
         result = _run_start("lulu-spec", tmp_path)
-        assert result.returncode == 0, result.stderr or result.stdout
+        payload = _assert_start_ok(result)
+        assert payload.get("topic_doc") == str(topic_doc.resolve())
         resolved = json.loads(
             (cd / _CYCLE_ID / "lulu-spec" / "revision1" / "resolved-refs.json").read_text(encoding="utf-8")
         )
-        norm_refs = resolved["norm_constraint_refs"]
-        assert {"type": "lulu-blueprint", "path": str(topic_doc.resolve())} in norm_refs
+        assert resolved["norm_constraint_refs"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -544,7 +585,7 @@ class TestReopen:
         _make_session_state(cd, _CYCLE_ID, "lulu-spec", active=1)
         _make_cycle_state(cd, _CYCLE_ID, "lulu-spec")
         result = _run_start("lulu-spec", tmp_path)
-        assert result.returncode == 0, result.stderr
+        _assert_start_ok(result)
         assert "historical: true" in ws.read_text(encoding="utf-8")
 
     def test_old_revision_file_preserved(self, tmp_path):
@@ -564,7 +605,7 @@ class TestReopen:
         downstream_ws = _make_session(cd, _CYCLE_ID, "lulu-approach", "r1", "InProgress")
         _make_cycle_state(cd, _CYCLE_ID, "lulu-spec")
         result = _run_start("lulu-spec", tmp_path)
-        assert result.returncode == 0, result.stderr
+        _assert_start_ok(result)
         assert "Invalidated" in downstream_ws.read_text(encoding="utf-8")
 
     def test_creates_new_session_after_reopen(self, tmp_path):
@@ -574,7 +615,7 @@ class TestReopen:
         _make_session(cd, _CYCLE_ID, "lulu-spec", "r1", "Delivered")
         _make_cycle_state(cd, _CYCLE_ID, "lulu-spec")
         result = _run_start("lulu-spec", tmp_path)
-        assert result.returncode == 0, result.stderr
+        _assert_start_ok(result)
 
 
 # ---------------------------------------------------------------------------
@@ -594,7 +635,7 @@ class TestBackfill:
         tech_diag_ws = _make_session(cd, _CYCLE_ID, "lulu-approach", "r1", "Delivered")
         tech_plan_ws = _make_session(cd, _CYCLE_ID, "lulu-plan", "r1", "Delivered")
         result = _run_start("lulu-spec", tmp_path)
-        assert result.returncode == 0, result.stderr
+        _assert_start_ok(result)
         assert "Invalidated" in tech_diag_ws.read_text(encoding="utf-8")
         assert "Invalidated" in tech_plan_ws.read_text(encoding="utf-8")
 
@@ -605,7 +646,7 @@ class TestBackfill:
         _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
         _make_cycle_state(cd, _CYCLE_ID, "lulu-bet")
         result = _run_start("lulu-spec", tmp_path)
-        assert result.returncode == 0, result.stderr
+        _assert_start_ok(result)
 
 
 # ---------------------------------------------------------------------------
@@ -620,16 +661,15 @@ class TestGetTopicDoc:
         _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
         _make_cycle_state(cd, _CYCLE_ID, "lulu-bet")
         result = _run_start("lulu-spec", tmp_path)
-        assert result.returncode == 1
-        assert "Error" in result.stderr or "topic" in result.stderr.lower() or "Gate blocked" in result.stderr
+        _assert_topic_unresolved(result, "lulu-spec")
 
     def test_topic_id_no_topics_json_no_session(self, tmp_path):
         """ValueError prevents session creation."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
         _run_start("lulu-spec", tmp_path)
-        plan_dir = cd / _CYCLE_ID / "lulu-blueprint"
-        assert not plan_dir.exists() or not any(plan_dir.rglob("workflow-state.md"))
+        spec_dir = cd / _CYCLE_ID / "lulu-spec"
+        assert not spec_dir.exists() or not any(spec_dir.rglob("workflow-state.md"))
 
     def test_no_topic_id_session_created(self, tmp_path):
         """No topic_id → get_topic_doc returns None → session created normally."""
@@ -638,7 +678,7 @@ class TestGetTopicDoc:
         _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
         _make_cycle_state(cd, _CYCLE_ID, "lulu-bet")
         result = _run_start("lulu-spec", tmp_path)
-        assert result.returncode == 0, result.stderr
+        _assert_start_ok(result)
 
     def test_valid_topic_no_delivered_session_created(self, tmp_path):
         """Valid topic but no Delivered session for it → None → session created."""
@@ -648,7 +688,7 @@ class TestGetTopicDoc:
         _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
         _make_cycle_state(cd, _CYCLE_ID, "lulu-bet")
         result = _run_start("lulu-spec", tmp_path)
-        assert result.returncode == 0, result.stderr
+        _assert_start_ok(result)
 
     def test_topic_id_not_in_topics_json_exits_1(self, tmp_path):
         """topic_id not in cycles.json → ValueError → exit 1."""
@@ -658,10 +698,10 @@ class TestGetTopicDoc:
         _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Delivered")
         _make_cycle_state(cd, _CYCLE_ID, "lulu-bet")
         result = _run_start("lulu-spec", tmp_path)
-        assert result.returncode == 1
+        _assert_topic_unresolved(result, "lulu-spec")
 
     def test_topic_delivered_doc_printed_from_delivered_refs(self, tmp_path):
-        """Topic's lulu-blueprint delivered → 'Topic doc:' printed with its delivered-refs path."""
+        """Topic's lulu-blueprint delivered → start JSON reports topic_doc."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
         _make_cycles_json(cd, _TOPIC_ID)
@@ -676,8 +716,8 @@ class TestGetTopicDoc:
             profile_id="lulu-blueprint",
         )
         result = _run_start("lulu-spec", tmp_path)
-        assert result.returncode == 0, result.stderr
-        assert f"Topic doc: {topic_doc.resolve()}" in result.stdout
+        payload = _assert_start_ok(result)
+        assert payload.get("topic_doc") == str(topic_doc.resolve())
 
 
 # ---------------------------------------------------------------------------
@@ -694,10 +734,7 @@ class TestAllStagesGateIntegration:
         _make_cycles_json(cd, _CYCLE_ID)
         _make_session(cd, _CYCLE_ID, "lulu-bet", "r1", "Working")
         result = _run_start(stage, tmp_path)
-        assert result.returncode == 1, (
-            f"{stage}: expected exit 1 when lulu-bet is Drafting"
-        )
-        assert "Gate blocked" in result.stderr
+        _assert_gate_blocked(result, stage)
 
     @pytest.mark.parametrize("stage", _STAGES_VALIDATING_TOPIC_LINKAGE)
     def test_topic_missing_topics_json_all_stages(self, stage, tmp_path):
@@ -706,9 +743,7 @@ class TestAllStagesGateIntegration:
         _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
         _all_prior_delivered(cd, _CYCLE_ID, stage)
         result = _run_start(stage, tmp_path)
-        assert result.returncode == 1, (
-            f"{stage}: expected exit 1 due to missing cycles.json"
-        )
+        _assert_topic_unresolved(result, stage)
 
     def test_decision_start_ignores_broken_topic_linkage(self, tmp_path):
         """decision (shared kernel) never calls get_topic_ref itself, so a feature with an
@@ -729,7 +764,10 @@ class TestAllStagesGateIntegration:
         _make_session_state(cd, _CYCLE_ID, stage, active=1)
         _make_cycle_state(cd, _CYCLE_ID, stage)
         result = _run_start(stage, tmp_path)
-        assert result.returncode == 0, f"{stage}: {result.stderr}"
+        if stage in _COMPOSE_START_STAGES:
+            _assert_start_ok(result)
+        else:
+            assert result.returncode == 0, f"{stage}: {result.stderr}"
         assert "historical: true" in old_ws.read_text(encoding="utf-8"), (
             f"{stage}: expected historical: true in old session"
         )

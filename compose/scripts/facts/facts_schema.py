@@ -50,9 +50,8 @@ FACTS_BASENAME = "_facts.json"
 _FACT_ID_RE = re.compile(r"^F-([1-9]\d*)$")
 _FACT_REQUIRED = ("id", "text", "lens_tags")
 _FACT_OPTIONAL = frozenset(
-    {"source", "origin", "derivation", "anchors", "home_l", "home_rationale"}
+    {"source", "origin", "derivation", "anchors"}
 )
-_HOME_L_RE = re.compile(r"^(L\d+|package)$")
 ORIGIN_TYPES = frozenset({"seed", "discovered", "derived"})
 ORIGIN_DERIVE_MODES = frozenset({"floor", "ceiling"})
 DERIVATION_DISPOSITIONS = frozenset({"carried", "quarantined", "not_needed"})
@@ -391,32 +390,6 @@ def validate_facts(
             else:
                 errors.extend(_validate_anchors(prefix, entry["anchors"]))
 
-        if "home_l" in entry:
-            if entry["home_l"] is None:
-                errors.append(
-                    f"{prefix}.home_l must be a string when present "
-                    "(null is not allowed; omit the field instead)",
-                )
-            else:
-                home = entry["home_l"]
-                if not isinstance(home, str) or not home.strip():
-                    errors.append(f"{prefix}.home_l must be a non-empty string")
-                elif not _HOME_L_RE.match(home.strip()):
-                    errors.append(
-                        f"{prefix}.home_l must match L<number> or 'package' "
-                        f"(got {home!r})"
-                    )
-        if "home_rationale" in entry:
-            if entry["home_rationale"] is None:
-                errors.append(
-                    f"{prefix}.home_rationale must be a string when present "
-                    "(null is not allowed; omit the field instead)",
-                )
-            elif not isinstance(entry["home_rationale"], str) or not str(
-                entry["home_rationale"]
-            ).strip():
-                errors.append(f"{prefix}.home_rationale must be a non-empty string")
-
         extra = set(entry) - set(_FACT_REQUIRED) - _FACT_OPTIONAL
         if extra:
             errors.append(f"{prefix}: unexpected fields {sorted(extra)}")
@@ -471,10 +444,6 @@ def normalize_fact(entry: dict[str, Any]) -> dict[str, Any]:
         # Empty anchors normalize to omission (equivalent to absent; §3.1).
         if normalized_anchors:
             out["anchors"] = normalized_anchors
-    if "home_l" in entry and entry["home_l"] is not None:
-        out["home_l"] = str(entry["home_l"]).strip()
-    if "home_rationale" in entry and entry["home_rationale"] is not None:
-        out["home_rationale"] = str(entry["home_rationale"]).strip()
     return out
 
 

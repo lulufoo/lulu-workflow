@@ -39,7 +39,7 @@ from chapter_doc_schema import (  # noqa: E402
     format_chapter_anchor,
     has_any_chapter_anchor,
 )
-from l_ledger_schema import active_slice_dir  # noqa: E402
+from execution_state_schema import execution_dir  # noqa: E402
 from narrative_arc_schema import (  # noqa: E402
     is_write_ready,
     load_narrative_arc,
@@ -510,7 +510,7 @@ def assemble_arc_to_path(
     skip_write_state: bool = False,
 ) -> dict[str, Any]:
     """Load arc from revision slice, assemble, and write ``path``."""
-    slice_dir = active_slice_dir(revision_dir.resolve())
+    slice_dir = execution_dir(revision_dir.resolve())
     if not skip_write_state:
         from chapter_write_state_schema import require_complete  # local: avoid cycle
 

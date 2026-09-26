@@ -37,7 +37,7 @@ COMPOSE_PROFILE_FILENAME = "compose-profile.json"
 
 _profile_cache: dict[str, dict[str, Any]] = {}
 _REVISION_DIR_PATTERN = re.compile(r"revision[1-9]\d*")
-_SLICE_DIR_PATTERN = re.compile(r"L[1-9]\d*")
+_EXECUTION_DIR_NAME = "execution"
 
 
 @dataclass(frozen=True)
@@ -320,13 +320,14 @@ def resolve_revision_runtime_profile(
         and _REVISION_DIR_PATTERN.fullmatch(parts[0])
         and (
             len(parts) == 1
-            or (len(parts) == 2 and _SLICE_DIR_PATTERN.fullmatch(parts[1]))
+            or (len(parts) == 2 and parts[1] == _EXECUTION_DIR_NAME)
         )
     )
     if not valid_revision:
         raise ValueError(
-            "malformed revision path: expected revisionN or revisionN/Lx "
-            f"below session base {session_base}, got {relative}",
+            "malformed revision path: expected revisionN or "
+            f"revisionN/{_EXECUTION_DIR_NAME} below session base "
+            f"{session_base}, got {relative}",
         )
     revision_root = (session_base / parts[0]).resolve()
 
@@ -493,17 +494,22 @@ def seed_revision_profile_pointer(
     *,
     project_root: Path | None = None,
 ) -> Path:
-    """Test helper: bind session-state v2 beside ``revisionN`` and seed L1 ledger."""
+    """Test helper: bind session-state v2 beside ``revisionN`` and seed execution state."""
     del project_root
-    from l_ledger_schema import build_ledger, l_ledger_path, save_l_ledger  # noqa: WPS433
+    from execution_state_schema import (  # noqa: WPS433
+        build_execution_state,
+        execution_dir,
+        execution_state_path,
+        save_execution_state,
+    )
 
     rev = Path(revision_dir).resolve()
     session_base = rev.parent
     ss = _write_session_runtime_binding(session_base, compose_profile_path(profile_id))
     rev.mkdir(parents=True, exist_ok=True)
-    if not l_ledger_path(rev).is_file():
-        save_l_ledger(rev, build_ledger(["L1"]))
-        (rev / "L1").mkdir(parents=True, exist_ok=True)
+    if not execution_state_path(rev).is_file():
+        save_execution_state(rev, build_execution_state())
+        execution_dir(rev).mkdir(parents=True, exist_ok=True)
     return ss
 
 

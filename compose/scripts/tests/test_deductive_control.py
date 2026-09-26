@@ -21,7 +21,7 @@ def _prepare(tmp_path: Path) -> Path:
     rev = tmp_path / "revision1"
     rev.mkdir()
     seed_revision_profile_pointer(rev)
-    (rev / "L1").mkdir(parents=True, exist_ok=True)
+    (rev / "execution").mkdir(parents=True, exist_ok=True)
     return rev
 
 
@@ -45,7 +45,7 @@ def _run(args: list[str], revision_dir: Path) -> subprocess.CompletedProcess[str
 
 def test_pending_init_add_resolve_gate(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
-    (rev / "L1" / "_facts.json").write_text(
+    (rev / "execution" / "_facts.json").write_text(
         json.dumps(
             [{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}],
             ensure_ascii=False,
@@ -91,7 +91,7 @@ def test_pending_init_add_resolve_gate(tmp_path: Path) -> None:
 
 def test_open_pending_kinds_do_not_block_gate(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
-    (rev / "L1" / "_facts.json").write_text(
+    (rev / "execution" / "_facts.json").write_text(
         json.dumps(
             [{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}],
             ensure_ascii=False,
@@ -136,7 +136,7 @@ def test_open_pending_kinds_do_not_block_gate(tmp_path: Path) -> None:
 
 def test_kw_shortfall_pending_does_not_block_gate(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
-    (rev / "L1" / "_facts.json").write_text(
+    (rev / "execution" / "_facts.json").write_text(
         json.dumps(
             [{"id": "F-1", "text": "task thin", "lens_tags": ["T"]}],
             ensure_ascii=False,
@@ -164,7 +164,7 @@ def test_kw_shortfall_pending_does_not_block_gate(tmp_path: Path) -> None:
 
 def test_gate_check_fails_when_pending_file_missing(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
-    (rev / "L1" / "_facts.json").write_text(
+    (rev / "execution" / "_facts.json").write_text(
         json.dumps(
             [{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}],
             ensure_ascii=False,
@@ -178,7 +178,7 @@ def test_gate_check_fails_when_pending_file_missing(tmp_path: Path) -> None:
 
 def test_gate_check_passes_on_unsettled_unref_quarantine(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
-    (rev / "L1" / "_facts.json").write_text(
+    (rev / "execution" / "_facts.json").write_text(
         json.dumps(
             [
                 {
@@ -203,7 +203,7 @@ def test_gate_check_passes_on_unsettled_unref_quarantine(tmp_path: Path) -> None
 
 def test_gate_check_passes_when_unref_quarantine_settled(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
-    (rev / "L1" / "_facts.json").write_text(
+    (rev / "execution" / "_facts.json").write_text(
         json.dumps(
             [
                 {
@@ -248,7 +248,7 @@ def test_gate_check_passes_when_unref_quarantine_settled(tmp_path: Path) -> None
 
 def test_quarantine_unref_lists_uncited(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
-    (rev / "L1" / "_facts.json").write_text(
+    (rev / "execution" / "_facts.json").write_text(
         json.dumps(
             [
                 {
@@ -300,7 +300,7 @@ def test_quarantine_unref_lists_uncited(tmp_path: Path) -> None:
 
 def test_disposition_patch_validate_and_apply(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
-    (rev / "L1" / "_facts.json").write_text(
+    (rev / "execution" / "_facts.json").write_text(
         json.dumps(
             [
                 {
@@ -380,20 +380,20 @@ def test_disposition_patch_validate_and_apply(tmp_path: Path) -> None:
         check=False,
     )
     assert apply.returncode == 0, apply.stderr
-    facts = json.loads((rev / "L1" / "_facts.json").read_text(encoding="utf-8"))
+    facts = json.loads((rev / "execution" / "_facts.json").read_text(encoding="utf-8"))
     assert facts[0]["derivation"]["disposition"] == "carried"
     assert facts[0]["lens_tags"] == ["CTX"]
     assert facts[1]["derivation"]["disposition"] == "quarantined"
 
 
 def _pending_items(revision_dir: Path) -> list[dict]:
-    path = revision_dir / "L1" / "deductive-pending.json"
+    path = revision_dir / "execution" / "deductive-pending.json"
     return json.loads(path.read_text(encoding="utf-8"))["items"]
 
 
 def test_pending_replace_swaps_open_edge_holes(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
-    (rev / "L1" / "_facts.json").write_text(
+    (rev / "execution" / "_facts.json").write_text(
         json.dumps([{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}]),
         encoding="utf-8",
     )
@@ -446,7 +446,7 @@ def test_pending_replace_swaps_open_edge_holes(tmp_path: Path) -> None:
 
 def test_pending_replace_keeps_resolved_and_other_kinds(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
-    (rev / "L1" / "_facts.json").write_text(
+    (rev / "execution" / "_facts.json").write_text(
         json.dumps([{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}]),
         encoding="utf-8",
     )
@@ -510,7 +510,7 @@ def test_pending_replace_keeps_resolved_and_other_kinds(tmp_path: Path) -> None:
 
 def test_pending_replace_empty_list_clears_open_edge_holes(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
-    (rev / "L1" / "_facts.json").write_text(
+    (rev / "execution" / "_facts.json").write_text(
         json.dumps([{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}]),
         encoding="utf-8",
     )
@@ -544,7 +544,7 @@ def test_pending_replace_empty_list_clears_open_edge_holes(tmp_path: Path) -> No
 
 def test_pending_replace_rejects_bad_kind_and_json(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
-    (rev / "L1" / "_facts.json").write_text(
+    (rev / "execution" / "_facts.json").write_text(
         json.dumps([{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}]),
         encoding="utf-8",
     )

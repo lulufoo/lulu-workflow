@@ -76,7 +76,7 @@ def _load_role(role: str, *_args: object, **_kwargs: object) -> str:
 
 
 def _write_facts(revision_dir: Path, facts: list[dict]) -> None:
-    slice_dir = revision_dir / "L1"
+    slice_dir = revision_dir / "execution"
     slice_dir.mkdir(parents=True, exist_ok=True)
     (slice_dir / "_facts.json").write_text(
         json.dumps(facts, ensure_ascii=False),
@@ -85,7 +85,7 @@ def _write_facts(revision_dir: Path, facts: list[dict]) -> None:
 
 
 def _slice(revision_dir: Path) -> Path:
-    path = revision_dir / "L1"
+    path = revision_dir / "execution"
     path.mkdir(parents=True, exist_ok=True)
     return path
 

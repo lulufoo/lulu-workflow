@@ -39,7 +39,6 @@ from inductive_gate_state_schema import (
 from scope_package_schema import (
     build_scope_package,
     save_scope_package,
-    write_scope_ref_mirror,
 )
 
 
@@ -169,8 +168,6 @@ class TestScopeContinuity:
         parent.write_text("# parent\n", encoding="utf-8")
         refs = _refs(tmp_path, scope=parent)
         resolved = resolve_scope_continuity_sot(
-            tmp_path,
-            focus_l="L1",
             project_root=tmp_path,
             scope_ref=refs.scope_ref,
         )
@@ -179,71 +176,23 @@ class TestScopeContinuity:
     def test_missing_scope_fails(self, tmp_path: Path):
         with pytest.raises(ComposeCommonEvalError, match="scope_ref missing"):
             resolve_scope_continuity_sot(
-                tmp_path,
-                focus_l="L1",
                 project_root=tmp_path,
                 scope_ref=None,
             )
 
-    def test_scope_package_uses_focus_mirror(self, tmp_path: Path):
-        src1 = tmp_path / "l1.md"
-        src2 = tmp_path / "l2.md"
-        src1.write_text("# L1\n", encoding="utf-8")
-        src2.write_text("# L2\n", encoding="utf-8")
-        package = build_scope_package(
-            [
-                {"id": "L1", "title": "One", "source_path": str(src1.resolve())},
-                {"id": "L2", "title": "Two", "source_path": str(src2.resolve())},
-            ]
+    def test_scope_package_uses_source_path(self, tmp_path: Path):
+        src = tmp_path / "source.md"
+        src.write_text("# source\n", encoding="utf-8")
+        pkg_path = save_scope_package(
+            tmp_path,
+            build_scope_package(source_path=str(src.resolve()), title="One"),
         )
-        pkg_path = save_scope_package(tmp_path, package)
-        write_scope_ref_mirror(tmp_path, "L1", source_path=str(src1.resolve()))
-        write_scope_ref_mirror(tmp_path, "L2", source_path=str(src2.resolve()))
-        (tmp_path / "L1").mkdir(exist_ok=True)
-        (tmp_path / "L2").mkdir(exist_ok=True)
         scope_ref = DeliveredRef(type="scope", path=str(pkg_path.resolve()))
         resolved = resolve_scope_continuity_sot(
-            tmp_path,
-            focus_l="L2",
             project_root=tmp_path,
             scope_ref=scope_ref,
         )
-        assert resolved == src2.resolve()
-
-    def test_missing_mirror_fails(self, tmp_path: Path):
-        src1 = tmp_path / "l1.md"
-        src1.write_text("# L1\n", encoding="utf-8")
-        package = build_scope_package(
-            [{"id": "L1", "title": "One", "source_path": str(src1.resolve())}]
-        )
-        pkg_path = save_scope_package(tmp_path, package)
-        scope_ref = DeliveredRef(type="scope", path=str(pkg_path.resolve()))
-        with pytest.raises(ComposeCommonEvalError, match="mirror"):
-            resolve_scope_continuity_sot(
-                tmp_path,
-                focus_l="L1",
-                project_root=tmp_path,
-                scope_ref=scope_ref,
-            )
-
-    def test_stale_mirror_fails(self, tmp_path: Path):
-        src1 = tmp_path / "l1.md"
-        stale = tmp_path / "stale.md"
-        src1.write_text("# L1\n", encoding="utf-8")
-        stale.write_text("# stale\n", encoding="utf-8")
-        package = build_scope_package(
-            [{"id": "L1", "title": "One", "source_path": str(src1.resolve())}]
-        )
-        pkg_path = save_scope_package(tmp_path, package)
-        write_scope_ref_mirror(tmp_path, "L1", source_path=str(stale.resolve()))
-        scope_ref = DeliveredRef(type="scope", path=str(pkg_path.resolve()))
-        with pytest.raises(ComposeCommonEvalError, match="stale"):
-            resolve_scope_continuity_sot(
-                tmp_path,
-                focus_l="L1",
-                project_root=tmp_path,
-                scope_ref=scope_ref,
-            )
+        assert resolved == src.resolve()
 
 
 class TestRetiredG5:

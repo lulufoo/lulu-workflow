@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -30,13 +31,33 @@ if str(_WORKFLOW_SCRIPTS) not in sys.path:
 from start_gate import get_topic_ref  # noqa: E402
 
 from scope_package_projection import (  # noqa: E402
-    is_decision_package_ref,
-    load_decision_package,
     make_norm_ref,
-    norm_refs_from_decision_package,
-    reject_decision_package_as_scope,
-    write_scope_package_projection,
+    reject_non_scope_package,
+    write_scope_package_from_source,
 )
+
+_DECISION_PACKAGE_FILENAME = "decision-package.json"
+_DECISION_PACKAGE_ARTIFACT = "decision-package"
+
+
+def _is_decision_package_ref(ref: DeliveredRef) -> bool:
+    if str(ref.artifact or "").strip() == _DECISION_PACKAGE_ARTIFACT:
+        return True
+    return Path(ref.path).name == _DECISION_PACKAGE_FILENAME
+
+
+def _decision_doc_from_package(package_path: Path) -> Path:
+    """Upstream contract: ``main.decision_doc_path`` relative to the package dir."""
+    path = Path(package_path).resolve()
+    data = json.loads(path.read_text(encoding="utf-8"))
+    main = data.get("main") if isinstance(data, dict) else None
+    rel = str((main or {}).get("decision_doc_path", "")).strip()
+    if not rel:
+        raise ValueError("decision-package.main.decision_doc_path is required")
+    doc = (path.parent / rel).resolve()
+    if not doc.is_file():
+        raise ValueError(f"decision doc not found: {doc}")
+    return doc
 
 
 class TechDesignStartAdapter:
@@ -70,14 +91,14 @@ class TechDesignStartAdapter:
             approach = ref_from_file_entry("lulu-approach", data)
             if approach is None:
                 errors.append("missing delivered-refs entry: lulu-approach")
-            elif not is_decision_package_ref(approach):
+            elif not _is_decision_package_ref(approach):
                 errors.append(
                     "lulu-approach must deliver a decision-package.json "
                     "(artifact=decision-package)"
                 )
             else:
                 try:
-                    load_decision_package(Path(approach.path))
+                    _decision_doc_from_package(Path(approach.path))
                 except (OSError, ValueError) as exc:
                     errors.append(f"invalid decision-package: {exc}")
         if run_mode == "product" and not entry_path_ok(data, "lulu-spec"):
@@ -116,19 +137,19 @@ class TechDesignStartAdapter:
         primary = first_ref(delivered_refs, "lulu-approach")
         if primary is None:
             return []
-        if not is_decision_package_ref(primary):
+        if not _is_decision_package_ref(primary):
             raise ValueError(
                 "lulu-approach scope requires a decision-package.json "
                 "(artifact=decision-package)"
             )
         if dest is None:
             raise ValueError("output_dir required to project → scope-package")
-        scope_path = write_scope_package_projection(
-            decision_package_path=Path(primary.path),
+        scope_path = write_scope_package_from_source(
+            source_path=_decision_doc_from_package(Path(primary.path)),
             output_dir=Path(dest),
             overwrite=True,
         )
-        reject_decision_package_as_scope(scope_path)
+        reject_non_scope_package(scope_path)
         return [
             DeliveredRef(
                 type=primary.type,
@@ -155,21 +176,8 @@ class TechDesignStartAdapter:
         project_root: Path | None = None,
         delivered_refs: list[DeliveredRef] | None = None,
     ) -> list[DeliveredRef]:
+        del delivered_refs
         refs: list[DeliveredRef] = []
-        approach: DeliveredRef | None = None
-        if delivered_refs is not None:
-            approach = first_ref(delivered_refs, "lulu-approach")
-        elif project_root is not None:
-            data = load_delivered_refs_file(cycle_id, project_root)
-            approach = ref_from_file_entry("lulu-approach", data)
-
-        if approach is not None and is_decision_package_ref(approach):
-            refs.extend(
-                norm_refs_from_decision_package(
-                    decision_package_path=Path(approach.path),
-                )
-            )
-
         if project_root is not None:
             topic = get_topic_ref(cycle_id, "lulu-design", project_root / CACHE_DIR)
             if topic is not None:

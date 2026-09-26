@@ -27,7 +27,7 @@ _PROFILE = DEFAULT_COMPOSE_PROFILE_ID
 
 def _pending_start(tmp_path: Path) -> Path:
     ws = seed_tech_plan_session(tmp_path, cycle_id=_CYCLE)
-    save_workflow_state(ws, {"current_state": "Split"}, merge=True)
+    save_workflow_state(ws, {"current_state": "Working"}, merge=True)
     ss_path = tmp_path / session_state_path(_CYCLE, _PROFILE, tmp_path)
     existing = load_session_state(ss_path)
     save_session_state(

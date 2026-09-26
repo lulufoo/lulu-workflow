@@ -24,23 +24,20 @@ EVAL_CONTEXT_REQUIRED = frozenset(
     {
         "cycle_id",
         "profile_id",
-        "focus_l",
-        "ledger_fingerprint",
+        "execution_fingerprint",
         "eval_run_id",
         "evaluate_round",
         "revision_dir",
-        "slice_dir",
+        "execution_dir",
         "compose_doc",
         "evaluate_state_path",
         "evaluate_dir",
         "write_staging_dir",
         "lease_id",
-        "layout",
         "policy_context",
     }
 )
 HANDOFF_REQUIRED = frozenset({"adapter", "context"})
-LAYOUT_VALUES = frozenset({"per-l"})
 GENERIC_EVAL_CONTEXT_REQUIRED = frozenset(
     {
         "workflow_id",
@@ -113,7 +110,7 @@ def validate_eval_handoff(handoff: dict[str, Any]) -> list[str]:
     errors.extend(_validate_policy_context(context.get("policy_context")))
     for key in (
         "revision_dir",
-        "slice_dir",
+        "execution_dir",
         "compose_doc",
         "evaluate_state_path",
         "evaluate_dir",
@@ -235,9 +232,8 @@ def validate_artifact_manifest_v2(manifest: dict[str, Any]) -> list[str]:
 def build_artifact_manifest(
     *,
     lease_id: str,
-    ledger_fingerprint_value: str,
+    execution_fingerprint_value: str,
     eval_run_id: str,
-    focus_l: str,
     evaluate_round: int,
     staged_relative_path: str,
     final_relative_path: str,
@@ -247,9 +243,8 @@ def build_artifact_manifest(
     """Build the provider-validated artifact publication manifest."""
     return {
         "lease_id": lease_id,
-        "ledger_fingerprint": ledger_fingerprint_value,
+        "execution_fingerprint": execution_fingerprint_value,
         "eval_run_id": eval_run_id,
-        "focus_l": focus_l,
         "evaluate_round": int(evaluate_round),
         "staged_relative_path": staged_relative_path,
         "final_relative_path": final_relative_path,
@@ -262,9 +257,8 @@ def validate_artifact_manifest(manifest: dict[str, Any]) -> list[str]:
     """Validate a review publication manifest before provider commit."""
     required = {
         "lease_id",
-        "ledger_fingerprint",
+        "execution_fingerprint",
         "eval_run_id",
-        "focus_l",
         "evaluate_round",
         "staged_relative_path",
         "final_relative_path",

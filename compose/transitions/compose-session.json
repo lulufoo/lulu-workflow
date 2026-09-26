@@ -1,13 +1,11 @@
 {
   "states": [
-    "Split",
     "Working",
     "ReadyForDelivery",
     "Delivered",
     "Invalidated"
   ],
   "transitions": [
-    { "from": "Split", "to": "Working", "command": "leave-split" },
     { "from": "Working", "to": "ReadyForDelivery", "command": "ready-for-delivery" },
     { "from": "ReadyForDelivery", "to": "Working", "command": "return-to-working" },
     { "from": "ReadyForDelivery", "to": "Delivered", "command": "deliver" }

@@ -58,7 +58,7 @@ def _setup_cycle(tmp_path: Path, *, active_doc: int = 1) -> tuple[Path, str]:
     if active_doc != 1:
         save_active_doc(base / "session-state.md", active_doc)
     _write_compose_doc(
-        revision / "L1" / "tech-doc.md",
+        revision / "execution" / "tech-doc.md",
         title="Feature X",
         summary="Deliver a unified session info facade.",
     )
@@ -116,7 +116,7 @@ class TestResolveFromCycle:
         path, revision = resolve_compose_doc_path_from_cycle(cycle_id, project_root)
         assert revision == 2
         assert path.name == "tech-doc.md"
-        assert path.parent.name == "L1"
+        assert path.parent.name == "execution"
         assert path.parent.parent.name == "revision2"
 
     def test_load_presentation_from_cycle(self, tmp_path: Path):

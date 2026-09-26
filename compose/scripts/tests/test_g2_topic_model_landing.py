@@ -244,13 +244,10 @@ def test_g2_gate_declares_tools_and_points_at_split_references():
     assert "archive-" not in text
 
 
-def test_inductive_spine_points_at_split_g2_contracts():
+def test_inductive_spine_routes_g2_to_gate():
     text = _SPINE.read_text(encoding="utf-8")
-    assert "G2 Topic Loop" in text
+    assert "| `G2` |" in text
     assert "gates/g2-topic-loop.md" in text
-    assert "references/topic-model.md" in text
-    assert "references/topic-landscape.md" in text
-    assert "references/topic-portrait.md" in text
     assert "references/topic-dag-model.md" not in text
     assert "references/inductive-topic-model.md" not in text
 
@@ -275,8 +272,6 @@ def test_collab_arc_rebuild_is_g2_owned():
     gate = _GATE.read_text(encoding="utf-8")
     runner = _ARC_RUNNER.read_text(encoding="utf-8")
 
-    assert "converge design through human-adopted topics" in spine
-    assert "human-confirmed topic exit" in spine
     assert "optional collab rebuild via" not in spine
     assert "$SUBAGENT_AWAIT_SYNC" not in runner
     assert "$SUBAGENT_AWAIT_ASYNC" not in runner

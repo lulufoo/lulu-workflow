@@ -228,10 +228,7 @@ def init_compose_session(
     cycle_type: str = "feature",
     evaluate_round: int = 0,
 ) -> None:
-    """Initialize workflow-state.md in session state ``Split``.
-
-    New revisions start in Split (topology lock) before Working. Name kept for
-    call-site stability; see archive-4.0 compose-split-step-state-machine-design.
+    """Initialize workflow-state.md in session state ``Working``.
 
     workflow-state carries pure session-control state. The frozen upstream
     baseline (delivered-refs.json copy) and the resolved three provenance refs
@@ -243,7 +240,7 @@ def init_compose_session(
         "workflow": "tech-doc",
         "mode": mode,
         "cycle_type": cycle_type,
-        "current_state": "Split",
+        "current_state": "Working",
         "evaluate_round": str(evaluate_round),
     }
     save_workflow_state(path, data, merge=False)

@@ -85,17 +85,15 @@ class TestTechPlanEvalAdapter:
 
         ws = _seed_session(tmp_path)
         design_rev = tmp_path / "design-rev"
-        (design_rev / "L1").mkdir(parents=True)
-        (design_rev / "L1" / "design-doc.md").write_text("# Design\n", encoding="utf-8")
+        (design_rev / "execution").mkdir(parents=True)
+        (design_rev / "execution" / "design-doc.md").write_text("# Design\n", encoding="utf-8")
         package = design_rev / "design-package.json"
         package.write_text(
             json.dumps(
                 {
-                    "version": 1,
+                    "version": 2,
                     "profile_id": "lulu-design",
-                    "slices": [
-                        {"id": "L1", "title": "Only", "doc_path": "L1/design-doc.md"}
-                    ],
+                    "doc_path": "execution/design-doc.md",
                 }
             ),
             encoding="utf-8",

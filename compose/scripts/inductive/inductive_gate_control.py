@@ -75,7 +75,7 @@ from recompose_report_schema import (  # noqa: E402
     load_report,
     validate_finding_lens_sources,
 )
-from l_ledger_schema import working_slice_dir  # noqa: E402
+from execution_state_schema import working_execution_dir  # noqa: E402
 from open_point_state_schema import (  # noqa: E402
     empty_open_point_state,
     load_open_point_state,
@@ -272,7 +272,7 @@ def cmd_resolve_context(out_dir: Path, args: argparse.Namespace) -> None:
 
     state = load_gate_state(gate_path)
     symbols = header_gate_symbols(state)
-    slice_dir = working_slice_dir(out_dir)
+    slice_dir = working_execution_dir(out_dir)
     open_point = _open_point_view(slice_dir)
     guide = _guide(state, args)
 
@@ -334,7 +334,7 @@ def cmd_gate_close(out_dir: Path, args: argparse.Namespace) -> None:
         updated = close_gate(state, gate, payload=payload if payload else None)
         save_gate_state(gate_path, updated)
     elif gate == "G3":
-        slice_dir = working_slice_dir(out_dir)
+        slice_dir = working_execution_dir(out_dir)
         with compose_state_lock(slice_dir):
             try:
                 assert_slice_writable(slice_dir)
@@ -344,7 +344,7 @@ def cmd_gate_close(out_dir: Path, args: argparse.Namespace) -> None:
             updated = close_gate(state, gate, payload=payload)
             save_gate_state(gate_path, updated)
     elif gate == "G4":
-        slice_dir = working_slice_dir(out_dir)
+        slice_dir = working_execution_dir(out_dir)
         with compose_state_lock(slice_dir):
             payload = _validate_g4_close(slice_dir)
             updated = close_gate(state, gate, payload=payload)
@@ -391,7 +391,7 @@ def _validate_g2_close(out_dir: Path, payload: dict[str, Any]) -> None:
             "(pre-close topic-landscape: no gap-state topics, or human hard-skip)",
         )
 
-    slice_dir = working_slice_dir(Path(out_dir))
+    slice_dir = working_execution_dir(Path(out_dir))
     try:
         landscape = load_topic_landscape(topic_landscape_path(slice_dir))
         exit_receipt = load_topic_exit(topic_exit_path(slice_dir))
@@ -463,7 +463,7 @@ def cmd_record_topic_landscape(out_dir: Path, args: argparse.Namespace) -> None:
     if gap < 0:
         _fail("record-topic-landscape --gap-remaining must be >= 0")
     summary = args.summary
-    slice_dir = working_slice_dir(Path(out_dir))
+    slice_dir = working_execution_dir(Path(out_dir))
     path = topic_landscape_path(slice_dir)
     data = {
         "version": "1",
@@ -486,7 +486,7 @@ def cmd_record_g2_topic_exit(out_dir: Path, args: argparse.Namespace) -> None:
     if not bool(getattr(args, "human_confirmed", False)):
         _fail("record-g2-topic-exit requires --human-confirmed")
 
-    slice_dir = working_slice_dir(Path(out_dir))
+    slice_dir = working_execution_dir(Path(out_dir))
     land_path = topic_landscape_path(slice_dir)
     try:
         landscape = load_topic_landscape(land_path)
@@ -597,7 +597,7 @@ def _reopen_g3_from_report(out_dir: Path, args: argparse.Namespace, state: dict[
     digest = str(getattr(args, "report_digest", "") or "").strip()
     if not digest:
         _fail("gate-reopen --gate G3 --from-report requires --report-digest")
-    slice_dir = working_slice_dir(out_dir)
+    slice_dir = working_execution_dir(out_dir)
     with compose_state_lock(slice_dir):
         path = recompose_report_path(slice_dir)
         if not path.exists():
@@ -718,7 +718,7 @@ def cmd_gate_reopen(out_dir: Path, args: argparse.Namespace) -> None:
 
     deleted_g4_report = False
     if gate == "G2":
-        deleted_g4_report = delete_report(working_slice_dir(out_dir))
+        deleted_g4_report = delete_report(working_execution_dir(out_dir))
 
     _ok({
         "reopened": gate,

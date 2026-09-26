@@ -19,13 +19,10 @@ for _p in (_HERE, _SESSION, _SCRIPTS):
 
 from compose_package_schema import (  # noqa: E402
     build_compose_package,
-    missing_slice_docs,
     save_compose_package,
     validate_committed_package,
-    validate_compose_package,
 )
-from l_ledger_schema import all_completed_unfrozen, load_l_ledger  # noqa: E402
-from scope_package_schema import load_scope_package  # noqa: E402
+from execution_state_schema import EXECUTION_DIRNAME, is_completed  # noqa: E402
 from workflow_paths import load_profile  # noqa: E402
 
 
@@ -37,44 +34,28 @@ def document_filename_for_profile(profile_id: str) -> str:
     return name
 
 
+def package_doc_rel_path(doc_filename: str) -> str:
+    return f"{EXECUTION_DIRNAME}/{doc_filename}"
+
+
 def assemble_compose_package(
     revision_dir: Path,
     *,
     profile_id: str,
     require_completed: bool = True,
 ) -> tuple[Path | None, str | None]:
-    """Build and write ``*-package.json`` from the L ledger."""
+    """Build and write ``*-package.json`` pointing at the execution prose."""
     rev = Path(revision_dir).resolve()
     try:
         doc_filename = document_filename_for_profile(profile_id)
-        ledger = load_l_ledger(rev)
-        scope = load_scope_package(rev / "scope-package.json")
+        completed = is_completed(rev)
     except (FileNotFoundError, ValueError, json.JSONDecodeError, OSError) as exc:
         return None, str(exc)
-
-    if require_completed and not all_completed_unfrozen(ledger):
-        return None, "not all L Completed and unfrozen"
-
-    titles = {
-        str(row.get("id", "")).strip(): str(row.get("title", "")).strip()
-        for row in scope.get("slices") or []
-        if isinstance(row, dict)
-    }
-    slices = [
-        {
-            "id": nid,
-            "title": titles.get(nid, nid) or nid,
-            "doc_path": f"{nid}/{doc_filename}",
-        }
-        for nid in ledger["order"]
-    ]
-    package = build_compose_package(profile_id=profile_id, slices=slices)
-    errors = validate_compose_package(package)
-    if errors:
-        return None, "; ".join(errors)
-    missing = missing_slice_docs(rev, package)
-    if missing:
-        return None, "missing slice docs: " + ", ".join(missing)
+    if require_completed and not completed:
+        return None, "execution is not Completed"
+    package = build_compose_package(
+        profile_id=profile_id, doc_path=package_doc_rel_path(doc_filename)
+    )
     try:
         path = save_compose_package(rev, doc_filename, package)
     except ValueError as exc:
@@ -91,14 +72,14 @@ def validate_ready_package(
     rev = Path(revision_dir).resolve()
     try:
         doc_filename = document_filename_for_profile(profile_id)
-        ledger = load_l_ledger(rev)
+        completed = is_completed(rev)
     except (FileNotFoundError, ValueError, json.JSONDecodeError, OSError) as exc:
         return None, str(exc)
-    if not all_completed_unfrozen(ledger):
-        return None, "not all L Completed and unfrozen"
+    if not completed:
+        return None, "execution is not Completed"
     return validate_committed_package(
         rev,
         doc_filename=doc_filename,
         profile_id=profile_id,
-        expected_order=list(ledger["order"]),
+        expected_doc_path=package_doc_rel_path(doc_filename),
     )

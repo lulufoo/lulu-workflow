@@ -11,8 +11,8 @@ revision dir (sibling of ``workflow-state.md``):
 
     ② resolved-refs.json   — the three provenance refs (scope / intent
        baseline / norm constraint) that the stage resolver settles ONCE at start.
-       For decision-package / dual-entry flows, ``scope_ref.path`` is revision-local
-       ``scope-package.json`` (L topology lives in ``slices``). Plan←design may
+       For holder-projected flows, ``scope_ref.path`` is revision-local
+       ``scope-package.json`` (one source document). Plan←design may
        also land as that same shape after projection. This is the ONLY artifact
        compose consumers read; they never re-derive from the mutable cycle file
        or from workflow-state.

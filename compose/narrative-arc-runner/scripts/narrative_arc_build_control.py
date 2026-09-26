@@ -30,7 +30,7 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from compose_state_lock import canonical_digest  # noqa: E402
-from l_ledger_schema import active_slice_dir  # noqa: E402
+from execution_state_schema import execution_dir  # noqa: E402
 from domain_instance_schema import (  # noqa: E402
     DOMAIN_SCHEME_KEY,
     load_and_validate_domain_instance,
@@ -59,7 +59,7 @@ def _fail(message: str) -> int:
 
 
 def _slice(revision_dir: str) -> Path:
-    return active_slice_dir(Path(revision_dir).resolve())
+    return execution_dir(Path(revision_dir).resolve())
 
 
 def _facts(revision_dir: str) -> list[dict[str, Any]]:

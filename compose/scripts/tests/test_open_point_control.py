@@ -63,7 +63,7 @@ def _write_gate_state(slice_dir: Path, *, stage: str = "lulu-plan") -> None:
 
 def _slice_env(tmp_path: Path) -> tuple[Path, str]:
     _bind_session(tmp_path, _PLAN_PROFILE)
-    slice_dir = tmp_path / "revision1" / "L1"
+    slice_dir = tmp_path / "revision1" / "execution"
     slice_dir.mkdir(parents=True)
     _write_gate_state(slice_dir)
     return slice_dir, str(tmp_path)
@@ -452,8 +452,15 @@ def _write_facts(slice_dir: Path, ctx_text: str) -> None:
     )
 
 
+def _switch_off_env(tmp_path: Path) -> dict[str, str]:
+    path = tmp_path / "compose-config-off.json"
+    path.write_text(json.dumps({"detect_skip_clean": False}), encoding="utf-8")
+    return {"LULU_COMPOSE_CONFIG": str(path)}
+
+
 def test_empty_detect_records_clean_but_switch_off_keeps_all_pending(tmp_path: Path):
     slice_dir, root = _slice_env(tmp_path)
+    off_env = _switch_off_env(tmp_path)
     code, payload = _run(
         slice_dir,
         "add-opens",
@@ -462,11 +469,14 @@ def test_empty_detect_records_clean_but_switch_off_keeps_all_pending(tmp_path: P
         "--detect-json",
         _detect_json(slice_dir, [], root),
         project_root=root,
+        extra_env=off_env,
     )
     assert code == 0, payload
     frontier = load_lens_frontier(lens_frontier_path(slice_dir))
     assert all(entry.get("clean") for entry in frontier["lenses"].values())
-    code, payload = _run(slice_dir, "detect-context", project_root=root)
+    code, payload = _run(
+        slice_dir, "detect-context", project_root=root, extra_env=off_env
+    )
     assert code == 0, payload
     assert payload["pending_lenses"] == _PLAN_LENSES
     assert "clean" not in json.dumps(payload["pending_lenses"])

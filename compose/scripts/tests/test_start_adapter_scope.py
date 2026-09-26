@@ -68,14 +68,14 @@ def _design_package(tmp_path: Path) -> Path:
     from compose_package_schema import build_compose_package, save_compose_package
 
     revision = tmp_path / "design" / "revision1"
-    (revision / "L1").mkdir(parents=True)
-    (revision / "L1" / "design-doc.md").write_text("# Design\n", encoding="utf-8")
+    (revision / "execution").mkdir(parents=True)
+    (revision / "execution" / "design-doc.md").write_text("# Design\n", encoding="utf-8")
     return save_compose_package(
         revision,
         "design-doc.md",
         build_compose_package(
             profile_id="lulu-design",
-            slices=[{"id": "L1", "title": "Design", "doc_path": "L1/design-doc.md"}],
+            doc_path="execution/design-doc.md",
         ),
     )
 
@@ -89,11 +89,7 @@ def _write_approach_decision_package(approach_root: Path) -> Path:
     return save_decision_package(
         approach_root,
         build_decision_package(
-            main={
-
-                "decision_doc_path": "main/decision-doc.md",
-            },
-            slices=[],
+            main={"decision_doc_path": "main/decision-doc.md"},
         ),
     )
 
@@ -105,11 +101,7 @@ def _write_bet_decision_package(root: Path) -> Path:
     return save_decision_package(
         root,
         build_decision_package(
-            main={
-
-                "decision_doc_path": "decision-doc.md",
-            },
-            slices=[],
+            main={"decision_doc_path": "decision-doc.md"},
         ),
     )
 
@@ -309,8 +301,8 @@ def test_tech_plan_design_primary_projects_design_doc_path(tmp_path: Path):
     assert refs[0].type == "lulu-design"
     assert refs[0].artifact == "scope-package"
     scope = json.loads((revision / "scope-package.json").read_text(encoding="utf-8"))
-    assert scope["slices"][0]["source_path"] == str(
-        (design_package.parent / "L1" / "design-doc.md").resolve()
+    assert scope["source_path"] == str(
+        (design_package.parent / "execution" / "design-doc.md").resolve()
     )
 
 

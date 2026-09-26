@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Hard-gate tests for the compose SKILL orchestration layer closed loop.
-
-Acceptance criteria for holder thin-shell + engine closed loop:
-this file is the executable SSOT (see also docs/ssot/compose/business-ssot/compose-business-ssot.md §7).
-"""
+"""Hard-gate tests for the compose SKILL orchestration layer closed loop."""
 
 from __future__ import annotations
 
@@ -17,12 +13,9 @@ _HOLDER_LINE_THRESHOLD = 60
 
 
 def test_engine_skill_contains_full_orchestration() -> None:
-    """Item 2: engine SKILL owns the state machine; l-chain owns the Working loop."""
+    """Engine SKILL owns the session machine; execution.md owns the step loop."""
     text = _ENGINE_SKILL.read_text(encoding="utf-8")
-    inner = (_WORKFLOW_ROOT / "compose" / "references" / "l-execution.md").read_text(
-        encoding="utf-8"
-    )
-    chain = (_WORKFLOW_ROOT / "compose" / "references" / "l-chain.md").read_text(
+    inner = (_WORKFLOW_ROOT / "compose" / "references" / "execution.md").read_text(
         encoding="utf-8"
     )
 
@@ -33,7 +26,6 @@ def test_engine_skill_contains_full_orchestration() -> None:
         "## Entry",
         "### Start",
         "### Bind context",
-        "## Split",
         "## Working",
         "## ReadyForDelivery",
         "## Delivery",
@@ -42,16 +34,13 @@ def test_engine_skill_contains_full_orchestration() -> None:
 
     assert "stateDiagram-v2" in text
     assert "compose/references/compose-ontology.md" in text
+    assert "## Split" not in text
+    assert "leave-split" not in text
+    assert "$L_SHELL" not in text
+    assert "l-chain.md" not in text
     working = text.split("## Working", 1)[1].split("## ReadyForDelivery", 1)[0]
-    assert "compose/references/l-chain.md" in working
+    assert "compose/references/execution.md" in working
     assert "### " not in working
-
-    for heading in ("## Loop", "## Actions", "## Exit"):
-        assert heading in chain, f"l-chain.md missing {heading!r}"
-    for action in ("Execute", "Reopen", "Advance", "Align and unfreeze", "Backtrack", "View"):
-        assert f"| {action} |" in chain, f"l-chain.md missing action {action!r}"
-    assert "$L_SHELL" in chain
-    assert "$L_STEP" not in chain
 
     for heading in (
         "## Script Macros",
@@ -62,36 +51,26 @@ def test_engine_skill_contains_full_orchestration() -> None:
         "## FreeEdit",
         "## Evaluating",
     ):
-        assert heading in inner, f"l-execution.md missing {heading!r}"
+        assert heading in inner, f"execution.md missing {heading!r}"
 
-    assert "$L_STEP" in inner
+    assert "$EXECUTION" in inner
+    assert "$L_STEP" not in inner
     assert "$ROLE_PROMPT" in inner
 
     assert "## Session bootstrap" not in text
-    assert "## Drafting Rules" not in text
-    assert "### Drafting" not in text
-    assert "## Evaluating Rules" not in text
-    assert "begin-deductive" not in text
-    assert "begin-inductive" not in text
-    assert "assemble-package" not in text
     assert "$SCOPE_PACKAGE" in text
+    assert "$EXECUTION" not in text
     assert "$L_STEP" not in text
     assert "$RESOLVE_ROLE" not in text
-    assert "$RESOLVE_DOMAIN" not in text
-    assert "$L_SHELL" in text
     assert "$DRAFT_CONTROL" not in text
-    assert "leave-split" in text
-    assert "lock-hard-mirror" not in text
-    assert "check-split-ready" not in text
-    assert "split-runner" not in text
-    assert "assemble-index --confirm" not in text
     assert not (_WORKFLOW_ROOT / "compose" / "split-runner").exists()
+    assert not (_WORKFLOW_ROOT / "compose" / "references" / "l-chain.md").exists()
 
 
 def test_engine_evaluating_delegates_without_dimension_table() -> None:
-    """Item 3: inner L-execution hands off to Eval without dimensions."""
+    """Inner execution hands off to Eval without dimensions."""
     text = (
-        _WORKFLOW_ROOT / "compose" / "references" / "l-execution.md"
+        _WORKFLOW_ROOT / "compose" / "references" / "execution.md"
     ).read_text(encoding="utf-8")
 
     assert "eval/SKILL.md" in text
@@ -99,11 +78,11 @@ def test_engine_evaluating_delegates_without_dimension_table() -> None:
 
     lowered = text.lower()
     for forbidden in ("| d1 ", "| d2 ", "| d3 ", "pdqa"):
-        assert forbidden not in lowered, f"l-execution.md should not enumerate dimension {forbidden!r}"
+        assert forbidden not in lowered, f"execution.md should not enumerate dimension {forbidden!r}"
 
 
 def test_holder_skills_are_thin_shells() -> None:
-    """Item 1: holder SKILLs stay under the line threshold and load the engine."""
+    """Holder SKILLs stay under the line threshold and load the engine."""
     for stage in _STAGES:
         holder_path = _WORKFLOW_ROOT / stage / "SKILL.md"
         text = holder_path.read_text(encoding="utf-8")
@@ -126,7 +105,7 @@ def test_holder_skills_are_thin_shells() -> None:
 
 
 def test_eval_skill_drops_stage_entry_table() -> None:
-    """Item 4: eval SKILL no longer hardcodes stage names for adapter discovery."""
+    """Eval SKILL no longer hardcodes stage names for adapter discovery."""
     eval_text = _EVAL_SKILL.read_text(encoding="utf-8")
 
     for stage in _STAGES:
@@ -137,14 +116,14 @@ def test_eval_skill_drops_stage_entry_table() -> None:
 
 
 def test_eval_control_macro_is_eval_owned_and_holder_free() -> None:
-    """Item 5: eval SKILL defines $EVAL_CONTROL; callers bind adapter-config only."""
+    """Eval SKILL defines $EVAL_CONTROL; callers bind adapter-config only."""
     eval_text = _EVAL_SKILL.read_text(encoding="utf-8")
     assert "| `$EVAL_CONTROL` |" in eval_text
     assert "eval/scripts/eval_entry.py" in eval_text
     assert "$EVAL_ADAPTER_CONFIG" in eval_text
 
     inner_text = (
-        _WORKFLOW_ROOT / "compose" / "references" / "l-execution.md"
+        _WORKFLOW_ROOT / "compose" / "references" / "execution.md"
     ).read_text(encoding="utf-8")
     assert "| `$EVAL_CONTROL` |" not in inner_text
     assert "| `$COMPOSE_EVAL_ADAPTER` |" in inner_text

@@ -18,13 +18,13 @@ _CTL = (
     / "scripts"
     / "derive_build_control.py"
 )
-_REPO = Path(__file__).resolve().parents[4]
+_REPO = Path(__file__).resolve().parents[3]
 _PLAN_KW = (
-    _REPO / "lulu-dev-workflow" / "lulu-plan" / "templates" / "section-kw-criteria.md"
+    _REPO /  "lulu-plan" / "templates" / "section-kw-criteria.md"
 )
 
 
-_CORE = _REPO / "lulu-dev-workflow" / "compose" / "scripts" / "_kernel"
+_CORE = _REPO /  "compose" / "scripts" / "_kernel"
 if str(_CORE) not in sys.path:
     sys.path.insert(0, str(_CORE))
 from workflow_paths import seed_revision_profile_pointer  # noqa: E402
@@ -121,7 +121,7 @@ def test_slice_kw_criteria_h2_blocks():
 def test_design_registry_has_section_order_no_lens_v2():
     path = (
         _REPO
-        / "lulu-dev-workflow"
+       
         / "lulu-design"
         / "templates"
         / "section-registry.json"
@@ -134,7 +134,7 @@ def test_design_registry_has_section_order_no_lens_v2():
 def test_lens_bundle_cli_stdout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     mod = _load_ctl()
     rev = _revision(tmp_path)
-    (rev / "L1" / "_facts.json").write_text(
+    (rev / "execution" / "_facts.json").write_text(
         json.dumps(
             [
                 {
@@ -211,7 +211,7 @@ def test_lens_bundle_cli_stdout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
 def test_lens_bundle_fails_missing_kw_heading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     mod = _load_ctl()
     rev = _revision(tmp_path)
-    (rev / "L1" / "_facts.json").write_text("[]", encoding="utf-8")
+    (rev / "execution" / "_facts.json").write_text("[]", encoding="utf-8")
 
     def _fake_kw(kind: str, _root, profile_id=None, cycle_id=None, **_kwargs):
         if kind == "section-kw-criteria":

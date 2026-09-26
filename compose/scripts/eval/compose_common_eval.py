@@ -19,15 +19,10 @@ kernel_bootstrap.ensure_kernel_paths()
 
 from delivered_refs_schema import DeliveredRef  # noqa: E402
 from resolved_refs_schema import StrictResolvedRefs  # noqa: E402
-from scope_package_convert import (  # noqa: E402
-    ScopePackageAntiseepError,
-    resolve_l_seed_source_path,
-)
 from scope_package_schema import (  # noqa: E402
-    chain_ids_from_scope_package,
     is_scope_package_path,
     load_scope_package,
-    load_scope_ref_mirror,
+    scope_source_path,
 )
 
 COMMON_DIMENSION_IDS: tuple[str, ...] = (
@@ -91,9 +86,7 @@ def resolve_sot_file(
 
 
 def resolve_scope_continuity_sot(
-    revision_dir: Path,
     *,
-    focus_l: str,
     project_root: Path,
     scope_ref: DeliveredRef | None,
     extra_roots: list[Path] | None = None,
@@ -108,50 +101,13 @@ def resolve_scope_continuity_sot(
     if not raw.is_absolute():
         raw = Path(project_root) / raw
     if is_scope_package_path(raw):
-        return _resolve_package_parent(
-            revision_dir,
-            focus_l=focus_l,
-            package_path=raw,
-            project_root=project_root,
-            extra_roots=roots,
-        )
+        try:
+            package = load_scope_package(raw)
+        except (FileNotFoundError, ValueError, OSError) as exc:
+            raise ComposeCommonEvalError(f"scope-package unreadable: {exc}") from exc
+        source = scope_source_path(package, project_root=project_root)
+        return resolve_sot_file(str(source), project_root=project_root, extra_roots=roots)
     return resolve_sot_file(str(raw), project_root=project_root, extra_roots=roots)
-
-
-def _resolve_package_parent(
-    revision_dir: Path,
-    *,
-    focus_l: str,
-    package_path: Path,
-    project_root: Path,
-    extra_roots: list[Path],
-) -> Path:
-    nid = str(focus_l).strip()
-    if not nid:
-        raise ComposeCommonEvalError("focus L missing for scope-package parent")
-    try:
-        package = load_scope_package(package_path)
-    except (FileNotFoundError, ValueError, OSError) as exc:
-        raise ComposeCommonEvalError(f"scope-package unreadable: {exc}") from exc
-    slice_ids = chain_ids_from_scope_package(package)
-    if nid not in slice_ids:
-        raise ComposeCommonEvalError(f"scope-package missing focus L {nid!r}")
-    expected = ""
-    for row in package.get("slices") or []:
-        if isinstance(row, dict) and str(row.get("id", "")).strip() == nid:
-            expected = str(row.get("source_path", "")).strip()
-            break
-    try:
-        mirror = load_scope_ref_mirror(revision_dir, nid)
-        source = resolve_l_seed_source_path(revision_dir, nid)
-    except (FileNotFoundError, ValueError, OSError, ScopePackageAntiseepError) as exc:
-        raise ComposeCommonEvalError(f"focus L parent mirror failed: {exc}") from exc
-    actual = str(mirror.get("source_path", "")).strip()
-    if expected and actual != expected:
-        raise ComposeCommonEvalError(
-            f"stale focus L mirror: {actual!r} != scope-package {expected!r}"
-        )
-    return resolve_sot_file(source, project_root=project_root, extra_roots=extra_roots)
 
 
 def _sots_from_refs(

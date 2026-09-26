@@ -17,13 +17,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from deductive_pending_schema import pending_path  # noqa: E402
-from l_ledger_schema import active_slice_dir  # noqa: E402
+from execution_state_schema import execution_dir  # noqa: E402
 from facts_schema import facts_path  # noqa: E402
 
 
 def evaluate_deductive_gate(revision_dir: Path) -> str | None:
     """Return a failure reason string, or ``None`` when the confirm gate is clear."""
-    rev = active_slice_dir(Path(revision_dir).resolve())
+    rev = execution_dir(Path(revision_dir).resolve())
     facts = facts_path(rev)
     if not facts.is_file():
         return f"_facts.json missing (expected {facts.as_posix()})"
