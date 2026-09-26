@@ -18,16 +18,12 @@ from typing import Any
 
 _CORE = Path(__file__).resolve().parent
 _SCRIPTS = _CORE.parent
-_AGENDA_SCRIPTS = _SCRIPTS.parent.parent / "agenda" / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
-if str(_AGENDA_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_AGENDA_SCRIPTS))
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, load_profile, resolve_profile_id  # noqa: E402
-from agenda_schema import agenda_path, blocking_items, load_agenda  # noqa: E402
 
 from compose_session import (  # noqa: E402
     approval_gate_path,
@@ -110,9 +106,29 @@ def _failure_deliver_agenda(
 
 
 def _agenda_blocking_for_revision(revision_dir: Path) -> list[dict[str, Any]]:
-    """Missing agenda.json ⇒ empty (do not fail deliver)."""
-    data = load_agenda(agenda_path(revision_dir))
-    return blocking_items(data)
+    """Leftover revision agenda.json only; missing file ⇒ empty."""
+    path = Path(revision_dir) / "agenda.json"
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return [{"id": "agenda.json", "text": "unreadable leftover agenda.json"}]
+    items = data.get("items") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        return [{"id": "agenda.json", "text": "invalid leftover agenda.json"}]
+    blockers: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("class", "")).strip().lower() != "blocker":
+            continue
+        if str(item.get("status", "")).strip().lower() != "open":
+            continue
+        if bool(item.get("async", False)):
+            continue
+        blockers.append(item)
+    return blockers
 
 
 def _require_transition(command: str, from_state: str, to_state: str) -> bool:
