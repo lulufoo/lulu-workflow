@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import json
 import re
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -258,43 +257,3 @@ def build_topic_digest(cache_dir: Path, stage: str) -> dict[str, Any]:
         "ref_stage": ref_stage,
         "topics": topics,
     }
-
-
-def prune_cycles(cache_dir: Path, keep: int, project_root: Path) -> None:
-    cycles_json = cache_dir / "cycles.json"
-    if not cycles_json.exists():
-        print("cycles.json not found — nothing to prune.")
-        return
-
-    features = load_cycles(cache_dir)
-    sorted_ids = sorted(features.keys())
-
-    if len(sorted_ids) <= keep:
-        print(
-            f"Nothing to prune — total features: {len(sorted_ids)}, "
-            f"keep: {keep}."
-        )
-        return
-
-    keep_ids = set(sorted_ids[-keep:])
-    delete_ids = [fid for fid in sorted_ids if fid not in keep_ids]
-
-    deleted, skipped = [], []
-    for fid in delete_ids:
-        feature_dir = cache_dir / fid
-        if feature_dir.exists():
-            shutil.rmtree(feature_dir)
-            deleted.append(fid)
-            print(f"Deleted: {feature_dir.relative_to(project_root)}")
-        else:
-            skipped.append(fid)
-            print(f"Directory not found (removed from index only): {fid}")
-
-    pruned = {fid: features[fid] for fid in sorted_ids if fid in keep_ids}
-    save_cycles(cache_dir, pruned)
-
-    print(
-        f"\nDone — deleted {len(deleted)} dir(s), "
-        f"cleaned {len(skipped)} stale index entr(ies), "
-        f"kept {len(keep_ids)} most recent feature(s)."
-    )

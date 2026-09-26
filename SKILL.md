@@ -2,16 +2,15 @@
 name: lulu-workflow
 description: >-
   Top-level development workflow framework. Use when mentioning lulu-workflow,
-  开发工作流, dev workflow, product doc workflow, 产品文档流程, or any sub-stage
+  开发工作流, dev workflow, product doc workflow, 产品文档流程, lulu-brainstorm, or any sub-stage
   (lulu-bet, lulu-approach, lulu-spec, lulu-blueprint, lulu-arch, lulu-design, lulu-plan, lulu-tasks, lulu-code).
 disable-model-invocation: true
-argument-hint: "[pd=lulu-bet | td=lulu-approach | ps=lulu-spec | pa=lulu-blueprint | ta=lulu-arch | ds=lulu-design | t=lulu-plan | w=lulu-tasks | c=lulu-code]"
+argument-hint: "[lulu-brainstorm | pd=lulu-bet | td=lulu-approach | ps=lulu-spec | pa=lulu-blueprint | ta=lulu-arch | ds=lulu-design | t=lulu-plan | w=lulu-tasks | c=lulu-code]"
 ---
 
 # lulu-workflow
 
-A staged development workflow framework. Each stage is an independent sub-module
-under this directory.
+Routes project-level work into a stage skill. Done when `init` has reported, or the matching sub-SKILL is loaded.
 
 > **Runtime modules** (loaded by sub-skills, not this file):
 > - `_runtime.md` — Script Macros + Platform / Session / Execution Mode (all sub-skills)
@@ -19,110 +18,25 @@ under this directory.
 > - `_transitions.md` — Stage Transitions + Rollback (loaded at delivery)
 > - `_subagent.md` — Sub-agent Context (lulu-code, lulu-tasks, decision)
 
-## Scope
-
-This SKILL orchestrates **project-level lifecycle** only:
-
-- Bootstrap: install hooks, workflow-config
-- Maintenance: optional cycle ops via `$CYCLE_CONTROL` (`cycle_control.py --help`)
-- Routing: dispatch to sub-SKILLs (see ## Sub-SKILL Routing)
-
-Cycle creation and selection run in sub-SKILLs via `_runtime.md` § Session Foundation → `_slowpath.md`.
-
-Do **not** drive drafting, evaluating, or delivery here — sub-SKILLs own those steps.
-Do **not** call `cycle_schema.py` or bare `python3 .../cycle_control.py` paths — use `$CYCLE_CONTROL` only.
-
 ## Stage lines
 
-Work is bound to a **cycle** with `$CYCLE_TYPE` = `topic` or `feature` (see `_runtime.md` § Session Foundation → `_slowpath.md`).
+Both lines start at `lulu-brainstorm`. The product track and the architecture track sit side by side. `$CYCLE_TYPE` is `topic` or `feature`.
 
-| Line | Purpose | Typical path |
-|------|---------|--------------|
-| **topic** | Shaping — product/tech architecture exploration before committing to a feature | `lulu-bet` → `lulu-blueprint` → `lulu-approach` → `lulu-arch` |
-| **feature** | Delivery — spec through implementation for one feature | `lulu-bet` → `lulu-spec` → `lulu-approach` → `lulu-design` → `lulu-plan` → `lulu-tasks` → `lulu-code` |
+| Line | Purpose | Shape |
+|------|---------|-------|
+| **topic** | Shape product and architecture | `lulu-brainstorm` forks to `lulu-bet` → `lulu-blueprint` and `lulu-approach` → `lulu-arch` |
+| **feature** | Carry a feature through to code | `lulu-brainstorm` forks to `lulu-bet` → `lulu-spec` and `lulu-approach` → `lulu-design`; both join `lulu-plan` → `lulu-tasks` → `lulu-code` → `lulu-review` |
 
-**Shared decision stages:** `lulu-bet` (product) and `lulu-approach` (tech) appear on both lines. After each decision, `$CYCLE_TYPE` determines the next stage — e.g. `lulu-spec` (feature) vs `lulu-blueprint` (topic).
+1. `lulu-bet` and `lulu-approach` appear on both lines.
+2. On `feature`, the two tracks join at `lulu-plan`.
 
-**Branching (feature only):** after `lulu-approach`, next stage may be `lulu-design` or `lulu-plan` directly.
+## Routing
 
-**Topic completion:** when `lulu-arch` delivers, the shaping loop ends; create a **feature** cycle referencing this topic to continue into delivery.
-
-**SSOT:** allowed transitions and completion notes — `config/transition-table.json`. Runtime presentation rules — `_transitions.md`.
-
-## Prerequisites
-
-| Layer | Requirement |
-|-------|-------------|
-| Runtime | Read `_runtime.md` § Script Macros + § Platform Context when platform vars are needed |
-| Platform vars | `$PLATFORM`, `$SKILL_ROOT`, `$CACHE_DIR`, `$WORKFLOW_DIR` |
-| Session | Read `_runtime.md` § Session Foundation when session variables are needed |
-| Session vars | `$CYCLE_ID`, `$CYCLE_TYPE` |
-| Project config | `$WORKFLOW_DIR` (`stages/` + `workflow-guard-config.json`) |
-
-## Command Flow
-
-### Bootstrap — first time in a repo
-
-1. **Project init** — `$CYCLE_CONTROL init-project` (once per repo; safe to re-run)
-2. **First work** — Enter any sub-SKILL (e.g. `/lulu-approach`). Cycle binding via `_runtime.md` § Session Foundation.
-
-## Commands
-
-> Invoke via `$CYCLE_CONTROL` only. Subcommand contracts: `cycle_control.py` module docstring or `--help`.
-> `start`, `menu`, and `resolve-token` are invoked from `_slowpath.md` only
-> (not from this orchestrator).
-> `bind-context` is invoked from `_runtime.md` § Session Foundation after slowpath
-> confirms `$CYCLE_ID` (not from this orchestrator).
-
-### `init` — Once per project
-
-**When:** Repo has no platform hooks / first lulu-dev-workflow use.
-
-**Run:** `$CYCLE_CONTROL init-project`
-
-**Done:** Report success or stderr; bootstraps missing hook file and missing project stage seeds under `$WORKFLOW_DIR`.
-
-### `archive [N]` — Prune old cycles
-
-**When:** User asks to clean up old features (default keep 5).
-
-**Run:** `$CYCLE_CONTROL archive` [`--keep N`]
-
-**Done:** Summarize deleted vs retained (stdout).
-
-## Command Semantics
-
-### archive
-
-- **Retention rule:** Keep N most recent by timestamp embedded in `cycle_id` (default N=5).
-- **Side effects:** Deletes dirs under `$CACHE_DIR`; updates `cycles.json`.
-
-### init
-
-- **Creates:** missing `$WORKFLOW_DIR/workflow-guard-config.json`; missing `stages/lulu-code.json`; missing `manifest.json` (no overwrite). Skill-owned stage defaults stay in `{stage}/config.json`.
-- **Does not:** create pointer `config.json`.
-- **Safe:** re-run allowed (idempotent hooks + missing-file bootstrap).
-
-## Script Macros
-
-Macro expansion: `_runtime.md` § Script Macros → Macro expansion.
-
-Requires `$SKILL_ROOT` and `$PLATFORM` from `_runtime.md` § Platform Context.
-
-Non-zero exit → stop and report stderr.
-
-| Macro | Command |
-|-------|---------|
-| `$CYCLE_CONTROL` | `python3 "$SKILL_ROOT/scripts/cycle_control.py" --project-root "$(pwd)" --platform $PLATFORM <subcommand> [args...]` |
-
-Subcommands and stdout: `cycle_control.py` module docstring or `--help`.
-
-## Sub-SKILL Routing
-
-After `$CYCLE_ID` is confirmed, route stage work via sub-SKILLs — do not re-run orchestrator commands unless bootstrap/maintenance.
+Load one sub-SKILL after `$CYCLE_ID` is confirmed.
 
 | Key | Sub-SKILL | Action |
 |---|---|---|
+| `lulu-brainstorm` | Divergence before a problem is defined | Read [lulu-brainstorm/SKILL.md](./lulu-brainstorm/SKILL.md) |
 | `lulu-bet` / `pd` | Product decision | Read [lulu-bet/SKILL.md](./lulu-bet/SKILL.md) |
 | `lulu-blueprint` / `pa` | Product arch (topic) | Read [lulu-blueprint/SKILL.md](./lulu-blueprint/SKILL.md) |
 | `lulu-spec` / `ps` | Product spec (feature) | Read [lulu-spec/SKILL.md](./lulu-spec/SKILL.md) |
@@ -132,3 +46,25 @@ After `$CYCLE_ID` is confirmed, route stage work via sub-SKILLs — do not re-ru
 | `lulu-plan` / `t` | Tech plan | Read [lulu-plan/SKILL.md](./lulu-plan/SKILL.md) |
 | `lulu-tasks` / `w` | Tech work order | Read [lulu-tasks/SKILL.md](./lulu-tasks/SKILL.md) |
 | `lulu-code` / `c` | Tech code | Read [lulu-code/SKILL.md](./lulu-code/SKILL.md) |
+
+1. The sub-SKILL owns drafting, evaluation, and delivery.
+2. `lulu-review` is the last node on the feature line. This tree has no `lulu-review/SKILL.md`.
+
+## Bootstrap
+
+First use in a repo. Read `_runtime.md` § Script Macros and § Platform Context before the command.
+
+1. **When** — the repo has no platform hooks, or this is the first run.
+2. **Run** — `$CYCLE_CONTROL init-project`
+3. **Done** — report success or stderr. Re-run is safe.
+4. **Next** — enter a sub-SKILL. Cycle binding is `_runtime.md` § Session Foundation.
+
+## Script Macros
+
+`$CYCLE_CONTROL` is defined in `_runtime.md` § Script Macros. This file invokes `init-project` only.
+
+1. `start`, `menu`, and `resolve-token` run from `_slowpath.md`.
+2. `bind-context` runs from `_runtime.md` § Session Foundation after `$CYCLE_ID` is confirmed.
+3. Subcommands and stdout: `cycle_control.py` module docstring or `--help`.
+4. Non-zero exit → stop and report stderr.
+5. Call `$CYCLE_CONTROL` only. A bare `python3` path or `cycle_schema.py` is outside this file.
