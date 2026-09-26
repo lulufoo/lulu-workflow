@@ -83,29 +83,12 @@ def test_init_shell_starts_main(tmp_path: Path) -> None:
     assert (root / "discussion-pointer.json").is_file()
 
 
-def test_main_to_split_requires_main_delivered(tmp_path: Path) -> None:
-    root = tmp_path / "lulu-approach"
-    init_shell(root)
-    with pytest.raises(ValueError, match="main is not Completed"):
-        enter_split(root)
-    _write_delivered(main_session_dir(root))
-    with pytest.raises(ValueError, match="path_choice must be 'B'"):
-        enter_split(root)
-    record_path_choice(root, path="B", confirm=True)
-    shell = enter_split(root)
-    assert shell["macro_state"] == "Split"
-    assert shell["split_delivered"] is False
-
-
 def test_main_to_package_ready_no_split(tmp_path: Path) -> None:
     root = tmp_path / "lulu-approach"
     init_shell(root)
     with pytest.raises(ValueError, match="main is not Completed"):
         enter_package_ready(root)
     _write_delivered(main_session_dir(root))
-    with pytest.raises(ValueError, match="path_choice must be 'A'"):
-        enter_package_ready(root)
-    record_path_choice(root, path="A", confirm=True)
     shell = enter_package_ready(root)
     assert shell["macro_state"] == "PackageReady"
     with pytest.raises(ValueError, match="human --confirm required"):
@@ -120,7 +103,6 @@ def test_confirm_seal_registers_decision_package_ref(tmp_path: Path) -> None:
     cycle_id = "feat-approach-seal"
     init_shell(root)
     _write_delivered(main_session_dir(root))
-    record_path_choice(root, path="A", confirm=True)
     enter_package_ready(root)
     (main_session_dir(root) / "decision-doc.md").write_text(
         "{}\n",
@@ -165,7 +147,6 @@ def test_confirm_seal_rolls_back_refs_keeps_decision_package(
     root = project_root / "lulu-approach"
     init_shell(root)
     _write_delivered(main_session_dir(root))
-    record_path_choice(root, path="A", confirm=True)
     enter_package_ready(root)
     (main_session_dir(root) / "decision-doc.md").write_text(
         "{}\n",
@@ -190,175 +171,6 @@ def test_confirm_seal_rolls_back_refs_keeps_decision_package(
     assert not delivered_refs_file_path("feat-approach-rollback", project_root).exists()
 
 
-def test_confirm_seal_split_registers_decision_package(tmp_path: Path) -> None:
-    project_root = tmp_path / "project"
-    project_root.mkdir()
-    root = project_root / "lulu-approach"
-    cycle_id = "feat-approach-split-seal"
-    init_shell(root)
-    _write_delivered(main_session_dir(root))
-    record_path_choice(root, path="B", confirm=True)
-    enter_split(root)
-    mark_split_delivered(root)
-    enter_working(root, ["D1"], focus="D1")
-    mark_node_delivered(root, "D1")
-    enter_package_ready(root)
-
-    from approach_split_control import conventional_main_paths, conventional_slice_paths
-    from decision_package_schema import build_decision_package, save_decision_package
-
-    save_decision_package(
-        root,
-        build_decision_package(
-            main=conventional_main_paths(),
-            slices=[
-                {
-                    "id": "D1",
-                    "title": "slice one",
-                    **conventional_slice_paths("D1"),
-                }
-            ],
-            status="package_ready",
-        ),
-    )
-    result = confirm_seal(
-        root,
-        confirm=True,
-        cycle_id=cycle_id,
-        project_root=project_root,
-    )
-    assert result["delivered"] is True
-    pkg = decision_package_path(root)
-    entry = load_delivered_refs_file(cycle_id, project_root)["entries"]["lulu-approach"]
-    assert entry["artifact"] == "decision-package"
-    assert entry["path"] == str(pkg.resolve())
-    decision_package = json.loads(pkg.read_text(encoding="utf-8"))
-    assert decision_package["main"]["decision_doc_path"] == "main/decision-doc.md"
-    assert [s["id"] for s in decision_package["slices"]] == ["D1"]
-    assert not source_package_path(root).exists()
-
-
-
-def test_split_working_package_ready_path(tmp_path: Path) -> None:
-    root = tmp_path / "lulu-approach"
-    init_shell(root)
-    _write_delivered(main_session_dir(root))
-    record_path_choice(root, path="B", confirm=True)
-    enter_split(root)
-    with pytest.raises(ValueError, match="Split is not completed"):
-        enter_working(root, ["D1", "D2"])
-    mark_split_delivered(root)
-    shell = enter_working(root, ["D1", "D2"], focus="D1")
-    assert shell["macro_state"] == "Working"
-    assert shell["focus"] == "D1"
-    assert shell["by_id"]["D1"]["phase"] == "in_progress"
-    assert shell["by_id"]["D2"]["phase"] == "pending"
-    # S3=B: only focused Dx/ exists after enter_working
-    assert (root / "D1").is_dir()
-    assert not (root / "D2").exists()
-
-    with pytest.raises(ValueError, match="not all children Completed"):
-        enter_package_ready(root)
-
-    mark_node_delivered(root, "D1")
-    mark_node_delivered(root, "D2")
-    shell = enter_package_ready(root)
-    assert shell["macro_state"] == "PackageReady"
-
-
-def test_commit_focus_rejects_mid_working_switch(tmp_path: Path) -> None:
-    root = tmp_path / "lulu-approach"
-    init_shell(root)
-    _write_delivered(main_session_dir(root))
-    record_path_choice(root, path="B", confirm=True)
-    enter_split(root)
-    mark_split_delivered(root)
-    enter_working(root, ["D1", "D2"], focus="D1")
-
-    with pytest.raises(ValueError, match="not Completed"):
-        commit_focus(root, "D2")
-
-    shell = commit_focus(root, "D1")
-    assert shell["focus"] == "D1"
-
-    mark_node_delivered(root, "D1")
-    shell = commit_focus(root, "D2")
-    assert shell["focus"] == "D2"
-    assert shell["by_id"]["D2"]["phase"] == "in_progress"
-
-
-def test_commit_focus_switch_via_session_state_delivered_stub(tmp_path: Path) -> None:
-    root = tmp_path / "lulu-approach"
-    init_shell(root)
-    _write_delivered(main_session_dir(root))
-    record_path_choice(root, path="B", confirm=True)
-    enter_split(root)
-    mark_split_delivered(root)
-    enter_working(root, ["D1", "D2"], focus="D1")
-    _write_in_progress(root / "D1")
-    with pytest.raises(ValueError, match="not Completed"):
-        commit_focus(root, "D2")
-    _write_delivered(root / "D1")
-    shell = commit_focus(root, "D2")
-    assert shell["focus"] == "D2"
-
-
-def test_set_focus_is_retired_in_python_and_cli(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    root = tmp_path / "lulu-approach"
-    init_shell(root)
-    _write_delivered(main_session_dir(root))
-    record_path_choice(root, path="B", confirm=True)
-    enter_split(root)
-    mark_split_delivered(root)
-    enter_working(root, ["D1", "D2"], focus="D1")
-
-    with pytest.raises(ValueError, match="retired.*enter-node"):
-        set_focus(root, "D2")
-
-    assert _ctrl.main(
-        ["--approach-root", str(root), "set-focus", "--node-id", "D2"]
-    ) == 1
-    assert "enter-node" in capsys.readouterr().err
-
-
-def test_cannot_enter_split_from_working(tmp_path: Path) -> None:
-    root = tmp_path / "lulu-approach"
-    init_shell(root)
-    _write_delivered(main_session_dir(root))
-    record_path_choice(root, path="B", confirm=True)
-    enter_split(root)
-    mark_split_delivered(root)
-    enter_working(root, ["D1"], focus="D1")
-    with pytest.raises(ValueError, match="enter_split requires macro_state=Main"):
-        enter_split(root)
-
-
-def test_record_path_a_blocks_enter_split(tmp_path: Path) -> None:
-    root = tmp_path / "lulu-approach"
-    init_shell(root)
-    _write_delivered(main_session_dir(root))
-    with pytest.raises(ValueError, match="human --confirm required"):
-        record_path_choice(root, path="A", confirm=False)
-    record_path_choice(root, path="A", confirm=True)
-    with pytest.raises(ValueError, match="path_choice must be 'B'"):
-        enter_split(root)
-    enter_package_ready(root)
-    assert load_shell(root)["macro_state"] == "PackageReady"
-
-
-def test_record_path_b_blocks_main_package_ready(tmp_path: Path) -> None:
-    root = tmp_path / "lulu-approach"
-    init_shell(root)
-    _write_delivered(main_session_dir(root))
-    record_path_choice(root, path="B", confirm=True)
-    with pytest.raises(ValueError, match="path_choice must be 'A'"):
-        enter_package_ready(root)
-    enter_split(root)
-    assert load_shell(root)["macro_state"] == "Split"
-
-
 def test_enter_package_ready_cli_has_no_path_flag() -> None:
     parser = _ctrl._build_parser()
     parser.parse_args(["--approach-root", "/tmp/x", "enter-package-ready"])
@@ -366,31 +178,4 @@ def test_enter_package_ready_cli_has_no_path_flag() -> None:
         parser.parse_args(
             ["--approach-root", "/tmp/x", "enter-package-ready", "--path", "A"]
         )
-
-
-def test_working_legacy_null_path_choice_treated_as_b(tmp_path: Path) -> None:
-    root = tmp_path / "lulu-approach"
-    init_shell(root)
-    _write_delivered(main_session_dir(root))
-    record_path_choice(root, path="B", confirm=True)
-    enter_split(root)
-    mark_split_delivered(root)
-    enter_working(root, ["D1"], focus="D1")
-    mark_node_delivered(root, "D1")
-    shell = load_shell(root)
-    shell["path_choice"] = None
-    _schema.save_shell(root, shell)
-    entered = enter_package_ready(root)
-    assert entered["macro_state"] == "PackageReady"
-
-
-def test_load_shell_missing_path_choice_is_null(tmp_path: Path) -> None:
-    root = tmp_path / "lulu-approach"
-    init_shell(root)
-    path = shell_path(root)
-    data = json.loads(path.read_text(encoding="utf-8"))
-    del data["path_choice"]
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    loaded = load_shell(root)
-    assert loaded["path_choice"] is None
 
