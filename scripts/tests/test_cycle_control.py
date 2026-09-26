@@ -60,19 +60,6 @@ class TestCycleControlStart:
         assert result.returncode != 0
 
 
-class TestCycleControlArchive:
-    def _cache_dir(self, tmp_path: Path) -> Path:
-        return tmp_path / ".cache" / "copilot" / "lulu-dev-workflow"
-
-    def test_archive_nothing_to_prune(self, tmp_path):
-        cache = self._cache_dir(tmp_path)
-        cache.mkdir(parents=True)
-        (cache / "cycles.json").write_text(json.dumps({"feature-20260101000000-11111111": {"name": "a"}}))
-        result = _run("--project-root", str(tmp_path), "archive", "--keep", "5")
-        assert result.returncode == 0
-        assert "Nothing to prune" in result.stdout
-
-
 class TestCycleControlResolveConfigPath:
     def test_resolve_config_path_exit_zero(self, tmp_path):
         result = _run(

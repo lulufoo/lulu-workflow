@@ -6,7 +6,6 @@ Subcommands:
     configure             Download workflow-config.json to $WORKFLOW_DIR
     resolve-config-path   Print resolved $WORKFLOW_DIR config root
     start                 Create a new cycle container; stdout last line: cycle_id
-    archive               Prune old cycle dirs, keeping N most recent
     menu                  Feature Resolution menu (T#/F# rows + N/M)
     resolve-token         Resolve menu token T#/F# to cycle_id
     bind-context          Bind conversation → cycle/stage in active-context
@@ -34,7 +33,6 @@ from cycle_schema import (  # noqa: E402
     ensure_container_dir,
     format_cycles_menu,
     generate_cycle_id,
-    prune_cycles,
     resolve_cache_dir,
     resolve_menu_token,
     validate_cycle,
@@ -51,7 +49,6 @@ _CMD_INIT_PROJECT = "init-project"
 _CMD_CONFIGURE = "configure"
 _CMD_RESOLVE_CONFIG_PATH = "resolve-config-path"
 _CMD_START = "start"
-_CMD_ARCHIVE = "archive"
 _CMD_MENU = "menu"
 _CMD_RESOLVE_TOKEN = "resolve-token"
 _CMD_BIND_CONTEXT = "bind-context"
@@ -227,12 +224,6 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_archive(args: argparse.Namespace) -> int:
-    cache_dir = resolve_cache_dir(args.project_root, args.platform)
-    prune_cycles(cache_dir, args.keep, args.project_root)
-    return 0
-
-
 def cmd_topic_digest(args: argparse.Namespace) -> int:
     cache_dir = resolve_cache_dir(args.project_root, args.platform)
     payload = build_topic_digest(cache_dir, args.stage)
@@ -286,19 +277,6 @@ def _cli(argv: Optional[list[str]] = None) -> int:
         help="Associate feature with an existing topic (feature type only).",
     )
     start.set_defaults(handler=cmd_start)
-
-    archive = sub.add_parser(
-        _CMD_ARCHIVE,
-        help="Prune old cycle directories.",
-    )
-    archive.add_argument(
-        "--keep",
-        type=int,
-        default=5,
-        metavar="N",
-        help="Number of most-recent cycles to keep (default: 5).",
-    )
-    archive.set_defaults(handler=cmd_archive)
 
     menu_cmd = sub.add_parser(
         _CMD_MENU,
@@ -361,9 +339,6 @@ def _cli(argv: Optional[list[str]] = None) -> int:
 
     args = parser.parse_args(argv)
     args.project_root = args.project_root.resolve()
-
-    if args.command == _CMD_ARCHIVE and args.keep < 1:
-        parser.error("archive --keep must be at least 1")
 
     return args.handler(args)
 
