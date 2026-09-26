@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""K0b: lulu-blueprint section presence (upstream framework SSOT)."""
+"""K0b: lulu-blueprint section presence (skill-builtin section-registry SSOT)."""
 
 from __future__ import annotations
 
