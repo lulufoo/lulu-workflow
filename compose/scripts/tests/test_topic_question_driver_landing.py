@@ -15,7 +15,15 @@ _DRIVER = _COMPOSE / "inductive-runner" / "references" / "topic-question-driver.
 _GATE = _COMPOSE / "inductive-runner" / "gates" / "g2-topic-loop.md"
 _SHARED_ASK = _WORKFLOW / "shared" / "references" / "ask-protocol.md"
 _OLD_ASK = _WORKFLOW / "decision" / "references" / "ask-protocol.md"
-_ARCH = _REPO / "docs" / "skill" / "skill-architecture-constraints.md"
+_ARCH = (
+    _REPO
+    / "lulu-skills-workspace"
+    / ".cursor"
+    / "skills"
+    / "lulu-discipline-skills"
+    / "skill"
+    / "skill-architecture-constraints.md"
+)
 
 _Q = _WORKFLOW / "decision" / "runners" / "q-problem-runner" / "SKILL.md"
 _GL = _WORKFLOW / "decision" / "runners" / "gl-grill-runner" / "SKILL.md"
@@ -56,12 +64,11 @@ def test_shared_ask_protocol_is_single_runtime_ssot():
     ask = _SHARED_ASK.read_text(encoding="utf-8")
 
     assert "Bound the candidate first" in ask
-    assert "Collect-or-Ask first" in ask
-    assert "Explore to sufficiency" in ask
+    assert "Collect-or-Ask (intent)" in ask
+    assert "Settle project-state premises" in ask
     assert "Ground the candidate" in ask
     assert "Recommend" in ask
     assert "Ask Protocol G2" in ask
-    assert "preserve the uncertainty" in ask
     assert "Minimal Explore" not in ask
     assert "Project-ground" not in ask
     assert "Ask Protocol G7" not in ask

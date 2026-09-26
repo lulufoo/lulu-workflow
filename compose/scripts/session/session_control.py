@@ -2,8 +2,7 @@
 """Session control for compose orchestrators.
 
 Subcommands:
-    leave-split          Split -> Working (published ledger + holder finalize)
-    ready-for-delivery   Working -> ReadyForDelivery (all L Completed; assemble package)
+    ready-for-delivery   Working -> ReadyForDelivery (execution Completed; assemble package)
     return-to-working    ReadyForDelivery -> Working (--confirm)
     deliver              ReadyForDelivery -> Delivered (--confirm; consume Ready package)
     write-demand-manifest  Persist AI-enumerated demand units as <prefix>-demands.json
@@ -45,22 +44,18 @@ from demand_manifest_schema import (  # noqa: E402
 from delivered_refs_schema import record_delivered_ref  # noqa: E402
 from cycle_delivered_refs import DeliveryInconsistent, file_digest  # noqa: E402
 from human_delivery_gate_schema import write_approved  # noqa: E402
-from l_ledger_schema import all_completed_unfrozen, load_l_ledger  # noqa: E402
+from execution_state_schema import is_completed  # noqa: E402
 from compose_package_control import assemble_compose_package, validate_ready_package  # noqa: E402
 from revision_lock import LockTimeoutError, cycle_lock, revision_lock, session_lock  # noqa: E402
-from session_state_schema import load_session_state  # noqa: E402
 from transition_registry import is_allowed  # noqa: E402
 from workflow_common import CACHE_DIR  # noqa: E402
 from workflow_profile_paths import session_state_path  # noqa: E402
 from workflow_state_schema import load_workflow_state, save_workflow_state  # noqa: E402
-from scope_package_schema import load_scope_package  # noqa: E402
 
-_CMD_LEAVE_SPLIT = "leave-split"
 _CMD_READY = "ready-for-delivery"
 _CMD_RETURN_WORKING = "return-to-working"
 _CMD_DELIVER = "deliver"
 _CMD_WRITE_DEMAND_MANIFEST = "write-demand-manifest"
-_EXPECTED_SPLIT_STATE = "Split"
 _EXPECTED_DELIVER_STATE = "ReadyForDelivery"
 _EXPECTED_WORKING_STATE = "Working"
 
@@ -142,116 +137,6 @@ def _build_resume(command: str, current_state: str) -> dict[str, Any]:
     }
 
 
-def _published_revision(revision_dir: Path) -> tuple[bool, str | None, dict[str, Any]]:
-    try:
-        ledger = load_l_ledger(revision_dir)
-        package = load_scope_package(Path(revision_dir) / "scope-package.json")
-    except (OSError, ValueError, FileNotFoundError) as exc:
-        return False, str(exc), {}
-    missing = [
-        nid
-        for nid in ledger["order"]
-        if not (Path(revision_dir) / nid / "scope-ref.json").is_file()
-    ]
-    if missing:
-        return False, "missing scope-ref mirrors: " + ", ".join(missing), {}
-    ids = list(ledger["order"])
-    details = {
-        "node_ids": ids,
-        "focus": ledger["focus"],
-        "multi_l": len(ids) >= 2,
-        "slices": len(package.get("slices") or []),
-    }
-    return True, None, details
-
-
-def leave_split(
-    cycle_id: str,
-    project_root: Path,
-    *,
-    profile_id: str = DEFAULT_COMPOSE_PROFILE_ID,
-) -> dict[str, Any]:
-    """Leave session state Split → Working after holder finalize."""
-    ss_path = project_root / session_state_path(cycle_id, profile_id, project_root)
-    try:
-        session = load_session_state(ss_path)
-    except ValueError as exc:
-        return {
-            "ok": False,
-            "command": _CMD_LEAVE_SPLIT,
-            "code": "holder_finalize_pending",
-            "error": str(exc),
-            "current_state": "unknown",
-        }
-    if session["holder_finalized"] is not True:
-        return {
-            "ok": False,
-            "command": _CMD_LEAVE_SPLIT,
-            "code": "holder_finalize_pending",
-            "error": "holder finalize is pending",
-            "current_state": "Split",
-        }
-    ws_path = workflow_state_path(cycle_id, project_root, profile_id)
-    session_dir = ss_path.parent
-    try:
-        with session_lock(session_dir, exclusive=False):
-            with revision_lock(ws_path.parent, exclusive=True):
-                state = load_workflow_state(ws_path)
-                current = state["current_state"]
-                ok, err, details = _published_revision(ws_path.parent)
-                if current == "Working":
-                    if not ok:
-                        return {
-                            "ok": False,
-                            "command": _CMD_LEAVE_SPLIT,
-                            "current_state": current,
-                            "error": err or "published revision not ready",
-                        }
-                    return _success(
-                        _CMD_LEAVE_SPLIT,
-                        "Working",
-                        profile_id=profile_id,
-                        transitioned=False,
-                        **{
-                            k: details[k]
-                            for k in ("multi_l", "node_ids", "focus")
-                            if k in details
-                        },
-                    )
-                if current != _EXPECTED_SPLIT_STATE:
-                    return _failure(_CMD_LEAVE_SPLIT, current)
-                if not _require_transition(_CMD_LEAVE_SPLIT, current, "Working"):
-                    return _failure(_CMD_LEAVE_SPLIT, current)
-                if not ok:
-                    return {
-                        "ok": False,
-                        "command": _CMD_LEAVE_SPLIT,
-                        "current_state": current,
-                        "error": err or "published revision not ready",
-                    }
-                merged = dict(state)
-                merged["current_state"] = "Working"
-                save_workflow_state(ws_path, merged, merge=False)
-                return _success(
-                    _CMD_LEAVE_SPLIT,
-                    "Working",
-                    profile_id=profile_id,
-                    transitioned=True,
-                    **{
-                        k: details[k]
-                        for k in ("multi_l", "node_ids", "focus")
-                        if k in details
-                    },
-                )
-    except LockTimeoutError:
-        return {
-            "ok": False,
-            "command": _CMD_LEAVE_SPLIT,
-            "code": "lock_timeout",
-            "error": "lock timeout",
-        }
-
-
 def ready_for_delivery(
     cycle_id: str,
     project_root: Path,
@@ -291,7 +176,7 @@ def ready_for_delivery(
                 if not _require_transition(_CMD_READY, current, "ReadyForDelivery"):
                     return _failure(_CMD_READY, current)
                 try:
-                    ledger = load_l_ledger(revision_dir)
+                    completed = is_completed(revision_dir)
                 except (OSError, ValueError, FileNotFoundError) as exc:
                     return {
                         "ok": False,
@@ -299,12 +184,12 @@ def ready_for_delivery(
                         "current_state": current,
                         "error": str(exc),
                     }
-                if not all_completed_unfrozen(ledger):
+                if not completed:
                     return {
                         "ok": False,
                         "command": _CMD_READY,
                         "current_state": current,
-                        "error": "not all L Completed and unfrozen",
+                        "error": "execution is not Completed",
                     }
                 path, err = assemble_compose_package(
                     revision_dir,
@@ -545,7 +430,6 @@ def _cli() -> int:
         help="Project root directory",
     )
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser(_CMD_LEAVE_SPLIT, help="Leave session state Split -> Working")
     sub.add_parser(_CMD_READY, help="Transition to ReadyForDelivery")
     ret = sub.add_parser(_CMD_RETURN_WORKING, help="ReadyForDelivery -> Working")
     ret.add_argument("--confirm", action="store_true")
@@ -575,8 +459,6 @@ def _cli() -> int:
         return 1
 
     try:
-        if args.command == _CMD_LEAVE_SPLIT:
-            return _emit(leave_split(cycle_id, project_root, profile_id=profile_id))
         if args.command == _CMD_READY:
             return _emit(ready_for_delivery(cycle_id, project_root, profile_id=profile_id))
         if args.command == _CMD_RETURN_WORKING:

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -22,13 +23,35 @@ from delivered_refs_schema import (  # noqa: E402
 )
 from resolved_refs_schema import primary_scope_from_workflow  # noqa: E402
 from scope_package_projection import (  # noqa: E402
-    is_decision_package_ref,
-    load_decision_package,
-    reject_decision_package_as_scope,
-    write_scope_package_projection,
+    reject_non_scope_package,
+    write_scope_package_from_source,
 )
 from start_scope_helpers import first_ref  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
+
+
+_DECISION_PACKAGE_FILENAME = "decision-package.json"
+_DECISION_PACKAGE_ARTIFACT = "decision-package"
+
+
+def _is_decision_package_ref(ref: DeliveredRef) -> bool:
+    if str(ref.artifact or "").strip() == _DECISION_PACKAGE_ARTIFACT:
+        return True
+    return Path(ref.path).name == _DECISION_PACKAGE_FILENAME
+
+
+def _decision_doc_from_package(package_path: Path) -> Path:
+    """Upstream contract: ``main.decision_doc_path`` relative to the package dir."""
+    path = Path(package_path).resolve()
+    data = json.loads(path.read_text(encoding="utf-8"))
+    main = data.get("main") if isinstance(data, dict) else None
+    rel = str((main or {}).get("decision_doc_path", "")).strip()
+    if not rel:
+        raise ValueError("decision-package.main.decision_doc_path is required")
+    doc = (path.parent / rel).resolve()
+    if not doc.is_file():
+        raise ValueError(f"decision doc not found: {doc}")
+    return doc
 
 
 class ProductBlueprintStartAdapter:
@@ -57,13 +80,13 @@ class ProductBlueprintStartAdapter:
         if not entry_path_ok(data, "lulu-bet"):
             return ["missing delivered-refs entry: lulu-bet"]
         ref = ref_from_file_entry("lulu-bet", data)
-        if ref is None or not is_decision_package_ref(ref):
+        if ref is None or not _is_decision_package_ref(ref):
             return [
                 "lulu-bet must deliver a decision-package.json "
                 "(artifact=decision-package)"
             ]
         try:
-            load_decision_package(Path(ref.path))
+            _decision_doc_from_package(Path(ref.path))
         except (OSError, ValueError) as exc:
             return [f"invalid decision-package: {exc}"]
         return []
@@ -90,25 +113,25 @@ class ProductBlueprintStartAdapter:
         output_dir: Path | None = None,
         revision_dir: Path | None = None,
     ) -> list[DeliveredRef]:
-        """Project lulu-bet's decision package to a scope-package."""
+        """Project lulu-bet's decision doc to a scope-package."""
         del run_mode
         dest = output_dir or revision_dir
         primary = first_ref(delivered_refs, "lulu-bet")
         if primary is None:
             return []
-        if not is_decision_package_ref(primary):
+        if not _is_decision_package_ref(primary):
             raise ValueError(
                 "lulu-bet scope requires a decision-package.json "
                 "(artifact=decision-package)"
             )
         if dest is None:
             raise ValueError("output_dir required to project → scope-package")
-        scope_path = write_scope_package_projection(
-            decision_package_path=Path(primary.path),
+        scope_path = write_scope_package_from_source(
+            source_path=_decision_doc_from_package(Path(primary.path)),
             output_dir=Path(dest),
             overwrite=True,
         )
-        reject_decision_package_as_scope(scope_path)
+        reject_non_scope_package(scope_path)
         return [
             DeliveredRef(
                 type=primary.type,

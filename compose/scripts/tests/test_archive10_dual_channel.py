@@ -86,7 +86,7 @@ def test_unified_write_digest_and_backup(tmp_path: Path):
     rev = tmp_path / "revision1"
     rev.mkdir()
     seed_revision_profile_pointer(rev)
-    slice_dir = rev / "L1"
+    slice_dir = rev / "execution"
     slice_dir.mkdir(parents=True, exist_ok=True)
     _facts_file(slice_dir)
     out = slice_dir / "_narrative-arc.collab.json"
@@ -171,7 +171,7 @@ def test_mount_requires_write_ready_unified_schema(tmp_path: Path):
     rev = tmp_path / "revision1"
     rev.mkdir()
     seed_revision_profile_pointer(rev)
-    slice_dir = rev / "L1"
+    slice_dir = rev / "execution"
     slice_dir.mkdir(parents=True, exist_ok=True)
     _facts_file(slice_dir)
     mapped = {

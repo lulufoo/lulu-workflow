@@ -57,12 +57,16 @@ def _failure(code: str, error: str, **extra: Any) -> dict[str, Any]:
     return payload
 
 
-def _mark_latest_delivered_historical(cycle_id: str, stage: str, cache_dir: Path) -> None:
-    sessions = [
+def _delivered_sessions(cycle_id: str, stage: str, cache_dir: Path) -> list:
+    return [
         item
         for item in get_sessions(cycle_id, stage, cache_dir)
-        if item.state != "Invalidated"
+        if item.state == "Delivered"
     ]
+
+
+def _mark_latest_delivered_historical(cycle_id: str, stage: str, cache_dir: Path) -> None:
+    sessions = _delivered_sessions(cycle_id, stage, cache_dir)
     if not sessions:
         return
     latest = max(sessions, key=lambda item: (item.created_at, item.revision))
@@ -174,14 +178,17 @@ def finalize_holder(
                             "stale_holder_finalize",
                             "revision is Invalidated",
                         )
-                    if current != "Split":
+                    if current != "Working":
                         return _failure(
                             "finalize_invalid_state",
-                            f"workflow-state is {current!r}, expected Split",
+                            f"workflow-state is {current!r}, expected Working",
                         )
                     snapshot = dict(state)
             remove_delivered_ref(cycle_id, root, profile_id)
-            if current_effective_delivered(cycle_id, profile_id, cache_dir):
+            prior_delivered = bool(
+                _delivered_sessions(cycle_id, profile_id, cache_dir)
+            )
+            if prior_delivered:
                 _mark_latest_delivered_historical(cycle_id, profile_id, cache_dir)
             try:
                 stages = load_stage_order(cycle_type)
@@ -191,12 +198,13 @@ def finalize_holder(
             for stage in stages:
                 if current_effective_delivered(cycle_id, stage, cache_dir):
                     latest_stage = stage
-            if (
+            backfill = bool(
                 latest_stage
                 and profile_id in stages
                 and latest_stage in stages
                 and stages.index(profile_id) < stages.index(latest_stage)
-            ):
+            )
+            if prior_delivered or backfill:
                 invalidate_downstream_under_cycle_lock(
                     cycle_id,
                     profile_id,
@@ -229,10 +237,10 @@ def finalize_holder(
                             "stale_holder_finalize",
                             "identity changed before finalize commit",
                         )
-                    if str(workflow.get("current_state")) != "Split":
+                    if str(workflow.get("current_state")) != "Working":
                         return _failure(
                             "finalize_invalid_state",
-                            "workflow-state is no longer Split",
+                            "workflow-state is no longer Working",
                         )
                     save_session_state(
                         ss_path,

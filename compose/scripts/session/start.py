@@ -33,15 +33,20 @@ sys.path.insert(0, str(WORKFLOW_SCRIPTS))
 from start_gate import check_gate, get_topic_doc  # noqa: E402
 
 from delivered_refs_schema import DeliveredRef, load_delivered_refs_file  # noqa: E402
+from execution_state_schema import (  # noqa: E402
+    build_execution_state,
+    execution_dir,
+    load_execution_state,
+    save_execution_state,
+)
 from holder_finalize_control import finalize_holder  # noqa: E402
-from l_ledger_schema import build_ledger, load_l_ledger, save_l_ledger  # noqa: E402
 from resolved_refs_schema import freeze_delivered_copy, write_resolved_refs  # noqa: E402
 from revision_lock import LockTimeoutError, session_lock  # noqa: E402
 from scope_package_schema import (  # noqa: E402
-    chain_ids_from_scope_package,
+    build_scope_package,
     load_scope_package,
     save_scope_package,
-    write_source_path_mirrors,
+    validate_scope_package,
 )
 from session_state_schema import (  # noqa: E402
     load_active_doc,
@@ -109,31 +114,24 @@ def _reserve_revision(session_dir: Path, ss_path: Path) -> int:
 
 
 def _canonicalize_scope_package(package: dict[str, Any]) -> dict[str, Any]:
-    slices: list[dict[str, Any]] = []
-    for idx, row in enumerate(package.get("slices") or []):
-        if not isinstance(row, dict):
-            raise ValueError(f"slices[{idx}] must be an object")
-        raw = str(row.get("source_path", "")).strip()
-        path = Path(raw)
-        if not path.is_absolute():
-            raise ValueError(f"slices[{idx}].source_path must be an absolute path")
-        resolved = path.resolve(strict=True)
-        if str(resolved) != raw:
-            raise ValueError(
-                f"slices[{idx}].source_path must equal resolve(strict=True); "
-                f"got {raw!r}"
-            )
-        item = dict(row)
-        item["source_path"] = raw
-        slices.append(item)
-    from scope_package_schema import build_scope_package, validate_scope_package  # noqa: WPS433
-
-    built = build_scope_package(slices, version=int(package.get("version", 1)))
+    """Require an absolute, already-resolved, existing ``source_path``."""
+    raw = str(package.get("source_path", "")).strip()
+    path = Path(raw)
+    if not path.is_absolute():
+        raise ValueError("scope-package.source_path must be an absolute path")
+    resolved = path.resolve(strict=True)
+    if str(resolved) != raw:
+        raise ValueError(
+            f"scope-package.source_path must equal resolve(strict=True); got {raw!r}"
+        )
+    built = build_scope_package(
+        source_path=raw,
+        source_id=package.get("source_id"),
+        title=package.get("title"),
+    )
     errors = validate_scope_package(built)
     if errors:
         raise ValueError("; ".join(errors))
-    order = chain_ids_from_scope_package(built)
-    build_ledger(order)
     return built
 
 
@@ -159,17 +157,16 @@ def _should_complete_pending_handshake(session_dir: Path, ss_path: Path) -> bool
 
 def _success_payload(
     *,
-    cycle_id: str,
     profile_id: str,
-    stage_name: str,
-    cache_dir: Path,
     ss_path: Path,
     session_dir: Path,
+    topic_doc: Path | None = None,
 ) -> dict[str, Any]:
     state = load_session_state(ss_path)
     active_doc = int(state["active_doc"])
     final_dir = (session_dir / f"revision{active_doc}").resolve()
     package = load_scope_package(final_dir / "scope-package.json")
+    execution = load_execution_state(final_dir)
     payload = {
         "ok": True,
         "command": "start",
@@ -179,16 +176,14 @@ def _success_payload(
         "profile_path": str(state["profile_path"]),
         "profile_digest": str(state["profile_digest"]),
         "revision_dir": str(final_dir),
-        "session_state": "Split",
+        "execution_dir": str(execution_dir(final_dir)),
+        "session_state": "Working",
+        "execution_state": str(execution["state"]),
+        "source_path": str(package["source_path"]),
         "holder_finalized": True,
-        "order": chain_ids_from_scope_package(package),
     }
-    try:
-        topic_doc = get_topic_doc(cycle_id, stage_name, cache_dir)
-        if topic_doc:
-            payload["topic_doc"] = str(topic_doc)
-    except ValueError:
-        pass
+    if topic_doc is not None:
+        payload["topic_doc"] = str(topic_doc)
     return payload
 
 
@@ -208,11 +203,9 @@ def _validate_published(revision_dir: Path, digest: str) -> None:
         raise ValueError("runtime-profile digest mismatch after publish")
     package = load_scope_package(revision_dir / "scope-package.json")
     _canonicalize_scope_package(package)
-    load_l_ledger(revision_dir)
-    for nid in chain_ids_from_scope_package(package):
-        mirror = revision_dir / nid / "scope-ref.json"
-        if not mirror.is_file():
-            raise ValueError(f"missing scope-ref mirror for {nid}")
+    load_execution_state(revision_dir)
+    if not execution_dir(revision_dir).is_dir():
+        raise ValueError("execution/ missing after publish")
 
 
 def parse_args() -> argparse.Namespace:
@@ -279,6 +272,10 @@ def run_start(args: argparse.Namespace) -> dict[str, Any]:
         return _failure("gate_blocked", str(exc))
     if not ok:
         return _failure("gate_blocked", str(reason))
+    try:
+        topic_doc = get_topic_doc(cycle_id, str(profile["stage_name"]), cache_dir)
+    except ValueError as exc:
+        return _failure("topic_unresolved", str(exc))
 
     conversation_id = str(getattr(args, "conversation_id", "") or "")
     try:
@@ -300,8 +297,8 @@ def run_start(args: argparse.Namespace) -> dict[str, Any]:
                     runtime.write_bytes(profile_json_path.read_bytes())
                     digest = _file_digest(runtime)
                     save_scope_package(staging, package)
-                    write_source_path_mirrors(staging, package)
-                    save_l_ledger(staging, build_ledger(chain_ids_from_scope_package(package)))
+                    save_execution_state(staging, build_execution_state())
+                    execution_dir(staging).mkdir(parents=True, exist_ok=True)
                     try:
                         freeze_delivered_copy(
                             staging,
@@ -361,24 +358,20 @@ def run_start(args: argparse.Namespace) -> dict[str, Any]:
                 existing = None
             if existing and existing["holder_finalized"] is True:
                 return _success_payload(
-                    cycle_id=cycle_id,
                     profile_id=profile_id,
-                    stage_name=str(profile["stage_name"]),
-                    cache_dir=cache_dir,
                     ss_path=ss_path,
                     session_dir=session_dir,
+                    topic_doc=topic_doc,
                 )
         return _failure(
             str(fin.get("code") or "start_failed"),
             str(fin.get("error") or "cycle-visible commit failed"),
         )
     return _success_payload(
-        cycle_id=cycle_id,
         profile_id=profile_id,
-        stage_name=str(profile["stage_name"]),
-        cache_dir=cache_dir,
         ss_path=ss_path,
         session_dir=session_dir,
+        topic_doc=topic_doc,
     )
 
 

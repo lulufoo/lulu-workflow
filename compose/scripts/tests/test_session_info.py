@@ -44,8 +44,8 @@ def _setup_cycle(tmp_path: Path) -> tuple[Path, str]:
     revision = base / "revision1"
     revision.mkdir(parents=True)
     seed_revision_profile_pointer(revision)
-    (revision / "L1").mkdir(parents=True, exist_ok=True)
-    (revision / "L1" / "tech-doc.md").write_text(
+    (revision / "execution").mkdir(parents=True, exist_ok=True)
+    (revision / "execution" / "tech-doc.md").write_text(
         "---\n\n"
         "# Feature X\n\n"
         "<!-- chapter:chap-ov -->\n"
@@ -74,7 +74,7 @@ class TestDeliveryPreview:
         assert payload["current_state"] == "ReadyForDelivery"
         assert payload["compose_doc"]["title"] == "Feature X"
         assert "session info facade" in payload["compose_doc"]["summary"]
-        assert payload["compose_doc"]["path"].endswith("revision1/L1/tech-doc.md")
+        assert payload["compose_doc"]["path"].endswith("revision1/execution/tech-doc.md")
 
     def test_rejects_non_ready_for_delivery_state(self, tmp_path: Path):
         project_root, cycle_id = _setup_cycle(tmp_path)
@@ -85,7 +85,7 @@ class TestDeliveryPreview:
         payload = delivery_preview(cycle_id, project_root)
         assert payload["ok"] is False
         assert payload["command"] == "delivery-preview"
-        assert payload["current_state"] == "Split"
+        assert payload["current_state"] == "Working"
         assert "ReadyForDelivery" in payload["message"]
 
 
@@ -114,7 +114,7 @@ class TestSessionSnapshot:
         assert payload["compose_doc"]["status"] == "ready"
 
     def test_split_without_compose_doc_returns_pending(self, tmp_path: Path):
-        """Split / pre-Writing: session view must not require design-doc."""
+        """Working / pre-Writing: session view must not require design-doc."""
         cycle_id = "feat-session-info-split"
         seed_tech_plan_test_caches(tmp_path)
         seed_profile_pointer_for_tests(tmp_path, cycle_id, DEFAULT_COMPOSE_PROFILE_ID)
@@ -125,16 +125,16 @@ class TestSessionSnapshot:
         from workflow_state_schema import init_compose_session  # noqa: WPS433
 
         init_compose_session(revision / "workflow-state.md", mode="tech")
-        # No tech-doc.md — mirrors post-start Split before Writing.
+        # No tech-doc.md — mirrors post-start Working before Writing.
         payload = session_snapshot(cycle_id, tmp_path)
         assert payload["view"] == "session"
         assert payload["revision_dir"] == revision.resolve().as_posix()
-        assert payload["workflow_state"]["current_state"] == "Split"
+        assert payload["workflow_state"]["current_state"] == "Working"
         assert payload["compose_doc"]["revision"] == 1
         assert payload["compose_doc"]["status"] == "pending"
         assert payload["compose_doc"]["title"] == ""
         assert payload["compose_doc"]["summary"] == ""
-        assert payload["compose_doc"]["path"].endswith("revision1/L1/tech-doc.md")
+        assert payload["compose_doc"]["path"].endswith("revision1/execution/tech-doc.md")
         assert set(payload["role"]) == {"role_prompt"}
         assert payload["role"]["role_prompt"].startswith("You are acting")
 
@@ -244,7 +244,7 @@ class TestCli:
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout)
         assert payload["compose_doc"]["status"] == "pending"
-        assert payload["workflow_state"]["current_state"] == "Split"
+        assert payload["workflow_state"]["current_state"] == "Working"
         assert set(payload["role"]) == {"role_prompt"}
         assert payload["role"]["role_prompt"].startswith("You are acting")
 

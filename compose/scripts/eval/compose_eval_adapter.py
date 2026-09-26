@@ -46,8 +46,13 @@ from eval_handoff_control import (
     resolve_evaluate_state_abs,
     restore_eval_target,
 )
-from l_ledger_schema import eval_session_phase, focus_state, l_ledger_path, load_l_ledger
-from l_step_control import enter_evaluating_state, rollback_evaluating_phase
+from execution_eval_entry import enter_evaluating_state, rollback_evaluating_phase
+from execution_state_schema import (
+    current_step,
+    eval_session_phase,
+    execution_dir,
+    execution_state_path,
+)
 from resolved_refs_schema import resolved_refs_path, strict_load_resolved_refs
 from session_state_schema import load_active_doc_from_cycle
 from stage_eval_contributor import (
@@ -58,8 +63,7 @@ from stage_eval_contributor import (
 from workflow_common import detect_cycle_type
 from workflow_profile_paths import (
     document_path,
-    eval_layout_for_revision,
-    eval_round_dir_for_layout,
+    execution_eval_round_dir,
 )
 from workflow_state_schema import (
     load_workflow_state,
@@ -186,9 +190,6 @@ class ComposeEvalAdapter:
     ) -> dict[str, str]:
         root = project_root.resolve()
         workflow_id = self._workflow_id()
-        revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
-        layout = eval_layout_for_revision(revision_dir)
-        focus_l = self._focus_l(revision_dir)
         return {
             "compose_doc": self._compose_doc_path(
                 cycle_id, project_root, active_doc=active_doc
@@ -196,14 +197,12 @@ class ComposeEvalAdapter:
             "evaluate_state": es_path.resolve().as_posix(),
             "evaluate_dir": (
                 root
-                / eval_round_dir_for_layout(
+                / execution_eval_round_dir(
                     cycle_id,
                     active_doc,
                     evaluate_round,
                     workflow_id,
                     project_root,
-                    layout=layout,
-                    focus_l=focus_l,
                 )
             ).as_posix(),
         }
@@ -251,7 +250,7 @@ class ComposeEvalAdapter:
         generic_handoff = build_eval_handoff_v2(
             workflow_id=self._workflow_id(),
             cycle_id=str(context["cycle_id"]),
-            session_key=str(context["focus_l"]),
+            session_key=str(context["profile_id"]),
             evaluate_round=int(context["evaluate_round"]),
             evaluate_state_path=str(context["evaluate_state_path"]),
             evaluate_dir=str(context["evaluate_dir"]),
@@ -297,9 +296,8 @@ class ComposeEvalAdapter:
             return {"ok": False, "error": "Compose legacy EvalHandoff unavailable"}
         legacy_manifest = {
             "lease_id": manifest["lease_id"],
-            "ledger_fingerprint": legacy_context["ledger_fingerprint"],
+            "execution_fingerprint": legacy_context["execution_fingerprint"],
             "eval_run_id": legacy_context["eval_run_id"],
-            "focus_l": legacy_context["focus_l"],
             "evaluate_round": manifest["evaluate_round"],
             "staged_relative_path": manifest["staged_relative_path"],
             "final_relative_path": manifest["final_relative_path"],
@@ -395,8 +393,7 @@ class ComposeEvalAdapter:
         self, cycle_id: str, project_root: Path
     ) -> EvalAdmissionContext:
         revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
-        focus_l = self._focus_l(revision_dir)
-        slice_dir = revision_dir / focus_l
+        exec_dir = execution_dir(revision_dir)
         target = Path(
             self._compose_doc_path(
                 cycle_id,
@@ -410,16 +407,19 @@ class ComposeEvalAdapter:
         )
         if not target.is_file():
             raise ValueError(f"compose eval target missing: {target}")
-        cell = focus_state(load_l_ledger(revision_dir))
+        try:
+            cell = current_step(revision_dir)
+        except (FileNotFoundError, ValueError, OSError):
+            cell = "Evaluating"
         previous = cell if cell in {"Writing", "FreeEdit"} else "Evaluating"
         return EvalAdmissionContext(
-            admission_root=slice_dir,
-            session_key=focus_l,
+            admission_root=exec_dir,
+            session_key=self._workflow_id(),
             provider_state_fingerprint=self._provider_fingerprint(revision_dir),
             previous_phase=previous,
             target_path=target,
             target_digest=file_digest(target),
-            candidate_round=self._candidate_round(slice_dir),
+            candidate_round=self._candidate_round(exec_dir),
         )
 
     def prepare_eval_admission(
@@ -453,7 +453,7 @@ class ComposeEvalAdapter:
             raise
         evaluate_dir = (
             project_root.resolve()
-            / eval_round_dir_for_layout(
+            / execution_eval_round_dir(
                 cycle_id,
                 load_active_doc_from_cycle(
                     cycle_id, project_root, profile_id=self._workflow_id()
@@ -461,10 +461,6 @@ class ComposeEvalAdapter:
                 ctx.candidate_round,
                 self._workflow_id(),
                 project_root,
-                layout=eval_layout_for_revision(
-                    self.resolve_workflow_state_path(cycle_id, project_root).parent
-                ),
-                focus_l=ctx.session_key,
             )
         )
         return {
@@ -509,7 +505,6 @@ class ComposeEvalAdapter:
         revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
         rollback_evaluating_phase(
             revision_dir,
-            focus=ctx.session_key,
             previous_phase=str(journal.get("previous_phase") or ""),
         )
         lease_id = str(journal.get("lease_id") or "")
@@ -539,7 +534,7 @@ class ComposeEvalAdapter:
         if result.get("ok") and admission_token:
             revision_dir = self.resolve_workflow_state_path(cycle_id, project_root).parent
             mark_transitioned(
-                revision_dir / self._focus_l(revision_dir),
+                execution_dir(revision_dir),
                 token=admission_token,
                 provider_state_fingerprint=self._provider_fingerprint(revision_dir),
             )
@@ -547,7 +542,7 @@ class ComposeEvalAdapter:
 
     def _provider_fingerprint(self, revision_dir: Path) -> str:
         parts = [self._profile_digest]
-        for path in (l_ledger_path(revision_dir), resolved_refs_path(revision_dir)):
+        for path in (execution_state_path(revision_dir), resolved_refs_path(revision_dir)):
             if path.is_file():
                 parts.append(file_digest(path))
         return fingerprint_parts(*parts)
@@ -604,8 +599,6 @@ class ComposeEvalAdapter:
             expected_stage=self._workflow_id(),
         )
         parent = resolve_scope_continuity_sot(
-            ctx.revision_dir,
-            focus_l=ctx.focus_l,
             project_root=project_root,
             scope_ref=refs.scope_ref,
         )
@@ -626,12 +619,6 @@ class ComposeEvalAdapter:
             ),
             skip_reasons,
         )
-
-    def _focus_l(self, revision_dir: Path) -> str:
-        try:
-            return str(load_l_ledger(revision_dir)["focus"])
-        except (FileNotFoundError, ValueError, OSError, KeyError):
-            return "L1"
 
     def _compose_doc_path(
         self,
@@ -659,13 +646,11 @@ class ComposeEvalAdapter:
         cycle_type = detect_cycle_type(cycle_id)
         mode = "tech"
         revision_dir = project_root
-        focus_l = "L1"
         try:
             ws_path = self.resolve_workflow_state_path(cycle_id, project_root)
             revision_dir = ws_path.parent
             state = load_workflow_state(ws_path)
             mode = state.get("mode", "tech")
-            focus_l = self._focus_l(revision_dir)
         except (FileNotFoundError, ValueError, OSError):
             pass
         return ComposeEvalContext(
@@ -676,7 +661,6 @@ class ComposeEvalAdapter:
             cycle_type=cycle_type,
             mode=mode,
             dimension_defs_dir=self.dimension_defs_dir(),
-            focus_l=focus_l,
         )
 
     def _contribution(self, cycle_id: str, project_root: Path) -> StageEvalContribution:

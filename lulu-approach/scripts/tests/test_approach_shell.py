@@ -123,7 +123,7 @@ def test_confirm_seal_registers_decision_package_ref(tmp_path: Path) -> None:
     assert entry["source_workflow_state"] == str(shell_path(root).resolve())
     decision_package = json.loads(pkg.read_text(encoding="utf-8"))
     assert decision_package["main"]["decision_doc_path"] == "decision-doc.md"
-    assert decision_package["slices"] == []
+    assert "slices" not in decision_package
 
 
 def test_confirm_seal_rolls_back_refs_keeps_decision_package(

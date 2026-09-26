@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""Slim session-control tests on the ledger spine."""
+"""Session-control tests on the single-execution spine."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import bootstrap  # noqa: F401
-import pytest
 
+from execution_control import run_command
+from execution_state_schema import build_execution_state, save_execution_state
 from init_working_helpers import mark_all_l_accepted, seed_tech_plan_session
-from l_ledger_schema import load_l_ledger, save_l_ledger
-from session_control import deliver, leave_split, ready_for_delivery, return_to_working
+from session_control import deliver, ready_for_delivery, return_to_working
 from session_state_schema import load_session_state, save_session_state
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID
 from workflow_profile_paths import session_state_path
-from workflow_state_schema import load_workflow_state, save_workflow_state
+from workflow_state_schema import load_workflow_state
 
 
 _CYCLE = "feat-session-ctl"
@@ -22,15 +22,14 @@ _PROFILE = DEFAULT_COMPOSE_PROFILE_ID
 
 
 def _doc(rev: Path) -> Path:
-    path = rev / "L1" / "tech-doc.md"
+    path = rev / "execution" / "tech-doc.md"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("# Plan\n\nBody.\n", encoding="utf-8")
     return path
 
 
-def test_leave_split_requires_holder_finalize(tmp_path: Path) -> None:
-    ws = seed_tech_plan_session(tmp_path, cycle_id=_CYCLE)
-    save_workflow_state(ws, {"current_state": "Split"}, merge=True)
+def test_execution_write_requires_holder_finalize(tmp_path: Path) -> None:
+    seed_tech_plan_session(tmp_path, cycle_id=_CYCLE)
     ss_path = tmp_path / session_state_path(_CYCLE, _PROFILE, tmp_path)
     existing = load_session_state(ss_path)
     save_session_state(
@@ -41,18 +40,22 @@ def test_leave_split_requires_holder_finalize(tmp_path: Path) -> None:
         start_id=str(existing["start_id"]),
         holder_finalized=False,
     )
-    result = leave_split(_CYCLE, tmp_path, profile_id=_PROFILE)
+    result = run_command("enter-fact-intake", _CYCLE, tmp_path, profile_id=_PROFILE)
     assert result["ok"] is False
-    assert result["code"] == "holder_finalize_pending"
+    assert result["code"] == "holder_not_finalized"
 
 
-def test_leave_split_then_ready_and_return(tmp_path: Path) -> None:
+def test_ready_rejects_incomplete_execution(tmp_path: Path) -> None:
     ws = seed_tech_plan_session(tmp_path, cycle_id=_CYCLE)
-    save_workflow_state(ws, {"current_state": "Split"}, merge=True)
-    left = leave_split(_CYCLE, tmp_path, profile_id=_PROFILE)
-    assert left["ok"] is True, left
-    assert left["current_state"] == "Working"
+    _doc(ws.parent)
+    save_execution_state(ws.parent, build_execution_state("Writing"))
+    result = ready_for_delivery(_CYCLE, tmp_path, profile_id=_PROFILE)
+    assert result["ok"] is False
+    assert "Completed" in result["error"]
 
+
+def test_ready_and_return(tmp_path: Path) -> None:
+    ws = seed_tech_plan_session(tmp_path, cycle_id=_CYCLE)
     rev = ws.parent
     _doc(rev)
     mark_all_l_accepted(rev)
@@ -76,14 +79,3 @@ def test_deliver_records_package_digest(tmp_path: Path) -> None:
     delivered = deliver(_CYCLE, tmp_path, profile_id=_PROFILE, confirm=True)
     assert delivered["ok"] is True, delivered
     assert delivered["current_state"] == "Delivered"
-
-
-def test_ready_rejects_incomplete_ledger(tmp_path: Path) -> None:
-    ws = seed_tech_plan_session(tmp_path, cycle_id=_CYCLE)
-    rev = ws.parent
-    ledger = load_l_ledger(rev)
-    ledger["by_id"]["L1"]["state"] = "Writing"
-    save_l_ledger(rev, ledger)
-    result = ready_for_delivery(_CYCLE, tmp_path, profile_id=_PROFILE)
-    assert result["ok"] is False
-    assert "Completed" in result["error"]

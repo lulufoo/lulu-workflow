@@ -700,7 +700,7 @@ def test_lens_snapshot_fetches_installed_lulu_plan(tmp_path: Path):
         "---\n",
         encoding="utf-8",
     )
-    slice_dir = tmp_path / "revision1" / "L1"
+    slice_dir = tmp_path / "revision1" / "execution"
     slice_dir.mkdir(parents=True)
     snapshot = lens_snapshot(slice_dir, tmp_path)
     assert snapshot.get("section_order") == [

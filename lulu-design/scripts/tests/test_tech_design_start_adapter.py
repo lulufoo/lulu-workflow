@@ -59,7 +59,6 @@ def _seed_decision_package(tmp_path: Path) -> Path:
         root,
         build_decision_package(
             main={"decision_doc_path": "main/decision-doc.md"},
-            slices=[],
         ),
     )
 

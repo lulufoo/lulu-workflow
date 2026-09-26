@@ -6,7 +6,9 @@ description: >-
 
 # compose
 
-Shared compose engine for stage holders. It manages an ordered chain of L slices through delivery. Single-L execution lives in `references/l-execution.md`.
+Shared compose engine for stage holders. It takes one input document, runs one
+execution, and delivers one document. Step execution lives in
+`references/execution.md`.
 
 ## Inputs
 
@@ -25,25 +27,23 @@ Macro expansion: `{SKILL_ROOT}/_runtime.md` § Script Macros → Macro expansion
 | `$START_COMPOSE` | `python3 "$SKILL_ROOT/compose/scripts/session/start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --profile-path "$PROFILE_PATH" --scope-package "$SCOPE_PACKAGE"` |
 | `$SESSION_INFO` | `python3 "$SKILL_ROOT/compose/scripts/session/session_info.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" --view <view>` |
 | `$SESSION_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/session/session_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
-| `$L_SHELL` | `python3 "$SKILL_ROOT/compose/scripts/session/l_shell_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
 | `$AGENDA_CTL` | `python3 "$SKILL_ROOT/agenda/scripts/agenda_control.py" <subcommand> --project-root "$(pwd)" --cycle-id "$CYCLE_ID" [args...]` |
 
 Subcommands and stdout: script module docstrings or `--help`.
 
-L-execution macros are defined in `{SKILL_ROOT}/compose/references/l-execution.md`. Load that file before using them.
+Execution macros are defined in `{SKILL_ROOT}/compose/references/execution.md`. Load that file before using them.
 
 ## Lifecycle
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Split: Start
-  Split --> Working: leave-split
-  Working --> ReadyForDelivery: all L Completed and unfrozen
+  [*] --> Working: Start
+  Working --> ReadyForDelivery: execution Completed
   ReadyForDelivery --> Working: Modify
   ReadyForDelivery --> Delivered: Deliver
 ```
 
-Route only from `$SESSION_INFO` / `$L_SHELL` stdout. Do not compute the next L by hand.
+Route only from `$SESSION_INFO` stdout. Do not invent the next step.
 
 ## Entry
 
@@ -52,7 +52,7 @@ Route only from `$SESSION_INFO` / `$L_SHELL` stdout. Do not compute the next L b
 Run `$START_COMPOSE`. On failure → Blocking.
 Load `{SKILL_ROOT}/compose/references/compose-ontology.md` once.
 
-**Done:** `$CURRENT_STATE=Split`.
+**Done:** `$CURRENT_STATE=Working`.
 
 ### Bind context
 
@@ -63,25 +63,15 @@ Run `$SESSION_INFO --view session`, then bind:
 | `$REVISION_DIR` | `revision_dir` | revision-scoped tools |
 | `$DEMAND_MANIFEST` | `demand_manifest` | Delivery demand atomization; skip when null |
 | `$CURRENT_STATE` | `workflow_state.current_state` | Outer routing |
-| `$L_VIEW` | `l_view` | order, focus, next_actions |
-
-## Split
-
-**Session state:** `Split`. The L chain is already published.
-
-1. Run `$SESSION_CONTROL leave-split`. On failure → Blocking.
-2. From stdout `node_ids` and `focus`: tell the user it is an ordered chain of N L; focus = `focus`.
-3. Continue with ## Working.
-
-**Done:** `$CURRENT_STATE=Working`.
+| `$STEP_STATE` | `execution.state` | Step routing |
 
 ## Working
 
 **Session state:** `Working`.
 
-Load `{SKILL_ROOT}/compose/references/l-chain.md` and follow it: status loop, focus, advance, align, backtrack, view. Running the focus L is `references/l-execution.md`, loaded from l-chain.
+Load `{SKILL_ROOT}/compose/references/execution.md` and follow it.
 
-**Done:** every L `Completed` and unfrozen → ## ReadyForDelivery.
+**Done:** `$STEP_STATE=Completed` → ## ReadyForDelivery.
 
 ## ReadyForDelivery
 
@@ -105,7 +95,6 @@ Stage-agenda items live under the revision dir; orchestration: `{SKILL_ROOT}/age
 | Document | When |
 |----------|------|
 | `{SKILL_ROOT}/compose/references/compose-ontology.md` | Start, once per session |
-| `{SKILL_ROOT}/compose/references/l-chain.md` | Working |
-| `{SKILL_ROOT}/compose/references/l-execution.md` | Execute, Reopen, Backtrack (from l-chain) |
-| `{SKILL_ROOT}/eval/SKILL.md` | Loaded from l-execution Evaluating |
+| `{SKILL_ROOT}/compose/references/execution.md` | Working |
+| `{SKILL_ROOT}/eval/SKILL.md` | Loaded from execution Evaluating |
 | `{SKILL_ROOT}/agenda/SKILL.md` | Delivery blockers |

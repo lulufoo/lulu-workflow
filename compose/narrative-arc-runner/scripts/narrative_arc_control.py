@@ -33,7 +33,7 @@ import kernel_bootstrap  # noqa: E402
 kernel_bootstrap.ensure_kernel_paths()
 
 from compose_state_lock import canonical_digest  # noqa: E402
-from l_ledger_schema import active_slice_dir  # noqa: E402
+from execution_state_schema import execution_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from section_registry_schema import fetch_section_registry, lens_key_sequence  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
@@ -84,7 +84,7 @@ def _lenses_for_revision(args: argparse.Namespace) -> set[str]:
 
 
 def _load_facts(revision_dir: Path) -> list[dict[str, Any]]:
-    path = facts_path(active_slice_dir(Path(revision_dir).resolve()))
+    path = facts_path(execution_dir(Path(revision_dir).resolve()))
     if not path.is_file():
         return []
     return load_facts(path)
@@ -101,7 +101,7 @@ def _fail(message: str) -> int:
 
 
 def _resolve_output(args: argparse.Namespace) -> Path:
-    slice_dir = active_slice_dir(Path(args.revision_dir).resolve())
+    slice_dir = execution_dir(Path(args.revision_dir).resolve())
     raw = str(getattr(args, "output_path", "") or "").strip()
     if not raw:
         return narrative_arc_path(slice_dir)

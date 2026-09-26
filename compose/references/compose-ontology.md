@@ -23,7 +23,7 @@ Beside the layers sit two stage-level stances: Domain (what genre this stage
 produces) and Role (who is writing). They shape how input is taken and how
 chapters sound; they produce no facts.
 
-## One L, in order
+## One execution, in order
 
 ```text
 intake   cut the source into facts with lineage; the author's verdict on each

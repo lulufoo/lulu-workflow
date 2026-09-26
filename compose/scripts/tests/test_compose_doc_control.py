@@ -379,7 +379,7 @@ def test_assemble_arc_cli(tmp_path: Path, doc_path: Path):
     rev = tmp_path / "rev"
     rev.mkdir()
     seed_revision_profile_pointer(rev)
-    slice_dir = rev / "L1"
+    slice_dir = rev / "execution"
     slice_dir.mkdir(parents=True, exist_ok=True)
     arc = _sample_arc_with_tree()
     (slice_dir / "_narrative-arc.json").write_text(

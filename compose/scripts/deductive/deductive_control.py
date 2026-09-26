@@ -60,7 +60,7 @@ from facts_schema import (  # noqa: E402
     unlensed_fact_ids,
 )
 from compose_state_lock import compose_state_lock  # noqa: E402
-from l_ledger_schema import active_slice_dir  # noqa: E402
+from execution_state_schema import execution_dir  # noqa: E402
 from derive_shell import collect_ref_tokens  # noqa: E402
 from deductive_disposition_patch import (  # noqa: E402
     apply_disposition_patch,
@@ -98,7 +98,7 @@ def _runtime_profile(args: argparse.Namespace):
 
 
 def _slice_dir(args: argparse.Namespace) -> Path:
-    return active_slice_dir(args.revision_dir.resolve())
+    return execution_dir(args.revision_dir.resolve())
 
 
 def cmd_pending_init(args: argparse.Namespace) -> int:
@@ -280,9 +280,9 @@ def cmd_pending_list(args: argparse.Namespace) -> int:
 
 
 def cmd_quarantine_unref(args: argparse.Namespace) -> int:
-    from l_ledger_schema import active_slice_dir
+    from execution_state_schema import execution_dir
 
-    revision_dir = active_slice_dir(args.revision_dir.resolve())
+    revision_dir = execution_dir(args.revision_dir.resolve())
     try:
         facts = load_facts(facts_path(revision_dir))
     except ValueError as exc:
@@ -395,9 +395,9 @@ def _load_patch_file(path: Path) -> dict[str, Any]:
 
 
 def cmd_disposition_patch_validate(args: argparse.Namespace) -> int:
-    from l_ledger_schema import active_slice_dir
+    from execution_state_schema import execution_dir
 
-    revision_dir = active_slice_dir(args.revision_dir.resolve())
+    revision_dir = execution_dir(args.revision_dir.resolve())
     try:
         runtime = _runtime_profile(args)
         facts = load_facts(facts_path(revision_dir))
@@ -433,9 +433,9 @@ def cmd_disposition_patch_validate(args: argparse.Namespace) -> int:
 
 
 def cmd_disposition_patch_apply(args: argparse.Namespace) -> int:
-    from l_ledger_schema import active_slice_dir
+    from execution_state_schema import execution_dir
 
-    revision_dir = active_slice_dir(args.revision_dir.resolve())
+    revision_dir = execution_dir(args.revision_dir.resolve())
     path = facts_path(revision_dir)
     try:
         runtime = _runtime_profile(args)
@@ -556,9 +556,9 @@ def main() -> int:
 
     args = parser.parse_args()
     if args.command == "disposition-patch-apply":
-        from l_ledger_schema import active_slice_dir
+        from execution_state_schema import execution_dir
 
-        with compose_state_lock(active_slice_dir(args.revision_dir.resolve())):
+        with compose_state_lock(execution_dir(args.revision_dir.resolve())):
             return args.func(args)
     return args.func(args)
 

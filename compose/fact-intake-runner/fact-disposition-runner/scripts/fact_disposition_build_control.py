@@ -23,7 +23,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from l_ledger_schema import active_slice_dir  # noqa: E402
+from execution_state_schema import execution_dir  # noqa: E402
 from evaluate_state_schema import load_evaluate_state  # noqa: E402
 from fact_intake_eval_runtime_schema import (  # noqa: E402
     evaluate_state_path,
@@ -58,7 +58,7 @@ def cmd_context(args: argparse.Namespace) -> int:
         )
     except (OSError, ValueError) as exc:
         return _fail(str(exc))
-    slice_dir = active_slice_dir(Path(args.revision_dir).resolve())
+    slice_dir = execution_dir(Path(args.revision_dir).resolve())
     es = evaluate_state_path(slice_dir)
     legacy = slice_dir / "atomize-eval" / "evaluate-state.md"
     gate = es if es.is_file() else legacy

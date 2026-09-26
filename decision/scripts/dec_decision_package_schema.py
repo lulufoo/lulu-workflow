@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 """Shared schema for holder ``decision-package.json`` delivery.
 
-Delivery shape: ``main`` + ordered ``slices`` (decision-doc paths).
-No parallel ``order`` field; no ``edges`` on the delivered package.
+Delivery shape (v2): ``status`` + ``main.decision_doc_path``. One package
+delivers exactly one decision document.
 """
 
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 from typing import Any
 
-PACKAGE_VERSION = 1
+PACKAGE_VERSION = 2
 DECISION_PACKAGE_FILENAME = "decision-package.json"
-_SLICE_ID_RE = re.compile(r"^D\d+$")
+_KEYS = frozenset({"version", "status", "main"})
 _MAIN_KEYS = frozenset({"decision_doc_path"})
-_SLICE_KEYS = frozenset({"id", "title", "decision_doc_path"})
 
 
 def _rel_path_ok(raw: str) -> bool:
@@ -28,7 +26,6 @@ def _rel_path_ok(raw: str) -> bool:
 
 def build_decision_package(
     main: dict[str, str],
-    slices: list[dict[str, Any]] | None = None,
     status: str = "package_ready",
     version: int = PACKAGE_VERSION,
 ) -> dict[str, Any]:
@@ -36,67 +33,32 @@ def build_decision_package(
         "version": int(version),
         "status": str(status).strip(),
         "main": dict(main),
-        "slices": [dict(s) for s in (slices or [])],
     }
 
 
-def validate_decision_package(data: dict[str, Any]) -> list[str]:
-    errors: list[str] = []
+def validate_decision_package(data: Any) -> list[str]:
     if not isinstance(data, dict):
         return ["decision-package must be an object"]
-
+    errors: list[str] = []
     if data.get("version") != PACKAGE_VERSION:
         errors.append(f"version must be {PACKAGE_VERSION}")
-
-    if "order" in data:
-        errors.append("order must not be present (sequence is slices array order)")
-    if "edges" in data:
-        errors.append("edges must not be present on delivered decision-package")
-
+    extra = sorted(set(data) - _KEYS)
+    if extra:
+        errors.append(f"decision-package unexpected keys: {extra}")
     status = data.get("status")
     if not isinstance(status, str) or not status.strip():
         errors.append("status must be a non-empty string")
-
     main = data.get("main")
     if not isinstance(main, dict):
         errors.append("main must be an object")
     else:
-        extra = set(main) - _MAIN_KEYS
-        if extra:
-            errors.append(f"main unexpected keys: {sorted(extra)}")
+        extra_main = sorted(set(main) - _MAIN_KEYS)
+        if extra_main:
+            errors.append(f"main unexpected keys: {extra_main}")
         if not _rel_path_ok(str(main.get("decision_doc_path", ""))):
             errors.append(
                 "main.decision_doc_path must be a relative path under holder root"
             )
-
-    slices = data.get("slices")
-    if not isinstance(slices, list):
-        errors.append("slices must be a list (may be empty for no-split)")
-        return errors
-
-    seen: set[str] = set()
-    for idx, row in enumerate(slices):
-        where = f"slices[{idx}]"
-        if not isinstance(row, dict):
-            errors.append(f"{where} must be an object")
-            continue
-        extra = set(row) - _SLICE_KEYS
-        if extra:
-            errors.append(f"{where} unexpected keys: {sorted(extra)}")
-        sid = str(row.get("id", "")).strip()
-        if not _SLICE_ID_RE.match(sid):
-            errors.append(f"{where}.id must match D<number>")
-        elif sid in seen:
-            errors.append(f"slices duplicate id {sid!r}")
-        else:
-            seen.add(sid)
-        if not str(row.get("title", "")).strip():
-            errors.append(f"{where}.title must be non-empty")
-        if not _rel_path_ok(str(row.get("decision_doc_path", ""))):
-            errors.append(
-                f"{where}.decision_doc_path must be a relative path under holder root"
-            )
-
     return errors
 
 

@@ -61,7 +61,7 @@ from recompose_report_schema import (  # noqa: E402
     save_report,
     validate_finding_lens_sources,
 )
-from l_ledger_schema import working_slice_dir  # noqa: E402
+from execution_state_schema import working_execution_dir  # noqa: E402
 from open_point_store import facts_snapshot  # noqa: E402
 from opens_schema import load_opens, opens_path  # noqa: E402
 
@@ -76,7 +76,7 @@ def _fail(message: str) -> None:
 
 
 def _slice_dir(out_dir: Path) -> Path:
-    return working_slice_dir(Path(out_dir))
+    return working_execution_dir(Path(out_dir))
 
 
 def _current_digests(slice_dir: Path) -> tuple[Any, list[dict[str, Any]], str, str]:

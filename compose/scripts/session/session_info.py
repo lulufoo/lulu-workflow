@@ -36,8 +36,12 @@ from compose_session import (  # noqa: E402
 from workflow_state_schema import load_workflow_state  # noqa: E402
 from workflow_common import detect_cycle_type  # noqa: E402
 from resolved_refs_schema import frozen_delivered_refs  # noqa: E402
-from l_ledger_schema import all_completed_unfrozen, l_ledger_path, load_l_ledger  # noqa: E402
-from l_shell_control import cmd_status as l_shell_status  # noqa: E402
+from execution_state_schema import (  # noqa: E402
+    execution_dir,
+    execution_fingerprint,
+    execution_state_path,
+    load_execution_state,
+)
 from role_instance_schema import get_role_prompt, load_and_validate_role_instance  # noqa: E402
 
 _VIEW_DELIVERY_PREVIEW = "delivery-preview"
@@ -148,7 +152,7 @@ def session_snapshot(
 ) -> dict[str, Any]:
     """Return workflow state plus document presentation for session resume.
 
-    Document may be pending (Split / pre-Writing): still returns revision
+    Document may be pending (pre-Writing): still returns revision
     and workflow state with ``compose_doc.status=pending`` rather than failing.
     """
     ws_path = workflow_state_path(cycle_id, project_root, profile_id)
@@ -168,18 +172,18 @@ def session_snapshot(
     demand_manifest = profile.get("demand_manifest")
     if not isinstance(demand_manifest, dict) or not demand_manifest:
         demand_manifest = None
-    l_view: dict[str, Any] = {}
-    ledger_path = l_ledger_path(ws_path.parent)
-    if ledger_path.is_file():
-        shell = l_shell_status(ws_path.parent, str(state["current_state"]))
-        if shell.get("ok"):
-            l_view = {
-                "ledger_fingerprint": shell.get("ledger_fingerprint"),
-                "order": shell.get("order"),
-                "focus": shell.get("focus"),
-                "by_id": shell.get("by_id"),
-                "ready_for_delivery": shell.get("ready_for_delivery"),
-                "next_actions": shell.get("next_actions"),
+    execution: dict[str, Any] = {}
+    if execution_state_path(ws_path.parent).is_file():
+        try:
+            execution_state = load_execution_state(ws_path.parent)
+        except ValueError:
+            execution_state = None
+        if execution_state is not None:
+            execution = {
+                "state": execution_state["state"],
+                "execution_fingerprint": execution_fingerprint(execution_state),
+                "execution_dir": execution_dir(ws_path.parent).as_posix(),
+                "ready_for_delivery": execution_state["state"] == "Completed",
             }
     return {
         "view": _VIEW_SESSION,
@@ -207,7 +211,7 @@ def session_snapshot(
             "evaluate_round": state.get("evaluate_round", "0"),
             "delivered_refs": [r.to_dict() for r in frozen_delivered_refs(ws_path.parent)],
         },
-        "l_view": l_view,
+        "execution": execution,
         "compose_doc": compose_doc,
     }
 

@@ -26,7 +26,8 @@ from facts_schema import (  # noqa: E402
     unlensed_fact_ids,
     validate_facts,
 )
-from l_ledger_schema import load_l_ledger, save_l_ledger  # noqa: E402
+from execution_state_schema import build_execution_state, execution_dir, save_execution_state  # noqa: E402
+from init_working_helpers import seed_execution_revision  # noqa: E402
 
 _CTL = _FACTS / "facts_control.py"
 _REPO = Path(__file__).resolve().parents[4]
@@ -36,14 +37,12 @@ def _revision(tmp_path: Path, name: str = "revision1") -> Path:
     rev = tmp_path / name
     rev.mkdir(parents=True, exist_ok=True)
     seed_revision_profile_pointer(rev)
-    ledger = load_l_ledger(rev)
-    ledger["by_id"][str(ledger["focus"])]["state"] = "Inductive"
-    save_l_ledger(rev, ledger)
+    seed_execution_revision(rev, state="Inductive")
     return rev
 
 
 def _l1(rev: Path) -> Path:
-    return rev / "L1"
+    return execution_dir(rev)
 
 
 def test_validate_accepts_n_to_m_tags():
@@ -827,107 +826,31 @@ def test_save_facts_rejects_incomplete_origin_with_value_error(tmp_path: Path):
         assert "origin.ref" in str(exc)
 
 
-def test_write_target_l_buckets_and_rejects_completed_predecessor(tmp_path: Path) -> None:
-    """--target-l writes into Lx; Completed predecessor writes are rejected."""
-    import argparse
-
-    from facts_control import cmd_write
-    from l_ledger_schema import build_ledger, save_l_ledger
-
-    rev = _revision(tmp_path)
-    ledger = build_ledger(["L1", "L2"])
-    ledger["focus"] = "L2"
-    ledger["by_id"]["L1"]["state"] = "Completed"
-    ledger["by_id"]["L2"]["state"] = "Inductive"
-    save_l_ledger(rev, ledger)
-    (rev / "L1").mkdir(exist_ok=True)
-    (rev / "L2").mkdir(exist_ok=True)
-    (rev / "L2" / "design-doc.md").write_text("# L2\n", encoding="utf-8")
-
-    facts_file = tmp_path / "in.json"
-    facts_file.write_text(
-        json.dumps(
-            [
-                {
-                    "id": "F-1",
-                    "text": "hello",
-                    "lens_tags": ["CTX"],
-                    "home_l": "L2",
-                    "home_rationale": "current",
-                }
-            ]
-        ),
-        encoding="utf-8",
-    )
-    args = argparse.Namespace(
-        revision_dir=rev,
-        facts_file=facts_file,
-        target_l="L2",
-        package_confirm=False,
-        project_root=_REPO,
-    )
-    assert cmd_write(args) == 0
-    assert (rev / "L2" / "_facts.json").is_file()
-
-    args.target_l = "L1"
-    facts_file.write_text(
-        json.dumps(
-            [
-                {
-                    "id": "F-2",
-                    "text": "old",
-                    "lens_tags": ["CTX"],
-                    "home_l": "L1",
-                    "home_rationale": "pred",
-                }
-            ]
-        ),
-        encoding="utf-8",
-    )
-    assert cmd_write(args) == 1
-
-
 def test_write_allows_fact_intake_and_rejects_pending_writing(tmp_path: Path) -> None:
     import argparse
 
     from facts_control import cmd_write
 
     rev = _revision(tmp_path)
-    ledger = load_l_ledger(rev)
-    focus = str(ledger["focus"])
-    ledger["by_id"][focus]["state"] = "FactIntake"
-    save_l_ledger(rev, ledger)
-    (rev / focus).mkdir(exist_ok=True)
+    save_execution_state(rev, build_execution_state("FactIntake"))
+    _l1(rev).mkdir(parents=True, exist_ok=True)
 
     facts_file = tmp_path / "intake.json"
     facts_file.write_text(
-        json.dumps(
-            [
-                {
-                    "id": "F-1",
-                    "text": "intake",
-                    "lens_tags": ["CTX"],
-                    "home_l": focus,
-                    "home_rationale": "current",
-                }
-            ]
-        ),
+        json.dumps([{"id": "F-1", "text": "intake", "lens_tags": ["CTX"]}]),
         encoding="utf-8",
     )
     args = argparse.Namespace(
         revision_dir=rev,
         facts_file=facts_file,
-        target_l=focus,
         package_confirm=False,
         project_root=_REPO,
     )
     assert cmd_write(args) == 0
-    assert (rev / focus / "_facts.json").is_file()
+    assert (_l1(rev) / "_facts.json").is_file()
 
     for state in ("Pending", "Writing"):
-        ledger = load_l_ledger(rev)
-        ledger["by_id"][focus]["state"] = state
-        save_l_ledger(rev, ledger)
+        save_execution_state(rev, build_execution_state(state))
         assert cmd_write(args) == 1
 
 
@@ -1032,7 +955,7 @@ def test_control_validate_intake_structure_conflicts_with_require_derivation(
     tmp_path: Path,
 ):
     rev = _revision(tmp_path)
-    (rev / "L1" / "_facts.json").write_text(
+    (_l1(rev) / "_facts.json").write_text(
         json.dumps(
             [
                 {
@@ -1067,7 +990,7 @@ def test_control_validate_intake_structure_conflicts_with_require_derivation(
 
 def test_control_validate_intake_structure_ok(tmp_path: Path):
     rev = _revision(tmp_path)
-    (rev / "L1" / "_facts.json").write_text(
+    (_l1(rev) / "_facts.json").write_text(
         json.dumps(
             [
                 {

@@ -11,14 +11,13 @@ def test_load_transition_table():
     data = load_transition_table()
     assert "states" in data
     assert "transitions" in data
-    assert len(data["transitions"]) == 4
+    assert len(data["transitions"]) == 3
 
 
 def test_session_states_match_whitelist():
     states = session_states()
     assert states == frozenset(
         {
-            "Split",
             "Working",
             "ReadyForDelivery",
             "Delivered",
@@ -28,7 +27,6 @@ def test_session_states_match_whitelist():
 
 
 def test_allowed_transitions():
-    assert is_allowed("leave-split", "Split", "Working")
     assert is_allowed("ready-for-delivery", "Working", "ReadyForDelivery")
     assert is_allowed("return-to-working", "ReadyForDelivery", "Working")
     assert is_allowed("deliver", "ReadyForDelivery", "Delivered")
@@ -36,7 +34,5 @@ def test_allowed_transitions():
 
 def test_disallowed_transitions():
     assert not is_allowed("deliver", "Working", "Delivered")
-    assert not is_allowed("ready-for-delivery", "Split", "ReadyForDelivery")
     assert not is_allowed("leave-split", "Working", "Working")
-    # Per-L evaluating is not a session transition
     assert not is_allowed("start-evaluating", "Working", "ReadyForDelivery")

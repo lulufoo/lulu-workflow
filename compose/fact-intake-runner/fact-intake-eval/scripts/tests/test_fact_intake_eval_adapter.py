@@ -15,8 +15,9 @@ _ATOMIZE = Path(__file__).resolve().parents[1]  # fact-intake-eval/scripts
 _COMPOSE_SCRIPTS = Path(__file__).resolve().parents[4] / "scripts"  # compose/scripts
 _COMPOSE_KERNEL = _COMPOSE_SCRIPTS / "_kernel"
 _COMPOSE_TESTS = _COMPOSE_SCRIPTS / "tests"
+_COMPOSE_SCHEMA = _COMPOSE_SCRIPTS / "schema" / "session"
 _EVAL = Path(__file__).resolve().parents[5] / "eval" / "scripts"  # lulu-dev-workflow/eval/scripts
-for p in (_ATOMIZE, _COMPOSE_KERNEL, _COMPOSE_TESTS, _EVAL):
+for p in (_ATOMIZE, _COMPOSE_KERNEL, _COMPOSE_TESTS, _COMPOSE_SCHEMA, _EVAL):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 from eval_path import ensure_eval_script_layers  # noqa: E402
@@ -33,7 +34,7 @@ from fact_intake_eval_adapter import (  # noqa: E402
     _PROFILE_ENV,
 )
 from fact_intake_eval_runtime_schema import evaluate_state_path, load_runtime, runtime_path  # noqa: E402
-from l_ledger_schema import active_slice_dir  # noqa: E402
+from execution_state_schema import execution_dir  # noqa: E402
 from facts_schema import FACTS_BASENAME  # noqa: E402
 from init_working_helpers import init_working_ready  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, seed_profile_pointer_for_tests  # noqa: E402
@@ -55,8 +56,8 @@ def _seed(tmp_path: Path) -> Path:
     ws = base / "revision1" / "workflow-state.md"
     init_working_ready(ws, mode="tech")
     rev = ws.parent
-    slice_dir = active_slice_dir(rev)
-    (slice_dir / FACTS_BASENAME).write_text(
+    ex_dir = execution_dir(rev)
+    (ex_dir / FACTS_BASENAME).write_text(
         json.dumps(
             {
                 "version": "1",
@@ -88,12 +89,12 @@ def test_enter_evaluating_skips_stage_gate(tmp_path: Path, monkeypatch) -> None:
     result = adapter.enter_evaluating(_CYCLE, tmp_path)
     assert result["ok"] is True
     assert result["transitioned"] is True
-    slice_dir = active_slice_dir(rev)
-    assert not (slice_dir / "fact-intake-eval" / "evaluate-state.md").is_file()
-    runtime = load_runtime(runtime_path(slice_dir))
+    ex_dir = execution_dir(rev)
+    assert not (ex_dir / "fact-intake-eval" / "evaluate-state.md").is_file()
+    runtime = load_runtime(runtime_path(ex_dir))
     assert runtime["focus_phase"] == "evaluating"
-    # Delivery Evaluating state must not be created at slice root.
-    assert not (slice_dir / "evaluate-state.md").is_file()
+    # Delivery Evaluating state must not be created at execution root.
+    assert not (ex_dir / "evaluate-state.md").is_file()
     assert not (rev / "evaluate-state.md").is_file()
 
 
@@ -111,7 +112,7 @@ def test_initial_state_copies_policy_from_resolved_corpus(
         corpus,
         eval_capability="full-remediation",
         evaluate_round=1,
-        focus_l="L1",
+        focus_l="fact-intake",
         corpus_digest="abc",
         corpus_snapshot_ref="corpus-snapshot/manifest.json",
     )
@@ -135,7 +136,7 @@ def test_handoff_binds_facts_json(tmp_path: Path, monkeypatch) -> None:
     assert handoff["context"]["policy_context"]["eval_capability"] == "full-remediation"
     assert Path(bindings["eval_target_path"]).is_file()
     assert "fact-intake-eval" in handoff["context"]["evaluate_state_path"]
-    assert not evaluate_state_path(active_slice_dir(rev)).is_file()
+    assert not evaluate_state_path(execution_dir(rev)).is_file()
 
 
 def test_commit_remediation_writes_facts(tmp_path: Path, monkeypatch) -> None:

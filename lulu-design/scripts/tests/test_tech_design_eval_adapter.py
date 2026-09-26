@@ -64,7 +64,7 @@ def _seed_session(tmp_path: Path) -> Path:
 
 def _ready(ws: Path, *, mode: str) -> None:
     init_working_ready(ws, mode=mode)
-    (ws.parent / "L1" / "design-doc.md").write_text("# design\n", encoding="utf-8")
+    (ws.parent / "execution" / "design-doc.md").write_text("# design\n", encoding="utf-8")
     seed_resolved_refs_for_eval(ws, cycle_id=_CYCLE, stage="lulu-design", mode=mode)
 
 
@@ -109,7 +109,7 @@ class TestTechDesignEvalAdapter:
             evaluate_round=1,
             es_path=es_path,
         )
-        assert paths["compose_doc"].endswith("/lulu-design/revision1/L1/design-doc.md")
+        assert paths["compose_doc"].endswith("/lulu-design/revision1/execution/design-doc.md")
 
     def test_session_context_upstream_baseline_ref(self, tmp_path: Path):
         ws = _seed_session(tmp_path)

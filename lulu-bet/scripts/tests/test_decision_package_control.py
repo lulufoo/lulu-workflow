@@ -32,13 +32,9 @@ def test_deliver_commits_decision_package(tmp_path: Path) -> None:
 
     package = json.loads(package_path.read_text(encoding="utf-8"))
     assert package == {
-        "version": 1,
+        "version": 2,
         "status": "package_ready",
-        "main": {
-
-            "decision_doc_path": "decision-doc.md",
-        },
-        "slices": [],
+        "main": {"decision_doc_path": "decision-doc.md"},
     }
     refs = load_delivered_refs_file("feature-bet", tmp_path)
     assert refs["entries"]["lulu-bet"]["path"] == str(package_path.resolve())

@@ -53,7 +53,7 @@ from fact_intake_eval_runtime_schema import (  # noqa: E402
 )
 from compose_session import workflow_state_path as compose_workflow_state_path  # noqa: E402
 from corpus_composition import compose_corpus, load_dimension_def  # noqa: E402
-from l_ledger_schema import active_slice_dir  # noqa: E402
+from execution_state_schema import execution_dir  # noqa: E402
 from eval_handoff_schema import (  # noqa: E402
     build_eval_handoff_v2,
     validate_artifact_manifest_v2,
@@ -80,11 +80,7 @@ from eval_admission import (  # noqa: E402
 from evaluate_state_schema import load_evaluate_state, save_evaluate_state  # noqa: E402
 from facts_schema import facts_path  # noqa: E402
 from resolved_refs_schema import has_resolved_refs, resolved_scope_ref  # noqa: E402
-from scope_package_convert import (  # noqa: E402
-    ScopePackageAntiseepError,
-    focus_seed_source_path,
-    revision_uses_scope_package,
-)
+from scope_package_schema import revision_source_path, scope_package_path  # noqa: E402
 from workflow_adapter import SessionContext  # noqa: E402
 from workflow_common import parse_frontmatter_fields  # noqa: E402
 
@@ -125,19 +121,19 @@ def _revision_dir(cycle_id: str, project_root: Path) -> Path:
 
 
 def _slice_dir(cycle_id: str, project_root: Path) -> Path:
-    return active_slice_dir(_revision_dir(cycle_id, project_root))
+    return execution_dir(_revision_dir(cycle_id, project_root))
 
 
 def _source_path(revision_dir: Path) -> str:
-    try:
-        if revision_uses_scope_package(revision_dir):
-            return focus_seed_source_path(revision_dir)
-        if has_resolved_refs(revision_dir):
-            ref = resolved_scope_ref(revision_dir)
-            if ref is not None:
-                return ref.path
-    except ScopePackageAntiseepError:
-        return ""
+    if scope_package_path(revision_dir).is_file():
+        try:
+            return revision_source_path(revision_dir).as_posix()
+        except (OSError, ValueError):
+            return ""
+    if has_resolved_refs(revision_dir):
+        ref = resolved_scope_ref(revision_dir)
+        if ref is not None:
+            return ref.path
     return ""
 
 

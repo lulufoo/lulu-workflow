@@ -129,7 +129,7 @@ $DEDUCTIVE_CTL gate-check
 ```
 
 Return control to the parent compose stage. Parent runs
-`$L_STEP complete-deductive`, then `$L_STEP enter-writing`.
+`$EXECUTION complete-deductive`, then `$EXECUTION enter-writing`.
 
 **Done:** both commands exit 0; `_facts.json` ready for Writing validate-only.
 

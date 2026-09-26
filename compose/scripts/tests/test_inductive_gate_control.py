@@ -12,10 +12,10 @@ from pathlib import Path
 import pytest
 
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
-_REPO = Path(__file__).resolve().parents[4]
+_REPO = Path(__file__).resolve().parents[3]
 _GATE_CTL = _INDUCTIVE_DIR / "inductive_gate_control.py"
 _DESIGN_DOMAIN = (
-    _REPO / "lulu-dev-workflow" / "lulu-design" / "templates" / "domain-instance.json"
+    _REPO /  "lulu-design" / "templates" / "domain-instance.json"
 )
 _G4_CTL = _INDUCTIVE_DIR / "recompose" / "inductive_recompose_control.py"
 _KERNEL = Path(__file__).resolve().parent.parent / "_kernel"
@@ -80,7 +80,7 @@ def _g2_prepare_exit(
 
 
 _DESIGN_PROFILE = (
-    _REPO / "lulu-dev-workflow" / "lulu-design" / "compose-profile.json"
+    _REPO /  "lulu-design" / "compose-profile.json"
 )
 _KEEP_LENSES = frozenset({"I", "ST"})
 

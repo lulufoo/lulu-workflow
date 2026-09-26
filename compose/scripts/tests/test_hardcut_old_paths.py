@@ -8,7 +8,7 @@ from pathlib import Path
 _WORKFLOW_ROOT = Path(__file__).resolve().parents[3]
 _COMPOSE = _WORKFLOW_ROOT / "compose"
 _ENGINE = _COMPOSE / "SKILL.md"
-_INNER = _COMPOSE / "references" / "l-execution.md"
+_INNER = _COMPOSE / "references" / "execution.md"
 _EVAL = _WORKFLOW_ROOT / "eval" / "SKILL.md"
 
 _DELETED_MODULES = (
@@ -17,6 +17,13 @@ _DELETED_MODULES = (
     "compose/scripts/schema/session/dependency_tree_schema.py",
     "compose/scripts/schema/session/slice_rulers_schema.py",
     "compose/scripts/schema/session/l_step_progress_schema.py",
+    "compose/scripts/schema/session/l_ledger_schema.py",
+    "compose/scripts/session/l_shell_control.py",
+    "compose/scripts/session/l_step_control.py",
+    "compose/scripts/session/l_transition_kernel.py",
+    "compose/scripts/scope/scope_package_convert.py",
+    "compose/references/l-chain.md",
+    "compose/references/l-execution.md",
     "compose/scripts/core/multi_slice_control.py",
     "compose/scripts/core/session_evaluating.py",
     "compose/scripts/core/start_adapter.py",
@@ -77,6 +84,15 @@ _DELETED_TESTS = (
     "compose/scripts/tests/test_session_evaluating.py",
     "compose/scripts/tests/test_start_dynamic_adapter.py",
     "compose/scripts/tests/test_active_slice_dir.py",
+    "compose/scripts/tests/test_l_shell_control.py",
+    "compose/scripts/tests/test_l_ledger_schema.py",
+    "compose/scripts/tests/test_l_transition_kernel.py",
+    "compose/scripts/tests/test_l_step_new_control.py",
+    "compose/scripts/tests/test_scope_package_convert.py",
+    "compose/scripts/tests/test_home_l_write.py",
+    "compose/scripts/tests/test_archive10_vertical_slice_e2e.py",
+    "compose/scripts/tests/test_open_point_l_lifecycle.py",
+    "compose/scripts/tests/test_scope_package_antiseep.py",
     "compose/scripts/tests/test_multi_slice_control.py",
     "compose/scripts/tests/test_chapters_control.py",
     "compose/scripts/tests/test_inductive_facts_projection.py",
@@ -130,6 +146,6 @@ def test_eval_skill_returns_choice_caller_owns_l_step() -> None:
     assert "abandon-evaluation" not in text
     assert "$L_STEP" not in text
     inner = _INNER.read_text(encoding="utf-8")
-    assert "$L_STEP accept --confirm" in inner
-    assert "$L_STEP fix --confirm" in inner
-    assert "Eval SKILL does not run `$L_STEP`" in inner
+    assert "$EXECUTION accept --confirm" in inner
+    assert "$EXECUTION fix --confirm" in inner
+    assert "Eval SKILL does not run `$EXECUTION`" in inner

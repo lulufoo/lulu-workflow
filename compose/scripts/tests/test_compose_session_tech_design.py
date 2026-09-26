@@ -58,7 +58,7 @@ def _seed_design_session(tmp_path: Path) -> None:
     revision.mkdir(parents=True)
     ws = revision / "workflow-state.md"
     init_working_ready(ws, mode="tech")
-    (revision / "L1" / "design-doc.md").write_text(
+    (revision / "execution" / "design-doc.md").write_text(
         "---\n\n# Design X\n\nSummary for design session.\n",
         encoding="utf-8",
     )
@@ -83,12 +83,12 @@ class TestComposeSessionTechDesign:
         assert payload["profile_id"] == "lulu-design"
         assert set(payload["role"]) == {"role_prompt"}
         assert payload["role"]["role_prompt"].startswith("You are acting")
-        assert payload["compose_doc"]["path"].endswith("L1/design-doc.md")
+        assert payload["compose_doc"]["path"].endswith("execution/design-doc.md")
         assert payload["compose_doc"]["title"] == "Design X"
         assert payload["compose_doc"]["status"] == "ready"
 
-    def test_session_snapshot_split_locked_without_design_doc(self, tmp_path: Path):
-        """Topology locked in Split; L1/design-doc.md not yet seeded."""
+    def test_session_snapshot_working_without_design_doc(self, tmp_path: Path):
+        """Working session; execution/design-doc.md not yet seeded."""
         from init_working_helpers import lock_single_l1_tree  # noqa: WPS433
 
         seed_profile_pointer_for_tests(tmp_path, _CYCLE, _PROFILE)
@@ -99,12 +99,13 @@ class TestComposeSessionTechDesign:
         ws = revision / "workflow-state.md"
         init_compose_session(ws, mode="tech")
         lock_single_l1_tree(revision)
-        # No L1/design-doc.md
+        # No execution/design-doc.md
         payload = session_snapshot(_CYCLE, tmp_path, profile_id=_PROFILE)
-        assert payload["workflow_state"]["current_state"] == "Split"
+        assert payload["workflow_state"]["current_state"] == "Working"
+        assert payload["workflow_state"]["current_state"] != "Split"
         assert payload["compose_doc"]["status"] == "pending"
         assert payload["compose_doc"]["revision"] == 1
-        assert payload["compose_doc"]["path"].endswith("L1/design-doc.md")
+        assert payload["compose_doc"]["path"].endswith("execution/design-doc.md")
         assert payload["compose_doc"]["title"] == ""
         assert set(payload["role"]) == {"role_prompt"}
         assert payload["role"]["role_prompt"].startswith("You are acting")
@@ -135,7 +136,7 @@ class TestComposeSessionTechDesign:
             / _CYCLE
             / "lulu-design"
             / "revision1"
-            / "L1"
+            / "execution"
             / "evaluate-state.md"
         )
         assert not es.exists()
@@ -143,5 +144,5 @@ class TestComposeSessionTechDesign:
     def test_load_document_presentation(self, tmp_path: Path):
         _seed_design_session(tmp_path)
         doc = load_document_presentation(_CYCLE, tmp_path, _PROFILE)
-        assert doc["path"].endswith("L1/design-doc.md")
+        assert doc["path"].endswith("execution/design-doc.md")
         assert load_active_doc_for_profile(_CYCLE, tmp_path, _PROFILE) == 1

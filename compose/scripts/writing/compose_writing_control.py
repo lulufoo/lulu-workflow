@@ -27,7 +27,7 @@ kernel_bootstrap.ensure_kernel_paths()
 from chapter_artifact_paths import chapter_body_path  # noqa: E402
 from chapter_doc_schema import chapter_anchor_present, chapter_body_by_id  # noqa: E402
 from chapter_artifact_gates import check_chapter_write_artifacts  # noqa: E402
-from l_ledger_schema import active_slice_dir  # noqa: E402
+from execution_state_schema import execution_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from section_registry_schema import fetch_section_registry, lens_key_sequence  # noqa: E402
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
@@ -275,7 +275,7 @@ def validate_writing_artifacts(
     profile_path: Path | None = None,
 ) -> str | None:
     """Return first error summary or None when all checks pass."""
-    revision_dir = active_slice_dir(Path(revision_dir).resolve())
+    revision_dir = execution_dir(Path(revision_dir).resolve())
     if not revision_dir.is_dir():
         return f"revision dir not found: {revision_dir}"
 

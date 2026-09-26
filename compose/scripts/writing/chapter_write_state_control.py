@@ -45,7 +45,7 @@ from chapter_write_state_schema import (  # noqa: E402
     next_chapter_id,
     save_chapter_write_state,
 )
-from l_ledger_schema import active_slice_dir  # noqa: E402
+from execution_state_schema import execution_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from compose_template_loader import load_compose_template  # noqa: E402
 from section_form_registry_schema import fetch_section_form_registry  # noqa: E402
@@ -80,7 +80,7 @@ def _fail(message: str) -> int:
 
 
 def _slice(revision_dir: Path) -> Path:
-    return active_slice_dir(Path(revision_dir).resolve())
+    return execution_dir(Path(revision_dir).resolve())
 
 
 def _load_or_empty(path: Path) -> dict[str, Any]:

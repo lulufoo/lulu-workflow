@@ -24,13 +24,13 @@ _FORBIDDEN = (
 
 def test_round_references_removed_from_workflow_files() -> None:
     files = subprocess.check_output(
-        ["git", "ls-files", "lulu-dev-workflow"],
-        cwd=_REPO_ROOT,
+        ["git", "ls-files"],
+        cwd=_WORKFLOW_ROOT,
         text=True,
     ).splitlines()
     violations = []
     for rel in files:
-        path = (_REPO_ROOT / rel).resolve()
+        path = (_WORKFLOW_ROOT / rel).resolve()
         if path == _SELF:
             continue
         if not path.exists():

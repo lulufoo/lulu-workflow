@@ -25,7 +25,6 @@ class ComposeEvalContext:
     cycle_type: str
     mode: str
     dimension_defs_dir: Path
-    focus_l: str
 
 
 @dataclass(frozen=True)

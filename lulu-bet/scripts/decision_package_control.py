@@ -48,10 +48,7 @@ def deliver(holder_root: Path, *, cycle_id: str, project_root: Path) -> Path:
     refs_before = refs_path.read_bytes() if refs_path.is_file() else None
     state_before = state_path.read_bytes()
     package = build_decision_package(
-        main={
-            "decision_doc_path": "decision-doc.md",
-        },
-        slices=[],
+        main={"decision_doc_path": "decision-doc.md"},
         status="package_ready",
     )
     try:

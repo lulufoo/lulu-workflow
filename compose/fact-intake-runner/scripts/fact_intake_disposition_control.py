@@ -23,7 +23,7 @@ from deductive_disposition_patch import (  # noqa: E402
     disposition_counts,
     validate_disposition_patch,
 )
-from l_ledger_schema import active_slice_dir  # noqa: E402
+from execution_state_schema import execution_dir  # noqa: E402
 from facts_schema import facts_path, load_facts, save_facts  # noqa: E402
 from compose_template_loader import (  # noqa: E402
     ComposeTemplateLoadError,
@@ -37,7 +37,7 @@ DISPOSITION_PATCH_BASENAME = "fact-intake-disposition-review.patch"
 
 def disposition_patch_path(revision_dir: Path) -> Path:
     """Canonical Confirm patch: same directory as ``_facts.json`` (active slice)."""
-    return active_slice_dir(revision_dir.resolve()) / DISPOSITION_PATCH_BASENAME
+    return execution_dir(revision_dir.resolve()) / DISPOSITION_PATCH_BASENAME
 
 
 def _resolve_patch_file(args: argparse.Namespace) -> Path:
@@ -123,13 +123,13 @@ def cmd_disposition_patch_path(args: argparse.Namespace) -> int:
             "ok": True,
             "command": "disposition-patch-path",
             "path": path.as_posix(),
-            "facts_path": facts_path(active_slice_dir(args.revision_dir.resolve())).as_posix(),
+            "facts_path": facts_path(execution_dir(args.revision_dir.resolve())).as_posix(),
         }
     )
 
 
 def cmd_disposition_patch_validate(args: argparse.Namespace) -> int:
-    revision_dir = active_slice_dir(args.revision_dir.resolve())
+    revision_dir = execution_dir(args.revision_dir.resolve())
     try:
         runtime = _runtime_profile(args)
         facts = load_facts(facts_path(revision_dir))
@@ -165,7 +165,7 @@ def cmd_disposition_patch_validate(args: argparse.Namespace) -> int:
 
 
 def cmd_disposition_patch_apply(args: argparse.Namespace) -> int:
-    revision_dir = active_slice_dir(args.revision_dir.resolve())
+    revision_dir = execution_dir(args.revision_dir.resolve())
     path = facts_path(revision_dir)
     try:
         runtime = _runtime_profile(args)

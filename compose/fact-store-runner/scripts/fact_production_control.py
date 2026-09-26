@@ -36,7 +36,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from l_ledger_schema import active_slice_dir  # noqa: E402
+from execution_state_schema import execution_dir  # noqa: E402
 from facts_schema import (  # noqa: E402
     facts_path,
     load_facts,
@@ -210,7 +210,7 @@ def _slice_context(
     if not root.is_dir():
         raise ValueError(f"revision-dir not found: {root}")
     if slice_key is None:
-        slice_dir = active_slice_dir(root)
+        slice_dir = execution_dir(root)
         try:
             key = str(slice_dir.relative_to(root)) or "."
         except ValueError as exc:

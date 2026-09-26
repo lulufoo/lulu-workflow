@@ -44,7 +44,7 @@ for _path in (_HERE, *_SCHEMA_DIRS, _KERNEL, _SESSION, _REGISTRY, _TEMPLATES):
 from compose_state_lock import canonical_digest, durable_unlink, durable_write_json  # noqa: E402
 from recompose_report_schema import normalize_report, validate_report  # noqa: E402
 from inductive_gate_state_schema import normalize_gate_state, validate_gate_state  # noqa: E402
-from l_ledger_schema import l_ledger_path, load_l_ledger  # noqa: E402
+from execution_state_schema import is_revision_root, load_execution_state  # noqa: E402
 from open_point_batch_schema import (  # noqa: E402
     empty_open_point_batches,
     load_open_point_batches,
@@ -139,19 +139,13 @@ class RepairRequiredError(OpenPointError):
 
 
 def assert_slice_writable(slice_dir: Path) -> None:
-    """Refuse writes when a parent ledger marks the slice frozen or non-focus."""
+    """Refuse writes once the owning revision's execution is Completed."""
     root = Path(slice_dir).resolve().parent
-    if not l_ledger_path(root).is_file():
+    if not is_revision_root(root):
         return
-    ledger = load_l_ledger(root)
-    slice_id = Path(slice_dir).resolve().name
-    cell = ledger.get("by_id", {}).get(slice_id)
-    if not isinstance(cell, dict):
-        return
-    if cell.get("frozen") is True:
-        raise OpenPointError(f"slice {slice_id} is frozen; writes refused")
-    if str(ledger.get("focus")) != slice_id:
-        raise OpenPointError(f"slice {slice_id} is not the ledger focus; writes refused")
+    state = load_execution_state(root)
+    if state["state"] == "Completed":
+        raise OpenPointError("execution is Completed; writes refused")
 
 
 def _read_json(path: Path) -> Any | None:

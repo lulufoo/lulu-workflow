@@ -7,10 +7,10 @@ import json
 import sys
 from pathlib import Path
 
-_REPO = Path(__file__).resolve().parents[4]
+_REPO = Path(__file__).resolve().parents[3]
 _SECTION_SCHEMA = (
     _REPO
-    / "lulu-dev-workflow"
+   
     / "compose"
     / "scripts"
     / "schema"
@@ -26,12 +26,12 @@ from section_registry_schema import (  # noqa: E402
     validate_section_registry,
 )
 
-_PROFILE = _REPO / "lulu-dev-workflow" / "lulu-arch" / "compose-profile.json"
+_PROFILE = _REPO /  "lulu-arch" / "compose-profile.json"
 _DIMENSION_DEF = (
-    _REPO / "lulu-dev-workflow" / "lulu-arch" / "dimension-defs" / "arch-quality.json"
+    _REPO /  "lulu-arch" / "dimension-defs" / "arch-quality.json"
 )
-_METHOD = _REPO / "lulu-dev-workflow" / "lulu-arch" / "eval" / "methods" / "arch-quality.md"
-_SOT = _REPO / "lulu-dev-workflow" / "lulu-arch" / "eval" / "sots" / "arch-quality.md"
+_METHOD = _REPO /  "lulu-arch" / "eval" / "methods" / "arch-quality.md"
+_SOT = _REPO /  "lulu-arch" / "eval" / "sots" / "arch-quality.md"
 
 def test_arch_k0b_section_registry_presence_and_remap() -> None:
     data = tech_arch_section_registry()
@@ -57,7 +57,7 @@ def test_arch_k0b_profile_uses_direct_template_refs() -> None:
     ):
         expected = f"lulu-dev-workflow/lulu-arch/templates/{filename}"
         assert compose[key] == expected
-        assert (_REPO / expected).is_file(), key
+        assert (_REPO / expected.split("/", 1)[1]).is_file(), key
 
     dimension = json.loads(_DIMENSION_DEF.read_text(encoding="utf-8"))
     assert dimension["method"]["ref"] == "lulu-dev-workflow/lulu-arch/eval/methods/arch-quality.md"

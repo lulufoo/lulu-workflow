@@ -32,7 +32,7 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from l_ledger_schema import active_slice_dir  # noqa: E402
+from execution_state_schema import execution_dir  # noqa: E402
 from evaluate_state_schema import load_evaluate_state  # noqa: E402
 from fact_intake_eval_runtime_schema import (  # noqa: E402
     evaluate_state_path,
@@ -65,7 +65,7 @@ def _fail(message: str) -> int:
 
 
 def _require_intake_eval(revision_dir: Path) -> tuple[dict[str, Any] | None, str | None]:
-    slice_dir = active_slice_dir(revision_dir.resolve())
+    slice_dir = execution_dir(revision_dir.resolve())
     es = evaluate_state_path(slice_dir)
     legacy = slice_dir / "atomize-eval" / "evaluate-state.md"
     gate = es if es.is_file() else legacy
@@ -200,7 +200,7 @@ def cmd_lens_bundle(args: argparse.Namespace) -> int:
     kw_slice = slice_kw_criteria(kw_raw, lens)
     if kw_slice is None:
         return _fail(f"KW criteria missing ATX heading ## {lens}")
-    slice_dir = active_slice_dir(Path(args.revision_dir).resolve())
+    slice_dir = execution_dir(Path(args.revision_dir).resolve())
     try:
         facts = load_facts(facts_path(slice_dir))
     except ValueError as exc:

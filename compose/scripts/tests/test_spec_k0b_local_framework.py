@@ -7,10 +7,10 @@ import json
 import sys
 from pathlib import Path
 
-_REPO = Path(__file__).resolve().parents[4]
+_REPO = Path(__file__).resolve().parents[3]
 _SECTION_SCHEMA = (
     _REPO
-    / "lulu-dev-workflow"
+   
     / "compose"
     / "scripts"
     / "schema"
@@ -26,7 +26,7 @@ from section_registry_schema import (  # noqa: E402
     validate_section_registry,
 )
 
-_PROFILE = _REPO / "lulu-dev-workflow" / "lulu-spec" / "compose-profile.json"
+_PROFILE = _REPO /  "lulu-spec" / "compose-profile.json"
 
 def test_spec_k0b_section_registry_has_presence() -> None:
     data = product_spec_section_registry()
@@ -48,7 +48,7 @@ def test_spec_k0b_profile_points_to_direct_templates() -> None:
     ):
         expected = f"lulu-dev-workflow/lulu-spec/templates/{filename}"
         assert compose[key] == expected
-        assert (_REPO / expected).is_file(), key
+        assert (_REPO / expected.split("/", 1)[1]).is_file(), key
 def test_spec_k0b_profile_has_no_display_layer_flag() -> None:
     profile = json.loads(_PROFILE.read_text(encoding="utf-8"))
     assert profile["pipeline"]["inductive"] is True

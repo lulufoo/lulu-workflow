@@ -93,7 +93,7 @@ def test_append_requires_digest_bound_ack_before_consume(tmp_path: Path):
     )
     assert code == 0, err
     assert proposal["preview"]["facts_after"][0]["id"] == "F-1"
-    assert not (tmp_path / "L1" / "_facts.json").exists()
+    assert not (tmp_path / "execution" / "_facts.json").exists()
 
     code, _, err = _run(
         "ack",
@@ -108,7 +108,7 @@ def test_append_requires_digest_bound_ack_before_consume(tmp_path: Path):
         "--human-ack",
     )
     assert code != 0
-    assert not (tmp_path / "L1" / "_facts.json").exists()
+    assert not (tmp_path / "execution" / "_facts.json").exists()
 
     code, payload, err = _ack_and_consume(tmp_path, proposal)
     assert code == 0, err
@@ -128,8 +128,8 @@ def test_append_requires_digest_bound_ack_before_consume(tmp_path: Path):
 
 
 def test_delete_preserves_surviving_stable_ids(tmp_path: Path):
-    (tmp_path / "L1").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "L1" / "_facts.json").write_text(
+    (tmp_path / "execution").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "execution" / "_facts.json").write_text(
         json.dumps(
             [
                 {"id": "F-1", "text": "one", "lens_tags": ["I"]},
@@ -154,7 +154,7 @@ def test_delete_preserves_surviving_stable_ids(tmp_path: Path):
     code, payload, err = _ack_and_consume(tmp_path, proposal)
     assert code == 0, err
     assert payload["deleted"] == "F-2"
-    facts = json.loads((tmp_path / "L1" / "_facts.json").read_text(encoding="utf-8"))
+    facts = json.loads((tmp_path / "execution" / "_facts.json").read_text(encoding="utf-8"))
     assert [fact["id"] for fact in facts] == ["F-1", "F-3"]
 
 
@@ -169,7 +169,7 @@ def test_consume_rejects_changed_facts_baseline(tmp_path: Path):
         json.dumps([{"text": "permit fact", "lens_tags": ["I"]}]),
     )
     assert code == 0, err
-    (tmp_path / "L1" / "_facts.json").write_text(
+    (tmp_path / "execution" / "_facts.json").write_text(
         json.dumps([{"id": "F-1", "text": "external fact", "lens_tags": ["I"]}]),
         encoding="utf-8",
     )
@@ -322,10 +322,10 @@ def _import_fact_control():
 
 
 def test_settle_open_consumes_exact_open_precondition(tmp_path: Path):
-    _seed_open_loop(tmp_path / "L1")
+    _seed_open_loop(tmp_path / "execution")
     code, proposal, err = _propose_settle(tmp_path)
     assert code == 0, err
-    permit = _read_json(tmp_path / "L1" / "_fact-production-permits.json")["permits"][0]
+    permit = _read_json(tmp_path / "execution" / "_fact-production-permits.json")["permits"][0]
     for key in (
         "facts_after",
         "facts_file_exists_after",
@@ -365,22 +365,22 @@ def test_settle_open_consumes_exact_open_precondition(tmp_path: Path):
     code, payload, err = _ack_and_consume(tmp_path, proposal)
     assert code == 0, err
     assert payload["settled"] == "O-1"
-    facts = _read_json(tmp_path / "L1" / "_facts.json")
+    facts = _read_json(tmp_path / "execution" / "_facts.json")
     assert facts[0]["id"] == "F-1"
-    opens = _read_json(tmp_path / "L1" / "inductive-opens.json")
+    opens = _read_json(tmp_path / "execution" / "inductive-opens.json")
     assert opens[0]["status"] == "settled"
     assert opens[0]["resolved_by"] == ["F-1"]
-    state = _read_json(tmp_path / "L1" / "open-point-state.json")
+    state = _read_json(tmp_path / "execution" / "open-point-state.json")
     assert state["phase"] == "idle"
     assert state["active_batch_id"] is None
     assert state["active_open_id"] is None
-    batches = _read_json(tmp_path / "L1" / "open-point-batches.json")
+    batches = _read_json(tmp_path / "execution" / "open-point-batches.json")
     assert batches["batches"][0]["status"] == "completed"
 
 
 def test_settle_open_two_open_batch_advances_active_open(tmp_path: Path):
     _seed_open_loop(
-        tmp_path / "L1",
+        tmp_path / "execution",
         opens=[_open_item("O-1"), _open_item("O-2", question="q2")],
         active_open_id="O-1",
     )
@@ -389,20 +389,20 @@ def test_settle_open_two_open_batch_advances_active_open(tmp_path: Path):
     code, payload, err = _ack_and_consume(tmp_path, proposal)
     assert code == 0, err
     assert payload["settled"] == "O-1"
-    opens = _read_json(tmp_path / "L1" / "inductive-opens.json")
+    opens = _read_json(tmp_path / "execution" / "inductive-opens.json")
     assert opens[0]["status"] == "settled"
     assert opens[0]["resolved_by"] == ["F-1"]
     assert opens[1]["status"] == "open"
-    state = _read_json(tmp_path / "L1" / "open-point-state.json")
+    state = _read_json(tmp_path / "execution" / "open-point-state.json")
     assert state["phase"] == "processing"
     assert state["active_open_id"] == "O-2"
-    batches = _read_json(tmp_path / "L1" / "open-point-batches.json")
+    batches = _read_json(tmp_path / "execution" / "open-point-batches.json")
     assert batches["batches"][0]["status"] == "active"
 
 
 def test_propose_settle_fails_when_open_is_not_active(tmp_path: Path):
     _seed_open_loop(
-        tmp_path / "L1",
+        tmp_path / "execution",
         opens=[_open_item("O-1"), _open_item("O-2", question="q2")],
         active_open_id="O-1",
     )
@@ -410,7 +410,7 @@ def test_propose_settle_fails_when_open_is_not_active(tmp_path: Path):
     assert code != 0
     assert "active" in err.lower()
 
-    (tmp_path / "L1" / "open-point-state.json").write_text(
+    (tmp_path / "execution" / "open-point-state.json").write_text(
         json.dumps(
             {
                 "version": 1,
@@ -426,13 +426,13 @@ def test_propose_settle_fails_when_open_is_not_active(tmp_path: Path):
 
 
 def test_consume_rejects_state_or_batches_digest_drift(tmp_path: Path):
-    _seed_open_loop(tmp_path / "L1")
+    _seed_open_loop(tmp_path / "execution")
     code, proposal, err = _propose_settle(tmp_path)
     assert code == 0, err
     code, _, err = _ack(tmp_path, proposal)
     assert code == 0, err
 
-    state_path = tmp_path / "L1" / "open-point-state.json"
+    state_path = tmp_path / "execution" / "open-point-state.json"
     original_state = state_path.read_text(encoding="utf-8")
     state_path.write_text(
         json.dumps(
@@ -458,7 +458,7 @@ def test_consume_rejects_state_or_batches_digest_drift(tmp_path: Path):
     assert "baseline" in err.lower()
 
     state_path.write_text(original_state, encoding="utf-8")
-    batches_path = tmp_path / "L1" / "open-point-batches.json"
+    batches_path = tmp_path / "execution" / "open-point-batches.json"
     batches = _read_json(batches_path)
     batches["batches"].append(
         {
@@ -483,7 +483,7 @@ def test_consume_rejects_state_or_batches_digest_drift(tmp_path: Path):
 
 
 def test_settle_open_failure_reconciles_to_acknowledged(tmp_path: Path, monkeypatch):
-    _seed_open_loop(tmp_path / "L1")
+    _seed_open_loop(tmp_path / "execution")
     code, proposal, err = _propose_settle(tmp_path)
     assert code == 0, err
     code, _, err = _ack(tmp_path, proposal)
@@ -507,27 +507,27 @@ def test_settle_open_failure_reconciles_to_acknowledged(tmp_path: Path, monkeypa
         ]
     )
     assert code != 0
-    assert not (tmp_path / "L1" / "_facts.json").exists()
-    store = _read_json(tmp_path / "L1" / "_fact-production-permits.json")
+    assert not (tmp_path / "execution" / "_facts.json").exists()
+    store = _read_json(tmp_path / "execution" / "_fact-production-permits.json")
     assert store["permits"][0]["state"] == "acknowledged"
-    opens = _read_json(tmp_path / "L1" / "inductive-opens.json")
+    opens = _read_json(tmp_path / "execution" / "inductive-opens.json")
     assert opens[0]["status"] == "open"
-    state = _read_json(tmp_path / "L1" / "open-point-state.json")
+    state = _read_json(tmp_path / "execution" / "open-point-state.json")
     assert state["phase"] == "processing"
     assert state["active_open_id"] == "O-1"
 
 
 def test_settle_crash_facts_after_loop_before_requires_repair(tmp_path: Path):
-    _seed_open_loop(tmp_path / "L1")
+    _seed_open_loop(tmp_path / "execution")
     code, proposal, err = _propose_settle(tmp_path)
     assert code == 0, err
     code, _, err = _ack(tmp_path, proposal)
     assert code == 0, err
 
-    store_path = tmp_path / "L1" / "_fact-production-permits.json"
+    store_path = tmp_path / "execution" / "_fact-production-permits.json"
     store = _read_json(store_path)
     permit = store["permits"][0]
-    (tmp_path / "L1" / "_facts.json").write_text(
+    (tmp_path / "execution" / "_facts.json").write_text(
         json.dumps(permit["payload"]["facts_after"]),
         encoding="utf-8",
     )
@@ -546,9 +546,9 @@ def test_settle_crash_facts_after_loop_before_requires_repair(tmp_path: Path):
     assert code == 0, err
     assert payload["state"] == "repair_required"
 
-    before_opens = _read_json(tmp_path / "L1" / "inductive-opens.json")
-    before_state = _read_json(tmp_path / "L1" / "open-point-state.json")
-    before_batches = _read_json(tmp_path / "L1" / "open-point-batches.json")
+    before_opens = _read_json(tmp_path / "execution" / "inductive-opens.json")
+    before_state = _read_json(tmp_path / "execution" / "open-point-state.json")
+    before_batches = _read_json(tmp_path / "execution" / "open-point-batches.json")
     code, payload, err = _run(
         "recover",
         "--revision-dir",
@@ -563,10 +563,10 @@ def test_settle_crash_facts_after_loop_before_requires_repair(tmp_path: Path):
     )
     assert code == 0, err
     assert payload["state"] == "acknowledged"
-    assert not (tmp_path / "L1" / "_facts.json").exists()
-    assert _read_json(tmp_path / "L1" / "inductive-opens.json") == before_opens
-    assert _read_json(tmp_path / "L1" / "open-point-state.json") == before_state
-    assert _read_json(tmp_path / "L1" / "open-point-batches.json") == before_batches
+    assert not (tmp_path / "execution" / "_facts.json").exists()
+    assert _read_json(tmp_path / "execution" / "inductive-opens.json") == before_opens
+    assert _read_json(tmp_path / "execution" / "open-point-state.json") == before_state
+    assert _read_json(tmp_path / "execution" / "open-point-batches.json") == before_batches
 
 
 def test_repair_required_recovery_restores_exact_before_state(tmp_path: Path):
@@ -593,11 +593,11 @@ def test_repair_required_recovery_restores_exact_before_state(tmp_path: Path):
         "--human-ack",
     )
     assert code == 0, err
-    (tmp_path / "L1" / "_facts.json").write_text(
+    (tmp_path / "execution" / "_facts.json").write_text(
         json.dumps([{"id": "F-1", "text": "unrelated", "lens_tags": ["I"]}]),
         encoding="utf-8",
     )
-    store_path = tmp_path / "L1" / "_fact-production-permits.json"
+    store_path = tmp_path / "execution" / "_fact-production-permits.json"
     store = json.loads(store_path.read_text(encoding="utf-8"))
     store["permits"][0]["state"] = "consuming"
     store_path.write_text(json.dumps(store), encoding="utf-8")
@@ -628,4 +628,4 @@ def test_repair_required_recovery_restores_exact_before_state(tmp_path: Path):
     )
     assert code == 0, err
     assert payload["state"] == "acknowledged"
-    assert not (tmp_path / "L1" / "_facts.json").exists()
+    assert not (tmp_path / "execution" / "_facts.json").exists()
