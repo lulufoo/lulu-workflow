@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve Constraint material files for Main enter (stdout JSON ``{"files":[...]}``)."""
+"""Resolve Constraint material files before session enter (stdout JSON ``{"files":[...]}``)."""
 
 from __future__ import annotations
 

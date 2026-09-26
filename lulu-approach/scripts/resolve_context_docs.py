@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve Context material files for Main enter (stdout JSON ``{"files":[...]}``)."""
+"""Resolve Context material files before session enter (stdout JSON ``{"files":[...]}``)."""
 
 from __future__ import annotations
 

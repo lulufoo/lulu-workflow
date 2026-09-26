@@ -38,17 +38,9 @@ from cycle_delivered_refs import (  # noqa: E402
 )
 
 init_shell = _ctrl.init_shell
-enter_split = _ctrl.enter_split
-enter_working = _ctrl.enter_working
 enter_package_ready = _ctrl.enter_package_ready
-record_path_choice = _ctrl.record_path_choice
-commit_focus = _ctrl.commit_focus
-set_focus = _ctrl.set_focus
-mark_node_delivered = _ctrl.mark_node_delivered
-mark_split_delivered = _ctrl.mark_split_delivered
 confirm_seal = _ctrl.confirm_seal
 load_shell = _schema.load_shell
-main_session_dir = _layout.main_session_dir
 shell_path = _schema.shell_path
 decision_package_path = _layout.decision_package_path
 source_package_path = _layout.source_package_path
@@ -70,25 +62,21 @@ def _write_in_progress(session_dir: Path) -> None:
     )
 
 
-def test_init_shell_starts_main(tmp_path: Path) -> None:
+def test_init_shell_starts_session(tmp_path: Path) -> None:
     root = tmp_path / "lulu-approach"
     shell = init_shell(root)
-    assert shell["macro_state"] == "Main"
-    assert shell["focus"] is None
-    assert shell["by_id"] == {}
+    assert shell["macro_state"] == "Session"
     loaded = load_shell(root)
-    assert loaded["macro_state"] == "Main"
-    assert loaded["path_choice"] is None
-    assert (root / "main").is_dir()
+    assert loaded["macro_state"] == "Session"
     assert (root / "discussion-pointer.json").is_file()
 
 
-def test_main_to_package_ready_no_split(tmp_path: Path) -> None:
+def test_session_to_package_ready(tmp_path: Path) -> None:
     root = tmp_path / "lulu-approach"
     init_shell(root)
-    with pytest.raises(ValueError, match="main is not Completed"):
+    with pytest.raises(ValueError, match="session is not Completed"):
         enter_package_ready(root)
-    _write_delivered(main_session_dir(root))
+    _write_delivered(root)
     shell = enter_package_ready(root)
     assert shell["macro_state"] == "PackageReady"
     with pytest.raises(ValueError, match="human --confirm required"):
@@ -102,9 +90,9 @@ def test_confirm_seal_registers_decision_package_ref(tmp_path: Path) -> None:
     root = project_root / "approach-root" / "lulu-approach"
     cycle_id = "feat-approach-seal"
     init_shell(root)
-    _write_delivered(main_session_dir(root))
+    _write_delivered(root)
     enter_package_ready(root)
-    (main_session_dir(root) / "decision-doc.md").write_text(
+    (root / "decision-doc.md").write_text(
         "{}\n",
         encoding="utf-8",
     )
@@ -134,7 +122,7 @@ def test_confirm_seal_registers_decision_package_ref(tmp_path: Path) -> None:
     assert entry["profile_id"] == "lulu-approach"
     assert entry["source_workflow_state"] == str(shell_path(root).resolve())
     decision_package = json.loads(pkg.read_text(encoding="utf-8"))
-    assert decision_package["main"]["decision_doc_path"] == "main/decision-doc.md"
+    assert decision_package["main"]["decision_doc_path"] == "decision-doc.md"
     assert decision_package["slices"] == []
 
 
@@ -146,9 +134,9 @@ def test_confirm_seal_rolls_back_refs_keeps_decision_package(
     project_root.mkdir()
     root = project_root / "lulu-approach"
     init_shell(root)
-    _write_delivered(main_session_dir(root))
+    _write_delivered(root)
     enter_package_ready(root)
-    (main_session_dir(root) / "decision-doc.md").write_text(
+    (root / "decision-doc.md").write_text(
         "{}\n",
         encoding="utf-8",
     )

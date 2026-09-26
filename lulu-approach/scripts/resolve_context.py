@@ -4,8 +4,8 @@
 ``context.docs`` is auto-derived from ``(cycle_id, stage)`` by the shared
 kernel resolver (``scripts/context_loading.py``), then stripped of Context /
 Constraint material keys (``product_spec`` / ``tech_arch`` — loaded via
-``resolve_context_docs`` / ``resolve_constraint_docs`` instead). A ``Dx/``
-session directory is rejected.
+``resolve_context_docs`` / ``resolve_constraint_docs`` instead). The session
+directory is the approach root.
 
 Writes ``{"context": {"docs": {...}}}`` to a file and prints that file's path
 to stdout for ``$DEC_START`` (``--domain-constraints-file``).
@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
 from pathlib import Path
 
@@ -35,25 +34,21 @@ from context_loading import build_context_loading  # noqa: E402
 from platform_schema import detect_platform  # noqa: E402
 from platforms.paths import cache_dir as platform_cache_dir  # noqa: E402
 
-from approach_layout import MAIN_DIRNAME  # noqa: E402
+from approach_layout import APPROACH_CACHE_SUBDIR  # noqa: E402
 from dec_domain_constraints_schema import load_constraints_config  # noqa: E402
 from dec_io import atomic_write_text  # noqa: E402
 from material_docs import strip_binding_excluded  # noqa: E402
 
 STAGE = "lulu-approach"
 _RESOLVED_CONTEXT_FILENAME = "resolved-context.json"
-_DX_ID_RE = re.compile(r"^D\d+$")
 
 
-def _session_role(session_dir: Path | None) -> str:
+def _require_approach_root(session_dir: Path | None) -> None:
     if session_dir is None:
-        return "main"
+        return
     name = Path(session_dir).resolve().name
-    if name == MAIN_DIRNAME:
-        return "main"
-    if _DX_ID_RE.match(name):
-        return "sub"
-    raise ValueError(f"session_dir must be main/ or Dx/, got {session_dir}")
+    if name != APPROACH_CACHE_SUBDIR:
+        raise ValueError(f"session_dir must be the approach root, got {session_dir}")
 
 
 def resolve(
@@ -68,9 +63,7 @@ def resolve(
     cache_dir = project_root / platform_cache_dir(detect_platform())
     context = build_context_loading(cycle_id, STAGE, cache_dir=cache_dir)
     docs = strip_binding_excluded(dict(context.get("docs") or {}))
-    role = _session_role(session_dir)
-    if role == "sub":
-        raise ValueError("sub-decision split is not supported")
+    _require_approach_root(session_dir)
     return {"context": {"docs": docs}}
 
 
@@ -129,7 +122,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--session-dir",
         default="",
-        help="Nested session root (main/ or Dx/). Dx adds main_decision, boundary_rules, and optional decision_split.",
+        help="Session directory. The approach root is the session.",
     )
     parser.add_argument(
         "--binding-id",

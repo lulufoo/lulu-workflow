@@ -150,24 +150,12 @@ def _approach_stage_delivered(cycle_id: str, cache_dir: Path) -> bool:
 def current_effective_delivered(cycle_id: str, stage: str, cache_dir: Path) -> bool:
     """Return True if the stage is effectively delivered for transition gates.
 
-    - ``lulu-approach``: prefer delivered-refs decision-package; legacy fallback =
-      latest nested/flat session terminal (Completed or legacy Delivered).
+    - ``lulu-approach``: cycle delivered-refs ``decision-package`` only.
     - ``decision`` / ``lulu-bet``: latest flat session is Completed (legacy Delivered OK).
     - Compose revisions: latest non-Invalidated workflow-state is Delivered.
     """
     if stage == "lulu-approach":
-        if _approach_stage_delivered(cycle_id, cache_dir):
-            return True
-        # One-release fallback for caches that only marked node/session terminal.
-        valid = [
-            s
-            for s in get_sessions(cycle_id, stage, cache_dir)
-            if s.state != "Invalidated"
-        ]
-        if not valid:
-            return False
-        latest = max(valid, key=lambda s: (s.created_at, s.revision))
-        return latest.state in _FLAT_SESSION_TERMINAL
+        return _approach_stage_delivered(cycle_id, cache_dir)
 
     valid = [s for s in get_sessions(cycle_id, stage, cache_dir) if s.state != "Invalidated"]
     if not valid:

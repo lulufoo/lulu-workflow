@@ -31,7 +31,7 @@ from dec_domain_constraints_schema import load_constraints_config  # noqa: E402
 
 STAGE = "lulu-approach"
 
-# Keys removed from binding context.docs (Main and Dx).
+# Keys removed from binding context.docs.
 BINDING_EXCLUDED_KEYS: frozenset[str] = frozenset({"product_spec", "tech_arch"})
 
 # Script-owned kind → docs keys (extend here for future Constraint instances).

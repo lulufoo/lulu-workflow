@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Nested approach deliver must not steal cycle delivered-refs (archive-1.1)."""
+"""complete/deliver closes the session and does not write cycle delivered-refs."""
 
 from __future__ import annotations
 
@@ -16,18 +16,13 @@ for _p in (_DIAG_SCRIPTS, _WORKFLOW_SCRIPTS):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from cycle_delivered_refs import (  # noqa: E402
-    delivered_refs_file_path,
-    load_delivered_refs_file,
-)
-from dec_active_control import _commit_active  # noqa: E402
+from cycle_delivered_refs import delivered_refs_file_path  # noqa: E402
 from dec_gate_control import (  # noqa: E402
     cmd_deliver,
     cmd_gate_close,
     cmd_init_session,
 )
-from dec_session_paths import skips_cycle_delivered_ref_on_deliver  # noqa: E402
-from dec_session_state_schema import session_state_file, write_session_state  # noqa: E402
+from dec_session_state_schema import session_state_file  # noqa: E402
 from dec_test_helpers import render_session_doc  # noqa: E402
 from dec_workflow_common import session_base_dir  # noqa: E402
 from test_dec_gate_loop_a import _close_qe, _full_template  # noqa: E402
@@ -49,21 +44,6 @@ def template_config(tmp_path: Path) -> Path:
 
 def _holder_constraints() -> Path:
     return _WORKFLOW_ROOT / "lulu-approach" / "constraints-feature.json"
-
-
-def test_skips_cycle_ref_helper_nested_approach_only(tmp_path: Path) -> None:
-    approach = tmp_path / "lulu-approach"
-    (approach / "D1").mkdir(parents=True)
-    (approach / "main").mkdir(parents=True)
-    flat = tmp_path / "decision"
-    flat.mkdir()
-    other_nested = tmp_path / "decision" / "D1"
-    other_nested.mkdir(parents=True)
-
-    assert skips_cycle_delivered_ref_on_deliver(approach / "D1") is True
-    assert skips_cycle_delivered_ref_on_deliver(approach / "main") is True
-    assert skips_cycle_delivered_ref_on_deliver(flat) is False
-    assert skips_cycle_delivered_ref_on_deliver(other_nested) is False
 
 
 def _bring_active_to_dc_then_deliver(
@@ -129,57 +109,51 @@ def _bring_active_to_dc_then_deliver(
     assert cmd_deliver(project_root, cycle_id, stage) == 0
 
 
-def test_nested_approach_deliver_skips_cycle_delivered_refs(
+def _assert_complete_without_cycle_refs(
+    project_root: Path,
+    cycle_id: str,
+    stage: str,
+    session_dir: Path,
+) -> None:
+    ss = session_state_file(session_dir).read_text(encoding="utf-8")
+    assert "current_state: Completed" in ss
+    assert (session_dir / "decision-doc.md").is_file()
+    assert not delivered_refs_file_path(cycle_id, project_root).exists()
+
+
+def test_complete_does_not_write_cycle_refs_on_approach_root(
     template_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project_root = template_config
-    cycle_id = "feature-nested-deliver-001"
+    cycle_id = "feature-approach-complete-001"
     stage = "lulu-approach"
     monkeypatch.chdir(project_root)
     constraints = _holder_constraints()
-
-    outer = project_root / session_base_dir(
+    session_dir = project_root / session_base_dir(
         cycle_id, stage, project_root=project_root, constraints_path=constraints
     )
-    nested = outer / "D1"
     assert (
         cmd_init_session(
             project_root,
             cycle_id,
             stage,
             constraints_path=constraints,
-            session_dir=nested,
-            domain_override={"node_id": "D1", "session_role": "sub"},
-            commit_active=False,
+            session_dir=session_dir,
         )
         == 0
     )
-    write_session_state(session_state_file(nested), "InProgress")
-    _commit_active(project_root, cycle_id, stage, session_dir=nested, constraints_path=constraints)
-
     _bring_active_to_dc_then_deliver(project_root, cycle_id, stage)
-
-    ss = session_state_file(nested).read_text(encoding="utf-8")
-    assert "current_state: Completed" in ss
-    assert (nested / "decision-doc.md").is_file()
-    assert not (nested / "decision-fact.json").is_file()
-
-    refs_path = delivered_refs_file_path(cycle_id, project_root)
-    assert not refs_path.exists()
+    _assert_complete_without_cycle_refs(project_root, cycle_id, stage, session_dir)
 
 
-def test_flat_decision_deliver_still_writes_cycle_refs(
+def test_complete_does_not_write_cycle_refs_on_decision_stage(
     template_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project_root = template_config
-    cycle_id = "feature-flat-deliver-001"
+    cycle_id = "feature-decision-complete-001"
     stage = "decision"
     monkeypatch.chdir(project_root)
-
     assert cmd_init_session(project_root, cycle_id, stage) == 0
     _bring_active_to_dc_then_deliver(project_root, cycle_id, stage)
-
-    refs = load_delivered_refs_file(cycle_id, project_root)
-    entry = refs["entries"]["decision"]
-    assert entry["path"].endswith("decision-doc.md")
-    assert "D1/" not in entry["path"]
+    session_dir = project_root / session_base_dir(cycle_id, stage, project_root=project_root)
+    _assert_complete_without_cycle_refs(project_root, cycle_id, stage, session_dir)

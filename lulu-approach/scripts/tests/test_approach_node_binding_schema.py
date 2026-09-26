@@ -42,10 +42,10 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     payload = _nb.build_node_binding(
         binding_id="bind-test1",
         state="preparing",
-        previous={"focus": "D2", "active_session": "D2"},
-        target={"node_id": "D1", "session_dir": "D1"},
+        previous={"focus": None, "active_session": "."},
+        target={"node_id": ".", "session_dir": "."},
         context_snapshot={"path": "bindings/bind-test1/resolved-context.json", "sha256": "abc"},
-        frozen_nodes=["D1", "D2"],
+        frozen_nodes=[],
         operation="reopen",
         permit_path="bindings/bind-test1/permit.json",
         permit_state="issued",
@@ -55,7 +55,7 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     loaded = _nb.load_node_binding(root)
     assert loaded["binding_id"] == "bind-test1"
     assert loaded["state"] == "preparing"
-    assert loaded["frozen_nodes"] == ["D1", "D2"]
+    assert loaded["frozen_nodes"] == []
     assert loaded["permit_state"] == "issued"
 
 
@@ -67,7 +67,7 @@ def test_validate_rejects_bad_state() -> None:
                 "binding_id": "bind-x",
                 "state": "nope",
                 "previous": {"focus": None, "active_session": None},
-                "target": {"node_id": "D1", "session_dir": "D1"},
+                "target": {"node_id": ".", "session_dir": "."},
                 "context_snapshot": {"path": "", "sha256": ""},
                 "frozen_nodes": [],
                 "operation": "enter",
@@ -83,8 +83,8 @@ def test_atomic_write_no_tmp_left(tmp_path: Path) -> None:
     payload = _nb.build_node_binding(
         binding_id="bind-a",
         state="bound",
-        previous={"focus": "D1", "active_session": "D1"},
-        target={"node_id": "D1", "session_dir": "D1"},
+        previous={"focus": None, "active_session": "."},
+        target={"node_id": ".", "session_dir": "."},
         operation="enter",
     )
     _nb.save_node_binding(root, payload)
