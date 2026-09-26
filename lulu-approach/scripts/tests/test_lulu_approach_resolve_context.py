@@ -99,7 +99,7 @@ def test_topic_template_resolves_blueprint_only(tmp_path):
     }
 
 
-def test_dx_requires_main_decision_doc(tmp_path):
+def test_dx_session_is_rejected(tmp_path):
     cache_dir = tmp_path / platform_cache_dir(detect_platform())
     approach = cache_dir / "feature-a" / "lulu-approach"
     (approach / "main").mkdir(parents=True)
@@ -108,56 +108,10 @@ def test_dx_requires_main_decision_doc(tmp_path):
     try:
         resolve(tmp_path, "feature-a", _TEMPLATE_FEATURE, session_dir=dx)
     except ValueError as exc:
-        assert "main decision doc missing" in str(exc)
+        assert "sub-decision split is not supported" in str(exc)
     else:
         raise AssertionError("expected ValueError")
 
-
-def test_dx_adds_main_decision_boundary_rules_and_optional_split(tmp_path):
-    cache_dir = tmp_path / platform_cache_dir(detect_platform())
-    approach = cache_dir / "feature-a" / "lulu-approach"
-    main = approach / "main"
-    main.mkdir(parents=True)
-    main_doc = main / "decision-doc.md"
-    main_doc.write_text("# main\n", encoding="utf-8")
-    pkg = approach / "decision-package.json"
-    pkg.write_text("{}", encoding="utf-8")
-    dx = approach / "D1"
-    dx.mkdir()
-
-    topic_id = "topic-20260101000000-aabbccdd"
-    _write_cycles_json(cache_dir, "feature-a", {"name": "x", "topic_id": topic_id})
-    _write_cycles_json(cache_dir, topic_id, {"name": "t"})
-    _make_upstream_doc(cache_dir, "feature-a", "lulu-spec", "product-doc.md")
-    _write_topic_delivered_ref(cache_dir, topic_id, "lulu-arch")
-
-    payload = resolve(tmp_path, "feature-a", _TEMPLATE_FEATURE, session_dir=dx)
-    docs = payload["context"]["docs"]
-    assert docs["main_decision"] == main_doc.resolve().as_posix()
-    assert docs["decision_split"] == pkg.resolve().as_posix()
-    boundary = (_SCRIPTS.parent / "references" / "boundary-rules.md").resolve()
-    assert docs["boundary_rules"] == boundary.as_posix()
-    assert boundary.is_file()
-    assert "product_spec" not in docs
-    assert "tech_arch" not in docs
-
-
-def test_dx_requires_boundary_rules_file(tmp_path, monkeypatch):
-    cache_dir = tmp_path / platform_cache_dir(detect_platform())
-    approach = cache_dir / "feature-a" / "lulu-approach"
-    main = approach / "main"
-    main.mkdir(parents=True)
-    (main / "decision-doc.md").write_text("# main\n", encoding="utf-8")
-    dx = approach / "D1"
-    dx.mkdir()
-    missing = tmp_path / "missing-boundary-rules.md"
-    monkeypatch.setattr(_module, "_BOUNDARY_RULES_PATH", missing)
-    try:
-        resolve(tmp_path, "feature-a", _TEMPLATE_FEATURE, session_dir=dx)
-    except ValueError as exc:
-        assert "boundary rules missing" in str(exc)
-    else:
-        raise AssertionError("expected ValueError")
 
 def test_cli_writes_resolved_context_file_and_prints_its_path(tmp_path):
     result = subprocess.run(

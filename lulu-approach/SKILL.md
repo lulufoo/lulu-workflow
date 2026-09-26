@@ -36,13 +36,12 @@ invocation. Do not read session data files for routing.
 
 | Macro | Command |
 |-------|---------|
-| `$RESOLVE_CONTEXT` | `python3 "$SKILL_DIR/scripts/resolve_context.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json" [--session-dir "<main_or_Dx>"]` |
+| `$RESOLVE_CONTEXT` | `python3 "$SKILL_DIR/scripts/resolve_context.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json" [--session-dir "<main>"]` |
 | `$RESOLVE_CONTEXT_DOCS` | `python3 "$SKILL_DIR/scripts/resolve_context_docs.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
 | `$RESOLVE_CONSTRAINT_DOCS` | `python3 "$SKILL_DIR/scripts/resolve_constraint_docs.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
 | `$APPROACH_SHELL` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT"` |
 | `$APPROACH_NODE` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT" <subcommand> --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
 | `$APPROACH_DELIVER` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT" deliver --cycle-id "<cycle_id>" --project-root "$(pwd)"` |
-| `$APPROACH_SPLIT` | `python3 "$SKILL_DIR/scripts/approach_split_control.py" --approach-root "$APPROACH_ROOT"` |
 
 ### Imported decision macros
 
@@ -64,14 +63,12 @@ Subcommand and stdout contracts remain in script module docstrings or `--help`.
 ## Outer spine
 
 ```text
-Path A: Main (node Completed) → record-path-choice A → PackageReady → stage Delivered
-Path B: Main → record-path-choice B → Split → Working (D1…Dn, single focus) → PackageReady → stage Delivered
+Main (node Completed) → PackageReady → stage Delivered
 ```
 
 Node/session **Completed** (`$GATE_CONTROL complete`) is not approach-stage
-**Delivered** (`$APPROACH_DELIVER`). After Main Completes, ask whether to
-split; do not enter PackageReady or Split until
-`$APPROACH_SHELL record-path-choice` succeeds.
+**Delivered** (`$APPROACH_DELIVER`). After Main Completes, enter PackageReady
+and stage-deliver.
 
 ## Load Context (before Main enter)
 
@@ -153,179 +150,36 @@ session is declared to the user.
    `$GATE_CONTROL complete`.
 
 **Done:** `main` is **Completed** (node/session). Tell the user this is not
-approach-stage **Delivered**. Stop. Ask only whether to split.
+approach-stage **Delivered**.
 
-**Exit:** After the user answers split / no-split:
-
-1. No split — run `$APPROACH_SHELL record-path-choice --path A --confirm`, then
-   continue with
-   [PackageReady → stage Deliver](#packageready--stage-deliver).
-2. Split — run `$APPROACH_SHELL record-path-choice --path B --confirm`, then
-   continue with [Split](#split).
-
-Do not call `$APPROACH_SHELL enter-package-ready` or
-`$APPROACH_SHELL enter-split` before that command succeeds. Decision-session
-"deliver" / "continue" / DC close is not a path choice.
+**Exit:** Continue with
+[PackageReady → stage Deliver](#packageready--stage-deliver).
 
 **Stop:** On non-zero output, stop and report stderr. If `$DEC_START` reports a
 blocked prior stage, report that stage and do not retry.
 
-## Split
-
-**Entry:** `main` is Completed and `$APPROACH_SHELL record-path-choice --path B --confirm` succeeded.
-
-**Act:**
-
-1. Run `$APPROACH_SHELL enter-split`.
-2. Run `$APPROACH_SPLIT write-intake`, then after explicit human confirmation
-   run `$APPROACH_SPLIT complete-intake --confirm`.
-3. Prepare candidate tree and ruler inputs at `$TREE_PATH` and `$RULERS_PATH`.
-   After explicit human confirmation, run:
-
-   ```bash
-   $APPROACH_SPLIT lock-tree-rulers \
-     --tree "$TREE_PATH" --rulers "$RULERS_PATH" --confirm
-   ```
-
-4. After explicit human confirmation, run `$APPROACH_SPLIT complete-split --confirm`.
-   Capture the returned `slices[].id` in order as `$SLICE_IDS`.
-5. Run `$APPROACH_SHELL enter-working --node-ids $SLICE_IDS [--focus "<Dx>"]`,
-   then continue with [Enter or resume a Dx](#enter-or-resume-a-dx).
-
-**Done:** Split complete and a Working focus both succeed.
-
-**Stop:** On non-zero output or absent human confirmation, stop and report.
-
-## Working
-
-Single focus is mandatory; the current focus must be Completed before a different
-node is entered.
-
-### Enter or resume a Dx
-
-**Entry:** A focused or ready `Dx` is selected.
-
-**Act:**
-
-1. Run `$APPROACH_NODE enter-node --node-id "<Dx>"`.
-2. Complete [Shared context activation](#shared-context-activation).
-3. Load the `boundary_rules` document; apply its constraints only for this
-   sub-decision’s current execution.
-   - **Scope:** citation and dependency boundaries of the current sub-decision
-     relative to the main decision, decision split, and other sub-decisions.
-   - **Out of scope:** other context and project facts.
-   - Follow the sections in order (Principle → Decision materials → Own
-     position → Contract interfaces → Self-check).
-4. Run `$APPROACH_SHELL bind-check-frozen --node-id "<Dx>"`. If
-   `realign_required=true`, keep the node Frozen, perform semantic Realign
-   against the loaded `context_docs` and this slice, then run
-   `$APPROACH_SHELL clear-frozen --node-id "<Dx>"`.
-
-Do **not** run Load Context or Load Constraint on Dx enter.
-
-**Done:** The target `Dx` is the usable Active session.
-
-**Stop:** On non-zero output, stop and report stderr.
-
-### Execute current Dx
-
-**Entry:** The target `Dx` is the usable Active session.
-
-**Act:** Run DDF gates and registers on Active through `$GATE_CONTROL`,
-`$REGISTER_CONTROL`, and `$REGISTER_COMMIT`; never pass `--session-dir`.
-
-**Done:** The current `Dx` is Completed.
-
-**Stop:** On non-zero output, stop and report stderr.
-
-### Advance or finish Working
-
-**Entry:** The current `Dx` is Completed.
-
-**Act:** If a ready node remains, repeat [Enter or resume a Dx](#enter-or-resume-a-dx).
-When no nodes remain and none are Frozen, continue with
-[PackageReady → stage Deliver](#packageready--stage-deliver).
-
-**Done:** The next `Dx` is Active, or PackageReady is ready to enter.
-
-**Stop:** On non-zero output, stop and report stderr.
-
-Do not use `$APPROACH_SHELL set-focus`, treat a focus-only change as a session
-switch, or invent a decision-only Active switch.
-
 ## PackageReady → stage Deliver
 
-**Entry:** `main` is Completed and `$APPROACH_SHELL record-path-choice --path A --confirm` succeeded, or all Working nodes are Completed and none are Frozen.
+**Entry:** `main` is Completed.
 
 **Act:**
 
 1. Run `$APPROACH_SHELL enter-package-ready`.
-2. Run `$APPROACH_DELIVER --confirm`:
-   - **Path A:** successful `record-path-choice --path A` is the human confirm —
-     do **not** ask a second deliver question; pass `--confirm` and
-     stage-deliver immediately. Decision-session "deliver" / "continue" / DC
-     close is not Path A.
-   - **Path B:** after Working is fully Completed, obtain explicit human
-     confirmation, then pass `--confirm`.
+2. Run `$APPROACH_DELIVER --confirm`.
+   Main Completed authorizes this deliver. Pass `--confirm` and stage-deliver
+   in this step.
 
 **Done:** On `$APPROACH_DELIVER` success, announce stage complete from stdout
 `next_steps` (join when non-empty).
 
-**Stop:** On non-zero output or (Path B) absent human confirmation, stop and report.
+**Stop:** On non-zero output, stop and report.
 
 ## Reopen paths
 
 Before `$APPROACH_NODE reopen-node --node-id main`, retain the currently
 declared source outer state. If it is unknown, stop and report; do not infer it
-from files. Until a selected reopen route completes, do not enter PackageReady
+from files. Until the reopen completes, do not enter PackageReady
 or stage deliver.
-
-### Split review
-
-**Entry:** Main reopen completed from source Split or Working, or Split reopen
-prepared. A candidate input at `$CANDIDATE_PATH` is prepared through human/AI
-dialogue.
-
-**Act:**
-
-1. Run `$APPROACH_NODE enter-node --node-id split`.
-2. Run:
-
-   ```bash
-   $APPROACH_SPLIT write-reopen-candidate \
-     --transaction-id "$TRANSACTION_ID" --candidate "$CANDIDATE_PATH"
-   ```
-
-3. After explicit human confirmation, run:
-
-   ```bash
-   $APPROACH_SHELL complete-split-reopen \
-     --transaction-id "$TRANSACTION_ID" --confirm
-   ```
-
-4. Continue with [Enter or resume a Dx](#enter-or-resume-a-dx).
-
-**Done:** A retained or rebuilt Working graph is selected.
-
-**Stop:** On non-zero output or absent human confirmation, stop and report.
-
-### Dx reopen
-
-**Entry:** A delivered or in-progress `Dx` must be revised.
-
-**Act:**
-
-1. Run `$APPROACH_NODE reopen-node --node-id "<Dx>"`. Capture stdout
-   `permit_path` as `$PERMIT_PATH` and `binding_id` as `$BINDING_ID`.
-2. Complete [Shared context activation](#shared-context-activation).
-3. Run `$DEC_REOPEN --permit "$PERMIT_PATH"`, perform RS dialogue, then run
-   `$RS_COMMIT --gate "<G>" --operations '<json array>'`.
-4. Run `$APPROACH_NODE complete-reopen --binding-id "$BINDING_ID"`.
-
-**Done:** The target reopen completes. Successors remain Frozen until each
-follows [Enter or resume a Dx](#enter-or-resume-a-dx).
-
-**Stop:** On non-zero output, stop and report stderr.
 
 ### Main reopen
 
@@ -342,26 +196,10 @@ follows [Enter or resume a Dx](#enter-or-resume-a-dx).
    `$RS_COMMIT --gate "<G>" --operations '<json array>'`.
 6. Run `$APPROACH_NODE complete-main-reopen --transaction-id "$TRANSACTION_ID"`.
 
-**Exit:** From source Split or Working, continue with
-[Split review](#split-review). From source Main, choose the applicable Main
-downstream path.
+**Exit:** Continue with
+[PackageReady → stage Deliver](#packageready--stage-deliver).
 
-**Done:** Main is repaired and its applicable downstream route is selected.
-
-**Stop:** On non-zero output, stop and report stderr.
-
-### Split reopen
-
-**Entry:** Split must be revised.
-
-**Act:**
-
-1. Run `$APPROACH_NODE reopen-node --node-id split`. Capture stdout
-   `transaction_id` as `$TRANSACTION_ID`.
-2. Complete [Shared context activation](#shared-context-activation).
-3. Continue with [Split review](#split-review).
-
-**Done:** Split review is entered.
+**Done:** Main is repaired.
 
 **Stop:** On non-zero output, stop and report stderr.
 
@@ -377,18 +215,6 @@ downstream path.
    [Shared context activation](#shared-context-activation).
 
 **Done:** Resume Main.
-
-**Stop:** On non-zero output, stop and report stderr.
-
-### Same-Active restore (Dx)
-
-**Entry:** Active remains a `Dx`.
-
-**Act:** Run `$APPROACH_NODE enter-node --node-id "<Dx>"`, complete
-[Shared context activation](#shared-context-activation), then follow the frozen
-check and Realign portion of [Enter or resume a Dx](#enter-or-resume-a-dx).
-
-**Done:** Resume the current `Dx`.
 
 **Stop:** On non-zero output, stop and report stderr.
 

@@ -262,54 +262,9 @@ def complete_split(
     rulers: dict[str, Any] | None = None,
     confirm: bool,
 ) -> dict[str, Any]:
-    """Split complete: lock tree+rulers, write ordered slices, mark shell.
-
-    Does **not** create ``Dx/`` directories (S3=B).
-    """
-    if not confirm:
-        raise ValueError("complete_split blocked: human --confirm required")
-    root = Path(approach_root).resolve()
-    shell = load_shell(root)
-    if shell["macro_state"] != "Split":
-        raise ValueError(
-            f"complete_split requires macro_state=Split, got {shell['macro_state']!r}"
-        )
-
-    if tree is not None and rulers is not None:
-        locked_tree, _ = lock_tree_and_rulers(
-            root, tree=tree, rulers=rulers, confirm=True
-        )
-    else:
-        locked_tree = load_dependency_tree(root)
-        if locked_tree.get("status") != "locked":
-            raise ValueError("complete_split blocked: dependency tree not locked")
-        locked_rulers = load_decision_rulers(root)
-        if locked_rulers.get("status") != "locked":
-            raise ValueError("complete_split blocked: decision rulers not locked")
-
-    slices = slices_from_locked_tree(locked_tree)
-    pkg_path = root / "decision-package.json"
-    if pkg_path.is_file():
-        package = load_decision_package(pkg_path)
-        package["slices"] = slices
-        package["status"] = "split_delivered"
-    else:
-        package = build_decision_package(
-            main=conventional_main_paths(),
-            slices=slices,
-            status="split_delivered",
-        )
-    save_decision_package(root, package)
-
-    shell["split_delivered"] = True
-    save_shell(root, shell)
-    return {
-        "ok": True,
-        "split_completed": True,
-        "slices": slices,
-        "package": package,
-        "tree": locked_tree,
-    }
+    """Split complete is retired with sub-decision split."""
+    del approach_root, tree, rulers, confirm
+    raise ValueError("sub-decision split is not supported")
 
 
 def deliver_split(

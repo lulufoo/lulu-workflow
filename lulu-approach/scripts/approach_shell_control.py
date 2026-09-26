@@ -1,19 +1,12 @@
 #!/usr/bin/env python3
 """Approach outer-shell control (archive-1.0 P2.shell).
 
-Macro transitions::
+Macro transition::
 
-    Main → Split → Working → PackageReady
-    Main → PackageReady          (no-split shortcut)
+    Main → PackageReady
 
-Path A/B after Main Completed requires ``record-path-choice`` (human
-``--confirm``). ``enter-package-ready`` / ``enter-split`` read ``path_choice``;
-they do not take a path CLI flag. Design:
-``docs/archive/lulu-dev-workflow/approach/archive-1.1/approach-main-complete-path-choice-gate-design.md``.
-
-Working: single focus; reject mid-switch until current focus is Completed.
-PackageReady: human ``--confirm`` required before stage ``deliver`` (Path A:
-selection may authorize confirm without a second ask).
+After Main is Completed, ``enter-package-ready`` does not take a path choice.
+PackageReady: pass ``--confirm`` on ``deliver``; the caller does not ask again.
 
 Node-complete stub: prefer ``by_id[].delivered``; else ``session-state.md``
 ``current_state: Completed`` under ``main/`` or ``Dx/`` when present.
@@ -220,39 +213,15 @@ def _require_path_choice(
 def record_path_choice(
     approach_root: Path, *, path: str, confirm: bool
 ) -> dict[str, Any]:
-    """Persist Path A/B after Main is Completed. Requires human ``--confirm``."""
-    if not confirm:
-        raise ValueError("record_path_choice blocked: human --confirm required")
-    choice = str(path).strip()
-    if choice not in PATH_CHOICES:
-        raise ValueError(f"record_path_choice requires --path A|B, got {path!r}")
-    shell = load_shell(approach_root)
-    if shell["macro_state"] != "Main":
-        raise ValueError(
-            f"record_path_choice requires macro_state=Main, got {shell['macro_state']!r}"
-        )
-    if not is_node_delivered(approach_root, "main", shell):
-        raise ValueError("record_path_choice blocked: main is not Completed")
-    shell["path_choice"] = choice
-    save_shell(approach_root, shell)
-    return shell
+    """Path choice is retired with sub-decision split."""
+    del approach_root, path, confirm
+    raise ValueError("sub-decision split is not supported")
 
 
 def enter_split(approach_root: Path) -> dict[str, Any]:
-    """Main → Split. Requires parent (main) Delivered. Never auto from start."""
-    shell = load_shell(approach_root)
-    if shell["macro_state"] != "Main":
-        raise ValueError(
-            f"enter_split requires macro_state=Main, got {shell['macro_state']!r}"
-        )
-    if not is_node_delivered(approach_root, "main", shell):
-        raise ValueError("enter_split blocked: main is not Completed")
-    _require_path_choice(shell, "B", "enter_split")
-    shell["macro_state"] = "Split"
-    shell["focus"] = "main"
-    shell["split_delivered"] = False
-    save_shell(approach_root, shell)
-    return shell
+    """Sub-decision split is not supported."""
+    del approach_root
+    raise ValueError("sub-decision split is not supported")
 
 
 def enter_working(
@@ -261,44 +230,9 @@ def enter_working(
     *,
     focus: str | None = None,
 ) -> dict[str, Any]:
-    """Split → Working. Requires Split Delivered stub; seeds by_id + single focus."""
-    shell = load_shell(approach_root)
-    if shell["macro_state"] != "Split":
-        raise ValueError(
-            f"enter_working requires macro_state=Split, got {shell['macro_state']!r}"
-        )
-    if not shell.get("split_delivered"):
-        raise ValueError("enter_working blocked: Split is not completed")
-    ids = [str(n).strip() for n in node_ids]
-    if not ids:
-        raise ValueError("enter_working requires non-empty node_ids")
-    for nid in ids:
-        if not _DX_ID_RE.match(nid):
-            raise ValueError(f"node_id must match D<number>, got {nid!r}")
-    if len(set(ids)) != len(ids):
-        raise ValueError("node_ids must be unique")
-    focus_id = str(focus).strip() if focus else ids[0]
-    if focus_id not in ids:
-        raise ValueError(f"focus {focus_id!r} not in node_ids")
-    # S3=B: create only the focused Dx/; others wait for set_focus
-    ensure_approach_layout(approach_root)
-    ensure_dx_on_focus(approach_root, focus_id)
-    by_id = {nid: empty_cell(phase="pending") for nid in ids}
-    by_id[focus_id] = empty_cell(phase="in_progress")
-    shell["macro_state"] = "Working"
-    shell["focus"] = focus_id
-    shell["by_id"] = by_id
-    save_shell(approach_root, shell)
-    dx = ensure_dx_on_focus(approach_root, focus_id)
-    return {
-        **shell,
-        "next_steps": {
-            "session_dir": dx.as_posix(),
-            "require": [
-                "APPROACH_SHELL enter-node for focused Dx",
-            ],
-        },
-    }
+    """Sub-decision split is not supported."""
+    del approach_root, node_ids, focus
+    raise ValueError("sub-decision split is not supported")
 
 
 def set_focus(approach_root: Path, node_id: str) -> dict[str, Any]:
@@ -1264,7 +1198,9 @@ def complete_main_reopen(
 def complete_split_reopen(
     approach_root: Path, *, transaction_id: str, confirm: bool
 ) -> dict[str, Any]:
-    """Confirm a Split candidate and retain an identical frozen Working graph."""
+    """Sub-decision split reopen is not supported."""
+    del approach_root, transaction_id, confirm
+    raise ValueError("sub-decision split is not supported")
     if not confirm:
         raise ValueError("complete-split-reopen blocked: human --confirm required")
     root = Path(approach_root).resolve()
@@ -1489,47 +1425,17 @@ def clear_frozen(approach_root: Path, node_id: str) -> dict[str, Any]:
 
 
 def enter_package_ready(approach_root: Path) -> dict[str, Any]:
-    """Main → PackageReady (no-split) or Working → PackageReady (all Dx Delivered)."""
+    """Main Completed → PackageReady."""
     shell = load_shell(approach_root)
     macro = shell["macro_state"]
-    if macro == "Main":
-        if not is_node_delivered(approach_root, "main", shell):
-            raise ValueError("enter_package_ready blocked: main is not Completed")
-        _require_path_choice(shell, "A", "enter_package_ready")
-        shell["macro_state"] = "PackageReady"
-        shell["focus"] = "main"
-        save_shell(approach_root, shell)
-        return shell
-    if macro == "Working":
-        by_id = shell.get("by_id") or {}
-        if not by_id:
-            raise ValueError("enter_package_ready blocked: empty by_id")
-        frozen = _frozen_ids(shell)
-        if frozen:
-            raise ValueError(
-                "enter_package_ready blocked: frozen nodes present: "
-                + ", ".join(frozen)
-            )
-        incomplete = [
-            nid
-            for nid, cell in by_id.items()
-            if not (
-                cell.get("delivered") is True
-                or is_node_delivered(approach_root, nid, shell)
-            )
-        ]
-        if incomplete:
-            raise ValueError(
-                "enter_package_ready blocked: not all children Completed "
-                f"(pending/frozen: {', '.join(incomplete)})"
-            )
-        _require_path_choice(shell, "B", "enter_package_ready")
-        shell["macro_state"] = "PackageReady"
-        save_shell(approach_root, shell)
-        return shell
-    raise ValueError(
-        f"enter_package_ready requires Main or Working, got {macro!r}"
-    )
+    if macro != "Main":
+        raise ValueError(f"enter_package_ready requires Main, got {macro!r}")
+    if not is_node_delivered(approach_root, "main", shell):
+        raise ValueError("enter_package_ready blocked: main is not Completed")
+    shell["macro_state"] = "PackageReady"
+    shell["focus"] = "main"
+    save_shell(approach_root, shell)
+    return shell
 
 
 def _restore_file(path: Path, previous: bytes | None) -> None:
@@ -1736,7 +1642,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser(
         "enter-package-ready",
-        help="Main/Working → PackageReady",
+        help="Main Completed → PackageReady",
     )
 
     for cmd_name, help_text in (

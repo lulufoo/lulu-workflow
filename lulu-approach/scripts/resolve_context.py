@@ -4,14 +4,11 @@
 ``context.docs`` is auto-derived from ``(cycle_id, stage)`` by the shared
 kernel resolver (``scripts/context_loading.py``), then stripped of Context /
 Constraint material keys (``product_spec`` / ``tech_arch`` — loaded via
-``resolve_context_docs`` / ``resolve_constraint_docs`` instead). When
-``--session-dir`` points at a ``Dx/`` nested session, extended with
-``main_decision``, ``boundary_rules``, and optional ``decision_split``.
-Missing main decision or boundary rules on Dx hard-fails.
+``resolve_context_docs`` / ``resolve_constraint_docs`` instead). A ``Dx/``
+session directory is rejected.
 
 Writes ``{"context": {"docs": {...}}}`` to a file and prints that file's path
-to stdout for ``$DEC_START`` / approach ``enter-node``／``reopen-node``
-(``--domain-constraints-file`` / binding snapshot).
+to stdout for ``$DEC_START`` (``--domain-constraints-file``).
 """
 
 from __future__ import annotations
@@ -38,12 +35,7 @@ from context_loading import build_context_loading  # noqa: E402
 from platform_schema import detect_platform  # noqa: E402
 from platforms.paths import cache_dir as platform_cache_dir  # noqa: E402
 
-from approach_layout import (  # noqa: E402
-    MAIN_DIRNAME,
-    approach_root_from_session_dir,
-    decision_package_path,
-    main_session_dir,
-)
+from approach_layout import MAIN_DIRNAME  # noqa: E402
 from dec_domain_constraints_schema import load_constraints_config  # noqa: E402
 from dec_io import atomic_write_text  # noqa: E402
 from material_docs import strip_binding_excluded  # noqa: E402
@@ -51,8 +43,6 @@ from material_docs import strip_binding_excluded  # noqa: E402
 STAGE = "lulu-approach"
 _RESOLVED_CONTEXT_FILENAME = "resolved-context.json"
 _DX_ID_RE = re.compile(r"^D\d+$")
-_MAIN_DECISION_DOC = "decision-doc.md"
-_BOUNDARY_RULES_PATH = _SKILL_DIR / "references" / "boundary-rules.md"
 
 
 def _session_role(session_dir: Path | None) -> str:
@@ -64,28 +54,6 @@ def _session_role(session_dir: Path | None) -> str:
     if _DX_ID_RE.match(name):
         return "sub"
     raise ValueError(f"session_dir must be main/ or Dx/, got {session_dir}")
-
-
-def _extend_for_dx(docs: dict[str, str], session_dir: Path) -> dict[str, str]:
-    """Add main_decision, boundary_rules (required) and decision_split (optional) for Dx."""
-    root = approach_root_from_session_dir(session_dir)
-    main_doc = main_session_dir(root) / _MAIN_DECISION_DOC
-    if not main_doc.is_file():
-        raise ValueError(
-            f"Dx bind blocked: main decision doc missing: {main_doc.as_posix()}"
-        )
-    boundary = _BOUNDARY_RULES_PATH.resolve()
-    if not boundary.is_file():
-        raise ValueError(
-            f"Dx bind blocked: boundary rules missing: {boundary.as_posix()}"
-        )
-    out = dict(docs)
-    out["main_decision"] = main_doc.resolve().as_posix()
-    out["boundary_rules"] = boundary.as_posix()
-    pkg = decision_package_path(root)
-    if pkg.is_file():
-        out["decision_split"] = pkg.resolve().as_posix()
-    return out
 
 
 def resolve(
@@ -102,8 +70,7 @@ def resolve(
     docs = strip_binding_excluded(dict(context.get("docs") or {}))
     role = _session_role(session_dir)
     if role == "sub":
-        assert session_dir is not None
-        docs = _extend_for_dx(docs, session_dir)
+        raise ValueError("sub-decision split is not supported")
     return {"context": {"docs": docs}}
 
 
