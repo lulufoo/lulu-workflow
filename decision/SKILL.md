@@ -4,7 +4,7 @@ name: decision
 
 # decision-workflow
 
-The goal is a delivered Diagnostic Decision Framework session the user has confirmed. This file starts, routes, and finishes; Signals fire beside the spine, and each runner owns dialogue.
+Through one structured decision, settle the work into a user-confirmed, landable shape: the key changes that realize it, how they fit together, and the constraints on them, without execution detail. This file starts, routes, and finishes; Signals fire beside the spine, and each runner owns dialogue.
 
 ---
 
