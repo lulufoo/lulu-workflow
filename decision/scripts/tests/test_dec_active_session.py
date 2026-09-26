@@ -20,16 +20,29 @@ from dec_active_session_schema import (  # noqa: E402
     validate_active_session,
 )
 from dec_session_paths import (  # noqa: E402
+    find_session_dir,
     resolve_active_session_dir,
     stage_outer_root,
 )
 
 
+def test_find_session_dir_matches_cycle_child_not_nested_child(tmp_path: Path) -> None:
+    cycle = tmp_path / "cache" / "c1"
+    stage_dir = cycle / "holder"
+    nested = stage_dir / "main"
+    nested.mkdir(parents=True)
+    payload = json.dumps({"stage": "holder"})
+    (stage_dir / "domain-constraints.json").write_text(payload, encoding="utf-8")
+    (nested / "domain-constraints.json").write_text(payload, encoding="utf-8")
+    found = find_session_dir(tmp_path, "c1", "holder", Path("cache"))
+    assert found == stage_dir
+
+
 def test_validate_active_session_ok() -> None:
     data = validate_active_session(
-        {"version": "1", "session_dir": "D1", "updated_at": "2026-07-29T00:00:00+00:00"}
+        {"version": "1", "session_dir": "work", "updated_at": "2026-07-29T00:00:00+00:00"}
     )
-    assert data["session_dir"] == "D1"
+    assert data["session_dir"] == "work"
 
 
 def test_validate_rejects_escape() -> None:
@@ -40,9 +53,9 @@ def test_validate_rejects_escape() -> None:
 def test_save_load_roundtrip(tmp_path: Path) -> None:
     outer = tmp_path / "outer"
     outer.mkdir()
-    save_active_session(outer, "main")
+    save_active_session(outer, ".")
     loaded = load_active_session(outer)
-    assert loaded["session_dir"] == "main"
+    assert loaded["session_dir"] == "."
     assert (outer / ACTIVE_SESSION_FILENAME).is_file()
 
 

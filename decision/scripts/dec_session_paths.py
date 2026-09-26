@@ -4,32 +4,14 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 from typing import Optional
 
 from dec_domain_constraints_schema import load_domain_constraints
 
-_APPROACH_DX_DIR_PAT = re.compile(r"^D\d+$")
-_PACKAGE_DELIVER_OUTER_NAMES = frozenset({"lulu-approach"})
-
 
 def default_cache_subdir(stage: str) -> str:
     return stage
-
-
-def skips_cycle_delivered_ref_on_deliver(session_dir: Path) -> bool:
-    """True when session is ``main/`` or ``Dx/`` under a stage-deliver holder outer.
-
-    Those sessions close locally on ``complete``; cycle ``delivered-refs`` is owned
-    by the holder stage deliver (e.g. approach ``deliver`` → decision-package).
-    Flat stage roots keep writing cycle refs on complete.
-    """
-    session = Path(session_dir).resolve()
-    name = session.name
-    if name != "main" and not _APPROACH_DX_DIR_PAT.match(name):
-        return False
-    return session.parent.name in _PACKAGE_DELIVER_OUTER_NAMES
 
 
 def _domain_constraints_stage(session_dir: Path) -> str | None:
@@ -46,41 +28,10 @@ def _domain_constraints_stage(session_dir: Path) -> str | None:
 
 
 def find_session_dir(project_root: Path, cycle_id: str, stage: str, cache_root: Path) -> Path | None:
-    """Locate session dir by domain-constraints stage field under cache/cycle_id.
-
-    For ``lulu-approach``, prefer ``<stage>/main`` when its domain-constraints
-    match; also discovers nested ``Dx/`` session roots. When multiple nested
-    sessions match and no explicit ``session_dir`` is provided, prefer ``main``.
-    Flat ``<stage>/domain-constraints.json`` remains supported for back-compat.
-    """
+    """Locate the cycle child whose domain-constraints stage matches."""
     cycle_base = project_root / cache_root / cycle_id
     if not cycle_base.is_dir():
         return None
-
-    if stage == "lulu-approach":
-        stage_dir = cycle_base / default_cache_subdir(stage)
-        if stage_dir.is_dir():
-            matches: list[Path] = []
-            main_dir = stage_dir / "main"
-            if _domain_constraints_stage(main_dir) == stage:
-                matches.append(main_dir)
-            for child in sorted(stage_dir.iterdir()):
-                if (
-                    child.is_dir()
-                    and _APPROACH_DX_DIR_PAT.match(child.name)
-                    and _domain_constraints_stage(child) == stage
-                ):
-                    matches.append(child)
-            if matches:
-                for candidate in matches:
-                    if candidate.name == "main":
-                        return candidate
-                if len(matches) == 1:
-                    return matches[0]
-                return None
-            if _domain_constraints_stage(stage_dir) == stage:
-                return stage_dir
-
     for sub in cycle_base.iterdir():
         if not sub.is_dir():
             continue
@@ -137,16 +88,6 @@ def session_cache_subdir(
                 return subdir
         except (FileNotFoundError, ValueError):
             pass
-        # Nested main/Dx: outer is parent of the session root.
-        if found.name == "main" or _APPROACH_DX_DIR_PAT.match(found.name):
-            parent = found.parent
-            cycle_base = (project_root / cache_root / cycle_id).resolve()
-            try:
-                rel = parent.resolve().relative_to(cycle_base)
-                if len(rel.parts) == 1:
-                    return rel.parts[0]
-            except ValueError:
-                pass
     if constraints_path is not None:
         from dec_domain_constraints_schema import load_constraints_config
 

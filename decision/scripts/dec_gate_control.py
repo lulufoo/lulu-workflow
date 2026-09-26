@@ -17,8 +17,7 @@ Subcommands:
     prepare                Verify delivery-ready + decision-doc without changing
                            session state or delivered refs.
     complete               Set session-state Completed (requires DC closed +
-                           decision-doc). Nested approach main/Dx skips cycle
-                           delivered-refs (holder stage deliver owns them).
+                           decision-doc). Does not write cycle delivered-refs.
                            Alias: deliver.
     complete-assumption    Write release_terms + check evidence + risk_state=completed on
                            RK# (or leftover A#). Structured terms need
@@ -93,7 +92,6 @@ from dec_session_render import render_reply_header  # noqa: E402
 from dec_session_paths import (  # noqa: E402
     resolve_session_root_for_command,
     session_artifact_paths,
-    skips_cycle_delivered_ref_on_deliver,
     stage_outer_root,
 )
 from dec_session_state_schema import (  # noqa: E402
@@ -1311,19 +1309,6 @@ def cmd_complete(
             return _emit_error("; ".join(errors))
         ss_path = paths.get("session_state") or session_state_file(paths["session_dir"])
         doc_path = paths["decision_doc"]
-        # Nested approach main/Dx: local Completed only; cycle refs via holder stage deliver.
-        if not skips_cycle_delivered_ref_on_deliver(paths["session_dir"]):
-            from cycle_delivered_refs import record_delivered_ref  # noqa: WPS433
-
-            record_delivered_ref(
-                cycle_id,
-                project_root,
-                delivered_type=stage,
-                path=str(doc_path.resolve()),
-                revision=1,
-                profile_id=stage,
-                source_workflow_state=str(ss_path.resolve()),
-            )
         write_session_state(ss_path, "Completed")
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))

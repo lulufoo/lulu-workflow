@@ -37,10 +37,6 @@ def _load(name: str, path: Path):
     return mod
 
 
-_tree = _load(
-    "approach_dependency_tree_schema",
-    _APPROACH_SCHEMA / "approach_dependency_tree_schema.py",
-)
 _ctrl = _load("approach_shell_control", _APPROACH_SCRIPTS / "approach_shell_control.py")
 
 
@@ -58,24 +54,8 @@ def _write_template_config(project_root: Path) -> None:
 def _prepared(project_root: Path, cycle_id: str) -> Path:
     root = project_root / platform_cache_dir(detect_platform()) / cycle_id / "lulu-approach"
     _ctrl.init_shell(root)
-    (root / "main" / "decision-doc.md").write_text("# Main\n", encoding="utf-8")
-    write_session_state(root / "main" / "session-state.md", "Delivered")
-    _ctrl.record_path_choice(root, path="B", confirm=True)
-    _ctrl.enter_split(root)
-    _ctrl.mark_split_delivered(root)
-    _ctrl.enter_working(root, ["D1", "D2"], focus="D1")
-    _tree.save_dependency_tree(
-        root,
-        _tree.build_tree(
-            nodes=[
-                {"id": "D1", "title": "one", "summary": "s1"},
-                {"id": "D2", "title": "two", "summary": "s2"},
-            ],
-            edges=[{"from": "D2", "to": "D1"}],
-            order=["D1", "D2"],
-            status="locked",
-        ),
-    )
+    (root / "decision-doc.md").write_text("# Decision\n", encoding="utf-8")
+    write_session_state(root / "session-state.md", "Delivered")
     return root
 
 
@@ -88,14 +68,13 @@ def test_holder_required_rejects_without_permit(
     _write_template_config(project_root)
     cycle_id = "feature-reopen-permit-001"
     root = _prepared(project_root, cycle_id)
-    _ctrl.enter_node(
+    _ctrl.enter_session(
         root,
-        "D1",
         project_root=project_root,
         cycle_id=cycle_id,
         constraints_path=_CONSTRAINTS,
     )
-    write_session_state(root / "D1" / "session-state.md", "Delivered")
+    write_session_state(root / "session-state.md", "Delivered")
     err = io.StringIO()
     with redirect_stderr(err), redirect_stdout(io.StringIO()):
         rc = cmd_reopen(
@@ -117,32 +96,22 @@ def test_holder_required_consumes_permit_and_freezes(
     _write_template_config(project_root)
     cycle_id = "feature-reopen-permit-002"
     root = _prepared(project_root, cycle_id)
-    _ctrl.enter_node(
+    _ctrl.enter_session(
         root,
-        "D1",
         project_root=project_root,
         cycle_id=cycle_id,
         constraints_path=_CONSTRAINTS,
     )
-    _ctrl.mark_node_delivered(root, "D1")
-    write_session_state(root / "D1" / "session-state.md", "Delivered")
-    _ctrl.enter_node(
+    write_session_state(root / "session-state.md", "Delivered")
+    result = _ctrl.reopen_session(
         root,
-        "D2",
-        project_root=project_root,
-        cycle_id=cycle_id,
-        constraints_path=_CONSTRAINTS,
-    )
-    result = _ctrl.reopen_node(
-        root,
-        "D1",
         project_root=project_root,
         cycle_id=cycle_id,
         constraints_path=_CONSTRAINTS,
     )
     permit = Path(result["permit_path"])
     assert json.loads(permit.read_text(encoding="utf-8"))["state"] == "issued"
-    assert read_current_state(root / "D1" / "session-state.md") == "Completed"
+    assert read_current_state(root / "session-state.md") == "Completed"
 
     out = io.StringIO()
     with redirect_stdout(out):
@@ -157,7 +126,7 @@ def test_holder_required_consumes_permit_and_freezes(
     payload = json.loads(out.getvalue())
     assert payload["session_state"] == "Frozen"
     assert payload["permit_state"] == "consumed"
-    assert read_current_state(root / "D1" / "session-state.md") == "Frozen"
+    assert read_current_state(root / "session-state.md") == "Frozen"
     assert json.loads(permit.read_text(encoding="utf-8"))["state"] == "consumed"
 
     err = io.StringIO()

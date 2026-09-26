@@ -22,6 +22,32 @@ _COMPOSE_STAGES = frozenset(
 )
 
 
+def _seed_approach_decision_package(cache_dir: Path, cycle_id: str) -> None:
+    stage_dir = cache_dir / cycle_id / "lulu-approach"
+    stage_dir.mkdir(parents=True, exist_ok=True)
+    pkg = stage_dir / "decision-package.json"
+    if not pkg.is_file():
+        pkg.write_text("{}\n", encoding="utf-8")
+    refs_path = cache_dir / cycle_id / "delivered-refs.json"
+    data: dict = {"version": 1, "entries": {}}
+    if refs_path.is_file():
+        loaded = json.loads(refs_path.read_text(encoding="utf-8"))
+        if isinstance(loaded, dict):
+            data = loaded
+            data.setdefault("entries", {})
+    data["entries"]["lulu-approach"] = {
+        "delivered_type": "lulu-approach",
+        "path": str(pkg.resolve()),
+        "revision": 1,
+        "profile_id": "lulu-approach",
+        "artifact": "decision-package",
+        "delivered_at": "2026-06-01T00:00:00+00:00",
+        "source_workflow_state": "",
+    }
+    refs_path.parent.mkdir(parents=True, exist_ok=True)
+    refs_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
 def _make_workflow_state(tmp_path: Path, cycle_id: str, stage: str, revision: str,
                           state: str, updated_at: str = "2026-06-01T00:00:00+00:00") -> Path:
     """Create a session state file at the correct path for the given stage.
@@ -181,6 +207,17 @@ class TestCurrentEffectiveDelivered:
         _make_workflow_state(tmp_path, "feat-a", "lulu-bet", "r1", "InProgress")
         assert current_effective_delivered("feat-a", "lulu-bet", tmp_path) is False
 
+    def test_approach_completed_without_package_is_not_delivered(self, tmp_path):
+        from workflow_sessions import current_effective_delivered
+        _make_workflow_state(tmp_path, "feat-a", "lulu-approach", "r1", "Completed")
+        assert current_effective_delivered("feat-a", "lulu-approach", tmp_path) is False
+
+    def test_approach_delivered_requires_decision_package_ref(self, tmp_path):
+        from workflow_sessions import current_effective_delivered
+        _make_workflow_state(tmp_path, "feat-a", "lulu-approach", "r1", "Completed")
+        _seed_approach_decision_package(tmp_path, "feat-a")
+        assert current_effective_delivered("feat-a", "lulu-approach", tmp_path) is True
+
 
 # ---------------------------------------------------------------------------
 # check_gate  (uses real config files from lulu-dev-workflow/config/)
@@ -303,11 +340,15 @@ class TestCheckGate:
                 ok, _ = check_gate("feat-a", stage, "feature", tmp_path)
                 assert ok is True, f"First stage {stage} should be allowed from NULL"
                 _make_workflow_state(tmp_path, "feat-a", stage, "r1", "Delivered")
+                if stage == "lulu-approach":
+                    _seed_approach_decision_package(tmp_path, "feat-a")
                 _make_cycle_state(tmp_path, "feat-a", stage)
             else:
                 ok, _ = check_gate("feat-a", stage, "feature", tmp_path)
                 assert ok is True, f"Stage {stage} should be allowed after prior Delivered"
                 _make_workflow_state(tmp_path, "feat-a", stage, "r1", "Delivered")
+                if stage == "lulu-approach":
+                    _seed_approach_decision_package(tmp_path, "feat-a")
                 _make_cycle_state(tmp_path, "feat-a", stage)
 
 

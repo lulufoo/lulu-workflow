@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -11,7 +10,15 @@ from typing import Any
 from dec_io import atomic_write_text
 
 ACTIVE_SESSION_FILENAME = "active-session.json"
-_SESSION_DIR_RE = re.compile(r"^(main|D\d+|\.)$")
+
+
+def _is_session_dir_label(session_dir: str) -> bool:
+    """True for the stage outer (``.``) or one child name under it."""
+    if session_dir == ".":
+        return True
+    if not session_dir or session_dir == "..":
+        return False
+    return "/" not in session_dir and "\\" not in session_dir
 
 
 def _now_iso() -> str:
@@ -29,9 +36,9 @@ def validate_active_session(data: dict[str, Any]) -> dict[str, Any]:
     if version != "1":
         raise ValueError(f"active-session version must be '1', got {version!r}")
     session_dir = str(data.get("session_dir", "")).strip()
-    if not _SESSION_DIR_RE.match(session_dir):
+    if not _is_session_dir_label(session_dir):
         raise ValueError(
-            f"session_dir must be main|D<number>|., got {session_dir!r}"
+            f"session_dir must be '.' or a single directory name, got {session_dir!r}"
         )
     updated_at = str(data.get("updated_at", "")).strip()
     if not updated_at:
@@ -100,6 +107,6 @@ def relative_session_dir_for(stage_outer: Path, session_abs: Path) -> str:
             f"session_dir must be a single segment under outer, got {rel.as_posix()!r}"
         )
     name = rel.parts[0]
-    if not _SESSION_DIR_RE.match(name):
+    if not _is_session_dir_label(name):
         raise ValueError(f"invalid nested session name: {name!r}")
     return name

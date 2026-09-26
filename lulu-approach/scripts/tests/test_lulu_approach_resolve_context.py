@@ -80,8 +80,6 @@ def test_feature_binding_map_strips_product_spec_and_tech_arch(tmp_path):
     docs = payload["context"]["docs"]
     assert "product_spec" not in docs
     assert "tech_arch" not in docs
-    assert "main_decision" not in docs
-    assert "boundary_rules" not in docs
 
 
 def test_feature_template_omits_missing_docs(tmp_path):
@@ -99,16 +97,16 @@ def test_topic_template_resolves_blueprint_only(tmp_path):
     }
 
 
-def test_dx_session_is_rejected(tmp_path):
+def test_non_approach_root_session_is_rejected(tmp_path):
     cache_dir = tmp_path / platform_cache_dir(detect_platform())
     approach = cache_dir / "feature-a" / "lulu-approach"
-    (approach / "main").mkdir(parents=True)
-    dx = approach / "D1"
-    dx.mkdir()
+    approach.mkdir(parents=True)
+    other = approach / "other"
+    other.mkdir()
     try:
-        resolve(tmp_path, "feature-a", _TEMPLATE_FEATURE, session_dir=dx)
+        resolve(tmp_path, "feature-a", _TEMPLATE_FEATURE, session_dir=other)
     except ValueError as exc:
-        assert "sub-decision split is not supported" in str(exc)
+        assert "session_dir must be the approach root" in str(exc)
     else:
         raise AssertionError("expected ValueError")
 

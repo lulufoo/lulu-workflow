@@ -27,11 +27,11 @@ is_decision_package_path = _mod.is_decision_package_path
 def _main() -> dict[str, str]:
     return {
 
-        "decision_doc_path": "main/decision-doc.md",
+        "decision_doc_path": "decision-doc.md",
     }
 
 
-def test_no_split_empty_slices_ok() -> None:
+def test_empty_slices_ok() -> None:
     pkg = build_decision_package(main=_main(), slices=[])
     assert validate_decision_package(pkg) == []
 

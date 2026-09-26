@@ -4,8 +4,8 @@ name: lulu-approach
 
 # lulu-approach
 
-Domain holder for technical diagnostic decisions. It orchestrates `decision`
-sessions under approach constraints; scripts own transitions, validation, and
+Domain holder for technical diagnostic decisions. It orchestrates one `decision`
+session under approach constraints; scripts own transitions, validation, and
 persistence.
 
 ## Prerequisites
@@ -24,8 +24,9 @@ All DDF rules, gates, and registers defined there apply to this session.
 </HARD-GATE>
 
 `$DECISION_SKILL_DIR` = `$SKILL_ROOT/decision`  
-`$APPROACH_ROOT` = `$CACHE_DIR/<cycle_id>/lulu-approach`  
-`$MAIN_SESSION_DIR` = `$APPROACH_ROOT/main`
+`$APPROACH_ROOT` = `$CACHE_DIR/<cycle_id>/lulu-approach`
+
+The decision session is `$APPROACH_ROOT`.
 
 Use `$SKILL_DIR/constraints-$CYCLE_TYPE.json` on every approach and decision
 invocation. Do not read session data files for routing.
@@ -36,12 +37,12 @@ invocation. Do not read session data files for routing.
 
 | Macro | Command |
 |-------|---------|
-| `$RESOLVE_CONTEXT` | `python3 "$SKILL_DIR/scripts/resolve_context.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json" [--session-dir "<main>"]` |
+| `$RESOLVE_CONTEXT` | `python3 "$SKILL_DIR/scripts/resolve_context.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json" [--session-dir "<approach_root>"]` |
 | `$RESOLVE_CONTEXT_DOCS` | `python3 "$SKILL_DIR/scripts/resolve_context_docs.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
 | `$RESOLVE_CONSTRAINT_DOCS` | `python3 "$SKILL_DIR/scripts/resolve_constraint_docs.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
 | `$APPROACH_SHELL` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT"` |
-| `$APPROACH_NODE` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT" <subcommand> --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
-| `$APPROACH_DELIVER` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT" deliver --cycle-id "<cycle_id>" --project-root "$(pwd)"` |
+| `$APPROACH_SESSION` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT" <subcommand> --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
+| `$APPROACH_DELIVER` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT" deliver --cycle-id "<cycle_id>" --project-root "$(pwd)" --confirm` |
 
 ### Imported decision macros
 
@@ -63,16 +64,16 @@ Subcommand and stdout contracts remain in script module docstrings or `--help`.
 ## Outer spine
 
 ```text
-Main (node Completed) → PackageReady → stage Delivered
+session Completed → PackageReady → stage Delivered
 ```
 
 Node/session **Completed** (`$GATE_CONTROL complete`) is not approach-stage
-**Delivered** (`$APPROACH_DELIVER`). After Main Completes, enter PackageReady
-and stage-deliver.
+**Delivered** (`$APPROACH_DELIVER`). After the session Completes, enter
+PackageReady and stage-deliver.
 
-## Load Context (before Main enter)
+## Load Context (before session enter)
 
-**Entry:** About to enter Main. Do not call `$DEC_START` yet.
+**Entry:** About to enter the session. Do not call `$DEC_START` yet.
 
 **Act:**
 
@@ -80,7 +81,7 @@ and stage-deliver.
 2. For each path in `files`, read the file once.
    If `files` is empty, skip reading and continue.
 3. Load `$SKILL_DIR/references/context-rules.md`.
-4. Apply Context rules for this Main entry:
+4. Apply Context rules for this entry:
    - Follow the sections in order
      (Principle → Context materials → Obligation → Body entry → Self-check).
    - Do not classify documents into kinds yourself.
@@ -89,9 +90,9 @@ and stage-deliver.
 
 **Stop:** On non-zero output, stop and report stderr.
 
-## Load Constraint (before Main enter)
+## Load Constraint (before session enter)
 
-**Entry:** [Load Context (before Main enter)](#load-context-before-main-enter)
+**Entry:** [Load Context (before session enter)](#load-context-before-session-enter)
 is complete. Do not call `$DEC_START` yet.
 
 **Act:**
@@ -100,7 +101,7 @@ is complete. Do not call `$DEC_START` yet.
 2. For each path in `files`, read the file once.
    If `files` is empty, skip reading and continue.
 3. Load `$SKILL_DIR/references/constraint-rules.md`.
-4. Apply Constraint rules for this Main entry:
+4. Apply Constraint rules for this entry:
    - Follow the sections in order
      (Principle → Constraint materials → Obligation → Body entry → Self-check).
    - Do not classify documents into kinds yourself.
@@ -112,28 +113,28 @@ applied.
 
 ## Shared context activation
 
-**Entry:** `$DEC_START`, `$APPROACH_NODE enter-node`, or
-`$APPROACH_NODE reopen-node` returned `context_docs`.
+**Entry:** `$DEC_START`, `$APPROACH_SESSION enter`, or
+`$APPROACH_SESSION reopen` returned `context_docs`.
 
 **Act:** Run `$GATE_CONTROL resolve-context`, read each returned `context_docs`
 path once, then declare the active session. Use only the newly pinned `$CTX`.
 Do **not** re-run Load Context or Load Constraint.
-(Those run only before Main enter.)
+(Those run only before session enter.)
 
 **Done:** `$CTX` is pinned, the listed documents are loaded, and the active
 session is declared to the user.
 
 **Stop:** On non-zero output, stop and report stderr.
 
-## Main
+## Session
 
 **Entry:** Session Foundation is complete.
 
 **Act:**
 
-1. Complete [Load Context (before Main enter)](#load-context-before-main-enter).
-2. Complete [Load Constraint (before Main enter)](#load-constraint-before-main-enter).
-3. Run `$RESOLVE_CONTEXT` with `--session-dir "$MAIN_SESSION_DIR"`; capture
+1. Complete [Load Context (before session enter)](#load-context-before-session-enter).
+2. Complete [Load Constraint (before session enter)](#load-constraint-before-session-enter).
+3. Run `$RESOLVE_CONTEXT` with `--session-dir "$APPROACH_ROOT"`; capture
    stdout path as `$RESOLVED_CONTEXT_PATH`.
 4. Run `$APPROACH_SHELL init-shell`.
 5. Run `$DEC_START` with:
@@ -141,16 +142,14 @@ session is declared to the user.
    ```bash
    --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json" \
    --domain-constraints-file "$RESOLVED_CONTEXT_PATH" \
-   --session-dir "$MAIN_SESSION_DIR"
+   --session-dir "$APPROACH_ROOT"
    ```
 
 6. Complete [Shared context activation](#shared-context-activation).
    Do **not** re-run Load Context or Load Constraint here.
-7. Run the delegated DDF on Active. After the DDF is ready to complete, run
-   `$GATE_CONTROL complete`.
+7. Run the delegated DDF on Active. DC close includes `$GATE_CONTROL complete`.
 
-**Done:** `main` is **Completed** (node/session). Tell the user this is not
-approach-stage **Delivered**.
+**Done:** The session is **Completed**.
 
 **Exit:** Continue with
 [PackageReady → stage Deliver](#packageready--stage-deliver).
@@ -160,14 +159,13 @@ blocked prior stage, report that stage and do not retry.
 
 ## PackageReady → stage Deliver
 
-**Entry:** `main` is Completed.
+**Entry:** The session is Completed.
 
 **Act:**
 
 1. Run `$APPROACH_SHELL enter-package-ready`.
-2. Run `$APPROACH_DELIVER --confirm`.
-   Main Completed authorizes this deliver. Pass `--confirm` and stage-deliver
-   in this step.
+2. Run `$APPROACH_DELIVER`.
+   Session Completed authorizes this deliver.
 
 **Done:** On `$APPROACH_DELIVER` success, announce stage complete from stdout
 `next_steps` (join when non-empty).
@@ -176,45 +174,43 @@ blocked prior stage, report that stage and do not retry.
 
 ## Reopen paths
 
-Before `$APPROACH_NODE reopen-node --node-id main`, retain the currently
-declared source outer state. If it is unknown, stop and report; do not infer it
-from files. Until the reopen completes, do not enter PackageReady
-or stage deliver.
+Before `$APPROACH_SESSION reopen`, retain the currently declared source outer
+state. If it is unknown, stop and report; do not infer it from files. Until the
+reopen completes, do not enter PackageReady or stage deliver.
 
-### Main reopen
+### Reopen
 
 **Entry:** The source outer state is known.
 
 **Act:**
 
-1. Complete [Load Context (before Main enter)](#load-context-before-main-enter).
-2. Complete [Load Constraint (before Main enter)](#load-constraint-before-main-enter).
-3. Run `$APPROACH_NODE reopen-node --node-id main`. Capture stdout
-   `permit_path` as `$PERMIT_PATH` and `transaction_id` as `$TRANSACTION_ID`.
+1. Complete [Load Context (before session enter)](#load-context-before-session-enter).
+2. Complete [Load Constraint (before session enter)](#load-constraint-before-session-enter).
+3. Run `$APPROACH_SESSION reopen`. Capture stdout `permit_path` as
+   `$PERMIT_PATH` and `transaction_id` as `$TRANSACTION_ID`.
 4. Complete [Shared context activation](#shared-context-activation).
 5. Run `$DEC_REOPEN --permit "$PERMIT_PATH"`, perform RS dialogue, then run
    `$RS_COMMIT --gate "<G>" --operations '<json array>'`.
-6. Run `$APPROACH_NODE complete-main-reopen --transaction-id "$TRANSACTION_ID"`.
+6. Run `$APPROACH_SESSION complete-reopen --transaction-id "$TRANSACTION_ID"`.
 
-**Exit:** Continue with
-[PackageReady → stage Deliver](#packageready--stage-deliver).
+**Done:** The session is repaired.
 
-**Done:** Main is repaired.
+**Exit:** Resume the delegated DDF on Active.
 
 **Stop:** On non-zero output, stop and report stderr.
 
-### Same-Active restore (Main)
+### Same-Active restore
 
-**Entry:** Active remains Main.
+**Entry:** Active remains this session.
 
 **Act:**
 
-1. Complete [Load Context (before Main enter)](#load-context-before-main-enter).
-2. Complete [Load Constraint (before Main enter)](#load-constraint-before-main-enter).
-3. Run `$APPROACH_NODE enter-node --node-id main`, then complete
+1. Complete [Load Context (before session enter)](#load-context-before-session-enter).
+2. Complete [Load Constraint (before session enter)](#load-constraint-before-session-enter).
+3. Run `$APPROACH_SESSION enter`, then complete
    [Shared context activation](#shared-context-activation).
 
-**Done:** Resume Main.
+**Done:** Resume the session.
 
 **Stop:** On non-zero output, stop and report stderr.
 
@@ -229,6 +225,6 @@ state instead.
 
 **Done:** An explicit human recovery decision is received.
 
-**Stop:** Do not auto-select `commit-focus`, `compensate-active`, or `cancel`.
+**Stop:** Do not auto-select `compensate-active` or `cancel`.
 After external recovery, restart the applicable documented entry route and obtain
 fresh command output; do not infer the restored target.
