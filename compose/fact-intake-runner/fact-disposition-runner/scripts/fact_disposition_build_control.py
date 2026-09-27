@@ -11,24 +11,13 @@ from typing import Any
 
 _COMPOSE = Path(__file__).resolve().parents[3]
 _SCRIPTS = _COMPOSE / "scripts"
-_INTAKE_EVAL = Path(__file__).resolve().parents[2] / "fact-intake-eval" / "scripts"
-_EVAL_SCRIPTS = _COMPOSE.parent / "eval" / "scripts"
-for _path in (_SCRIPTS, _SCRIPTS / "_kernel", _SCRIPTS / "templates", _INTAKE_EVAL, _EVAL_SCRIPTS):
+for _path in (_SCRIPTS, _SCRIPTS / "_kernel", _SCRIPTS / "templates"):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
-from eval_path import ensure_eval_script_layers  # noqa: E402
-
-ensure_eval_script_layers()
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from execution_state_schema import execution_dir  # noqa: E402
-from evaluate_state_schema import load_evaluate_state  # noqa: E402
-from fact_intake_eval_runtime_schema import (  # noqa: E402
-    evaluate_state_path,
-    gate_allows_derive_from_evaluate_state,
-)
 from compose_template_loader import (  # noqa: E402
     ComposeTemplateLoadError,
     load_compose_template,
@@ -58,20 +47,6 @@ def cmd_context(args: argparse.Namespace) -> int:
         )
     except (OSError, ValueError) as exc:
         return _fail(str(exc))
-    slice_dir = execution_dir(Path(args.revision_dir).resolve())
-    es = evaluate_state_path(slice_dir)
-    legacy = slice_dir / "atomize-eval" / "evaluate-state.md"
-    gate = es if es.is_file() else legacy
-    if not gate.is_file():
-        return _fail(f"intake eval gate missing (expected {es.as_posix()})")
-    try:
-        data = load_evaluate_state(gate)
-    except (OSError, ValueError) as exc:
-        return _fail(f"intake eval gate unreadable: {exc}")
-    if not gate_allows_derive_from_evaluate_state(data):
-        return _fail(
-            f"intake eval not done (eval_status={data.get('eval_status')!r})"
-        )
     try:
         reg = fetch_section_registry(
             root,
@@ -96,7 +71,6 @@ def cmd_context(args: argparse.Namespace) -> int:
         {
             "ok": True,
             "command": "context",
-            "eval_status": data.get("eval_status"),
             "section_order": lens_key_sequence(reg),
             "consume_policy_rule_ids": [
                 str(r.get("id", "")).strip()
@@ -113,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     context = sub.add_parser(
         "context",
-        help="Fetch disposition context; require intake-eval done",
+        help="Fetch disposition context",
     )
     context.add_argument("--revision-dir", required=True)
     context.add_argument("--project-root", required=True)

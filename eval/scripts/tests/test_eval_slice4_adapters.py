@@ -43,13 +43,6 @@ _FULL_REMEDIATION_PROFILES = (
     _WORKFLOW_ROOT / "lulu-arch" / "compose-profile.json",
     _WORKFLOW_ROOT / "lulu-blueprint" / "compose-profile.json",
     _WORKFLOW_ROOT / "lulu-spec" / "compose-profile.json",
-    (
-        _WORKFLOW_ROOT
-        / "compose"
-        / "fact-intake-runner"
-        / "fact-intake-eval"
-        / "eval-profile.json"
-    ),
 )
 _DECISION_PROFILE = _WORKFLOW_ROOT / "decision" / "eval" / "eval-profile.json"
 _REMOVED_FIELDS = ("force_human_resolution", "remediation_target")
@@ -76,8 +69,8 @@ def _valid_config(**overrides) -> dict:
 
 
 class TestDimensionDefinitions:
-    def test_finds_exactly_thirteen_dimension_definitions(self) -> None:
-        assert len(_DIMENSION_DEFS) == 13
+    def test_finds_exactly_eleven_dimension_definitions(self) -> None:
+        assert len(_DIMENSION_DEFS) == 11
 
     def test_all_definitions_pass_corpus_schema_v6(self) -> None:
         for path in _DIMENSION_DEFS:
@@ -113,16 +106,16 @@ class TestDimensionDefinitions:
 
 
 class TestAdapterProfiles:
-    def test_seven_families_declare_eval_capability(self) -> None:
+    def test_six_families_declare_eval_capability(self) -> None:
         profiles = [*_FULL_REMEDIATION_PROFILES, _DECISION_PROFILE]
-        assert len(profiles) == 7
+        assert len(profiles) == 6
         for path in profiles:
             assert _eval_block(path)["eval_capability"] in {
                 "full-remediation",
                 "probe-only",
             }
 
-    def test_compose_and_fact_intake_are_full_remediation(self) -> None:
+    def test_compose_profiles_are_full_remediation(self) -> None:
         for path in _FULL_REMEDIATION_PROFILES:
             assert _eval_block(path)["eval_capability"] == "full-remediation"
 
@@ -609,22 +602,12 @@ class TestEvaluateStateCapabilityFailClosed:
 
 
 class TestSharedInitializerAndPrimitives:
-    def test_decision_and_fact_intake_do_not_keep_local_init(self) -> None:
+    def test_decision_does_not_keep_local_init(self) -> None:
         decision = (
             _WORKFLOW_ROOT / "decision" / "scripts" / "eval" / "decision_eval_adapter.py"
         ).read_text(encoding="utf-8")
-        fact_intake = (
-            _WORKFLOW_ROOT
-            / "compose"
-            / "fact-intake-runner"
-            / "fact-intake-eval"
-            / "scripts"
-            / "fact_intake_eval_adapter.py"
-        ).read_text(encoding="utf-8")
         assert "def _init_evaluate_state(" not in decision
-        assert "def _init_evaluate_state(" not in fact_intake
         assert "prepare_eval_admission" in decision
-        assert "prepare_eval_admission" in fact_intake
 
     def test_decision_does_not_write_evaluate_state_in_finalize(self) -> None:
         source = (
@@ -650,24 +633,6 @@ class TestSharedInitializerAndPrimitives:
         assert hasattr(DecisionEvalAdapter, _READ)
         assert not hasattr(DecisionEvalAdapter, _COMMIT)
         assert not hasattr(DecisionEvalAdapter, _RESTORE)
-
-    def test_fact_intake_exposes_renamed_target_primitives(self) -> None:
-        sys.path.insert(
-            0,
-            str(
-                _WORKFLOW_ROOT
-                / "compose"
-                / "fact-intake-runner"
-                / "fact-intake-eval"
-                / "scripts"
-            ),
-        )
-        from fact_intake_eval_adapter import FactIntakeEvalAdapter
-
-        for name in (_READ, _COMMIT, _RESTORE):
-            assert hasattr(FactIntakeEvalAdapter, name)
-        for name in _OLD_PRIMITIVES:
-            assert not hasattr(FactIntakeEvalAdapter, name)
 
     def test_workflow_adapter_protocol_uses_renamed_primitives(self) -> None:
         import workflow_adapter
