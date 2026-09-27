@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Schema and I/O for revision ``_facts.json`` (compose fact-first SoT).
 
-Design rationale (source repo, why-only): docs/ssot/compose/mechanism-ssot/compose-fact-architecture.md;
+Design rationale (lulu-skills-workspace, why-only): docs/ssot/compose/mechanism-ssot/compose-fact-architecture.md;
 process how archive: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact-first-display-layer-design.md §3.1;
-K1 ``source``: living docs/ssot/compose/mechanism-ssot/compose-fact-architecture.md;
+K1 ``source``: living lulu-skills-workspace docs/ssot/compose/mechanism-ssot/compose-fact-architecture.md;
 process how: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact-first-k1-pd-design.md §3.
 
 Shape: JSON array of ``{id, text, lens_tags}`` plus optional ``source``
