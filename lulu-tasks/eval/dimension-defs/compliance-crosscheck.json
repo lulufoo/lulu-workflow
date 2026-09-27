@@ -1,0 +1,18 @@
+{
+  "id": "compliance-crosscheck",
+  "label": "Work-order coverage against tech-doc",
+  "handling_policy": "class-default",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [],
+  "method": {
+    "ref": "lulu-workflow/lulu-tasks/eval/methods/compliance-crosscheck.md",
+    "focus": "Probe task chapters against the tech-doc chapter. Missing coverage is WO-MISS. Task text that contradicts or exceeds the tech-doc is WO-ERROR. Do not edit the EvalTarget."
+  },
+  "review": {
+    "seq": 1,
+    "output_path": "tasks-review-e{M}1.md",
+    "template": "eval/review.template.md"
+  }
+}

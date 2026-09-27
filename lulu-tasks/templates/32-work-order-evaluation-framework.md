@@ -1,186 +1,82 @@
-# Work Order Quality Audit Framework (WOQA)
+# Work Order Execution Admission
 
-**Work Order Execution Admission**
+After `compliance-crosscheck` passes, check that every `tasks/t{N}/task.md` can be executed from its own text.
 
----
+**When to run:** `execution-admission`. The probe method is `lulu-tasks/eval/methods/execution-admission.md`.
 
-## Purpose
-
-After the work order task files are drafted and W1 (TWCA) passes, verify that every `task.md` is independently executable in a TDD session — no ambiguity, no inference required, no external context needed.
-
-**When to run:** W2 phase of eval-runner, after TDA / W0 / W1 all pass.
-
-**Attribution rule:** If a quality issue traces back to SOT ambiguity → `SOT-DEFECT` (TDA/W1 safety net). Otherwise → `WO-ERROR` → inline-fixable or return to Drafting if structural.
+**Result:** A failed check is `WO-ERROR`. Record the task passage and return the session to Drafting. When frontmatter has `tdd_exempt: true`, skip checks 2 and 5 for that task.
 
 ---
 
-## Evaluation Dimensions (6)
+## Checks
 
-### Dimension 1 — Granularity
+### 1 — Granularity
 
-**Question:** Does each task cover 1–3 function changes, completable in one TDD session?
+The task changes 1–3 functions, or it is one bounded `tdd_exempt` unit.
 
-| Check | Standard |
-|-------|---------|
-| Task scope | 1–3 function changes; single logical unit of work |
-| Session completability | Executable in one TDD session without context-switching |
-| `tdd_exempt` tasks | May cover more surface area (no TDD loop); but must still be bounded |
+| Check | Pass |
+|-------|------|
+| Task scope | 1–3 function changes, one logical unit |
+| `tdd_exempt` | One bounded unit; the flag states why |
 
-**Typical issues:**
-- 🔴 Task covers 5+ unrelated functions — split required (structural, return to Drafting)
-- 🟡 Task scope is large but related — justify or split
+A split of `task-list.md` is a finding.
 
----
+### 2 — TDD order
 
-### Dimension 2 — TDD Compliance
+Acceptance criteria appear before function specs and are observable conditions.
 
-**Question:** Do acceptance criteria precede function specs? Is Test-First order maintained?
+| Check | Pass |
+|-------|------|
+| Order | Acceptance criteria section, then function specs |
+| Criteria | Observable conditions, not implementation steps |
 
-| Check | Standard |
-|-------|---------|
-| Acceptance criteria position | Must appear before function specs in task.md |
-| Test-First signal | Criteria written as observable test conditions, not implementation steps |
-| `tdd_exempt` flag | If present: TDD compliance check skipped; verify flag is justified |
+### 3 — Spec completeness
 
-**Typical issues:**
-- 🔴 Function spec written before acceptance criteria — reorder required
-- 🟡 Acceptance criteria exist but not testable as written
+Signatures and acceptance criteria are filled in.
 
----
+| Check | Pass |
+|-------|------|
+| Function signatures | Name, parameters, and return type |
+| Acceptance criteria | Non-empty; no `TODO`, `TBD`, or placeholder body |
 
-### Dimension 3 — Spec Completeness
+### 4 — Constraints
 
-**Question:** Are function signatures complete? No empty acceptance criteria, no TBD?
+Hard rules in the tech-doc for this task's behavior appear in the task.
 
-| Check | Standard |
-|-------|---------|
-| Function signatures | Complete: name, parameters, return type |
-| Acceptance criteria | Non-empty; no "TBD", no "to be defined" |
-| No placeholders | No `TODO`, `...`, `[to be filled]` |
+| Check | Pass |
+|-------|------|
+| Hard rules | Performance thresholds, format requirements, and error contracts copied into the task |
+| Citation | Each copied rule names its tech-doc section |
 
-**Typical issues:**
-- 🔴 Function signature has `// TODO` or missing parameters
-- 🟡 Acceptance criterion is present but untestable ("should work correctly")
+### 5 — Tests
 
----
+Acceptance criteria include a normal case, a boundary case, and an edge case.
 
-### Dimension 4 — Constraint Coverage
+| Check | Pass |
+|-------|------|
+| Normal | One happy-path condition |
+| Boundary | A limit, empty input, or single-element case |
+| Edge | An error state, or null when the tech-doc names it |
 
-**Question:** Are all hard rules from the tech-doc explicitly copied into the task?
+### 6 — Dependencies
 
-| Check | Standard |
-|-------|---------|
-| Hard rules copied | Performance thresholds, format requirements, error contracts present in task |
-| Source cited | Each constraint references its tech-doc source |
-| No implicit assumptions | Task does not assume the implementer knows the constraint |
+The task-list graph is a DAG. Each prerequisite is declared.
 
-**Typical issues:**
-- 🔴 Performance threshold exists in tech-doc but absent from task constraints
-- 🟡 Constraint present but no source citation
+| Check | Pass |
+|-------|------|
+| Graph | No cycle |
+| Edges | Every task whose output this task uses is listed in `dependencies` |
+
+A cycle or a missing edge is a finding.
 
 ---
 
-### Dimension 5 — Test Case Quality
+## Checklist
 
-**Question:** Do acceptance criteria cover normal / boundary / edge scenarios?
-
-| Check | Standard |
-|-------|---------|
-| Normal cases | At least one happy-path scenario |
-| Boundary cases | Input limits, empty inputs, single-element cases |
-| Edge cases | Error states, concurrent access (if relevant), null/undefined |
-| `tdd_exempt` flag | If present: test case quality check skipped |
-
-**Typical issues:**
-- 🔴 Only happy-path acceptance criteria; no error scenarios
-- 🟡 Boundary cases present but edge cases (null, empty) missing
-
----
-
-### Dimension 6 — Dependency Graph
-
-**Question:** Is the execution order sound? No cycles, no missing dependencies?
-
-| Check | Standard |
-|-------|---------|
-| No cycles | Task dependency graph is a DAG |
-| Dependencies declared | All prerequisite tasks listed in `dependencies` field |
-| Cross-phase deps | Phase-boundary dependencies explicitly noted |
-
-**Typical issues:**
-- 🔴 Task A depends on Task B which depends on Task A — cycle detected
-- 🟡 Task assumes output from another task but no dependency declared
-
----
-
-## Issue Row Format
-
-```markdown
-| # | Issue | task_id | root_cause | sot_source | evidence | Severity | Status | Decision |
-|---|-------|---------|------------|------------|----------|---------|--------|---------|
-| W2-1 | {description} | t{N} | WO-ERROR | — | task t{N} §{section}: {violation} / W2-Dim{N} ({name}) | medium | Fixed | fix |
-| W2-2 | {description} | t{M} | SOT-DEFECT | tech-doc §X.X | No passage defines this behavior | critical | Escalated | escalate |
-```
-
-**Evidence requirements:**
-```
-WO-ERROR:
-  evidence: "<task file + section>" + "W2-Dim{N} ({dimension name}): <violation>"
-  sot_source: — (SOT not involved)
-
-SOT-DEFECT (rare safety net):
-  sot_source: "tech-doc §X.X"
-  evidence: "<ambiguous passage>" + "<why it forced an unresolvable task spec>"
-```
-
----
-
-## Severity Levels
-
-| Level | Condition | Handling |
-|-------|-----------|---------|
-| 🔴 critical | Structural issues (granularity requires task split; cycle in dependency graph) | Return to Drafting |
-| 🟡 medium | Spec completeness gap; missing constraint; incomplete test cases | Inline fix |
-| 🟢 minor | Wording improvement; non-blocking precision gap | Optional |
-
-**Structural vs non-structural:**
-- **Structural** = fix requires modifying `task-list.md` (task split, task addition, dependency graph change) → return to Drafting
-- **Non-structural** = fix modifies `task.md` content only → inline-fixable
-
----
-
-## Output Report: `wo-review-e{M}-w2.md`
-
-```markdown
-# W2 WOQA Report — e{M}
-
-tasks: {path to tasks/ dir}
-evaluate_round: {M}
-date: YYYY-MM-DD
-
-## Issues
-
-| # | Issue | task_id | root_cause | sot_source | evidence | Severity | Status | Decision |
-|---|-------|---------|------------|------------|----------|---------|--------|---------|
-
-## Summary
-w2_total_issues: N
-w2_wo_error_count: N
-w2_sot_defect_count: N
-fix_severity: critical | medium | minor | none
-fix_severity_reason: {reason}
-w2_status: complete
-```
-
----
-
-## Quick Checklist (Before Marking W2 Complete)
-
-- [ ] Each task covers ≤ 3 function changes (or `tdd_exempt` justified)
-- [ ] Acceptance criteria appear before function specs in each task
+- [ ] Each task changes 1–3 functions, or is one bounded `tdd_exempt` unit
+- [ ] Acceptance criteria appear before function specs
+- [ ] Signatures include name, parameters, and return type
 - [ ] No `TODO`, `TBD`, or empty acceptance criteria
-- [ ] All tech-doc hard rules explicitly present in task constraints with source citation
-- [ ] Acceptance criteria cover normal / boundary / edge cases (unless `tdd_exempt`)
-- [ ] Dependency graph is a DAG; cross-phase dependencies explicitly declared
-- [ ] All SOT-DEFECT findings reviewed via SOT template AskQuestion
-- [ ] Structural issues returned to Drafting; non-structural issues inline-fixed or ignored
+- [ ] Tech-doc hard rules for the task are copied, each with a section citation
+- [ ] Acceptance criteria cover a normal case, a boundary case, and an edge case, unless `tdd_exempt`
+- [ ] The task-list graph is a DAG, and each prerequisite is declared

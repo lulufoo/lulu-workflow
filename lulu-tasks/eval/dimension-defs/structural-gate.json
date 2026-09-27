@@ -1,0 +1,18 @@
+{
+  "id": "structural-gate",
+  "label": "Work-order structural gate",
+  "handling_policy": "class-default",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [],
+  "method": {
+    "ref": "lulu-workflow/lulu-tasks/eval/methods/structural-gate.md",
+    "focus": "Probe task-list and task chapters for undeclared cross-phase dependencies and SKILL-file granularity. Emit WO-ERROR only. Do not edit the EvalTarget."
+  },
+  "review": {
+    "seq": 1,
+    "output_path": "tasks-review-e{M}1.md",
+    "template": "eval/review.template.md"
+  }
+}
