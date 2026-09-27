@@ -1,7 +1,6 @@
 import json
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -94,44 +93,6 @@ def write_json(path: Path, payload: Dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 # Markdown state helpers
 # ---------------------------------------------------------------------------
-
-def write_md_state(
-    path: Path,
-    current_state: str,
-    evaluate_round: int = 0,
-    tech_ref: str = "",
-) -> None:
-    """Write r{N}/workflow-state.md with YAML frontmatter."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    now = datetime.now(timezone.utc).isoformat()
-    content = (
-        f"---\n"
-        f"version: 1\n"
-        f"workflow: lulu-tasks\n"
-        f"current_state: {current_state}\n"
-        f"evaluate_round: {evaluate_round}\n"
-        f"tech_ref: {tech_ref}\n"
-        f"updated_at: {now}\n"
-        f"---\n"
-    )
-    with path.open("w", encoding="utf-8") as handle:
-        handle.write(content)
-
-
-def write_session_state(path: Path, active_doc: int) -> None:
-    """Write session-state.md tracking the active lulu-tasks round."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    now = datetime.now(timezone.utc).isoformat()
-    content = (
-        f"---\n"
-        f"version: 1\n"
-        f"active_doc: {active_doc}\n"
-        f"updated_at: {now}\n"
-        f"---\n"
-    )
-    with path.open("w", encoding="utf-8") as handle:
-        handle.write(content)
-
 
 def parse_frontmatter_fields(content: str) -> Dict[str, str]:
     """Extract all key: value pairs from YAML frontmatter."""

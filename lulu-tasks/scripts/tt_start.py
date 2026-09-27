@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -13,17 +14,14 @@ from transition_table import load_stage_order  # noqa: E402
 from workflow_sessions import current_effective_delivered, get_sessions  # noqa: E402
 
 from tt_archive import run as run_archive
+from tt_session_schema import read_active_doc, session_file, write_session_state
 from tt_workflow_common import (
     CACHE_DIR,
     detect_cycle_type,
     load_container_meta,
-    read_md_field,
-    session_state_path,
-    state_path,
     write_active_context,
-    write_md_state,
-    write_session_state,
 )
+from tt_workflow_schema import workflow_file, write_workflow_state
 
 
 _TO_STAGE = "lulu-tasks"
@@ -129,13 +127,13 @@ def main() -> int:
     # archive: deferred  if archive_rc != 0:
     # archive: deferred      return archive_rc
 
-    ss_path = project_root / session_state_path(cycle_id)
-    if ss_path.exists():
-        try:
-            active_doc = int(read_md_field(ss_path, "active_doc", default="0")) + 1
-        except ValueError:
-            active_doc = 1
-    else:
+    ss_path = session_file(project_root, cycle_id)
+    try:
+        active_doc = read_active_doc(ss_path) + 1
+    except ValueError as exc:
+        print(f"错误：{exc}", file=sys.stderr)
+        return 1
+    if active_doc < 1:
         active_doc = 1
 
     write_session_state(ss_path, active_doc)
@@ -146,31 +144,19 @@ def main() -> int:
         cycle_type=cycle_type,
     )
     write_cycle_state(cycle_id, _TO_STAGE, cache_dir)
-
-    ws_path = project_root / state_path(cycle_id, active_doc)
-    write_md_state(
-        ws_path,
-        "Drafting",
+    write_workflow_state(
+        workflow_file(project_root, cycle_id, active_doc),
+        current_state="Drafting",
         evaluate_round=0,
         tech_ref=tech_ref,
     )
-
-    print(f"""
-会话已启动。
-
-会话状态文件：{ss_path.as_posix()}
-当前施工单：  r{active_doc}
-状态文件：    {ws_path.as_posix()}
-当前状态：    Drafting
-评估轮次：    0
-tech_ref：   {tech_ref}
-
-进入 Drafting 后：
-1. 读 `$SKILL_DIR/templates/31-work-order-tasklist-template.md` 与 `30-work-order-task-template.md`
-2. 读 tech-doc.md（全文）
-3. 第一步：生成 task-list.md（等待用户确认任务拆分）
-4. 用户确认后，逐个生成 tasks/t{{N}}/task.md
-""")
+    print(json.dumps({
+        "ok": True,
+        "cycle_type": cycle_type,
+        "current_state": "Drafting",
+        "tech_ref": tech_ref,
+        "evaluate_round": 0,
+    }, ensure_ascii=False))
     return 0
 
 

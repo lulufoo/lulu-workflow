@@ -15,6 +15,13 @@ target_files:
   - <relative/path/filename.ext>
 dependencies: []          # list of prerequisite task_ids, e.g. [t1, t2]; use [] if none
 tdd_exempt: false         # set true for pure UI / pure structural changes with no logic branches
+target_repo: <git repo name, no path>
+execution_worktree: feature_worktree   # feature_worktree | extra_repo_worktree | custom_path
+execution_worktree_path: <path>         # required when execution_worktree is custom_path
+exit_contract:
+  commit: required
+  commit_ref_md: required
+  code_log: required
 ---
 ```
 
