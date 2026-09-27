@@ -535,6 +535,11 @@ def build_resolve_context_payload(
         "active_gate": gate_state["active_gate"],
         "gates": gate_state["gates"],
         "skipped_gates": gate_state.get("skipped_gates", []),
+        **(
+            {"resume_gate": gate_state["resume_gate"]}
+            if gate_state.get("resume_gate")
+            else {}
+        ),
         "domain_constraints": constraints,
         "registers": registers,
         "gl": gl_payload,
@@ -1664,6 +1669,13 @@ def cmd_batch_reclose(
         )
     except (FileNotFoundError, ValueError) as exc:
         return _emit_error(str(exc))
+
+    resume = str(state.get("resume_gate") or "")
+    if resume in payloads:
+        payloads = {gate: payload for gate, payload in payloads.items() if gate != resume}
+        if not payloads:
+            return _emit_error("payloads must be a non-empty JSON object (gate -> payload)")
+        ordered = [gate for gate in GATE_ORDER if gate in payloads]
 
     if ordered[0] != state["active_gate"]:
         return _emit_error(

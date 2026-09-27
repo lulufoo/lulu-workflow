@@ -2,36 +2,31 @@
 
 ## Entry
 
-Use only when `$CTX.gates.<self>.status == stale` on the Per-gate recovery
-path after RS. Otherwise, run the gate runner's normal Pipeline.
+Per-gate recovery for a `stale` gate after RS.
 
-R is excluded: load the R runner, which owns its special stale review.
-
-Batch selected → use `$SKILL_DIR/references/rs-stale-batch-confirm.md` instead.
+1. Run this file only when `$CTX.gates.<self>.status == stale`. Otherwise, run the gate runner's normal Pipeline.
+2. R is excluded. Load the R runner; it owns stale review.
 
 ## Assess
 
+Review the existing conclusion.
+
 1. Identify the upstream change point that made this gate stale.
-2. Use the existing conclusion from prior `$CTX` or an allowed runner read;
-   classify it as keep / modify / discard.
-3. Propose one updated payload. If uncertain, offer 2–3 options; do not
-   silently choose rewrite magnitude.
+2. Classify the conclusion as keep / modify / discard. Exactly one:
+   - `$GET_PAYLOAD --gate <self>` returns it → use that conclusion.
+   - `<self>` is `$CTX.resume_gate` with nothing saved → use this dialogue's questions and answers.
+3. Propose one updated payload. If uncertain, offer 2–3 options; do not silently choose rewrite magnitude.
 
-## Confirm and persist
+## After Assess
 
-User confirms → `$GATE_CONTROL gate-close --gate <G> --payload '<json>'`.
-Non-zero → stop, report the error, and wait for user direction.
+Exactly one:
 
-## Handoff
-
-Return `GATE_COMPLETE <G>`; the parent loads the next gate.
-
-If the calling runner names a step range, stop at that range. The runner owns
-close and handoff.
+- `$CTX.resume_gate` is `<self>` → stop. The caller continues its loop.
+- `$CTX.resume_gate` is not `<self>` → user confirms, then `$GATE_CONTROL gate-close --gate <G> --payload '<json>'`. Return `GATE_COMPLETE <G>`; the parent loads the next gate.
 
 ## Bounds
 
-- Both light patches and full rewrites are update proposals.
-- Only control commands persist state.
-- Do not delete payloads manually or call `invalidate-from`.
-- Apply Decision [Signals](../SKILL.md#signals); then resume this path.
+1. Both light patches and full rewrites are update proposals.
+2. Only control commands persist state.
+3. Do not delete payloads manually or call `invalidate-from`.
+4. Apply Decision [Signals](../SKILL.md#signals); then resume this path.

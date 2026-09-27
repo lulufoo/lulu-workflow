@@ -184,7 +184,7 @@ def normalize_gate_state(data: dict[str, Any]) -> dict[str, Any]:
         if later_reached or active in {"E", "D", "X", "R", "DC"}:
             gates["GL"] = {"status": "closed", "closed_at": gates["GL"].get("closed_at")}
 
-    return {
+    result = {
         "version": "1",
         "cycle_id": str(data.get("cycle_id", "")),
         "stage": str(data.get("stage", "")),
@@ -193,6 +193,13 @@ def normalize_gate_state(data: dict[str, Any]) -> dict[str, Any]:
         "skipped_gates": list(data.get("skipped_gates") or []),
         "updated_at": data.get("updated_at") or _now_iso(),
     }
+    resume = str(data.get("resume_gate") or "").strip()
+    if (
+        resume in RS_REALIGN_GATES
+        and str(gates.get(resume, {}).get("status", "")).lower() == "stale"
+    ):
+        result["resume_gate"] = resume
+    return result
 
 
 def load_gate_state(path: Path) -> dict[str, Any]:
@@ -274,6 +281,28 @@ def activate_gate(state: dict[str, Any], gate: str) -> dict[str, Any]:
     return updated
 
 
+def _select_resume_gate(state: dict[str, Any]) -> str | None:
+    """Pick the in-progress align gate, or keep a marker that is still stale.
+
+    Call before the sweep. Closed gates become stale during the sweep and must
+    not be chosen from that later status.
+    """
+    gates = state.get("gates") or {}
+    active = str(state.get("active_gate", ""))
+    active_entry = gates.get(active)
+    active_status = ""
+    if isinstance(active_entry, dict):
+        active_status = str(active_entry.get("status", "")).lower()
+    if active in RS_REALIGN_GATES and active_status == "active":
+        return active
+    previous = str(state.get("resume_gate") or "")
+    prev_entry = gates.get(previous)
+    if previous in RS_REALIGN_GATES and isinstance(prev_entry, dict):
+        if str(prev_entry.get("status", "")).lower() == "stale":
+            return previous
+    return None
+
+
 def mark_stale_from_gate(state: dict[str, Any], gate: str) -> dict[str, Any]:
     """Mark align gate G and reached downstream as stale; never-reached pending left alone.
 
@@ -282,6 +311,7 @@ def mark_stale_from_gate(state: dict[str, Any], gate: str) -> dict[str, Any]:
     if gate not in GATE_ORDER:
         raise ValueError(f"invalid gate: {gate!r}")
     updated = normalize_gate_state(state)
+    resume = _select_resume_gate(updated)
     for g in downstream_gates(gate):
         entry = updated["gates"][g]
         status = str(entry.get("status", "")).lower()
@@ -293,6 +323,10 @@ def mark_stale_from_gate(state: dict[str, Any], gate: str) -> dict[str, Any]:
             continue
         entry["status"] = "stale"
         entry["closed_at"] = None
+    if resume and str(updated["gates"][resume].get("status", "")).lower() == "stale":
+        updated["resume_gate"] = resume
+    else:
+        updated.pop("resume_gate", None)
     updated["active_gate"] = gate
     updated["skipped_gates"] = []
     updated["updated_at"] = _now_iso()

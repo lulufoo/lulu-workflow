@@ -19,10 +19,11 @@ from dec_gate_control import (  # noqa: E402
     cmd_get_payload,
     cmd_init_session,
     cmd_rs_commit,
+    cmd_stale_from,
 )
 from dec_workflow_common import gate_state_path, registers_path  # noqa: E402
 from dec_test_helpers import load_gate_payload_file  # noqa: E402
-from test_dec_gate_loop_a import _close_qe, _full_template  # noqa: E402
+from test_dec_gate_loop_a import _close_qe, _full_template, _gl_payload  # noqa: E402
 
 
 @pytest.fixture
@@ -314,3 +315,67 @@ def test_rs_to_batch_reclose_integration(
         (project_root / registers_path(cycle_id, stage)).read_text(encoding="utf-8")
     )
     assert registers["constraints"][0]["text"] == "tenant isolation"
+
+
+def test_batch_reclose_skips_resume_gate(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-batch-resume"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+    assert cmd_init_session(project_root, cycle_id, stage) == 0
+    _close_qe(project_root, cycle_id, stage)
+    assert cmd_stale_from(project_root, cycle_id, stage, "Q") == 0
+
+    capsys.readouterr()
+    assert (
+        cmd_batch_reclose(
+            project_root,
+            cycle_id,
+            stage,
+            payloads={
+                "Q": {"problem_statement": "problem", "constraints": "none"},
+                "GL": _gl_payload(),
+                "E": {
+                    "directions": [
+                        {
+                            "name": "A",
+                            "approach": "a",
+                            "pros": "p",
+                            "cons": "c",
+                            "recommended": True,
+                        },
+                        {"name": "B", "approach": "b", "pros": "p", "cons": "c"},
+                    ],
+                    "excluded": [],
+                    "user_choice": "A",
+                },
+                "D": {"decision_rationale": "not yet"},
+            },
+        )
+        == 0
+    )
+    out = json.loads(capsys.readouterr().out)
+    assert out["closed"] == ["Q", "GL", "E"]
+    state = json.loads(
+        (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert state["resume_gate"] == "D"
+    assert state["gates"]["D"]["status"] == "stale"
+    assert state["active_gate"] == "D"
+
+    assert (
+        cmd_batch_reclose(
+            project_root,
+            cycle_id,
+            stage,
+            payloads={"D": {"decision_rationale": "not yet"}},
+        )
+        != 0
+    )
+    state = json.loads(
+        (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert state["gates"]["D"]["status"] == "stale"
+    assert state["resume_gate"] == "D"

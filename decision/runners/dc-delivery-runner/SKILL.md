@@ -69,8 +69,7 @@ Apply Decision [Signals](../../SKILL.md#signals) throughout DC.
 ## Act
 
 1. If `$CTX.gates.DC.status == stale`, follow
-   `$SKILL_DIR/references/rs-stale-gate-update.md` **steps 1–3 only** (do **not**
-   run that file’s step 4 `gate-close` or step 5 `GATE_COMPLETE`), then
+   `$SKILL_DIR/references/rs-stale-gate-update.md` Assess only, then
    continue.
 2. Loop Modes (Signals and Routes as above) until `close` succeeds.
 
