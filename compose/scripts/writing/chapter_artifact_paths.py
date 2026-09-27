@@ -3,7 +3,7 @@
 
 Case-preserving ``cid`` — narrative-arc chapter ids are ``{leaf.id}-{lens}``
 (e.g. ``A01-AR``); case-folding would silently mangle paths into e.g.
-``_derive-A01-ar.json``. Design rationale (source repo, why-only):
+``_derive-A01-ar.json``. Design rationale (lulu-skills-workspace, why-only):
 docs/ssot/compose/mechanism-ssot/compose-display-architecture.md;
 process how: docs/archive/lulu-workflow/compose/archive-5.0/.
 """
