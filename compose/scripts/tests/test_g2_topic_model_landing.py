@@ -20,7 +20,6 @@ _OLD_REF = (
     _COMPOSE / "inductive-runner" / "references" / "inductive-topic-model.md"
 )
 _SPINE = _COMPOSE / "inductive-runner" / "SKILL.md"
-_ARC_RUNNER = _COMPOSE / "narrative-arc-runner" / "SKILL.md"
 _G2_REF = _COMPOSE / "inductive-runner" / "references" / "g2-topic-model.md"
 _COGNITION_REF = (
     _COMPOSE / "inductive-runner" / "references" / "topic-cognition-model.md"
@@ -196,10 +195,9 @@ def test_g2_gate_declares_tools_and_points_at_split_references():
     assert "`topic-portrait`: generic contract in `../references/topic-portrait.md`" in text
     assert "Exit receipts are the pre-close landscape and exit receipt" in text
     assert "owning contracts" in text
-    assert "Human request" in text
-    assert "Any time while G2 is active." in text
-    assert "$SUBAGENT_TOOL` + `$SUBAGENT_AWAIT_ASYNC" in text
+    assert "narrative-arc-runner" not in text
     assert "$SUBAGENT_AWAIT_SYNC" not in text
+    assert "$SUBAGENT_AWAIT_ASYNC" not in text
     assert "Heading = phase; first line = after which action" in text
     assert "### Topic landscape" in text
     assert "### Topic portrait" in text
@@ -225,7 +223,7 @@ def test_g2_gate_declares_tools_and_points_at_split_references():
     assert "`Conclusion Candidate`" in text
     assert "set-conclusion" in text
     assert "confirm-conclusion" in text
-    assert "stale_signal" in text
+    assert "stale_signal" not in text
     assert "purpose=pre_close" in text
     assert "human candidate signals" not in text
     assert "Direct dialogue may propose and adopt" not in text
@@ -267,20 +265,12 @@ def test_g2_gate_owns_landscape_receipt_persist():
     assert "caller-reported `gap_remaining`" in gate
 
 
-def test_collab_arc_rebuild_is_g2_owned():
+def test_g2_does_not_dispatch_narrative_arc():
     spine = _SPINE.read_text(encoding="utf-8")
     gate = _GATE.read_text(encoding="utf-8")
-    runner = _ARC_RUNNER.read_text(encoding="utf-8")
 
     assert "optional collab rebuild via" not in spine
-    assert "$SUBAGENT_AWAIT_SYNC" not in runner
-    assert "$SUBAGENT_AWAIT_ASYNC" not in runner
-    assert "## Input" in runner
-    assert "OUTPUT_PATH:" in runner
-    assert "MOUNT:" not in runner
-    assert "contracts/delivery.md" in runner
-    assert "target=collab" not in runner
+    assert "narrative-arc" not in gate
     assert "$SUBAGENT_AWAIT_SYNC" not in gate
-    assert "$SUBAGENT_AWAIT_ASYNC" in gate
-    assert "narrative-arc-runner" in gate
+    assert "$SUBAGENT_AWAIT_ASYNC" not in gate
     assert "$NARRATIVE_ARC_COLLAB_CTL" not in gate
