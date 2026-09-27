@@ -48,10 +48,7 @@ Route only from `$SESSION_INFO` stdout. Do not invent the next step.
 
 ### Start
 
-Run `$START_COMPOSE`. On failure → Blocking.
-Load `{SKILL_ROOT}/compose/references/compose-ontology.md` once.
-
-**Done:** `$CURRENT_STATE=Working`.
+Run `$START_COMPOSE`. Load `{SKILL_ROOT}/compose/references/compose-ontology.md` once.
 
 ### Bind context
 
@@ -63,6 +60,8 @@ Run `$SESSION_INFO --view session`, then bind:
 | `$DEMAND_MANIFEST` | `demand_manifest` | Delivery demand atomization; skip when null |
 | `$CURRENT_STATE` | `workflow_state.current_state` | Outer routing |
 | `$STEP_STATE` | `execution.state` | Step routing |
+
+**Done:** `$CURRENT_STATE=Working`.
 
 ## Working
 
