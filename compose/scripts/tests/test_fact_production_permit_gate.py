@@ -113,7 +113,8 @@ def test_append_requires_digest_bound_ack_before_consume(tmp_path: Path):
     code, payload, err = _ack_and_consume(tmp_path, proposal)
     assert code == 0, err
     assert payload["fact_ids"] == ["F-1"]
-    assert payload["stale_signal"] is True
+    assert "stale_signal" not in payload
+    assert "suggest_check" not in payload
 
     code, _, _ = _run(
         "consume",

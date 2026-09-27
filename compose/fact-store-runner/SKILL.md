@@ -24,6 +24,6 @@ Subcommands: `--help` · `propose` · `ack` · `consume` · `revoke` · `reconci
 
 ## DONE / failure
 
-- **DONE (consume):** exit 0; stdout JSON includes `stale_signal` / `suggest_check` when written.
+- **DONE (consume):** exit 0; stdout JSON includes `facts_total` and the written fact ids.
 - **DONE (revoke):** exit 0; no facts written.
 - **Failure:** non-zero; message on stderr (unacknowledged/stale permit, digest mismatch, bad payload, open not open).

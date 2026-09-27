@@ -731,8 +731,6 @@ def cmd_consume(args: argparse.Namespace) -> int:
         "command": "consume",
         "permit_id": args.permit_id,
         "kind": payload["kind"],
-        "stale_signal": True,
-        "suggest_check": True,
     }
     for key in ("fact_ids", "updated", "deleted", "settled"):
         if key in payload:

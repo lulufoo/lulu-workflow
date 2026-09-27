@@ -130,7 +130,6 @@ On `Completed`, stop this reference. Do not deliver.
 | `{SKILL_ROOT}/compose/inductive-runner/SKILL.md` | `$INDUCTIVE` true |
 | `{SKILL_ROOT}/compose/deductive-runner/SKILL.md` | After Fact Intake, or after Inductive |
 | `{SKILL_ROOT}/compose/fact-intake-runner/SKILL.md` | Fact Intake |
-| `{SKILL_ROOT}/compose/narrative-arc-runner/SKILL.md` | Inductive topic loop / Writing |
 | `{SKILL_ROOT}/compose/chapter-write-runner/SKILL.md` | Writing assemble |
 | `{SKILL_ROOT}/compose/inductive-runner/open-point-detect-runner/SKILL.md` | Inductive Open detection |
 | `{SKILL_ROOT}/compose/inductive-runner/open-point-process-runner/SKILL.md` | Inductive Open processing |
