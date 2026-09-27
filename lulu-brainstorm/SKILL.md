@@ -22,10 +22,6 @@ designed by a process.
 > load-bearing. Brainstorming = find the false walls, push them, and let the room get bigger — then
 > the user spots a **door** (direction) they could not see before.
 
-> **Authoring note:** cognitive-science why and rejected alternatives live only in the source
-> repository's domain brainstorm theory SSOT (`lulu-skills-workspace/docs/ssot/brainstorm/brainstorm-divergence-theory.md`) (not shipped with installs). Do not seek them at
-> runtime. Before changing this SKILL in the source repo, read that theory first.
-
 ---
 
 ## 01 Scope
