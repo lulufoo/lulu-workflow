@@ -1,0 +1,18 @@
+{
+  "id": "execution-admission",
+  "label": "Task execution admission",
+  "handling_policy": "class-default",
+  "eval_target": {
+    "path": "{eval_target_path}"
+  },
+  "sots": [],
+  "method": {
+    "ref": "lulu-workflow/lulu-tasks/eval/methods/execution-admission.md",
+    "focus": "Probe each task chapter for executability. Emit WO-ERROR only. Skip TDD and test-case checks when tdd_exempt is true. Do not edit the EvalTarget."
+  },
+  "review": {
+    "seq": 1,
+    "output_path": "tasks-review-e{M}1.md",
+    "template": "eval/review.template.md"
+  }
+}
