@@ -257,6 +257,7 @@ def test_stale_from_keeps_payloads(template_config: Path, monkeypatch: pytest.Mo
     assert gate_state["gates"]["X"]["status"] == "stale"
     assert gate_state["gates"]["R"]["status"] == "stale"
     assert gate_state["gates"]["DC"]["status"] == "pending"
+    assert "resume_gate" not in gate_state
 
     assert gate_payload_exists(project_root, cycle_id, "D")
     assert gate_payload_exists(project_root, cycle_id, "X")

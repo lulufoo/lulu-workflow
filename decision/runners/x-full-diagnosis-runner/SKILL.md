@@ -44,9 +44,9 @@ For each active dimension:
 
 ## Session Loop
 
-1. If `$CTX.gates.X.status == stale`, follow
-   `$SKILL_DIR/references/rs-stale-gate-update.md` on the existing X draft
-   and return `GATE_COMPLETE X` (skip 2–3).
+1. If `$CTX.gates.X.status == stale`, follow `$SKILL_DIR/references/rs-stale-gate-update.md`. Exactly one:
+   - `$CTX.resume_gate` is `X` → continue at 2.
+   - `$CTX.resume_gate` is not `X` → return `GATE_COMPLETE X` and skip 2–3.
 2. Run Dimension Diagnosis for every active dimension.
 3. Take one mode below. `probe` may repeat. Loop until `close` succeeds or
   `flag-gap` loads RS.

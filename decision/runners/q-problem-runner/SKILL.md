@@ -41,9 +41,9 @@ Apply Decision [Signals](../../SKILL.md#signals) throughout Q.
 
 ## Act
 
-1. If `$CTX.gates.Q.status == stale`, follow
-   `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE Q`,
-   and skip the loop.
+1. If `$CTX.gates.Q.status == stale`, follow `$SKILL_DIR/references/rs-stale-gate-update.md`. Exactly one:
+   - `$CTX.resume_gate` is `Q` → continue at 2.
+   - `$CTX.resume_gate` is not `Q` → return `GATE_COMPLETE Q` and skip the loop.
 2. Loop Modes (Signals as above) until `close` succeeds.
 
 ## gate-close payload

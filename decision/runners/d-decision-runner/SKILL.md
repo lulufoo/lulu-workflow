@@ -41,9 +41,9 @@ Apply Decision [Signals](../../SKILL.md#signals) throughout D.
 
 ## Act
 
-1. If `$CTX.gates.D.status == stale`, follow
-   `$SKILL_DIR/references/rs-stale-gate-update.md`, return `GATE_COMPLETE D`,
-   and skip the loop.
+1. If `$CTX.gates.D.status == stale`, follow `$SKILL_DIR/references/rs-stale-gate-update.md`. Exactly one:
+   - `$CTX.resume_gate` is `D` → continue at 2.
+   - `$CTX.resume_gate` is not `D` → return `GATE_COMPLETE D` and skip the loop.
 2. Run `$GET_PAYLOAD --gate E`; pin `payloads.E` as `$E`. If E is missing,
    stop and report the missing required input.
 3. Loop Modes (Signals as above) until `confirm` acceptance succeeds.

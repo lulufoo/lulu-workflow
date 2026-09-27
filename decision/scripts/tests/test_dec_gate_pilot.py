@@ -187,6 +187,7 @@ def test_stale_from_e_marks_reached_downstream(
     # D was active (reached) → stale; never-reached X stays pending
     assert gate_state["gates"]["D"]["status"] == "stale"
     assert gate_state["gates"]["X"]["status"] == "pending"
+    assert gate_state["resume_gate"] == "D"
 
 
 def test_stale_from_q_keeps_payloads(
@@ -237,6 +238,98 @@ def test_stale_from_q_keeps_payloads(
     assert gate_state["gates"]["Q"]["status"] == "stale"
     assert gate_state["gates"]["GL"]["status"] == "stale"
     assert gate_state["gates"]["E"]["status"] == "stale"
+    assert gate_state["resume_gate"] == "D"
+
+
+def test_resume_gate_stays_until_that_gate_closes(
+    template_config: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    project_root = template_config
+    cycle_id = "feature-test-resume"
+    stage = "decision"
+    monkeypatch.chdir(project_root)
+    (project_root / ".cursor" / "lulu-workflow").mkdir(parents=True, exist_ok=True)
+
+    assert cmd_init_session(project_root, cycle_id, stage) == 0
+    _close_o(project_root, cycle_id, stage)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "Q",
+        {"problem_statement": "problem", "constraints": "none"},
+    )
+    _close_gl(project_root, cycle_id, stage)
+    cmd_gate_close(
+        project_root,
+        cycle_id,
+        stage,
+        "E",
+        {
+            "directions": [
+                {"name": "A", "approach": "a", "pros": "p", "cons": "c"},
+                {"name": "B", "approach": "b", "pros": "p", "cons": "c"},
+            ],
+            "excluded": [],
+            "user_choice": "A",
+        },
+    )
+    assert cmd_stale_from(project_root, cycle_id, stage, "E") == 0
+    assert cmd_stale_from(project_root, cycle_id, stage, "E") == 0
+
+    gate_state = json.loads(
+        (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert gate_state["resume_gate"] == "D"
+    assert gate_state["gates"]["E"]["status"] == "stale"
+
+    capsys.readouterr()
+    assert cmd_resolve_context(project_root, cycle_id, stage) == 0
+    assert json.loads(capsys.readouterr().out)["resume_gate"] == "D"
+
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "E",
+            {
+                "directions": [
+                    {"name": "A", "approach": "a", "pros": "p", "cons": "c"},
+                    {"name": "B", "approach": "b", "pros": "p", "cons": "c"},
+                ],
+                "excluded": [],
+                "user_choice": "A",
+            },
+        )
+        == 0
+    )
+    gate_state = json.loads(
+        (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert gate_state["resume_gate"] == "D"
+    assert gate_state["active_gate"] == "D"
+
+    assert (
+        cmd_gate_close(
+            project_root,
+            cycle_id,
+            stage,
+            "D",
+            {
+                "decision_rationale": "Chose A",
+                "applies_to": "export",
+                "excludes": "mobile",
+                "execution_approach": "backend first",
+            },
+        )
+        == 0
+    )
+    gate_state = json.loads(
+        (project_root / gate_state_path(cycle_id, stage)).read_text(encoding="utf-8")
+    )
+    assert gate_state["gates"]["D"]["status"] == "closed"
+    assert "resume_gate" not in gate_state
 
 
 def test_gate_close_e_rejects_four_directions(
