@@ -7,9 +7,9 @@ description: >-
 
 # inductive-runner
 
-Run the G2→G4 control spine for one active Compose slice. Complete when G4 is
-closed, `active_gate=complete`, and the settled facts are ready for Deductive.
-Delivery Eval owns provenance audit of the written document.
+## Goal
+
+Through the G2→G4 spine, induce intent step by step and converge it into settled facts. Topic dialogue converges the substance. Open questions dispose what is still unresolved and material. The audit requires those facts and Opens to hold together, and sends findings back to be disposed.
 
 ## Dispatch Inputs
 
@@ -25,9 +25,7 @@ The parent Compose stage supplies:
 | `$INDUCTIVE_OUT_DIR` | Active slice output directory |
 
 Bind `$PROJECT_ROOT` to the current project root. Parent has already completed
-Fact Intake into this slice.
-
-Read `../../_subagent.md` before any sub-agent dispatch.
+Fact Intake.
 
 ## Script Macros
 
@@ -46,15 +44,11 @@ The stance every gate on this spine acts from.
 | induction, Open, land / defer / reject | `../references/cognition/producer/induce.md` |
 | settled facts, fact set | `../references/cognition/fact.md` |
 
-Gates surface unknowns and hand decisions to the human; they never fill an
-unknown themselves.
-
 ## Control Spine
 
 1. Resolve `$CTX` through `$INDUCTIVE_GATE_CTL resolve-context`.
 2. Load only the gate named by `$CTX.active_gate`.
 3. After a gate transition, resolve a fresh `$CTX` before routing again.
-4. Return to the parent only after G4 closes and `$CTX.active_gate` is `complete`.
 
 ## Gate Routing
 
@@ -65,24 +59,13 @@ Route only from control stdout or `$CTX`; never route from a state-file path.
 | `G2` | `gates/g2-topic-loop.md` |
 | `G3` | `gates/g3-open-point-loop.md` |
 | `G4` | `gates/g4-recompose.md` |
-| `complete` | Return to the parent. Do not load another gate. |
+| `complete` | Do not load another gate. |
 
-Before executing a gate, read its file. A readable next gate does not authorize
-execution.
-
-## Permissions and Boundaries
-
-- The human owns semantic decisions and authorization.
-- The parent Agent owns dialogue, presentation, sub-agent dispatch, and control
-  invocation.
-- Sub-agent permissions come only from their owning contract.
-- Each loaded gate owns its local tool routing.
-- Controls own validation, persistence, and mechanical transitions.
-- Never read or write session data directly for routing or mutation.
-- Treat empty intent or norm reference arrays as inactive inputs.
+- A fresh `$CTX.active_gate` authorizes its entry.
+- After G3 closes, run `G4` immediately.
+- Read `../../_subagent.md` before any sub-agent dispatch.
 
 ## Handoff
 
 After G4 closes and `$CTX.active_gate` is `complete`, report completion and
-return control to the parent Compose stage. Parent enters Deductive. Delivery
-Eval audits the written document against the intent / parent / norm triangle.
+return control to the parent Compose stage.
