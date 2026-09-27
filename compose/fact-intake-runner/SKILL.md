@@ -1,8 +1,8 @@
 ---
 name: fact-intake-runner
 description: >-
-  Compose fact-intake orchestrator: doc → cut → intake eval → disposition
-  classify → confirm → usable _facts.json.
+  Compose fact-intake orchestrator: doc → cut → disposition classify →
+  confirm → usable _facts.json.
 ---
 
 # fact-intake-runner
@@ -10,8 +10,8 @@ description: >-
 Turn `$SOURCE_PATH` into a validated, disposition-classified focus-slice
 `_facts.json`.
 
-**Must:** bind Parent Inputs; dispatch L1 cut → structural validate → L1 intake
-eval → L1 disposition → inline Confirm; return only when DONE.  
+**Must:** bind Parent Inputs; dispatch L1 cut → structural validate → L1
+disposition → inline Confirm; return only when DONE.  
 **Must not:** Derive / Shape / G2 / G3 / `fact-store-runner`; edit `$SOURCE_PATH`;
 fetch registry/role in parent Load (L1 self-`context`).
 
@@ -22,7 +22,7 @@ fetch registry/role in parent Load (L1 self-`context`).
 | `$REVISION_DIR` | Absolute revision root |
 | `$PROJECT_ROOT` | Project root; default `$(pwd)` |
 | `$CYCLE_ID` | Active cycle id |
-| `$SOURCE_PATH` | Absolute intake SoT doc (Eval SoT) |
+| `$SOURCE_PATH` | Absolute intake SoT doc |
 | `$REQUIRE_SEED_ORIGIN` | Optional; `true` adds `--require-seed-origin` on structure validate |
 
 Parent binds `$SOURCE_PATH` and `$REQUIRE_SEED_ORIGIN`.
@@ -59,7 +59,7 @@ SOURCE_PATH: <$SOURCE_PATH>
 REQUIRE_SEED_ORIGIN: <$REQUIRE_SEED_ORIGIN>
 ```
 
-### Step 3 — Validate (pre-Eval)
+### Step 3 — Validate (structure)
 
 ```bash
 $FACTS_CTL validate \
@@ -71,23 +71,7 @@ $FACTS_CTL validate \
 
 Exit 0 → Step 4.
 
-### Step 4 — Intake Eval (L1 subagent)
-
-Dispatch nested `fact-intake-eval` via `$SUBAGENT_TOOL`, then `$SUBAGENT_AWAIT_SYNC`.
-
-```text
-Load {SKILL_ROOT}/compose/fact-intake-runner/fact-intake-eval/SKILL.md and follow it.
-
-## Input
-REVISION_DIR: <$REVISION_DIR>
-PROJECT_ROOT: <$PROJECT_ROOT>
-CYCLE_ID: <$CYCLE_ID>
-SOURCE_PATH: <$SOURCE_PATH>
-```
-
-**Done:** `eval_status=done`. Remediation edits `_facts.json` only (no re-Cut).
-
-### Step 5 — Disposition (L1 subagent)
+### Step 4 — Disposition (L1 subagent)
 
 Dispatch nested `fact-disposition-runner` via `$SUBAGENT_TOOL`, then
 `$SUBAGENT_AWAIT_SYNC`.
@@ -102,7 +86,7 @@ CYCLE_ID: <$CYCLE_ID>
 SOURCE_PATH: <$SOURCE_PATH>
 ```
 
-### Step 6 — Disposition Confirm (parent inline)
+### Step 5 — Disposition Confirm (parent inline)
 
 Draft Confirm patch **next to** `_facts.json` (active slice; not revision root
 when a discussion pointer is set). Resolve path, then draft op-list:
@@ -127,7 +111,7 @@ $FACT_INTAKE_DISPOSITION_CTL disposition-patch-apply \
 Empty ops / no-change: user confirms explicitly. This wave: edit patch in parent
 (do not kick back to disposition-runner; see framework O7).
 
-### Step 7 — Return
+### Step 6 — Return
 
 ## Return Summary
 
@@ -135,7 +119,6 @@ Empty ops / no-change: user confirms explicitly. This wave: edit patch in parent
 Fact-intake complete.
   Source: <SOURCE_PATH>
   Facts: <abs path to _facts.json>
-  Eval: done
   Disposition: done
   Disposition-confirm: done
   Status: ok|failed

@@ -7,7 +7,7 @@ Subcommands:
     append     Append derived facts (contiguous ids) and write ``_facts.json``
     classify   Classify zero-coverage required lenses (derivation vs true gap)
 
-Design rationale (source repo, why-only): docs/ssot/compose/mechanism-ssot/compose-fact-architecture.md (Pd);
+Design rationale (lulu-skills-workspace, why-only): docs/ssot/compose/mechanism-ssot/compose-fact-architecture.md (Pd);
 process how archive: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact-first-k1-pd-design.md §2/§5.
 Scripts never invent derived work-item text — only mechanical shell.
 """
@@ -56,51 +56,6 @@ from section_registry_schema import (  # noqa: E402
     fetch_section_registry,
     lens_key_sequence,
 )
-
-_INTAKE_EVAL_SCRIPTS = (
-    _SCRIPTS.parent / "fact-intake-runner" / "fact-intake-eval" / "scripts"
-)
-_EVAL_SCRIPTS = _SCRIPTS.parents[1] / "eval" / "scripts"
-for _p in (_INTAKE_EVAL_SCRIPTS, _EVAL_SCRIPTS):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
-from eval_path import ensure_eval_script_layers  # noqa: E402
-
-ensure_eval_script_layers()
-from fact_intake_eval_runtime_schema import (  # noqa: E402
-    evaluate_state_path as intake_evaluate_state_path,
-    fact_intake_eval_root,
-    gate_allows_derive_from_evaluate_state,
-)
-from evaluate_state_schema import load_evaluate_state  # noqa: E402
-
-
-def _require_fact_intake_eval_for_derive(slice_dir: Path) -> str | None:
-    """Return error message if intake eval gate blocks Derive; else None.
-
-    Prefers ``{slice}/fact-intake-eval/``; falls back to legacy ``atomize-eval/``.
-    """
-    path = intake_evaluate_state_path(slice_dir)
-    legacy = slice_dir.resolve() / "atomize-eval" / "evaluate-state.md"
-    if not path.is_file() and legacy.is_file():
-        path = legacy
-    if not path.is_file():
-        expected = fact_intake_eval_root(slice_dir) / "evaluate-state.md"
-        return (
-            "fact-intake eval gate missing — run Fact Intake Eval "
-            f"(expected {expected.as_posix()})"
-        )
-    try:
-        data = load_evaluate_state(path)
-    except (OSError, ValueError) as exc:
-        return f"fact-intake eval gate unreadable: {exc}"
-    if not gate_allows_derive_from_evaluate_state(data):
-        return (
-            f"fact-intake eval gate not open (eval_status={data.get('eval_status')!r}); "
-            "Derive blocked until Intake Eval remediation-complete (eval_status=done)"
-        )
-    return None
-
 
 def _ok(payload: dict[str, Any]) -> int:
     print(json.dumps(payload, ensure_ascii=False))
@@ -160,9 +115,6 @@ def _graph_and_maps(
 def cmd_edge_scan(args: argparse.Namespace) -> int:
     """Edge-coverage scan for deductive-runner (holes + topo + true gaps)."""
     revision_dir = execution_dir(args.revision_dir.resolve())
-    gate_err = _require_fact_intake_eval_for_derive(revision_dir)
-    if gate_err:
-        return _fail(gate_err)
     try:
         facts = load_facts(facts_path(revision_dir))
     except ValueError as exc:

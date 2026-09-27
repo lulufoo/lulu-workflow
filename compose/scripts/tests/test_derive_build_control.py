@@ -53,7 +53,9 @@ def test_context_help():
         text=True,
     )
     assert proc.returncode == 0
-    assert "intake-eval" in (proc.stdout or "").lower() or "context" in (proc.stdout or "")
+    text = (proc.stdout or "").lower()
+    assert "context" in text
+    assert "intake-eval" not in text
 
 
 def test_lens_bundle_help():
@@ -67,31 +69,24 @@ def test_lens_bundle_help():
     assert "--lens" in (proc.stdout or "")
 
 
-def test_context_fails_without_eval_gate(tmp_path: Path):
+def test_context_without_intake_eval_gate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     mod = _load_ctl()
     rev = _revision(tmp_path)
-    ns = type(
-        "Args",
-        (),
-        {
-            "revision_dir": str(rev),
-            "project_root": str(tmp_path),
-            "cycle_id": "",
+
+    def _fake_kw(kind: str, _root, profile_id=None, cycle_id=None, **_kwargs):
+        if kind == "section-kw-criteria":
+            return "## CTX\n\nkw-body-ctx\n"
+        raise AssertionError(kind)
+
+    monkeypatch.setattr(
+        mod,
+        "fetch_section_registry",
+        lambda *_a, **_k: {
+            "section_order": ["CTX"],
+            "sections": {"CTX": {"presence": "required"}},
         },
-    )()
-    code = mod.cmd_context(ns)
-    assert code != 0
-
-
-def test_context_fails_when_eval_not_done(tmp_path: Path):
-    mod = _load_ctl()
-    rev = _revision(tmp_path)
-    gate = rev / "fact-intake-eval"
-    gate.mkdir(parents=True)
-    (gate / "evaluate-state.md").write_text(
-        "eval_status: running\n",
-        encoding="utf-8",
     )
+    monkeypatch.setattr(mod, "load_compose_template", _fake_kw)
     ns = type(
         "Args",
         (),
@@ -101,8 +96,17 @@ def test_context_fails_when_eval_not_done(tmp_path: Path):
             "cycle_id": "",
         },
     )()
-    code = mod.cmd_context(ns)
-    assert code != 0
+    from io import StringIO
+    import contextlib
+
+    buf = StringIO()
+    with contextlib.redirect_stdout(buf):
+        code = mod.cmd_context(ns)
+    assert code == 0
+    payload = json.loads(buf.getvalue())
+    assert payload["command"] == "context"
+    assert payload["section_order"] == ["CTX"]
+    assert "eval_status" not in payload
 
 
 def test_slice_kw_criteria_h2_blocks():
@@ -178,11 +182,6 @@ def test_lens_bundle_cli_stdout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         },
     )
     monkeypatch.setattr(mod, "load_compose_template", _fake_kw)
-    monkeypatch.setattr(
-        mod,
-        "_require_intake_eval",
-        lambda _rev: ({"eval_status": "done"}, None),
-    )
     ns = type(
         "Args",
         (),
@@ -227,11 +226,6 @@ def test_lens_bundle_fails_missing_kw_heading(tmp_path: Path, monkeypatch: pytes
         },
     )
     monkeypatch.setattr(mod, "load_compose_template", _fake_kw)
-    monkeypatch.setattr(
-        mod,
-        "_require_intake_eval",
-        lambda _rev: ({"eval_status": "done"}, None),
-    )
     ns = type(
         "Args",
         (),

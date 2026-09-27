@@ -189,7 +189,7 @@ def test_cmd_audit_empty_triggered_is_noop_success(tmp_path: Path, capsys) -> No
     assert payload["skipped"] == "empty-triggered"
 
 
-def test_cli_edge_scan_requires_fact_intake_eval_gate(
+def test_cli_edge_scan_without_intake_eval_gate(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     _patch_graph(monkeypatch)
@@ -205,49 +205,6 @@ def test_cli_edge_scan_requires_fact_intake_eval_gate(
         revision_dir=rev,
         project_root=tmp_path,
     )
-    assert mod.cmd_edge_scan(args) == 1
-    assert "fact-intake eval gate missing" in capsys.readouterr().err
-
-    sys.path.insert(
-        0,
-        str(
-            Path(__file__).resolve().parents[2]
-            / "fact-intake-runner"
-            / "fact-intake-eval"
-            / "scripts"
-        ),
-    )
-    sys.path.insert(
-        0, str(Path(__file__).resolve().parents[3] / "eval" / "scripts")
-    )
-    from eval_path import ensure_eval_script_layers  # noqa: E402
-
-    ensure_eval_script_layers()
-    from fact_intake_eval_runtime_schema import evaluate_state_path  # noqa: E402
-    from evaluate_state_schema import (  # noqa: E402
-        build_initial_evaluate_state,
-        save_evaluate_state,
-    )
-
-    es_path = evaluate_state_path(rev / "execution")
-    data = build_initial_evaluate_state(
-        dimension_ids=["e1-doc-coverage", "e2-fact-provenance"],
-        evaluate_round=1,
-        focus_l="revision1",
-        eval_capability="full-remediation",
-        handling_policy={
-            "e1-doc-coverage": "class-default",
-            "e2-fact-provenance": "class-default",
-        },
-        corpus_digest="abc",
-        corpus_snapshot_ref="corpus-snapshot/manifest.json",
-    )
-    data["eval_status"] = "done"
-    data["eval_phase"] = "done"
-    data["dimension_status"] = (
-        '{"e1-doc-coverage":"complete","e2-fact-provenance":"complete"}'
-    )
-    save_evaluate_state(es_path, data, merge=False)
     assert mod.cmd_edge_scan(args) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["ok"] is True

@@ -2,7 +2,7 @@
 """Prepare mechanical context for derive-runner (Derive step).
 
 Subcommands:
-    context       Registry + section_order; require intake eval done
+    context       Registry + section_order
     lens-bundle   Per-lens KW slice (## LENS) + Ceiling material facts
 
 Rationale (design): docs/archive/lulu-workflow/compose/archive-32.0/
@@ -20,24 +20,14 @@ from typing import Any
 
 _COMPOSE = Path(__file__).resolve().parents[3]
 _SCRIPTS = _COMPOSE / "scripts"
-_INTAKE_EVAL = _COMPOSE / "fact-intake-runner" / "fact-intake-eval" / "scripts"
-_EVAL_SCRIPTS = _COMPOSE.parent / "eval" / "scripts"
-for _path in (_SCRIPTS, _SCRIPTS / "_kernel", _SCRIPTS / "templates", _INTAKE_EVAL, _EVAL_SCRIPTS):
+for _path in (_SCRIPTS, _SCRIPTS / "_kernel", _SCRIPTS / "templates"):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
-from eval_path import ensure_eval_script_layers  # noqa: E402
-
-ensure_eval_script_layers()
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
 from execution_state_schema import execution_dir  # noqa: E402
-from evaluate_state_schema import load_evaluate_state  # noqa: E402
-from fact_intake_eval_runtime_schema import (  # noqa: E402
-    evaluate_state_path,
-    gate_allows_derive_from_evaluate_state,
-)
 from facts_schema import (  # noqa: E402
     facts_path,
     filter_by_lens,
@@ -62,24 +52,6 @@ def _ok(payload: dict[str, Any]) -> int:
 def _fail(message: str) -> int:
     print(f"错误：{message}", file=sys.stderr)
     return 1
-
-
-def _require_intake_eval(revision_dir: Path) -> tuple[dict[str, Any] | None, str | None]:
-    slice_dir = execution_dir(revision_dir.resolve())
-    es = evaluate_state_path(slice_dir)
-    legacy = slice_dir / "atomize-eval" / "evaluate-state.md"
-    gate = es if es.is_file() else legacy
-    if not gate.is_file():
-        return None, f"intake eval gate missing (expected {es.as_posix()})"
-    try:
-        data = load_evaluate_state(gate)
-    except (OSError, ValueError) as exc:
-        return None, f"intake eval gate unreadable: {exc}"
-    if not gate_allows_derive_from_evaluate_state(data):
-        return None, (
-            f"intake eval not done (eval_status={data.get('eval_status')!r})"
-        )
-    return data, None
 
 
 def _fetch_registry_and_kw(
@@ -130,10 +102,6 @@ def slice_kw_criteria(kw_raw: str, lens: str) -> str | None:
 def cmd_context(args: argparse.Namespace) -> int:
     root = Path(args.project_root).resolve()
     cycle_id = (args.cycle_id or "").strip() or None
-    data, err = _require_intake_eval(Path(args.revision_dir))
-    if err:
-        return _fail(err)
-    assert data is not None
     try:
         runtime = resolve_revision_runtime_profile(
             Path(args.revision_dir),
@@ -158,7 +126,6 @@ def cmd_context(args: argparse.Namespace) -> int:
         {
             "ok": True,
             "command": "context",
-            "eval_status": data.get("eval_status"),
             "section_order": order,
             "section_registry": reg,
             "section_kw_criteria": kw_raw,
@@ -172,9 +139,6 @@ def cmd_lens_bundle(args: argparse.Namespace) -> int:
     lens = args.lens.strip().upper()
     if not lens:
         return _fail("--lens must be a non-empty lens key")
-    _data, err = _require_intake_eval(Path(args.revision_dir))
-    if err:
-        return _fail(err)
     try:
         runtime = resolve_revision_runtime_profile(
             Path(args.revision_dir),
@@ -223,7 +187,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     context = sub.add_parser(
         "context",
-        help="Fetch Derive context; require intake-eval done",
+        help="Fetch Derive context",
     )
     context.add_argument("--revision-dir", required=True)
     context.add_argument("--project-root", required=True)
