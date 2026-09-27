@@ -1,6 +1,6 @@
 # Task List Template — work-order
 
-> **Usage**: Each `r{N}/task-list.md` follows this template. The task-list is the work order's index and dependency graph. After Drafting step 1 generates it, wait for the user to confirm the task split is reasonable, then proceed to step 2 to generate each `task.md`.
+> **Usage**: Each `r{N}/task-list.md` follows this template. It is the work-order index and dependency graph.
 
 ---
 
