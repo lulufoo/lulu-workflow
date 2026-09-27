@@ -54,6 +54,24 @@ def test_reserve_journal_is_create_if_absent(tmp_path: Path) -> None:
     assert load_journal(tmp_path)["status"] == "preparing"
 
 
+def test_reserve_journal_creates_missing_admission_root(tmp_path: Path) -> None:
+    admission_root = tmp_path / "fact-intake-eval"
+    ctx = EvalAdmissionContext(
+        admission_root=admission_root,
+        session_key="execution",
+        provider_state_fingerprint="abc",
+        previous_phase="pending",
+        target_path=tmp_path / "t.md",
+        target_digest="d",
+        candidate_round=1,
+    )
+    journal = reserve_journal(ctx, token="tok-1")
+    assert journal["token"] == "tok-1"
+    assert journal["status"] == "preparing"
+    assert load_journal(admission_root)["status"] == "preparing"
+    assert (admission_root / "eval-admission.json").is_file()
+
+
 def test_recover_committed_state_cleans_journal(tmp_path: Path) -> None:
     target = tmp_path / "t.md"
     target.write_text("t", encoding="utf-8")
