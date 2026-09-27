@@ -114,6 +114,7 @@ def reserve_journal(ctx: EvalAdmissionContext, *, token: str | None = None) -> d
         "target_digest": ctx.target_digest,
         "snapshot_digest": "",
     }
+    path.parent.mkdir(parents=True, exist_ok=True)
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     fd = os.open(path, flags, 0o644)
     try:
