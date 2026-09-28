@@ -9,6 +9,11 @@ disable-model-invocation: true
 
 Split a delivered plan into an independently executable task-dependency list.
 
+A task has `kind: coding` or `kind: verify`.
+
+- `coding` changes code. Function-count, signatures, TDD order, and `tdd_exempt` apply only to this kind. Delivery starts `lulu-code` for these tasks.
+- `verify` runs a stated check. It names the command and the observable result. It does not change code and does not enter `lulu-code`.
+
 <HARD-GATE>
 Do NOT proceed until you have read `../_runtime.md` and loaded:
 

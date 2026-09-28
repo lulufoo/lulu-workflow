@@ -26,6 +26,7 @@ _TASK = """---
 version: 1
 task_id: t1
 title: Return ok
+kind: coding
 target_files:
   - a.py
 dependencies: []
@@ -138,3 +139,11 @@ def test_put_task_checks_frontmatter_not_section_order(tmp_path: Path) -> None:
     refused = _emit(cmd_put_task, tmp_path, cycle_id, missing)
     assert refused["ok"] is False
     assert "target_repo" in refused["error"]
+    no_kind = _TASK.replace("kind: coding\n", "")
+    refused_kind = _emit(cmd_put_task, tmp_path, cycle_id, no_kind)
+    assert refused_kind["ok"] is False
+    assert "kind" in refused_kind["error"]
+    bad_kind = _TASK.replace("kind: coding\n", "kind: other\n")
+    refused_other = _emit(cmd_put_task, tmp_path, cycle_id, bad_kind)
+    assert refused_other["ok"] is False
+    assert "coding or verify" in refused_other["error"]

@@ -16,6 +16,7 @@ _VALUES = (
 )
 _KEYS = ("target_files", "dependencies")
 _WORKTREES = {"feature_worktree", "extra_repo_worktree", "custom_path"}
+_KINDS = {"coding", "verify"}
 _EXIT_KEYS = ("commit", "commit_ref_md", "code_log")
 
 
@@ -46,6 +47,11 @@ def validate_task(body: str) -> str:
     for key in _KEYS:
         if not re.search(rf"(?m)^{key}:", frontmatter):
             raise ValueError(f"task.md is missing {key}")
+    kind = re.search(r"(?m)^kind:\s*(\S+)\s*$", frontmatter)
+    if kind is None:
+        raise ValueError("task.md is missing kind")
+    if kind.group(1) not in _KINDS:
+        raise ValueError("kind must be coding or verify")
     worktree = re.search(r"(?m)^execution_worktree:\s*(\S+)\s*$", frontmatter)
     if worktree is None or worktree.group(1) not in _WORKTREES:
         raise ValueError("execution_worktree is not a known value")
