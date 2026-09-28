@@ -21,13 +21,16 @@ Read the build input before any outline choice.
 
 ## Principles
 
-Mandatory constraints on each build choice.
+Who each build choice listens to, and how hard that bind is.
 
-- Group and leaf titles, and the grouping shape, come from the substance story in the facts.
-- Group and leaf order follows Role `priority_tendency`. A fact dependency places the prerequisite first.
-- Fact membership and the chapter split follow lens tags and registry lens relations. Do not order the document as a leaf list. Do not use lens relations as the title schema.
-- Split or keep together according to the full Domain `expression_conventions.scannability` for the active profile.
-- The through-line follows Domain `cognitive_frame` and `audience_type`.
+| Decision | Listen to | Hardness |
+|---|---|---|
+| Group/leaf **titles and grouping shape** | Substance story in facts (objects, behaviors, contract surfaces, end-state, verification, …) | **Must** |
+| Group/leaf **order** | Role `priority_tendency` | **Must** (exception: fact dependency forces prerequisite first) |
+| **Intra-tier order** (groups tied in one `priority_tendency` slot) | Descending narrative altitude: whole before its parts | **Should** (tie-breaker; explicit Role order or fact dependency overrides) |
+| Fact membership + phase-2 write-unit split | Lens tags + registry lens relations | **Must** — never whole-document leaf order; never the presentation title schema |
+| Split / do not mix | Domain `expression_conventions.scannability` (full text for active profile) | **Must** |
+| Genre mission / through-line check | Domain `cognitive_frame` / `audience_type` | **Must** (enforced by Check) |
 
 
 
@@ -63,9 +66,15 @@ Split each leaf into chapters by lens. Start from the mapped tree.
 
 ## Check
 
-- Lens catalog: every top group, or nearly every one, is a single lens.
-- Fact list: most leaves hold one fact under a title that restates that fact.
-- Any hit: reorganize, then check again.
+Run every item. Any hit: reorganize, then check again. Do not persist a failing candidate.
+
+- Lens catalog: every top group, or nearly every one, is a single lens. A business-sounding title does not exempt. Splitting one lens into several pure groups does not exempt.
+- Fact list: most leaves hold one fact under a title that restates that fact. Regroup around a shared object, behavior, or end-state.
+- Glued tops: a top title joins duties with 与/及/和, `and`, or `&`, or too many tops read as leaf concerns. Split or demote.
+- Claim titles: a title below the roots states a fact claim or an assertion chain. Rename it to a station, or merge same-object siblings.
+- Scannability: one leaf mixes what Domain `scannability` keeps apart. Split.
+- Order: group and leaf order is inverted versus Role `priority_tendency`, with no fact dependency that requires it. Reorder.
+- Through-line: the outline drifts from Domain `cognitive_frame`, or is not a reviewable through-line for `audience_type`. Thicken the opening when needed. Do not force a fixed N-act directory.
 
 
 
