@@ -329,7 +329,7 @@ def _dir_corpus(method: Path, template: Path, sot_ref: str = ".") -> dict:
     }
 
 
-def test_directory_sot_rejects_escaping_symlink(tmp_path: Path) -> None:
+def test_directory_sot_omits_symlink(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     outside = tmp_path / "outside.txt"
     outside.write_text("secret\n", encoding="utf-8")
@@ -348,13 +348,19 @@ def test_directory_sot_rejects_escaping_symlink(tmp_path: Path) -> None:
     template = repo / "review.md"
     method.write_text("m", encoding="utf-8")
     template.write_text("t", encoding="utf-8")
-    with pytest.raises(ValueError, match="symlink"):
-        materialize_corpus_snapshot(
-            tmp_path / "snap",
-            _dir_corpus(method, template),
-            method_roots=[repo],
-            sot_roots=[repo],
-        )
+    manifest = materialize_corpus_snapshot(
+        tmp_path / "snap",
+        _dir_corpus(method, template),
+        method_roots=[repo],
+        sot_roots=[repo],
+    )
+    directory = next(item for item in manifest["assets"] if item["kind"] == "directory-tree")
+    view = tmp_path / "snap" / directory["snapshot_path"]
+    names = {path.relative_to(view).as_posix() for path in view.rglob("*") if path.is_file()}
+    assert "src/a.py" in names
+    assert "leak" not in names
+    blob = "\n".join(path.read_text(encoding="utf-8") for path in view.rglob("*") if path.is_file())
+    assert "secret" not in blob
 
 
 def test_directory_sot_subdir_skips_sibling_files(tmp_path: Path) -> None:
