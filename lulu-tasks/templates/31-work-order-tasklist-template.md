@@ -27,7 +27,7 @@ total_tasks: 0
 
 > **Split principles**:
 > - Group by test boundary, not by file (one file may map to multiple tasks)
-> - Granularity: each task covers 1–3 function changes, completable in a single TDD session
+> - Granularity: the task changes 1–3 functions, or one module-file deletion. Unchanged functions do not count.
 > - Pure UI / pure structural changes (no logic branches) may set `tdd_exempt: true`
 
 ---
