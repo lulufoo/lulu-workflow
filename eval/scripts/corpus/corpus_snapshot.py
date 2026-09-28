@@ -283,7 +283,7 @@ def _directory_file_records(source: Path) -> tuple[str, list[dict[str, Any]]]:
             continue
         abs_path = worktree / relative
         if abs_path.is_symlink():
-            raise ValueError(f"directory SoT rejects symlink: {relative}")
+            continue
         try:
             rel_to_source = abs_path.resolve().relative_to(source_resolved).as_posix()
         except ValueError as exc:
@@ -302,7 +302,7 @@ def _directory_file_records(source: Path) -> tuple[str, list[dict[str, Any]]]:
         if _git_stage_mode(worktree, relative) == "160000":
             raise ValueError(f"directory SoT rejects submodule: {rel_to_source}")
         if abs_path.is_symlink():
-            raise ValueError(f"directory SoT rejects symlink: {rel_to_source}")
+            continue
         if not abs_path.exists():
             records.append(
                 {
