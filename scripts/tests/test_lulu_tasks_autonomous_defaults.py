@@ -65,7 +65,6 @@ def test_eval_methods_replace_private_runner():
     assert not (_ROOT / "eval-runner" / "SKILL.md").exists()
     assert (_ROOT / "eval" / "eval-profile.json").is_file()
     for name in (
-        "structural-gate",
         "compliance-crosscheck",
         "execution-admission",
     ):

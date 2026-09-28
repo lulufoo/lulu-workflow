@@ -12,7 +12,6 @@ from typing import Any
 RUNTIME_FILENAME = "tasks-eval-runtime.json"
 EVAL_WORKFLOW_STATE_FILENAME = "tasks-eval-workflow-state.md"
 PHASES = (
-    "structural-gate",
     "compliance-crosscheck",
     "execution-admission",
 )

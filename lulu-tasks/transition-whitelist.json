@@ -11,6 +11,6 @@
     ]
   },
   "evaluate": {
-    "phases": ["structural-gate", "compliance-crosscheck", "execution-admission"]
+    "phases": ["compliance-crosscheck", "execution-admission"]
   }
 }

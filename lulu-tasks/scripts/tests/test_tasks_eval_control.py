@@ -68,15 +68,15 @@ def _probe(issues: list[dict]) -> dict:
     return {"ok": True, "command": "complete-probe-only", "issues": issues}
 
 
-def test_structural_finding_returns_to_drafting_and_resets(tmp_path: Path) -> None:
+def test_finding_returns_to_drafting_and_resets(tmp_path: Path) -> None:
     cycle_id = "tasks-eval-structural"
     _seed(tmp_path, cycle_id)
     started = _emit(cmd_begin_pass, tmp_path, cycle_id)
-    assert started["phase"] == "structural-gate"
+    assert started["phase"] == "compliance-crosscheck"
     adapter = TasksEvalAdapter()
     corpus = adapter.resolve_eval_corpus(cycle_id, tmp_path)
-    assert [dim["id"] for dim in corpus["dimensions"]] == ["structural-gate"]
-    _arm(tmp_path, cycle_id, "structural-gate")
+    assert [dim["id"] for dim in corpus["dimensions"]] == ["compliance-crosscheck"]
+    _arm(tmp_path, cycle_id, "compliance-crosscheck")
     routed = _emit(
         cmd_route_probe_result,
         tmp_path,
@@ -86,18 +86,18 @@ def test_structural_finding_returns_to_drafting_and_resets(tmp_path: Path) -> No
     assert routed["disposition"] == "drafting"
     assert routed["next_phase"] == ""
     runtime = load_runtime(runtime_path(adapter.session_dir(cycle_id, tmp_path)))
-    assert runtime["phase"] == "structural-gate"
+    assert runtime["phase"] == "compliance-crosscheck"
     assert runtime["focus_phase"] == "pending"
 
 
-def test_clean_structural_gate_advances_and_last_phase_is_ready(tmp_path: Path) -> None:
+def test_clean_compliance_advances_and_last_phase_is_ready(tmp_path: Path) -> None:
     cycle_id = "tasks-eval-advance"
     _seed(tmp_path, cycle_id)
     assert _emit(cmd_begin_pass, tmp_path, cycle_id)["ok"] is True
-    _arm(tmp_path, cycle_id, "structural-gate")
+    _arm(tmp_path, cycle_id, "compliance-crosscheck")
     routed = _emit(cmd_route_probe_result, tmp_path, cycle_id, probe_result=_probe([]))
     assert routed["disposition"] == "continue"
-    assert routed["next_phase"] == "compliance-crosscheck"
+    assert routed["next_phase"] == "execution-admission"
     _arm(tmp_path, cycle_id, "execution-admission")
     ready = _emit(cmd_route_probe_result, tmp_path, cycle_id, probe_result=_probe([]))
     assert ready["disposition"] == "ready"
@@ -138,14 +138,14 @@ def test_begin_eval_round_dispatches_only_the_current_phase(tmp_path: Path) -> N
         eval_control._WORKFLOW_ID_CTX.reset(workflow_token)
         eval_control._HANDOFF_CTX.reset(handoff_token)
     assert started.get("ok") is True, started
-    assert started.get("dispatch") == ["structural-gate"]
+    assert started.get("dispatch") == ["compliance-crosscheck"]
     routed = _emit(
         cmd_route_probe_result,
         tmp_path,
         cycle_id,
         probe_result=_probe([]),
     )
-    assert routed["next_phase"] == "compliance-crosscheck"
+    assert routed["next_phase"] == "execution-admission"
     adapter_token = eval_control._ADAPTER_CTX.set(adapter)
     workflow_token = eval_control._WORKFLOW_ID_CTX.set("lulu-tasks")
     handoff_token = eval_control._HANDOFF_CTX.set(None)
@@ -156,4 +156,4 @@ def test_begin_eval_round_dispatches_only_the_current_phase(tmp_path: Path) -> N
         eval_control._WORKFLOW_ID_CTX.reset(workflow_token)
         eval_control._HANDOFF_CTX.reset(handoff_token)
     assert nxt.get("ok") is True, nxt
-    assert nxt.get("dispatch") == ["compliance-crosscheck"]
+    assert nxt.get("dispatch") == ["execution-admission"]

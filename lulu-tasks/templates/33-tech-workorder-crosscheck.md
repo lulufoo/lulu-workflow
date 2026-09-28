@@ -1,6 +1,6 @@
 # Work Order Coverage
 
-After `structural-gate` passes, check the work order against the tech-doc. The tech-doc is the reference.
+Check the work order against the tech-doc. The tech-doc is the reference.
 
 **When to run:** `compliance-crosscheck`. The probe method is `lulu-tasks/eval/methods/compliance-crosscheck.md`.
 
