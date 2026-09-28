@@ -19,16 +19,15 @@ total_tasks: 0
 
 ## Section 1: Task List
 
-| task_id | Title | Target File | Dependencies | TDD Exempt |
-|---------|-------|-------------|--------------|------------|
-| t1 | <task title> | `path/to/file.ext` | — | No |
-| t2 | <task title> | `path/to/file.ext` | t1 | No |
-| t3 | <task title> | `path/to/file.ext` | — | Yes |
+| task_id | Title | Target File | Dependencies | Kind | TDD Exempt |
+|---------|-------|-------------|--------------|------|------------|
+| t1 | <task title> | `path/to/file.ext` | — | coding | No |
+| t2 | <task title> | `path/to/file.ext` | t1 | coding | No |
+| t3 | <task title> | `path/to/file.ext` | — | verify | No |
 
 > **Split principles**:
-> - Group by test boundary, not by file (one file may map to multiple tasks)
-> - Granularity: the task changes 1–3 functions, or one module-file deletion. Unchanged functions do not count.
-> - Pure UI / pure structural changes (no logic branches) may set `tdd_exempt: true`
+> - `coding`: group by test boundary, not by file. If the task changes functions, it changes 1–3. Deleting one module file is one change. Unchanged functions do not count. Pure UI / pure structural changes with no logic branches may set `tdd_exempt: true`.
+> - `verify`: one stated check. Do not split it by function count.
 
 ---
 

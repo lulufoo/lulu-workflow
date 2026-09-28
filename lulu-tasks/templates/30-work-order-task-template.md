@@ -1,6 +1,6 @@
 # Task Template — work-order
 
-> **Usage**: Every `tasks/t{N}/task.md` follows this template. Section order is fixed and reflects the Test-First cognitive constraint: define acceptance criteria first (what proves correctness), then derive function specs (what must be implemented).
+> **Usage**: Every `tasks/t{N}/task.md` follows this template. `kind` is `coding` or `verify`. Section 2 is `coding` only.
 
 ---
 
@@ -11,10 +11,11 @@
 version: 1
 task_id: t1
 title: <one-sentence description of the task goal>
+kind: coding               # coding | verify
 target_files:
   - <relative/path/filename.ext>
 dependencies: []          # list of prerequisite task_ids, e.g. [t1, t2]; use [] if none
-tdd_exempt: false         # set true for pure UI / pure structural changes with no logic branches
+tdd_exempt: false         # coding only: true for pure UI / pure structural changes with no logic branches
 target_repo: <git repo name, no path>
 execution_worktree: feature_worktree   # feature_worktree | extra_repo_worktree | custom_path
 execution_worktree_path: <path>         # required when execution_worktree is custom_path
@@ -27,10 +28,9 @@ exit_contract:
 
 ---
 
-## Section 1: Acceptance Criteria (Test-First — write first)
+## Section 1: Acceptance Criteria
 
-> **Writing constraints**: Describe test cases in natural language; do not write code. Cover normal / boundary / exception scenarios.
-> When `tdd_exempt: true`, this section may be left empty (fill `N/A`).
+> **Writing constraints**: `coding` covers a normal case, a boundary case, and an exception. `tdd_exempt: true` may use `N/A`. `verify` names the command and the observable result, and has no function spec.
 
 **Normal scenarios**
 
@@ -46,9 +46,9 @@ exit_contract:
 
 ---
 
-## Section 2: Function Specs (derived from acceptance criteria)
+## Section 2: Function Specs
 
-> **Writing constraints**: Acceptance criteria come first; then derive function signatures. Do not think through the implementation first and backfill tests.
+> **coding only.** Omit this section for `verify`. Acceptance criteria come first. Read code only for the signature being specified.
 
 ```
 Function name: <function_name>
@@ -63,7 +63,7 @@ If there are multiple functions, list each separately.
 
 ## Section 3: Constraints (hard implementation rules, copied from tech-doc)
 
-> **Nature**: Must be followed in the TDD session; violation means the implementation does not meet architecture requirements.
+> **Nature**: Must be followed. A `coding` task that breaks one does not meet the cited rule. A `verify` task that breaks one does not meet the cited check.
 
 - Constraint 1: <source tech-doc §N>  
 - Constraint 2: <source tech-doc §N>  
@@ -72,7 +72,7 @@ If there are multiple functions, list each separately.
 
 ## Section 4: Supplement (soft context, copied from tech-doc)
 
-> **Nature**: The TDD session should be aware of these, but they are not individually mandatory. Used to prevent loss of tech-doc information.
+> **Nature**: Context for the task. Not individually mandatory. Keeps tech-doc information from being dropped.
 
 - Background:  
 - Migration window / cross-team dependencies:  
@@ -82,7 +82,7 @@ If there are multiple functions, list each separately.
 
 ## Section 5: Dependencies
 
-> List prerequisite tasks. The TDD session should not start this task while dependencies remain incomplete.
+> List prerequisite tasks. Do not start this task while dependencies remain incomplete.
 
 | Prerequisite task_id | Reason |
 |---|---|

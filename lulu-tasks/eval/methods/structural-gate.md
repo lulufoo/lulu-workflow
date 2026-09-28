@@ -1,6 +1,6 @@
 # Method — Work-order structural gate
 
-Probe the EvalTarget once. Use `<!-- chapter:task-list -->` and each `<!-- chapter:task-tN -->`. Ignore `<!-- chapter:tech-doc -->`.
+Probe the EvalTarget once. Use `<!-- chapter:task-list -->` and each `<!-- chapter:task-tN -->`. Ignore `<!-- chapter:tech-doc -->`. Check declared dependencies for both `coding` and `verify`. Do not split a `verify` task by function count.
 
 Emit one issue per blocker. `root_cause` is `WO-ERROR`. Quote the task-list or task passage as evidence. Do not edit the EvalTarget.
 
