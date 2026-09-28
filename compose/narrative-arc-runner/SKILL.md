@@ -13,11 +13,9 @@ or fact list.
 
 ## Boundaries
 
-**Must:** bind Input; load protocol then delivery; obtain context via
-`$NARRATIVE_ARC_BUILD`; build from facts' substance story; pass pre-persist
-self-check; `validate-candidate` then `write --digest` for each phase.  
+**Must:** bind Input; follow `references/candidate-build.md` through Write.  
 **Must not:** use topic / old arc / lens order as the spine; use lens clusters;
-persist a candidate that failed or skipped self-check; invent a second schema
+persist a candidate that failed or skipped Check; invent a second schema
 or `formal|collab` target fork.
 
 ## Input
@@ -52,25 +50,27 @@ place(fact) = one leaf → one chapter,  chapter.lens ∈ fact.lens_tags
 
 The arc gives topology and titles; `lens_tags` decide membership only.
 Role orders the stations; Domain sets the through-line and split rule.
-How binding each is lives in `references/semantic-build-protocol.md`.
+How binding each is lives in `references/candidate-build.md`.
 
-## Load rule
+## Run
 
-1. Bind Input.  
-2. Load `references/semantic-build-protocol.md`.  
-3. Load `contracts/delivery.md` and complete the pipeline.  
-4. **Must not** load retired dual-target / collab-only contracts.
+One arc. Follow only the unit named in the current step.
 
-## Script Macros
-
-| Macro | Command |
-|-------|---------|
-| `$NARRATIVE_ARC_BUILD` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_build_control.py"` |
-| `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
-
-Build: `--help` · `context` · `validate-candidate`.  
-Arc: `--help` · `validate` · `write` · `show` · `list-chapters`.
+1. Bind Input.
+2. Read `../references/cognition/writing/narrative-arc.md`.
+3. Follow `references/candidate-build.md` through Write.
 
 ## Summary
 
-Return exactly the Summary shape in `contracts/delivery.md`.
+Return this shape only.
+
+```text
+status: done|failed
+output_path: <OUTPUT_PATH>
+wrote: true|false
+write_ready: true|false
+error: <empty or message>
+```
+
+1. `status=done` only when `wrote=true` and `write_ready=true`.
+2. Otherwise `status=failed` and `wrote=false`.

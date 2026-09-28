@@ -3,7 +3,7 @@
 
 Subcommands:
     validate   Validate arc at --output-path (optional --require-write-ready)
-    write      Persist candidate with digest check + backup
+    write      Persist a validated candidate, with backup
     show       Print normalized arc JSON
     list-chapters
 
@@ -32,7 +32,6 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from compose_state_lock import canonical_digest  # noqa: E402
 from execution_state_schema import execution_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from section_registry_schema import fetch_section_registry, lens_key_sequence  # noqa: E402
@@ -146,8 +145,6 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 def cmd_write(args: argparse.Namespace) -> int:
     path = _resolve_output(args)
-    if not str(args.digest or "").strip():
-        return _fail("--digest is required")
     if not str(args.file or "").strip():
         return _fail("--file is required")
     try:
@@ -159,8 +156,6 @@ def cmd_write(args: argparse.Namespace) -> int:
         return _fail(f"invalid JSON: {exc}")
     if not isinstance(data, dict):
         return _fail("candidate root must be an object")
-    if args.digest != canonical_digest(data):
-        return _fail("write digest does not match the validated candidate")
 
     revision = Path(args.revision_dir).resolve()
     facts = _load_facts(revision) if not args.skip_facts else None
@@ -299,15 +294,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_write = sub.add_parser(
         "write",
-        help="Write candidate with digest check and backup",
+        help="Validate candidate, then write it with backup",
     )
     add_rev(p_write)
     p_write.add_argument("--file", required=True)
-    p_write.add_argument(
-        "--digest",
-        required=True,
-        help="Digest from validate-candidate for the candidate file",
-    )
     p_write.add_argument(
         "--require-write-ready",
         action="store_true",
