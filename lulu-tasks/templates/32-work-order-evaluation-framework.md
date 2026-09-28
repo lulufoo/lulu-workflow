@@ -12,11 +12,11 @@ After `compliance-crosscheck` passes, check that every `tasks/t{N}/task.md` can 
 
 ### 1 — Granularity
 
-The task changes 1–3 functions, or it is one bounded `tdd_exempt` unit.
+The task changes 1–3 functions, or it is one bounded `tdd_exempt` unit. Deleting one module file is one change. Unchanged functions do not count.
 
 | Check | Pass |
 |-------|------|
-| Task scope | 1–3 function changes, one logical unit |
+| Task scope | 1–3 function changes; one module-file deletion counts as one |
 | `tdd_exempt` | One bounded unit; the flag states why |
 
 A split of `task-list.md` is a finding.
@@ -73,7 +73,7 @@ A cycle or a missing edge is a finding.
 
 ## Checklist
 
-- [ ] Each task changes 1–3 functions, or is one bounded `tdd_exempt` unit
+- [ ] Each task changes 1–3 functions, or one module-file deletion, or is one bounded `tdd_exempt` unit
 - [ ] Acceptance criteria appear before function specs
 - [ ] Signatures include name, parameters, and return type
 - [ ] No `TODO`, `TBD`, or empty acceptance criteria
