@@ -2,7 +2,7 @@
 
 Produce the narrative arc and write it to `OUTPUT_PATH`.
 
-Build Mapped, then Split, then Check, then Write.
+Build Mapped, then Check, then Split, then Write.
 
 ## Script Macros
 
@@ -56,14 +56,6 @@ Where each fact sits, and what that station is named.
 
 
 
-## Split
-
-Split each leaf into chapters by lens. Start from the mapped tree.
-
-- This candidate is `status=write_ready`. It is the arc.
-
-
-
 ## Check
 
 Run every item. Any hit: reorganize, then check again. Do not persist a failing candidate.
@@ -78,9 +70,17 @@ Run every item. Any hit: reorganize, then check again. Do not persist a failing 
 
 
 
+## Split
+
+After Check is clear, split each leaf into chapters by lens. Start from the mapped tree.
+
+- This candidate is `status=write_ready`. It is the arc.
+
+
+
 ## Write
 
-After Check is clear, write the `write_ready` candidate to `OUTPUT_PATH`.
+After Split, write the `write_ready` candidate to `OUTPUT_PATH`.
 
 1. `$NARRATIVE_ARC_CTL write --revision-dir … --project-root … --file <candidate> --output-path "$OUTPUT_PATH" --require-write-ready`
 2. After success, delete the temporary candidate files.
