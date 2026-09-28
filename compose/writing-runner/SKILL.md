@@ -72,8 +72,7 @@ Dispatch sibling `narrative-arc-runner` via `$SUBAGENT_TOOL`, then
 `$SUBAGENT_AWAIT_SYNC`.
 
 ```text
-Load {SKILL_ROOT}/compose/narrative-arc-runner/SKILL.md and follow
-references/semantic-build-protocol.md then contracts/delivery.md
+Load {SKILL_ROOT}/compose/narrative-arc-runner/SKILL.md and follow its Run.
 
 ## Input
 REVISION_DIR: <$REVISION_DIR>

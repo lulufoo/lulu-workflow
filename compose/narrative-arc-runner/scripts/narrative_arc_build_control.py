@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Prepare and validate semantic narrative-arc build candidates.
+"""Prepare semantic narrative-arc build input.
 
 ``context`` returns the complete current build input for an agent-authored
 semantic arc: facts, validated Role/Domain instances, and section registry.
-``validate-candidate`` applies the unified narrative-arc gates and emits a
-digest for ``narrative_arc_control.py write``.
 
 This control never authors or persists an arc.
 
@@ -29,7 +27,6 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
-from compose_state_lock import canonical_digest  # noqa: E402
 from execution_state_schema import execution_dir  # noqa: E402
 from domain_instance_schema import (  # noqa: E402
     DOMAIN_SCHEME_KEY,
@@ -37,7 +34,6 @@ from domain_instance_schema import (  # noqa: E402
 )
 from facts_schema import facts_path, load_facts  # noqa: E402
 from section_registry_schema import fetch_section_registry, lens_key_sequence  # noqa: E402
-from narrative_arc_schema import validate_narrative_arc  # noqa: E402
 from role_instance_schema import (  # noqa: E402
     ROLE_SCHEME_KEY,
     load_and_validate_role_instance,
@@ -133,18 +129,6 @@ def _scope_instances(
     )
 
 
-def _candidate(path: str) -> dict[str, Any]:
-    try:
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise ValueError(f"cannot read candidate: {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"invalid candidate JSON: {exc}") from exc
-    if not isinstance(data, dict):
-        raise ValueError("candidate root must be an object")
-    return data
-
-
 def cmd_context(args: argparse.Namespace) -> int:
     root = Path(args.project_root).resolve()
     conv_id = str(getattr(args, "conversation_id", "") or "").strip() or None
@@ -208,45 +192,6 @@ def cmd_context(args: argparse.Namespace) -> int:
     )
 
 
-def cmd_validate_candidate(args: argparse.Namespace) -> int:
-    try:
-        root = Path(args.project_root).resolve()
-        cycle_id = str(args.cycle_id or "").strip()
-        runtime = resolve_revision_runtime_profile(
-            Path(args.revision_dir),
-            root,
-            cycle_id=cycle_id or None,
-        )
-        candidate = _candidate(args.file)
-        facts = _facts(args.revision_dir)
-        _, lenses = _registry(
-            project_root=root,
-            profile=runtime.profile_id,
-            cycle_id=cycle_id,
-            profile_path=runtime.profile_path,
-        )
-        errors = validate_narrative_arc(
-            candidate,
-            facts=facts,
-            allowed_lenses=lenses,
-        )
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
-        return _fail(str(exc))
-    if errors:
-        return _fail("; ".join(errors))
-    return _ok(
-        {
-            "ok": True,
-            "command": "validate-candidate",
-            "facts_total": len(facts),
-            "digest": canonical_digest(candidate),
-            "status": str(candidate.get("status", "")).strip(),
-            "write_ready": str(candidate.get("status", "")).strip()
-            == "write_ready",
-        }
-    )
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -266,14 +211,6 @@ def build_parser() -> argparse.ArgumentParser:
     context = sub.add_parser("context", help="Print complete semantic-build input")
     add_common(context)
     context.set_defaults(func=cmd_context)
-
-    validate = sub.add_parser(
-        "validate-candidate",
-        help="Validate a semantic arc candidate and emit digest",
-    )
-    add_common(validate)
-    validate.add_argument("--file", required=True)
-    validate.set_defaults(func=cmd_validate_candidate)
     return parser
 
 
