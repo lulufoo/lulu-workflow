@@ -20,9 +20,10 @@ target_repo: <git repo name, no path>
 execution_worktree: feature_worktree   # feature_worktree | extra_repo_worktree | custom_path
 execution_worktree_path: <path>         # required when execution_worktree is custom_path
 exit_contract:
-  commit: required
-  commit_ref_md: required
-  code_log: required
+  commit: required          # coding: required. verify: omit; use receipt
+  commit_ref_md: required   # coding only
+  code_log: required        # coding only
+  # receipt: required       # verify only
 ---
 ```
 

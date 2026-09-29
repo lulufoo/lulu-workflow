@@ -162,7 +162,7 @@ class TestCLITopicDigest:
         )
 
     def test_cli_applicable_false(self, tmp_path):
-        result = self._run(tmp_path, "lulu-code")
+        result = self._run(tmp_path, "lulu-exec")
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout)
         assert payload["applicable"] is False

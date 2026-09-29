@@ -90,8 +90,8 @@ DECISION_CONFIG = StageArchiveConfig(
 )
 
 TECH_CODE_CONFIG = StageArchiveConfig(
-    stage="lulu-code",
-    hot_subdir="lulu-code",
+    stage="lulu-exec",
+    hot_subdir="lulu-exec",
     session_counter_field="active_session",
     doc_dir_fmt="s{}",
     terminal_states=frozenset({"Delivered"}),
@@ -129,11 +129,25 @@ def read_md_field(path: Path, field: str, default: str = "") -> str:
 
 
 def hot_root(config: StageArchiveConfig) -> Path:
-    return CACHE_DIR / config.hot_subdir
+    from stage_identity import EXEC_STAGE, EXEC_STAGE_LEGACY
+
+    modern = CACHE_DIR / config.hot_subdir
+    if config.stage == EXEC_STAGE:
+        legacy = CACHE_DIR / EXEC_STAGE_LEGACY
+        if not modern.exists() and legacy.exists():
+            return legacy
+    return modern
 
 
 def archive_dir(config: StageArchiveConfig, conversation_id: str) -> Path:
-    return CACHE_DIR / "_archive" / conversation_id / config.hot_subdir
+    from stage_identity import EXEC_STAGE, EXEC_STAGE_LEGACY
+
+    modern = CACHE_DIR / "_archive" / conversation_id / config.hot_subdir
+    if config.stage == EXEC_STAGE:
+        legacy = CACHE_DIR / "_archive" / conversation_id / EXEC_STAGE_LEGACY
+        if not modern.exists() and legacy.exists():
+            return legacy
+    return modern
 
 
 def hot_conv_dir(config: StageArchiveConfig, conversation_id: str) -> Path:

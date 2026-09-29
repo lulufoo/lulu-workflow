@@ -132,13 +132,13 @@ class TestRunInitProjectPlatformBranch:
         assert not (root / "config.json").exists()
         assert (root / "workflow-guard-config.json").is_file()
         assert (root / "manifest.json").is_file()
-        assert (root / "stages/lulu-code.json").is_file()
+        assert (root / "stages/lulu-exec.json").is_file()
         assert not (root / "stages/lulu-tasks.json").exists()
 
     def test_does_not_overwrite_existing_stage_config(self, tmp_path):
         from init_ops import run_init_project
 
-        dest = tmp_path / ".cursor/lulu-workflow/stages/lulu-code.json"
+        dest = tmp_path / ".cursor/lulu-workflow/stages/lulu-exec.json"
         dest.parent.mkdir(parents=True)
         dest.write_text('{"test_command": "KEEP"}\n', encoding="utf-8")
         with patch("init_ops.SUB_WORKFLOWS", []):

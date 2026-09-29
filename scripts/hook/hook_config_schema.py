@@ -33,7 +33,7 @@ _DEFAULT_HOOK_CONFIG: dict[str, Any] = {
             "writeDirs": [".cache/{platform}/lulu-workflow"],
         },
         "stages": {
-            "lulu-code": {
+            "lulu-exec": {
                 "readDirs": ["."],
                 "writeDirs": ["."],
             },
@@ -218,7 +218,17 @@ def resolve_internal_path_guard(
 
     global_enable = internal.get("enable", True)
     defaults = internal.get("defaults") or {}
-    stage_cfg = (internal.get("stages") or {}).get(stage) or {}
+    stages = internal.get("stages") or {}
+    stage_cfg = stages.get(stage) or {}
+    if not stage_cfg:
+        from stage_identity import stage_config_aliases
+
+        for alias in stage_config_aliases(stage):
+            if alias == stage:
+                continue
+            stage_cfg = stages.get(alias) or {}
+            if stage_cfg:
+                break
 
     stage_enable = stage_cfg.get("enable", global_enable)
     read_dirs = stage_cfg.get("readDirs", defaults.get("readDirs", ["."]))

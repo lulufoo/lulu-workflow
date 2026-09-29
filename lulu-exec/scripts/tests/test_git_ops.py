@@ -410,6 +410,41 @@ def test_prepare_worktrees_resume_all_skip(monkeypatch):
     assert not any(c[3:5] == ["worktree", "add"] for c in calls)
 
 
+def test_prepare_worktrees_uses_mapped_checkout(monkeypatch, tmp_path: Path):
+    calls = []
+
+    def _run(cmd, capture_output=True, text=True, check=False):
+        calls.append(cmd)
+        if cmd[3:5] == ["status", "--porcelain"]:
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        if cmd[3:6] == ["pull", "--rebase"]:
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        if cmd[3:5] == ["worktree", "add"]:
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        return subprocess.CompletedProcess(cmd, 1, "", "")
+
+    monkeypatch.setattr("tc_git_ops.subprocess.run", _run)
+    dest = tmp_path / "wt"
+    prepare_worktrees(
+        "/workflow/container",
+        {
+            "worktree_path": str(dest) + "/",
+            "branch": "wt/feat-slug",
+            "repos": {
+                "lulu-workbench": {
+                    "path": str(dest) + "/",
+                    "branch": "wt/feat-slug",
+                    "checkout": "/mapped/repo",
+                }
+            },
+        },
+    )
+    add_calls = [c for c in calls if c[3:5] == ["worktree", "add"]]
+    assert add_calls
+    assert all(c[2] == "/mapped/repo" for c in add_calls)
+    assert not any(c[2] == "/workflow/container" and c[3:5] == ["worktree", "add"] for c in calls)
+
+
 def test_prepare_worktrees_extra_worktrees(monkeypatch, tmp_path: Path):
     calls = []
 

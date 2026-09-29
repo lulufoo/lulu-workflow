@@ -27,7 +27,7 @@ Any `task_control.py` non-zero exit or phase exception → `TASK_FAILED` + optio
 Do NOT proceed until you have read `../../_runtime.md`
 </HARD-GATE>
 
-- `$SKILL_DIR` = `$SKILL_ROOT/lulu-code` (from `## Platform Context` in `_runtime.md`)
+- `$SKILL_DIR` = `$SKILL_ROOT/lulu-exec` (from `## Platform Context` in `_runtime.md`)
 
 ## Dispatch input
 

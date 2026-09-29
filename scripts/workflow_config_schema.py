@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Optional
 
 from platform_schema import PLATFORM_PATHS, detect_platform as _detect_platform
+from stage_identity import stage_config_aliases
 
 _WORKFLOW_DIR_MAP = {
     platform: paths["workflow_dir"] for platform, paths in PLATFORM_PATHS.items()
@@ -196,11 +197,16 @@ def resolve_stage_config_path(
     """Return the project stage config or a built-in stage config fallback."""
     _validate_stage_name(stage)
     root = resolve_workflow_config_root(project_root, platform)
-    project_path = _stage_file_in_root(root, stage)
-    if project_path.exists():
-        return project_path
-    built_in_path = _skill_stage_config_path(stage)
-    return built_in_path if built_in_path.exists() else project_path
+    aliases = stage_config_aliases(stage)
+    for name in aliases:
+        project_path = _stage_file_in_root(root, name)
+        if project_path.exists():
+            return project_path
+    for name in aliases:
+        built_in_path = _skill_stage_config_path(name)
+        if built_in_path.exists():
+            return built_in_path
+    return _stage_file_in_root(root, aliases[0])
 
 
 def _read_json_object(path: Path, *, label: str) -> dict:
@@ -228,15 +234,21 @@ def load_stage_config(project_root: Path, stage: str, platform: Optional[str] = 
     """Load one stage config. Missing stage file → {}."""
     _validate_stage_name(stage)
     root = resolve_workflow_config_root(project_root, platform)
+    aliases = stage_config_aliases(stage)
+    monolith = _legacy_monolith_in_root(root)
 
-    stage_cfg = _load_stage_from_stages_dir(root, stage)
-    if stage_cfg:
-        return stage_cfg
-
-    stage_cfg = _load_stage_from_legacy_monolith(_legacy_monolith_in_root(root), stage)
-    if stage_cfg:
-        return stage_cfg
-    return _load_stage_from_skill_root(stage)
+    for name in aliases:
+        stage_cfg = _load_stage_from_stages_dir(root, name)
+        if stage_cfg:
+            return stage_cfg
+        stage_cfg = _load_stage_from_legacy_monolith(monolith, name)
+        if stage_cfg:
+            return stage_cfg
+    for name in aliases:
+        stage_cfg = _load_stage_from_skill_root(name)
+        if stage_cfg:
+            return stage_cfg
+    return {}
 
 
 def workflow_config_is_present(project_root: Path, platform: Optional[str] = None) -> bool:
@@ -460,7 +472,7 @@ def iter_builtin_stage_configs() -> list[tuple[str, dict]]:
 # Skill-root `{stage}/config.json` is the default. Init copies only project-local
 # seeds into $WORKFLOW_DIR/stages/. Skill-owned defaults (e.g. lulu-tasks) stay
 # in the skill package and are read via `_load_stage_from_skill_root`.
-_INIT_SEEDED_STAGES = frozenset({"lulu-code"})
+_INIT_SEEDED_STAGES = frozenset({"lulu-exec"})
 
 
 def ensure_builtin_stage_configs(

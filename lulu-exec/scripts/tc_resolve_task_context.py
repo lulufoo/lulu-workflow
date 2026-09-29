@@ -14,11 +14,17 @@ _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
+from stage_identity import EXEC_STAGE  # noqa: E402
 from workflow_config_schema import extract_subagent_model, load_stage_config  # noqa: E402
+from tc_workflow_common import exec_stage_dir  # noqa: E402
 
 from tc_code_task_list import parse_tdd_exempt_from_list  # noqa: E402
 from tc_session_state_schema import load_session_state, load_work_order_round  # noqa: E402
-from tc_task_frontmatter import parse_tdd_exempt_from_frontmatter, read_task_frontmatter  # noqa: E402
+from tc_task_frontmatter import (  # noqa: E402
+    parse_kind_from_frontmatter,
+    parse_tdd_exempt_from_frontmatter,
+    read_task_frontmatter,
+)
 from tc_workspace_schema import load_workspace  # noqa: E402
 
 
@@ -31,6 +37,14 @@ def _resolve_worktree_for_task(
     execution_worktree_path: str,
 ) -> tuple[str, str]:
     """Map task frontmatter to (worktree_abs_path, branch)."""
+    repos = workspace.get("repos") or {}
+    if execution_worktree != "custom_path" and target_repo in repos:
+        info = repos[target_repo]
+        path = info.get("path", "") if isinstance(info, dict) else ""
+        branch = info.get("branch", "") if isinstance(info, dict) else ""
+        if path and branch:
+            return path.rstrip("/"), branch
+
     if execution_worktree == "feature_worktree":
         path = workspace.get("worktree_path", "")
         branch = workspace.get("branch", "")
@@ -105,7 +119,7 @@ def resolve_task_context(
     project_root = project_root.resolve()
 
     wo_session_state = cycle_dir / "lulu-tasks" / "session-state.md"
-    code_session_state = cycle_dir / "lulu-code" / "session-state.md"
+    code_session_state = exec_stage_dir(cycle_dir) / "session-state.md"
 
     for path in (wo_session_state, code_session_state):
         if not path.exists():
@@ -115,9 +129,10 @@ def resolve_task_context(
     code_index = f"s{load_session_state(code_session_state)}"
 
     work_order_task_path = cycle_dir / "lulu-tasks" / wo_index / "tasks" / task_id / "task.md"
-    task_output_dir = cycle_dir / "lulu-code" / code_index / "tasks" / task_id
-    code_task_list_path = cycle_dir / "lulu-code" / code_index / "code-task-list.md"
-    workspace_json_path = cycle_dir / "lulu-code" / code_index / "workspace.json"
+    stage_dir = exec_stage_dir(cycle_dir)
+    task_output_dir = stage_dir / code_index / "tasks" / task_id
+    code_task_list_path = stage_dir / code_index / "code-task-list.md"
+    workspace_json_path = stage_dir / code_index / "workspace.json"
 
     if not workspace_json_path.exists():
         raise ValueError(f"workspace.json not found: {workspace_json_path}")
@@ -127,6 +142,8 @@ def resolve_task_context(
     fm = _read_frontmatter_optional(work_order_task_path)
     if fm is None:
         raise ValueError(f"task frontmatter not found or invalid: {work_order_task_path}")
+
+    kind = parse_kind_from_frontmatter(fm)
 
     target_repo = str(fm.get("target_repo", ""))
     if not target_repo:
@@ -146,7 +163,7 @@ def resolve_task_context(
         execution_worktree_path=execution_worktree_path,
     )
 
-    code_cfg = load_stage_config(project_root, "lulu-code")
+    code_cfg = load_stage_config(project_root, EXEC_STAGE)
     git_cfg = code_cfg.get("git", {})
 
     tdd_exempt = _resolve_tdd_exempt(
@@ -157,6 +174,7 @@ def resolve_task_context(
 
     result: dict[str, Any] = {
         "task_id": task_id,
+        "kind": kind,
         "work_order_task_path": str(work_order_task_path),
         "task_output_dir": str(task_output_dir),
         "code_task_list_path": str(code_task_list_path),

@@ -44,7 +44,7 @@ def test_lulu_tasks_feature_autonomous_defaults():
     delivery = _DELIVERY.read_text(encoding="utf-8")
     assert "Feature runs `$TT_ENTER_EVAL` immediately" in drafting
     assert "disposition: drafting" in evaluating
-    assert "starts `lulu-code`" in delivery
+    assert "Start `lulu-code`" in delivery
     assert "auto-chain" not in _SKILL.read_text(encoding="utf-8")
 
 

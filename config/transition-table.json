@@ -21,7 +21,7 @@
     { "from": "lulu-approach", "to": ["lulu-design", "lulu-plan"] },
     { "from": "lulu-design", "to": ["lulu-plan"] },
     { "from": "lulu-plan", "to": ["lulu-tasks"] },
-    { "from": "lulu-tasks", "to": ["lulu-code"] },
-    { "from": "lulu-code", "to": [] }
+    { "from": "lulu-tasks", "to": ["lulu-exec"] },
+    { "from": "lulu-exec", "to": [] }
   ]
 }

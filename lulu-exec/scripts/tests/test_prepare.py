@@ -51,8 +51,10 @@ def test_write_workspace_writes_absolute_paths(tmp_path: Path):
     assert payload["worktree_path"].startswith(str(project_root.resolve()))
     assert payload["worktree_path"].endswith("/")
     assert payload["project_root"] == str(project_root.resolve())
+    assert payload["repos"]["repo-a"]["path"] == payload["worktree_path"]
     assert payload["extra_worktrees"]["repo-b"]["path"].startswith(str(project_root.resolve()))
     assert payload["extra_worktrees"]["repo-b"]["path"].endswith("/")
+    assert payload["repos"]["repo-b"]["path"] == payload["extra_worktrees"]["repo-b"]["path"]
 
 
 def test_write_workspace_extra_repo_only_still_writes_extra_index(tmp_path: Path):
@@ -66,8 +68,8 @@ def test_write_workspace_extra_repo_only_still_writes_extra_index(tmp_path: Path
     workspace_path = write_workspace(cycle_dir, 1, "slug-1", paths, tasks, project_root)
     payload = json.loads(workspace_path.read_text(encoding="utf-8"))
 
-    assert payload["extra_worktrees"]["repo-b"]["path"].endswith("slug-1-repo-b/")
-    assert payload["extra_worktrees"]["repo-b"]["branch"] == "wt/feat-slug-1-repo-b"
+    assert payload["repos"]["repo-b"]["path"] == payload["worktree_path"]
+    assert "extra_worktrees" not in payload
 
 
 def test_write_workspace_extra_repo_first_does_not_depend_on_repo_order(tmp_path: Path):
@@ -82,8 +84,9 @@ def test_write_workspace_extra_repo_first_does_not_depend_on_repo_order(tmp_path
     workspace_path = write_workspace(cycle_dir, 1, "slug-1", paths, tasks, project_root)
     payload = json.loads(workspace_path.read_text(encoding="utf-8"))
 
-    assert payload["extra_worktrees"]["repo-b"]["path"].endswith("slug-1-repo-b/")
-    assert payload["extra_worktrees"]["repo-b"]["branch"] == "wt/feat-slug-1-repo-b"
+    assert payload["repos"]["repo-b"]["path"] == payload["worktree_path"]
+    assert payload["extra_worktrees"]["repo-a"]["path"].endswith("slug-1-repo-a/")
+    assert payload["repos"]["repo-a"]["path"] == payload["extra_worktrees"]["repo-a"]["path"]
 
 
 _TASK_MD = """---
@@ -96,6 +99,17 @@ exit_contract:
 ---
 # Task
 """
+
+
+def _binds(tmp_path: Path) -> dict[str, str]:
+    return {"repo-a": str(tmp_path.resolve())}
+
+
+def _write_repo_map(session_dir: Path, tmp_path: Path) -> None:
+    (session_dir / "repo-map.json").write_text(
+        json.dumps({"version": 1, "binds": _binds(tmp_path)}, indent=2),
+        encoding="utf-8",
+    )
 
 
 def _setup_full_preparing_session(tmp_path: Path) -> tuple[Path, Path]:
@@ -117,6 +131,7 @@ def _setup_full_preparing_session(tmp_path: Path) -> tuple[Path, Path]:
         "---\nversion: 1\nactive_session: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
         encoding="utf-8",
     )
+    _write_repo_map(session_dir, tmp_path)
     ws_path = session_dir / "workflow-state.md"
     init_preparing(ws_path, mode="work-order", task_list_ref=str(session_dir / "code-task-list.md"))
     (session_dir / "code-task-list.md").write_text("- [ ] t1 · task\n", encoding="utf-8")
@@ -363,7 +378,13 @@ def test_main_preserves_executing_current_task(tmp_path: Path, monkeypatch, caps
 
     paths = build_worktree_paths("existing-slug", _git_cfg())
     write_workspace(
-        cycle_dir, 1, "existing-slug", paths, _minimal_tasks(), tmp_path
+        cycle_dir,
+        1,
+        "existing-slug",
+        paths,
+        _minimal_tasks(),
+        tmp_path,
+        repo_map=_binds(tmp_path),
     )
     created_at = json.loads(
         (session_dir / "workspace.json").read_text(encoding="utf-8")
@@ -405,3 +426,65 @@ def test_main_preserves_executing_current_task(tmp_path: Path, monkeypatch, caps
     assert payload["current_state"] == "Executing"
     after = json.loads((session_dir / "workspace.json").read_text(encoding="utf-8"))
     assert after["created_at"] == created_at
+
+
+def test_write_workspace_records_checkout(tmp_path: Path):
+    cycle_dir = tmp_path / ".cache" / "copilot" / "lulu-workflow" / "fid-123"
+    (cycle_dir / "lulu-code" / "s1").mkdir(parents=True)
+    checkout = tmp_path / "lulu-workbench"
+    checkout.mkdir()
+    paths = {"worktree_dir": ".cache/worktrees/slug-1/", "branch": "wt/feat-slug-1"}
+    dest = write_workspace(
+        cycle_dir,
+        1,
+        "slug-1",
+        paths,
+        _minimal_tasks(),
+        tmp_path,
+        repo_map={"repo-a": str(checkout)},
+    )
+    payload = json.loads(dest.read_text(encoding="utf-8"))
+    assert payload["repos"]["repo-a"]["checkout"] == str(checkout.resolve())
+    assert payload["repos"]["repo-a"]["path"].endswith("/")
+
+
+def test_main_requires_repo_map(tmp_path: Path, monkeypatch, capsys):
+    cycle_dir, _ = _setup_full_preparing_session(tmp_path)
+    (cycle_dir / "lulu-code" / "s1" / "repo-map.json").unlink()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "tc_prepare.py",
+            "--cycle-dir",
+            str(cycle_dir),
+            "--project-root",
+            str(tmp_path),
+        ],
+    )
+    assert main() == 1
+    err = capsys.readouterr().err
+    assert "repo-map.json" in err
+
+
+def test_ensure_workspace_recreates_when_checkout_mismatch(tmp_path: Path):
+    cycle_dir, _ = _setup_full_preparing_session(tmp_path)
+    dest, workspace, _, _, created = ensure_workspace(
+        cycle_dir, 1, "cycle-id", _minimal_tasks(), tmp_path, _git_cfg()
+    )
+    assert created is True
+    created_at = workspace["created_at"]
+
+    dest2, workspace2, _, _, created2 = ensure_workspace(
+        cycle_dir,
+        1,
+        "cycle-id",
+        _minimal_tasks(),
+        tmp_path,
+        _git_cfg(),
+        repo_map={"repo-a": str((tmp_path / "other").resolve())},
+    )
+    assert created2 is True
+    assert dest2 == dest
+    assert workspace2["created_at"] != created_at
+    assert workspace2["repos"]["repo-a"]["checkout"] == str((tmp_path / "other").resolve())

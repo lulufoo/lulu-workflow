@@ -80,7 +80,7 @@ _COMPOSE_PATHS = (
 
 _WORKFLOW_ROOT = _TESTS.parent.parent.parent
 _OTHER_STAGE_SCRIPT_DIRS = (
-    _WORKFLOW_ROOT / "lulu-code" / "scripts",
+    _WORKFLOW_ROOT / "lulu-exec" / "scripts",
     _WORKFLOW_ROOT / "eval" / "scripts",
 )
 

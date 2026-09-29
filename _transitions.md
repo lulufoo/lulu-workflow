@@ -15,5 +15,5 @@ Any participant may trigger a Stage Rollback when new information shows a prior 
 
 - **Trigger:** state the target stage to roll back to (any prior stage, any number of levels back)
 - **Effect on Product Line:** rolling back to `lulu-bet` invalidates `lulu-spec` + entire tech line; rolling back to `lulu-spec` invalidates entire tech line.
-- **Effect on Tech Line:** rolling back to `lulu-approach` invalidates `lulu-plan`, `lulu-tasks`, `lulu-code`.
+- **Effect on Tech Line:** rolling back to `lulu-approach` invalidates `lulu-plan`, `lulu-tasks`, `lulu-exec`.
 - **AI must announce:** "[target stage] and all downstream stages are invalidated. Restarting from [target stage]."

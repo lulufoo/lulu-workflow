@@ -3,9 +3,9 @@ name: lulu-workflow
 description: >-
   Top-level development workflow framework. Use when mentioning lulu-workflow,
   开发工作流, dev workflow, product doc workflow, 产品文档流程, lulu-brainstorm, or any sub-stage
-  (lulu-bet, lulu-approach, lulu-spec, lulu-blueprint, lulu-arch, lulu-design, lulu-plan, lulu-tasks, lulu-code).
+  (lulu-bet, lulu-approach, lulu-spec, lulu-blueprint, lulu-arch, lulu-design, lulu-plan, lulu-tasks, lulu-exec).
 disable-model-invocation: true
-argument-hint: "[lulu-brainstorm | pd=lulu-bet | td=lulu-approach | ps=lulu-spec | pa=lulu-blueprint | ta=lulu-arch | ds=lulu-design | t=lulu-plan | w=lulu-tasks | c=lulu-code]"
+argument-hint: "[lulu-brainstorm | pd=lulu-bet | td=lulu-approach | ps=lulu-spec | pa=lulu-blueprint | ta=lulu-arch | ds=lulu-design | t=lulu-plan | w=lulu-tasks | c=lulu-exec]"
 ---
 
 # lulu-workflow
@@ -16,7 +16,7 @@ Routes project-level work into a stage skill. Done when `init` has reported, or 
 > - `_runtime.md` — Script Macros + Platform / Session / Execution Mode (all sub-skills)
 > - `_slowpath.md` — Feature Resolution Slow Path (loaded on demand)
 > - `_transitions.md` — Stage Transitions + Rollback (loaded at delivery)
-> - `_subagent.md` — Sub-agent Context (lulu-code, lulu-tasks, decision)
+> - `_subagent.md` — Sub-agent Context (lulu-exec, lulu-tasks, decision)
 
 ## Stage lines
 
@@ -25,7 +25,7 @@ Both lines start at `lulu-brainstorm`. The product track and the architecture tr
 | Line | Purpose | Shape |
 |------|---------|-------|
 | **topic** | Shape product and architecture | `lulu-brainstorm` forks to `lulu-bet` → `lulu-blueprint` and `lulu-approach` → `lulu-arch` |
-| **feature** | Carry a feature through to code | `lulu-brainstorm` forks to `lulu-bet` → `lulu-spec` and `lulu-approach` → `lulu-design`; both join `lulu-plan` → `lulu-tasks` → `lulu-code` → `lulu-review` |
+| **feature** | Carry a feature through to code | `lulu-brainstorm` forks to `lulu-bet` → `lulu-spec` and `lulu-approach` → `lulu-design`; both join `lulu-plan` → `lulu-tasks` → `lulu-exec` → `lulu-review` |
 
 1. `lulu-bet` and `lulu-approach` appear on both lines.
 2. On `feature`, the two tracks join at `lulu-plan`.
@@ -45,7 +45,7 @@ Load one sub-SKILL after `$CYCLE_ID` is confirmed.
 | `lulu-design` / `ds` | Tech design | Read [lulu-design/SKILL.md](./lulu-design/SKILL.md) |
 | `lulu-plan` / `t` | Tech plan | Read [lulu-plan/SKILL.md](./lulu-plan/SKILL.md) |
 | `lulu-tasks` / `w` | Tech work order | Read [lulu-tasks/SKILL.md](./lulu-tasks/SKILL.md) |
-| `lulu-code` / `c` | Tech code | Read [lulu-code/SKILL.md](./lulu-code/SKILL.md) |
+| `lulu-exec` / `c` | Task exec | Read [lulu-exec/SKILL.md](./lulu-exec/SKILL.md) |
 
 1. The sub-SKILL owns drafting, evaluation, and delivery.
 2. `lulu-review` is the last node on the feature line. This tree has no `lulu-review/SKILL.md`.

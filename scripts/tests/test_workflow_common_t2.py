@@ -8,21 +8,21 @@ from pathlib import Path
 import pytest
 
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
-_STAGES = ["decision", "lulu-tasks", "lulu-code"]
+_STAGES = ["decision", "lulu-tasks", "lulu-exec"]
 # lulu-plan uses compose/scripts/_kernel/workflow_common.py (no STAGE / session_base_dir).
 _FID = "20260524143022-02cd7e6e"
 
 _EXPECTED_CACHE_SUBDIR = {
     "decision": "decision",
     "lulu-tasks": "lulu-tasks",
-    "lulu-code": "lulu-code",
+    "lulu-exec": "lulu-exec",
 }
 
 
 _STAGE_WC = {
     "decision": "dec_workflow_common.py",
     "lulu-tasks": "tt_workflow_common.py",
-    "lulu-code": "tc_workflow_common.py",
+    "lulu-exec": "tc_workflow_common.py",
 }
 
 
@@ -95,7 +95,7 @@ class TestSessionBaseDir:
 
 class TestCodeStageConstraints:
     def test_session_base_dir_does_not_call_code_hot_root(self):
-        mod = _load_wc("lulu-code")
+        mod = _load_wc("lulu-exec")
         called = []
         original_fn = mod.code_hot_root
 
@@ -110,10 +110,10 @@ class TestCodeStageConstraints:
         )
 
     def test_code_hot_root_function_still_exists(self):
-        mod = _load_wc("lulu-code")
+        mod = _load_wc("lulu-exec")
         assert callable(mod.code_hot_root)
 
     def test_code_hot_root_source_has_archive_only_comment(self):
-        path = _SRC / "lulu-workflow/lulu-code/scripts/tc_workflow_common.py"
+        path = _SRC / "lulu-workflow/lulu-exec/scripts/tc_workflow_common.py"
         source = path.read_text(encoding="utf-8")
         assert "# archive-only" in source

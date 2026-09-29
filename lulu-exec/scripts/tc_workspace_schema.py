@@ -24,6 +24,8 @@ _SCHEMA: list[dict] = [
      "description": "ISO 8601 creation timestamp"},
     {"field": "extra_worktrees", "type": "object", "required": False,
      "description": "Additional worktree mapping: repo -> {path, branch}"},
+    {"field": "repos", "type": "object", "required": False,
+     "description": "target_repo -> {path, branch, checkout?}"},
 ]
 
 _REQUIRED_FIELDS = {s["field"] for s in _SCHEMA if s["required"]}
@@ -95,6 +97,29 @@ def validate_workspace_semantic(data: dict, project_root: Path) -> list[str]:
                     errors.append(f"extra_worktrees[{repo!r}].path must have trailing slash")
                 if "branch" not in entry:
                     errors.append(f"extra_worktrees[{repo!r}] missing 'branch'")
+
+    repos = data.get("repos")
+    if repos is not None:
+        if not isinstance(repos, dict):
+            errors.append("repos must be an object")
+        else:
+            for repo, entry in repos.items():
+                if not isinstance(entry, dict):
+                    errors.append(f"repos[{repo!r}] must be an object")
+                    continue
+                if "path" not in entry:
+                    errors.append(f"repos[{repo!r}] missing 'path'")
+                elif not isinstance(entry["path"], str) or not entry["path"].startswith("/"):
+                    errors.append(f"repos[{repo!r}].path must be an absolute path")
+                elif not entry["path"].endswith("/"):
+                    errors.append(f"repos[{repo!r}].path must have trailing slash")
+                if "branch" not in entry:
+                    errors.append(f"repos[{repo!r}] missing 'branch'")
+                checkout = entry.get("checkout")
+                if checkout is not None and (
+                    not isinstance(checkout, str) or not checkout.startswith("/")
+                ):
+                    errors.append(f"repos[{repo!r}].checkout must be an absolute path")
 
     return errors
 

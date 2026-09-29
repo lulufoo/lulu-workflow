@@ -174,40 +174,70 @@ def create_worktree(project_root: str, path: str, branch: str) -> None:
     run_git(project_root, "worktree", "add", abs_path, "-b", branch)
 
 
-def _collect_targets(workspace: dict) -> list[tuple[str, str]]:
-    """Return list of (path, branch) for primary and extra worktrees."""
+def _collect_targets(workspace: dict, default_checkout: str) -> list[tuple[str, str, str]]:
+    """Return [(checkout, path, branch), ...] for create/reuse.
+
+    When any ``repos`` entry has ``checkout``, create from that checkout.
+    Otherwise keep the legacy project-root + primary/extra layout.
+    """
+    repos = workspace.get("repos") or {}
+    if isinstance(repos, dict) and any(
+        isinstance(info, dict) and info.get("checkout") for info in repos.values()
+    ):
+        targets: list[tuple[str, str, str]] = []
+        for info in repos.values():
+            if not isinstance(info, dict):
+                continue
+            dest = info.get("path", "")
+            branch = info.get("branch", "")
+            checkout = info.get("checkout") or default_checkout
+            if not dest or not branch:
+                raise ValueError("repos entry missing path or branch")
+            targets.append((checkout, dest, branch))
+        if not targets:
+            raise ValueError("workspace.json missing worktree_path or branch")
+        return targets
+
     primary_path = workspace.get("worktree_path", "")
     primary_branch = workspace.get("branch", "")
     if not primary_path or not primary_branch:
         raise ValueError("workspace.json missing worktree_path or branch")
 
-    targets = [(primary_path, primary_branch)]
+    targets = [(default_checkout, primary_path, primary_branch)]
     extra = workspace.get("extra_worktrees") or {}
     for info in extra.values():
         path = info.get("path", "")
         branch = info.get("branch", "")
         if not path or not branch:
             raise ValueError("extra_worktree entry missing path or branch")
-        targets.append((path, branch))
+        targets.append((default_checkout, path, branch))
     return targets
 
 
 def prepare_worktrees(project_root: str, workspace: dict) -> None:
-    """Run P1–P3 for primary and extra worktrees with need_create gating for P2."""
-    pre_check_clean(project_root)
+    """Run P1–P3 for mapped checkouts, or the legacy project-root layout."""
+    targets = _collect_targets(workspace, project_root)
 
-    actions: list[tuple[str, str, str]] = []
-    for path, branch in _collect_targets(workspace):
-        action = resolve_worktree_action(project_root, path, branch)
-        actions.append((path, branch, action))
+    checkouts: list[str] = []
+    for checkout, _, _ in targets:
+        if checkout not in checkouts:
+            checkouts.append(checkout)
+    for checkout in checkouts:
+        pre_check_clean(checkout)
 
-    need_create = any(action == "create" for _, _, action in actions)
-    if need_create:
-        sync_repo(project_root)
+    actions: list[tuple[str, str, str, str]] = []
+    for checkout, path, branch in targets:
+        action = resolve_worktree_action(checkout, path, branch)
+        actions.append((checkout, path, branch, action))
 
-    for path, branch, action in actions:
-        if action == "create":
-            create_worktree(project_root, path, branch)
+    synced: set[str] = set()
+    for checkout, path, branch, action in actions:
+        if action != "create":
+            continue
+        if checkout not in synced:
+            sync_repo(checkout)
+            synced.add(checkout)
+        create_worktree(checkout, path, branch)
 
 
 def validate_worktrees(workspace: dict) -> None:
