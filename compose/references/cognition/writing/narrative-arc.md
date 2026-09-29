@@ -16,8 +16,7 @@ and renderer of that revision.
    claims. Claims live in chapter bodies.
 4. The arc is presentation, not substance. It invents no facts, stores no
    facts, and maps every settled fact exactly once.
-5. The lens chain orders lenses; the arc orders chapters. An arc whose
-   groups each hold one lens is a lens catalogue, not an arc.
+5. An arc whose groups each hold one lens is a lens catalogue, not an arc.
 
 ## States
 
@@ -59,4 +58,4 @@ One tree. Settled facts: `F-1` lens `CTX`, `F-2` lens `ST`. Both sit on one leaf
 - Leaf: `Order record`. `F-1` and `F-2` both sit here.
 - Station: the titles `Checkout` and `Order record`.
 - Chapter: `CTX`/`F-1` and `ST`/`F-2`.
-- Splitting `Checkout` into a `CTX` group and an `ST` group would be a lens catalogue.
+- Chapter order still follows Role `priority_tendency`.
