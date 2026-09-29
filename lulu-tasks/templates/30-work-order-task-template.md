@@ -1,6 +1,6 @@
 # Task Template — work-order
 
-> **Usage**: Every `tasks/t{N}/task.md` follows this template. `kind` is `coding` or `verify`. Section 2 is `coding` only.
+> **Usage**: Every `tasks/t{N}/task.md` follows this template. `kind` is `coding` or `action`. Section 2 is `coding` only.
 
 ---
 
@@ -11,19 +11,21 @@
 version: 1
 task_id: t1
 title: <one-sentence description of the task goal>
-kind: coding               # coding | verify
+kind: coding               # coding | action
 target_files:
   - <relative/path/filename.ext>
 dependencies: []          # list of prerequisite task_ids, e.g. [t1, t2]; use [] if none
 tdd_exempt: false         # coding only: true for pure UI / pure structural changes with no logic branches
-target_repo: <git repo name, no path>
-execution_worktree: feature_worktree   # feature_worktree | extra_repo_worktree | custom_path
+target_repo: <git repo name, no path>          # coding: required. action: only with execution_worktree
+execution_worktree: feature_worktree   # feature_worktree | extra_repo_worktree | custom_path. coding: required. action: omit to run in the project root
 execution_worktree_path: <path>         # required when execution_worktree is custom_path
+effects: read_only        # action only: read_only | mutates
+mutates: [<system>]       # action only: required when effects is mutates, e.g. [linear]; omit for read_only
 exit_contract:
-  commit: required          # coding: required. verify: omit; use receipt
+  commit: required          # coding: required. action: omit; use receipt
   commit_ref_md: required   # coding only
   code_log: required        # coding only
-  # receipt: required       # verify only
+  # receipt: required       # action only
 ---
 ```
 
@@ -31,7 +33,7 @@ exit_contract:
 
 ## Section 1: Acceptance Criteria
 
-> **Writing constraints**: `coding` covers a normal case, a boundary case, and an exception. `tdd_exempt: true` may use `N/A`. `verify` names the command and the observable result, and has no function spec.
+> **Writing constraints**: `coding` covers a normal case, a boundary case, and an exception. `tdd_exempt: true` may use `N/A`. `action` states its goal in `title` and lists one checklist item per acceptance criterion. Each item is an observable condition that a reader can check against evidence such as an id, link, command output, or count. An `action` has no function spec. Write the goal so re-running it is safe: inspect the current state, act only on what is missing.
 
 **Normal scenarios**
 
@@ -49,7 +51,7 @@ exit_contract:
 
 ## Section 2: Function Specs
 
-> **coding only.** Omit this section for `verify`. Acceptance criteria come first. Read code only for the signature being specified.
+> **coding only.** Omit this section for `action`. Acceptance criteria come first. Read code only for the signature being specified.
 
 ```
 Function name: <function_name>
@@ -64,7 +66,7 @@ If there are multiple functions, list each separately.
 
 ## Section 3: Constraints (hard implementation rules, copied from tech-doc)
 
-> **Nature**: Must be followed. A `coding` task that breaks one does not meet the cited rule. A `verify` task that breaks one does not meet the cited check.
+> **Nature**: Must be followed. A `coding` task that breaks one does not meet the cited rule. An `action` task that breaks one does not meet the cited rule.
 
 - Constraint 1: <source tech-doc §N>  
 - Constraint 2: <source tech-doc §N>  

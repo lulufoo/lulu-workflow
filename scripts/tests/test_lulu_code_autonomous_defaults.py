@@ -57,7 +57,7 @@ def test_lulu_code_executing_defers_to_reference():
     assert "Load `references/executing.md`" in content
     body = _LULU_CODE_EXECUTING.read_text(encoding="utf-8")
     assert "$TC_POINTER" in body
-    assert "verify-runner/SKILL.md" in body
+    assert "action-runner/SKILL.md" in body
     assert "task-runner/SKILL.md" in body
     assert '"task_id"' in body
     assert '"cycle_dir"' in body

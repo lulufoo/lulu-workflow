@@ -122,12 +122,12 @@ def test_parse_work_order_task_list_reads_kind_column():
 | task_id | Title | Target File | Dependencies | Kind | TDD Exempt |
 |---------|-------|-------------|--------------|------|------------|
 | t1 | change menu | `shell.tsx` | — | coding | No |
-| t10 | keep deps | `Cargo.toml` | — | verify | No |
+| t10 | migrate todos | `—` | — | action | No |
 """
     tasks = parse_work_order_task_list(content)
     assert [task["id"] for task in tasks] == ["t1", "t10"]
     assert tasks[0]["kind"] == "coding"
-    assert tasks[1]["kind"] == "verify"
+    assert tasks[1]["kind"] == "action"
     assert tasks[0]["tdd_exempt"] is False
     assert tasks[1]["tdd_exempt"] is False
 

@@ -3,14 +3,71 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tc_action_receipt_schema import receipt_path, save_receipt  # noqa: E402
 from tc_confirm_task_ready import ExitContractError, confirm_task_ready  # noqa: E402
-from tc_verify_receipt_schema import save_receipt, receipt_path  # noqa: E402
+
+_CRITERIA = ["Every todo has a Linear issue", "Missing todos were migrated once"]
+
+_ACTION_TASK = """---
+kind: action
+title: Todos are migrated to Linear
+effects: mutates
+mutates: [linear]
+exit_contract:
+  receipt: required
+---
+# t1
+
+## Section 1: Acceptance Criteria
+
+- [ ] Every todo has a Linear issue
+- [ ] Missing todos were migrated once
+
+## Section 3: Constraints
+"""
+
+
+def _setup_action_task(tmp_path: Path) -> Path:
+    cycle_dir = tmp_path / "cycle"
+    session_dir = cycle_dir / "lulu-code" / "s1"
+    session_dir.mkdir(parents=True)
+    wo = cycle_dir / "lulu-tasks"
+    (wo / "r1" / "tasks" / "t1").mkdir(parents=True)
+    (wo / "session-state.md").write_text(
+        "---\nversion: 1\nactive_doc: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
+        encoding="utf-8",
+    )
+    (wo / "r1" / "tasks" / "t1" / "task.md").write_text(_ACTION_TASK, encoding="utf-8")
+    (session_dir / "code-task-list.md").write_text("- [x] t1 · task\n", encoding="utf-8")
+    return session_dir
+
+
+def _full_results() -> list[dict]:
+    return [
+        {"criterion": criterion, "evidence": f"LIN-1 covers: {criterion}", "met": True}
+        for criterion in _CRITERIA
+    ]
+
+
+def _save_action_receipt(session_dir: Path, results: list[dict]) -> None:
+    save_receipt(
+        receipt_path(session_dir, "t1"),
+        {
+            "version": 2,
+            "task_id": "t1",
+            "goal": "Todos are migrated to Linear",
+            "effects": "mutates: linear",
+            "results": results,
+        },
+        _CRITERIA,
+    )
 
 
 def _session_dir(tmp_path: Path) -> Path:
@@ -159,33 +216,30 @@ class TestConfirmTaskReady:
         keys = {key for key, _ in exc_info.value.failures}
         assert keys == {"workflow_pointer", "commit_ref", "code_log_done", "task_list_done"}
 
-    def test_verify_accepts_receipt_without_commit(self, tmp_path: Path):
-        cycle_dir = tmp_path / "cycle"
-        session_dir = cycle_dir / "lulu-code" / "s1"
-        session_dir.mkdir(parents=True)
-        wo = cycle_dir / "lulu-tasks"
-        (wo / "r1" / "tasks" / "t1").mkdir(parents=True)
-        (wo / "session-state.md").write_text(
-            "---\nversion: 1\nactive_doc: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
-            encoding="utf-8",
-        )
-        (wo / "r1" / "tasks" / "t1" / "task.md").write_text(
-            "---\nkind: verify\ntarget_repo: repo-a\nexecution_worktree: feature_worktree\n"
-            "exit_contract:\n  receipt: required\n---\n# t1\n",
-            encoding="utf-8",
-        )
-        _write_task_list(session_dir, [("t1", "x")])
-        save_receipt(
-            receipt_path(session_dir, "t1"),
-            {
-                "version": 1,
-                "task_id": "t1",
-                "command": "rg qrcode.min.js frontend/index.html",
-                "observed": "match",
-                "ok": True,
-            },
-        )
+    def test_action_accepts_receipt_without_commit_or_worktree(self, tmp_path: Path):
+        session_dir = _setup_action_task(tmp_path)
+        _save_action_receipt(session_dir, _full_results())
         result = confirm_task_ready(session_dir, "t1", workflow_state=_executing_state())
-        assert result["kind"] == "verify"
+        assert result["kind"] == "action"
         assert result["initial_commit"] is None
         assert result["next_task_id"] is None
+
+    def test_action_rejects_receipt_missing_a_criterion(self, tmp_path: Path):
+        session_dir = _setup_action_task(tmp_path)
+        _save_action_receipt(session_dir, _full_results())
+        receipt = receipt_path(session_dir, "t1")
+        data = json.loads(receipt.read_text(encoding="utf-8"))
+        data["results"] = data["results"][:1]
+        receipt.write_text(json.dumps(data), encoding="utf-8")
+        with pytest.raises(ExitContractError) as exc_info:
+            confirm_task_ready(session_dir, "t1", workflow_state=_executing_state())
+        assert [key for key, _ in exc_info.value.failures] == ["receipt"]
+        message = exc_info.value.failures[0][1]
+        assert "no result for acceptance criterion" in message
+        assert "Missing todos were migrated once" in message
+
+    def test_action_requires_receipt_file(self, tmp_path: Path):
+        session_dir = _setup_action_task(tmp_path)
+        with pytest.raises(ExitContractError) as exc_info:
+            confirm_task_ready(session_dir, "t1", workflow_state=_executing_state())
+        assert [key for key, _ in exc_info.value.failures] == ["receipt"]

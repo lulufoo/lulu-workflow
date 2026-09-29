@@ -5,7 +5,8 @@ Subcommands:
     list-candidates   List $PROJECT_ROOT (if git) and sibling git checkouts
     put-map           Persist target_repo -> checkout binds for s{N}
 
-Stdin for put-map: JSON object of binds, or {"binds": {...}}.
+Stdin for put-map: JSON object of binds, or {"binds": {...}}. Empty when no task
+binds a repo (action tasks without execution_worktree).
 """
 
 from __future__ import annotations
@@ -73,8 +74,6 @@ def _parse_binds(raw: str) -> dict[str, str]:
         if not isinstance(path, str) or not path.startswith("/"):
             raise ValueError(f"bind {name!r} must be an absolute path")
         binds[name] = str(Path(path).resolve())
-    if not binds:
-        raise ValueError("put-map requires at least one bind")
     return binds
 
 

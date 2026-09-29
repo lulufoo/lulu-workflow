@@ -25,7 +25,7 @@ Run `$TC_POINTER`. Follow `next_action`:
 1. Run `$TC_POINTER`. Pin `current_task` and `kind`.
 2. Dispatch `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`.
    - `kind: coding` → load `task-runner/SKILL.md`
-   - `kind: verify` → load `verify-runner/SKILL.md`
+   - `kind: action` → load `action-runner/SKILL.md`
    Prompt `## Input` must be this JSON (no other launch payload):
 
    ```
@@ -43,6 +43,6 @@ Run `$TC_POINTER`. Follow `next_action`:
 6. Output CHECKPOINT immediately:
    - `coding` and `next_task_id` set → `CHECKPOINT t{X}: commit SHA <initial_commit>, task commit recorded, advancing to <next_task_id>.`
    - `coding` and `next_task_id` null → `CHECKPOINT t{X}: commit SHA <initial_commit>, task commit recorded, advancing to Closing.`
-   - `verify` and `next_task_id` set → `CHECKPOINT t{X}: receipt recorded, advancing to <next_task_id>.`
-   - `verify` and `next_task_id` null → `CHECKPOINT t{X}: receipt recorded, advancing to Closing.`
+   - `action` and `next_task_id` set → `CHECKPOINT t{X}: receipt recorded, advancing to <next_task_id>.`
+   - `action` and `next_task_id` null → `CHECKPOINT t{X}: receipt recorded, advancing to Closing.`
 7. Run `$TC_ADVANCE`. `dispatch` → Step 1 with the new `current_task`. `closing` → § Closing.

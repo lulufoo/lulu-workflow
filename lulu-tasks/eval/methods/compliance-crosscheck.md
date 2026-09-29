@@ -6,7 +6,7 @@ The reference is treated as sound. Emit `WO-MISS` or `WO-ERROR` only. Do not emi
 
 ## Check 1 — Coverage (`WO-MISS`)
 
-Each deliverable behavior in the tech-doc chapter has at least one task that carries it. A behavior with no task is `WO-MISS`. Quote the tech-doc passage and name the missing task location. A `verify` task carries a behavior whose deliverable is a command or a confirmation that something remains. That behavior does not also need a `coding` task.
+Each deliverable behavior in the tech-doc chapter has at least one task that carries it. A behavior with no task is `WO-MISS`. Quote the tech-doc passage and name the missing task location. An `action` task carries a behavior whose deliverable is a confirmed state of a system or a checked condition. That behavior does not also need a `coding` task.
 
 ## Check 2 — Traceability (`WO-MISS`)
 

@@ -1,7 +1,7 @@
 ---
 name: lulu-exec
 description: >-
-  Use when: execute a delivered work order, task exec, coding TDD, verify check,
+  Use when: execute a delivered work order, task exec, coding TDD, action task,
   lulu-exec workflow, lulu-workflow lulu-exec, git worktree delivery.
 disable-model-invocation: true
 ---
@@ -10,7 +10,7 @@ disable-model-invocation: true
 
 ## Overview
 
-Execute work-order tasks by `kind` in an isolated git worktree. One task per sub-agent. `coding` uses TDD and a commit contract. `verify` records a check receipt. Then a closing gate before delivery.
+Execute work-order tasks by `kind`. One task per sub-agent. `coding` runs in an isolated git worktree with TDD and a commit contract. `action` reaches a stated goal and records a receipt with evidence for every acceptance criterion; it runs in the project root unless the task names a worktree. Then a closing gate before delivery.
 
 ## Blocking policy
 
@@ -61,7 +61,7 @@ python3 "$SKILL_DIR/scripts/tc_session_control.py" \
 
 Session states: `Starting` → `Preparing` → `Executing` → `Closing` → `Delivered`
 
-Task phases live in the runner for `$CTX.kind`. Do not run the TDD chain for `verify`.
+Task phases live in the runner for `$CTX.kind`. Do not run the TDD chain for `action`.
 
 ---
 

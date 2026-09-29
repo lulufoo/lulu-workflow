@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from tc_repo_map_control import list_candidates, put_map  # noqa: E402
+from tc_repo_map_control import _parse_binds, list_candidates, put_map  # noqa: E402
 from tc_repo_map_schema import (  # noqa: E402
     load_repo_map,
     missing_binds,
@@ -91,6 +91,22 @@ def test_put_map_writes_binds(tmp_path: Path):
     assert payload["ok"] is True
     binds = load_repo_map(session / "repo-map.json")
     assert binds["lulu-workbench"] == str(sibling.resolve())
+
+
+def test_put_map_accepts_empty_binds_when_no_task_binds_a_repo(tmp_path: Path):
+    workspace = tmp_path / "workspace"
+    _init_git(workspace)
+    cycle_dir = tmp_path / "cycle"
+    session = cycle_dir / "lulu-code" / "s1"
+    session.mkdir(parents=True)
+    (cycle_dir / "lulu-code" / "session-state.md").write_text(
+        "---\nversion: 1\nactive_session: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
+        encoding="utf-8",
+    )
+    assert _parse_binds("{}") == {}
+    payload = put_map(cycle_dir, workspace, {})
+    assert payload["binds"] == {}
+    assert load_repo_map(session / "repo-map.json") == {}
 
 
 def test_save_and_load_roundtrip(tmp_path: Path):
