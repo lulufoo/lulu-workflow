@@ -11,7 +11,7 @@
     ]
   },
   "task": {
-    "states": ["WriteTests", "VerifyRed", "WriteImpl", "VerifyGreen", "Refactor", "Done"],
+    "states": ["WriteTests", "VerifyRed", "WriteImpl", "VerifyGreen", "Refactor", "Check", "Done"],
     "allowed_transitions": [
       { "from": "*", "to": "WriteTests" },
       { "from": "WriteTests", "to": "VerifyRed" },
@@ -20,7 +20,10 @@
       { "from": "VerifyGreen", "to": "Refactor" },
       { "from": "VerifyGreen", "to": "Done", "when": "tdd_exempt" },
       { "from": "Refactor", "to": "Done" },
-      { "from": "Done", "to": "WriteTests", "when": "has_next_task" }
+      { "from": "*", "to": "Check" },
+      { "from": "Check", "to": "Done" },
+      { "from": "Done", "to": "WriteTests", "when": "has_next_coding_task" },
+      { "from": "Done", "to": "Check", "when": "has_next_verify_task" }
     ]
   }
 }

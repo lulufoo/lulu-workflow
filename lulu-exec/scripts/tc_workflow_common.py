@@ -16,12 +16,17 @@ from archive_common import (  # noqa: E402
 )
 from platform_schema import detect_platform  # noqa: E402
 from platforms.paths import cache_dir, workflow_dir  # noqa: E402
+from stage_identity import (  # noqa: E402
+    EXEC_STAGE,
+    exec_stage_dir,
+    migrate_exec_stage_dir,
+)
 
 _PLATFORM = detect_platform()
 WORKFLOW_DIR = workflow_dir(_PLATFORM)
 CACHE_DIR = cache_dir(_PLATFORM)
-STAGE = "lulu-code"
-CACHE_SUBDIR = "lulu-code"
+STAGE = EXEC_STAGE
+CACHE_SUBDIR = EXEC_STAGE
 PLATFORM_CONFIG_PATH = WORKFLOW_DIR / "config.json"
 from subagent_config import (  # noqa: E402
     load_stage_config,

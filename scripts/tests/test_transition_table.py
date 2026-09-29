@@ -42,7 +42,7 @@ class TestKnownStages:
         assert "lulu-blueprint" in stages
         assert "lulu-arch" in stages
         assert "lulu-tasks" not in stages
-        assert "lulu-code" not in stages
+        assert "lulu-exec" not in stages
         assert "lulu-design" not in stages
         assert "lulu-plan" not in stages
 
@@ -52,7 +52,7 @@ class TestKnownStages:
         stages = known_stages("feature")
         assert "lulu-design" in stages
         assert "lulu-tasks" in stages
-        assert "lulu-code" in stages
+        assert "lulu-exec" in stages
 
     def test_allowed_stages_includes_decision(self):
         from transition_table import allowed_stages

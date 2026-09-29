@@ -147,3 +147,9 @@ def test_put_task_checks_frontmatter_not_section_order(tmp_path: Path) -> None:
     refused_other = _emit(cmd_put_task, tmp_path, cycle_id, bad_kind)
     assert refused_other["ok"] is False
     assert "coding or verify" in refused_other["error"]
+    verify = _TASK.replace("kind: coding\n", "kind: verify\n").replace(
+        "exit_contract:\n  commit: required\n  commit_ref_md: required\n  code_log: required\n",
+        "exit_contract:\n  receipt: required\n",
+    )
+    stored_verify = _emit(cmd_put_task, tmp_path, cycle_id, verify)
+    assert stored_verify["ok"] is True

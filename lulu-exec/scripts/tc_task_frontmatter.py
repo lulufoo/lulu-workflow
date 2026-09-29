@@ -41,6 +41,14 @@ def read_task_frontmatter(task_path: Path) -> dict:
     return result
 
 
+def parse_kind_from_frontmatter(fm: dict) -> str:
+    """Return coding or verify. Unknown or missing values become coding."""
+    kind = str(fm.get("kind", "coding")).strip()
+    if kind in ("coding", "verify"):
+        return kind
+    return "coding"
+
+
 def parse_tdd_exempt_from_frontmatter(fm: dict) -> bool | None:
     """Return bool if tdd_exempt is set in frontmatter, else None."""
     if "tdd_exempt" not in fm:

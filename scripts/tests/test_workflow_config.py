@@ -297,10 +297,13 @@ class TestEnsureBuiltinStageConfigs:
         created = ensure_builtin_stage_configs(tmp_path, "cursor")
         root = tmp_path / ".cursor/lulu-workflow"
         names = {path.name for path in created}
-        assert "lulu-code.json" in names
+        assert "lulu-exec.json" in names
         assert "lulu-tasks.json" not in names
         assert not (root / "stages/lulu-tasks.json").exists()
         assert json.loads((root / "manifest.json").read_text())["layout"] == "stages"
+        assert load_stage_config(tmp_path, "lulu-exec", "cursor")["test_command"] == (
+            "npm test"
+        )
         assert load_stage_config(tmp_path, "lulu-code", "cursor")["test_command"] == (
             "npm test"
         )

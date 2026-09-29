@@ -14,7 +14,7 @@ _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
 _LDEV = _SRC / "lulu-workflow"
 _KERNEL_START = _LDEV / "compose" / "scripts" / "session" / "start.py"
 _COMPOSE_START_STAGES = frozenset({"lulu-plan", "lulu-spec", "lulu-arch", "lulu-blueprint"})
-_STAGES = ["decision", "lulu-spec", "lulu-plan", "lulu-tasks", "lulu-code"]
+_STAGES = ["decision", "lulu-spec", "lulu-plan", "lulu-tasks", "lulu-exec"]
 
 # Use lulu-tasks's tt_workflow_common for unit tests of shared functions.
 _TWO_SCRIPTS = _SRC / "lulu-workflow" / "lulu-tasks" / "scripts"
@@ -27,7 +27,7 @@ _CONV_ID = "test-conv-t4-routing"
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
 _FEATURE_CYCLE = [
     "lulu-bet", "lulu-spec", "lulu-approach",
-    "lulu-plan", "lulu-tasks", "lulu-code",
+    "lulu-plan", "lulu-tasks", "lulu-exec",
 ]
 # Topic cycles end at lulu-arch; lulu-tasks and lulu-code are feature-only.
 _TOPIC_CONTAINER_STAGES = ["decision", "lulu-blueprint", "lulu-arch"]
@@ -39,7 +39,7 @@ _TOPIC_CYCLE = [
 def _start_py(stage: str) -> Path:
     if stage in _COMPOSE_START_STAGES:
         return _KERNEL_START
-    return _SRC / "lulu-workflow" / stage / "scripts" / ({"lulu-code": "tc_start.py", "decision": "dec_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
+    return _SRC / "lulu-workflow" / stage / "scripts" / ({"lulu-exec": "tc_start.py", "decision": "dec_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
@@ -303,7 +303,7 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
         tech_ref = tmp_path / "tech-doc.md"
         tech_ref.write_text("# Tech Doc\n", encoding="utf-8")
         return ["--tech-ref", str(tech_ref)]
-    elif stage == "lulu-code":
+    elif stage == "lulu-exec":
         cd = _cache_dir(tmp_path)
         _seed_work_order_handoff(cd, _CYCLE_ID)
         _seed_work_order_handoff(cd, _TOPIC_ID)

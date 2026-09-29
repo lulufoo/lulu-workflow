@@ -41,7 +41,12 @@ def _write_code_session_state(cycle_dir: Path, session_id: str = "1") -> Path:
     return session_dir
 
 
-def _write_workspace(session_dir: Path, worktree_path: Path, extra: dict | None = None) -> None:
+def _write_workspace(
+    session_dir: Path,
+    worktree_path: Path,
+    extra: dict | None = None,
+    repos: dict | None = None,
+) -> None:
     payload = {
         "worktree_path": str(worktree_path.resolve()).rstrip("/") + "/",
         "project_root": str(session_dir.resolve()),
@@ -50,6 +55,8 @@ def _write_workspace(session_dir: Path, worktree_path: Path, extra: dict | None 
     }
     if extra:
         payload["extra_worktrees"] = extra
+    if repos:
+        payload["repos"] = repos
     (session_dir / "workspace.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
@@ -146,6 +153,26 @@ class TestResolveTaskContext:
         result = resolve_task_context(cycle_dir, "t1", project_root)
         assert result["worktree_abs_path"] == str(extra_wt.resolve())
         assert result["branch"] == "wt/feat-test-repo-b"
+
+    def test_repos_entry_overrides_primary(self, tmp_path: Path):
+        cycle_dir, project_root, worktree = _setup_happy_path(tmp_path)
+        session_dir = cycle_dir / "lulu-code" / "s1"
+        mapped = tmp_path / "mapped-wt"
+        mapped.mkdir()
+        _write_workspace(
+            session_dir,
+            worktree,
+            repos={
+                "repo-a": {
+                    "path": str(mapped.resolve()).rstrip("/") + "/",
+                    "branch": "wt/feat-mapped",
+                    "checkout": "/abs/lulu-workbench",
+                }
+            },
+        )
+        result = resolve_task_context(cycle_dir, "t1", project_root)
+        assert result["worktree_abs_path"] == str(mapped.resolve())
+        assert result["branch"] == "wt/feat-mapped"
 
     def test_tdd_exempt_from_list(self, tmp_path: Path):
         cycle_dir, project_root, _ = _setup_happy_path(tmp_path)

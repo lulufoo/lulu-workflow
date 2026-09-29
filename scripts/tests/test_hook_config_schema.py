@@ -38,7 +38,7 @@ class TestDefaultHookConfig:
 
         stages = default_hook_config()["internalPathGuard"]["stages"]
         assert stages == {
-            "lulu-code": {
+            "lulu-exec": {
                 "readDirs": ["."],
                 "writeDirs": ["."],
             },

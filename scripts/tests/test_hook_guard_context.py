@@ -136,8 +136,8 @@ class TestShouldInjectConversationId:
             "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/start.py --profile lulu-plan --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/start.py --profile lulu-design --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-workflow/lulu-tasks/scripts/tt_start.py --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-workflow/lulu-code/scripts/tc_start.py --cycle-id fid1",
-            "python3 ~/.cursor/skills/lulu-workflow/lulu-code/scripts/tc_task_control.py resolve-context --task-id t1",
+            "python3 ~/.cursor/skills/lulu-workflow/lulu-exec/scripts/tc_start.py --cycle-id fid1",
+            "python3 ~/.cursor/skills/lulu-workflow/lulu-exec/scripts/tc_task_control.py resolve-context --task-id t1",
             "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/inductive/inductive_gate_control.py init-session --out-dir /tmp/r1",
             "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/inductive/recompose/inductive_recompose_control.py record-recompose-report --out-dir /tmp/r1 --json '{}'",
         ],
@@ -523,7 +523,7 @@ class TestRwGuard:
         import active_context_schema
         monkeypatch.chdir(tmp_path)
         active_context_schema.write_entry(
-            tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-code"
+            tmp_path, "cursor", "conv-a", _CYCLE_ID, "lulu-exec"
         )
         target = tmp_path / "src" / "main.py"
         target.parent.mkdir(parents=True, exist_ok=True)

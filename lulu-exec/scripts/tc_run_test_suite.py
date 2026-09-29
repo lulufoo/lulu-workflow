@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from tc_workflow_common import load_stage_config, workflow_config_is_present
+from tc_workflow_common import EXEC_STAGE, load_stage_config, workflow_config_is_present
 
 
 @dataclass
@@ -45,10 +45,10 @@ def resolve_test_command(project_root: Path) -> str:
     """Read lulu-code.test_command from workflow stage config."""
     if not workflow_config_is_present(project_root):
         raise ValueError(f"workflow-config not found under {project_root.as_posix()}")
-    code_cfg = load_stage_config(project_root, "lulu-code")
+    code_cfg = load_stage_config(project_root, EXEC_STAGE)
     command = code_cfg.get("test_command", "")
     if not command or not str(command).strip():
-        raise ValueError("test_command not configured in lulu-code stage config")
+        raise ValueError("test_command not configured in lulu-exec stage config")
     return str(command).strip()
 
 

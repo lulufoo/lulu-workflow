@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+from stage_identity import resolve_stage_cache_dir
+
 _VALID_STATES = frozenset(
     {"Drafting", "Working", "Evaluating", "TDABlocked", "Delivered", "Invalidated"}
 )
@@ -83,7 +85,7 @@ def get_sessions(cycle_id: str, stage: str, cache_dir: Path) -> List[SessionInfo
     For ``lulu-approach``, also scans nested ``main/session-state.md`` and
     ``D*/session-state.md`` under the stage dir (flat root kept for back-compat).
     """
-    stage_dir = cache_dir / cycle_id / stage_subdir(stage)
+    stage_dir = resolve_stage_cache_dir(cache_dir, cycle_id, stage)
     if not stage_dir.is_dir():
         return []
     sessions: List[SessionInfo] = []

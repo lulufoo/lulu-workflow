@@ -11,8 +11,10 @@ Split a delivered plan into an independently executable task-dependency list.
 
 A task has `kind: coding` or `kind: verify`.
 
-- `coding` changes code. Function-count, signatures, TDD order, and `tdd_exempt` apply only to this kind. Delivery starts `lulu-code` for these tasks.
-- `verify` runs a stated check. It names the command and the observable result. It does not change code and does not enter `lulu-code`.
+- `coding` changes code. Function-count, signatures, TDD order, and `tdd_exempt` apply only to this kind.
+- `verify` runs a stated check. It names the command and the observable result. It does not change code.
+
+Delivery starts `lulu-exec` for the whole work order. That session dispatches by `kind`.
 
 <HARD-GATE>
 Do NOT proceed until you have read `../_runtime.md` and loaded:

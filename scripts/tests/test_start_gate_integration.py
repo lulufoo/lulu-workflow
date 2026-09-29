@@ -26,17 +26,17 @@ _TOPIC_ID = "topic-20260101000000-deadbeef"
 _COMPOSE_START_STAGES = frozenset({"lulu-plan", "lulu-spec"})
 _KERNEL_START = _LDEV / "compose" / "scripts" / "session" / "start.py"
 
-_STAGES_WITH_GATE = ["lulu-spec", "lulu-plan", "lulu-tasks", "lulu-code"]
-_ALL_STAGES = ["decision", "lulu-spec", "lulu-plan", "lulu-tasks", "lulu-code"]
+_STAGES_WITH_GATE = ["lulu-spec", "lulu-plan", "lulu-tasks", "lulu-exec"]
+_ALL_STAGES = ["decision", "lulu-spec", "lulu-plan", "lulu-tasks", "lulu-exec"]
 # decision performs no topic_id/get_topic_ref validation of its own — that check now
 # lives entirely in the holder's own resolver (lulu-bet/lulu-approach resolve_context.py)
 # or the compose adapter's resolve_norm_constraint_refs, never in the shared kernel itself.
-_STAGES_VALIDATING_TOPIC_LINKAGE = ["lulu-spec", "lulu-plan", "lulu-tasks", "lulu-code"]
+_STAGES_VALIDATING_TOPIC_LINKAGE = ["lulu-spec", "lulu-plan", "lulu-tasks", "lulu-exec"]
 
 # Feature cycle order (matches config/transition-table.json)
 _FEATURE_CYCLE = [
     "lulu-bet", "lulu-spec", "lulu-approach",
-    "lulu-plan", "lulu-tasks", "lulu-code",
+    "lulu-plan", "lulu-tasks", "lulu-exec",
 ]
 
 
@@ -47,7 +47,7 @@ _FEATURE_CYCLE = [
 def _start_py(stage: str) -> Path:
     if stage in _COMPOSE_START_STAGES:
         return _KERNEL_START
-    return _LDEV / stage / "scripts" / ({"lulu-code": "tc_start.py", "decision": "dec_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
+    return _LDEV / stage / "scripts" / ({"lulu-exec": "tc_start.py", "decision": "dec_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
@@ -260,7 +260,7 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
         tech_ref = tmp_path / "tech-doc.md"
         tech_ref.write_text("# Tech Doc\n", encoding="utf-8")
         return ["--tech-ref", str(tech_ref)]
-    if stage == "lulu-code":
+    if stage == "lulu-exec":
         return []
     return []
 
@@ -399,7 +399,7 @@ def _run_start(
     extra_args: list = None,
 ) -> subprocess.CompletedProcess:
     args = extra_args if extra_args is not None else _stage_extra_args(stage, tmp_path)
-    if stage == "lulu-code":
+    if stage == "lulu-exec":
         _seed_work_order_handoff(_cache_dir(tmp_path), cycle_id)
     if stage == "decision":
         _seed_decision_config(tmp_path)

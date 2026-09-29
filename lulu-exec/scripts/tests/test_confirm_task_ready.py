@@ -10,6 +10,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tc_confirm_task_ready import ExitContractError, confirm_task_ready  # noqa: E402
+from tc_verify_receipt_schema import save_receipt, receipt_path  # noqa: E402
 
 
 def _session_dir(tmp_path: Path) -> Path:
@@ -68,6 +69,7 @@ class TestConfirmTaskReady:
         result = confirm_task_ready(session_dir, "t1", workflow_state=_executing_state())
         assert result == {
             "task_id": "t1",
+            "kind": "coding",
             "initial_commit": "abc123",
             "next_task_id": "t2",
         }
@@ -156,3 +158,34 @@ class TestConfirmTaskReady:
             )
         keys = {key for key, _ in exc_info.value.failures}
         assert keys == {"workflow_pointer", "commit_ref", "code_log_done", "task_list_done"}
+
+    def test_verify_accepts_receipt_without_commit(self, tmp_path: Path):
+        cycle_dir = tmp_path / "cycle"
+        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir.mkdir(parents=True)
+        wo = cycle_dir / "lulu-tasks"
+        (wo / "r1" / "tasks" / "t1").mkdir(parents=True)
+        (wo / "session-state.md").write_text(
+            "---\nversion: 1\nactive_doc: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
+            encoding="utf-8",
+        )
+        (wo / "r1" / "tasks" / "t1" / "task.md").write_text(
+            "---\nkind: verify\ntarget_repo: repo-a\nexecution_worktree: feature_worktree\n"
+            "exit_contract:\n  receipt: required\n---\n# t1\n",
+            encoding="utf-8",
+        )
+        _write_task_list(session_dir, [("t1", "x")])
+        save_receipt(
+            receipt_path(session_dir, "t1"),
+            {
+                "version": 1,
+                "task_id": "t1",
+                "command": "rg qrcode.min.js frontend/index.html",
+                "observed": "match",
+                "ok": True,
+            },
+        )
+        result = confirm_task_ready(session_dir, "t1", workflow_state=_executing_state())
+        assert result["kind"] == "verify"
+        assert result["initial_commit"] is None
+        assert result["next_task_id"] is None

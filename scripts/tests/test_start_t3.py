@@ -12,7 +12,7 @@ import pytest
 
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
 _LDEV = _SRC / "lulu-workflow"
-_STAGES = ["decision", "lulu-blueprint", "lulu-arch", "lulu-plan", "lulu-tasks", "lulu-code"]
+_STAGES = ["decision", "lulu-blueprint", "lulu-arch", "lulu-plan", "lulu-tasks", "lulu-exec"]
 # compose start.py never integrated run_archive; other stages defer via comment.
 _STAGES_WITH_DEFERRED_ARCHIVE = [
     s for s in _STAGES if s not in ("lulu-plan", "lulu-arch", "lulu-blueprint")
@@ -22,7 +22,7 @@ _CONV_ID = "test-conversation-aaa"
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
 _FEATURE_CYCLE = [
     "lulu-bet", "lulu-spec", "lulu-approach",
-    "lulu-plan", "lulu-tasks", "lulu-code",
+    "lulu-plan", "lulu-tasks", "lulu-exec",
 ]
 _TOPIC_CYCLE = [
     "lulu-bet", "lulu-blueprint", "lulu-approach", "lulu-arch",
@@ -48,7 +48,7 @@ def _diag_holder_args(stage: str = "lulu-bet") -> list[str]:
 def _start_py(stage: str) -> Path:
     if stage in ("lulu-plan", "lulu-arch", "lulu-blueprint"):
         return _KERNEL_START
-    return _SRC / "lulu-workflow" / stage / "scripts" / ({"lulu-code": "tc_start.py", "decision": "dec_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
+    return _SRC / "lulu-workflow" / stage / "scripts" / ({"lulu-exec": "tc_start.py", "decision": "dec_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
@@ -442,14 +442,14 @@ class TestSessionPath:
         )
 
     def _run_code(self, tmp_path):
-        _seed_gate_for_stage(tmp_path, "lulu-code")
+        _seed_gate_for_stage(tmp_path, "lulu-exec")
         _seed_work_order_handoff(tmp_path, _FID)
         return subprocess.run(
-            [sys.executable, str(_start_py("lulu-code")),
+            [sys.executable, str(_start_py("lulu-exec")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("lulu-code")),
+            cwd=str(_scripts_dir("lulu-exec")),
         )
 
     def test_decision_exits_zero(self, tmp_path):
@@ -543,5 +543,5 @@ class TestSessionPath:
 
     def test_code_session_file_at_feature_first_path(self, tmp_path):
         self._run_code(tmp_path)
-        ss = _cache_dir(tmp_path) / _FID / "lulu-code" / "session-state.md"
+        ss = _cache_dir(tmp_path) / _FID / "lulu-exec" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"

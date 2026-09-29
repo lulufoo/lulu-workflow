@@ -13,9 +13,14 @@ Outputs JSON to stdout on success:
     { current_state, current_task, worktree_path, slug, branch }
 
 Slug is auto-derived on first create: last 8 chars of cycle_id + 4-char random hex.
-If s{N}/workspace.json already exists and passes validation, it is loaded only
-(created_at is not rewritten). Invalid files are deleted and recreated with a new slug.
+Requires s{N}/repo-map.json binds before creating worktrees. Create from each
+bound checkout, not from --project-root unless that path is the bound checkout.
+If s{N}/workspace.json already exists, matches the binds, and passes validation,
+it is loaded only (created_at is not rewritten). Stale or invalid files are
+deleted and recreated with a new slug.
 """
+
+from __future__ import annotations
 
 import argparse
 import json
@@ -28,11 +33,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from tc_code_task_list import first_pending, parse_tasks  # noqa: E402
 from tc_git_ops import prepare_worktrees, validate_worktrees  # noqa: E402
 from tc_session_state_schema import load_session_state, load_work_order_round  # noqa: E402
-from tc_workflow_common import load_stage_config, workflow_config_is_present  # noqa: E402
+from tc_workflow_common import (  # noqa: E402
+    exec_stage_dir,
+    load_stage_config,
+    workflow_config_is_present,
+)
+from stage_identity import EXEC_STAGE  # noqa: E402
 from tc_workflow_state_schema import (  # noqa: E402
     load_workflow_state,
     resolve_workflow_state_path,
     save_workflow_state,
+)
+from tc_repo_map_schema import (  # noqa: E402
+    load_repo_map,
+    missing_binds,
+    repo_map_path,
+    required_target_repos,
 )
 from tc_task_frontmatter import read_task_frontmatter  # noqa: E402
 from tc_workspace_schema import assess_workspace_file, load_workspace, save_workspace  # noqa: E402
@@ -68,9 +84,15 @@ def _validate_single_task(task_id: str, fm: dict) -> list:
                 f"{task_id}: execution_worktree_path must be relative, got '{ewp}'"
             )
 
+    kind = str(fm.get("kind", "coding")).strip() or "coding"
     ec = fm.get("exit_contract")
     if not isinstance(ec, dict):
         errors.append(f"{task_id}: missing exit_contract block")
+    elif kind == "verify":
+        if ec.get("receipt") != "required":
+            errors.append(
+                f"{task_id}: exit_contract.receipt must be 'required', got '{ec.get('receipt')}'"
+            )
     else:
         for key in _EXIT_CONTRACT_KEYS:
             if ec.get(key) != "required":
@@ -148,7 +170,7 @@ def load_git_config(project_root: Path) -> dict:
         raise FileNotFoundError(
             f"workflow-config not found under {project_root.as_posix()}"
         )
-    code_cfg = load_stage_config(project_root, "lulu-code")
+    code_cfg = load_stage_config(project_root, EXEC_STAGE)
     return code_cfg.get("git", {})
 
 
@@ -181,6 +203,7 @@ def write_workspace(
     paths: dict,
     tasks: list,
     project_root: Path,
+    repo_map: dict | None = None,
 ) -> Path:
     """Write s{N}/workspace.json and return the written path."""
     worktree_path = (project_root / paths["worktree_dir"]).resolve().as_posix().rstrip("/") + "/"
@@ -191,31 +214,42 @@ def write_workspace(
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    extra = {}
+    extra: dict[str, dict] = {}
+    repos: dict[str, dict] = {}
     base = paths["worktree_dir"].rstrip("/")
+    primary_repo: str | None = None
     for task in tasks:
-        if task["execution_worktree"] != "extra_repo_worktree":
+        if task.get("execution_worktree") == "custom_path":
             continue
-        repo = task["target_repo"]
-        if repo in extra:
+        repo = task.get("target_repo", "")
+        if not repo or repo in repos:
             continue
-        suffix = repo.replace("/", "-")
-        rel_path = f"{base}-{suffix}/"
-        extra[repo] = {
-            "path": (project_root / rel_path).resolve().as_posix().rstrip("/") + "/",
-            "branch": f"{paths['branch']}-{suffix}",
-        }
+        if primary_repo is None:
+            primary_repo = repo
+            entry = {"path": worktree_path, "branch": paths["branch"]}
+        else:
+            suffix = repo.replace("/", "-")
+            rel_path = f"{base}-{suffix}/"
+            dest = (project_root / rel_path).resolve().as_posix().rstrip("/") + "/"
+            branch = f"{paths['branch']}-{suffix}"
+            entry = {"path": dest, "branch": branch}
+            extra[repo] = {"path": dest, "branch": branch}
+        if repo_map and repo in repo_map:
+            entry["checkout"] = str(Path(repo_map[repo]).resolve())
+        repos[repo] = entry
     if extra:
         payload["extra_worktrees"] = extra
+    if repos:
+        payload["repos"] = repos
 
-    dest = cycle_dir / "lulu-code" / f"s{session_idx}" / "workspace.json"
+    dest = exec_stage_dir(cycle_dir) / f"s{session_idx}" / "workspace.json"
     save_workspace(dest, payload)
     return dest
 
 
 def _workspace_dest(cycle_dir: Path, session_idx: int) -> Path:
     """Return the canonical path for s{N}/workspace.json."""
-    return cycle_dir / "lulu-code" / f"s{session_idx}" / "workspace.json"
+    return exec_stage_dir(cycle_dir) / f"s{session_idx}" / "workspace.json"
 
 
 def _create_workspace(
@@ -225,13 +259,28 @@ def _create_workspace(
     tasks: list,
     project_root: Path,
     git_cfg: dict,
+    repo_map: dict | None = None,
 ) -> tuple[Path, dict, str, str, bool]:
     """First-time workspace creation: derive slug, write file, return created=True."""
     slug = _derive_slug(cycle_id)
     paths = build_worktree_paths(slug, git_cfg)
-    dest = write_workspace(cycle_dir, session_idx, slug, paths, tasks, project_root)
+    dest = write_workspace(
+        cycle_dir, session_idx, slug, paths, tasks, project_root, repo_map=repo_map
+    )
     workspace = load_workspace(dest)
     return dest, workspace, slug, paths["branch"], True
+
+
+def _workspace_matches_binds(workspace: dict, binds: dict, tasks: list) -> bool:
+    """True when every required target_repo records the bound checkout."""
+    repos = workspace.get("repos") or {}
+    for repo in required_target_repos(tasks):
+        info = repos.get(repo)
+        if not isinstance(info, dict) or not info.get("checkout"):
+            return False
+        if Path(info["checkout"]).resolve() != Path(binds[repo]).resolve():
+            return False
+    return True
 
 
 def ensure_workspace(
@@ -241,23 +290,23 @@ def ensure_workspace(
     tasks: list,
     project_root: Path,
     git_cfg: dict,
+    repo_map: dict | None = None,
 ) -> tuple[Path, dict, str, str, bool]:
     """Load valid workspace.json without writing; delete and recreate if invalid."""
     dest = _workspace_dest(cycle_dir, session_idx)
-    if not dest.exists():
-        return _create_workspace(
-            cycle_dir, session_idx, cycle_id, tasks, project_root, git_cfg
-        )
+    if dest.exists():
+        ok, workspace, errors = assess_workspace_file(dest, project_root)
+        if ok and (repo_map is None or _workspace_matches_binds(workspace, repo_map, tasks)):
+            slug = Path(workspace["worktree_path"].rstrip("/")).name
+            return dest, workspace, slug, workspace["branch"], False
+        if not ok:
+            print(f"workspace.json invalid, recreating: {errors}", file=sys.stderr)
+        else:
+            print("workspace.json checkout map stale, recreating", file=sys.stderr)
+        dest.unlink(missing_ok=True)
 
-    ok, workspace, errors = assess_workspace_file(dest, project_root)
-    if ok:
-        slug = Path(workspace["worktree_path"].rstrip("/")).name
-        return dest, workspace, slug, workspace["branch"], False
-
-    print(f"workspace.json invalid, recreating: {errors}", file=sys.stderr)
-    dest.unlink(missing_ok=True)
     return _create_workspace(
-        cycle_dir, session_idx, cycle_id, tasks, project_root, git_cfg
+        cycle_dir, session_idx, cycle_id, tasks, project_root, git_cfg, repo_map=repo_map
     )
 
 
@@ -385,13 +434,24 @@ def main() -> int:
         return 1
 
     try:
-        session_idx = load_session_state(cycle_dir / "lulu-code" / "session-state.md")
+        session_idx = load_session_state(exec_stage_dir(cycle_dir) / "session-state.md")
     except (ValueError, FileNotFoundError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
+    map_path = repo_map_path(exec_stage_dir(cycle_dir) / f"s{session_idx}")
+    try:
+        binds = load_repo_map(map_path)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    missing = missing_binds(binds, tasks)
+    if missing:
+        print(f"repo-map missing binds for: {', '.join(missing)}", file=sys.stderr)
+        return 1
+
     dest, workspace, slug, branch, created = ensure_workspace(
-        cycle_dir, session_idx, cycle_id, tasks, project_root, git_cfg
+        cycle_dir, session_idx, cycle_id, tasks, project_root, git_cfg, repo_map=binds
     )
 
     try:

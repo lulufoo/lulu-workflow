@@ -16,7 +16,8 @@ from pathlib import Path
 from typing import Optional
 
 from tc_session_state_schema import load_session_state
-from tc_workflow_common import parse_frontmatter_fields
+from tc_workflow_common import exec_stage_dir, parse_frontmatter_fields
+from stage_identity import EXEC_STAGE, EXEC_STAGE_LEGACY
 
 _WHITELIST_PATH = Path(__file__).resolve().parents[1] / "transition-whitelist.json"
 
@@ -24,7 +25,7 @@ _SCHEMA: list[dict] = [
     {"field": "version", "type": "string", "required": True,
      "description": "Schema version (currently 1)"},
     {"field": "workflow", "type": "string", "required": True,
-     "description": "Fixed value: lulu-code"},
+     "description": "Fixed value: lulu-exec (legacy lulu-code accepted on read)"},
     {"field": "current_state", "type": "string", "required": True,
      "description": "Session state: Starting / Preparing / Executing / Closing / Delivered"},
     {"field": "mode", "type": "string", "required": True,
@@ -83,8 +84,10 @@ def validate_workflow_state(data: dict) -> list[str]:
     if "version" in data and data["version"] != "1":
         errors.append(f"invalid version: {data['version']!r} (expected '1')")
 
-    if "workflow" in data and data["workflow"] != "lulu-code":
-        errors.append(f"invalid workflow: {data['workflow']!r} (expected 'lulu-code')")
+    if "workflow" in data and data["workflow"] not in {EXEC_STAGE, EXEC_STAGE_LEGACY}:
+        errors.append(
+            f"invalid workflow: {data['workflow']!r} (expected '{EXEC_STAGE}')"
+        )
 
     whitelist = _load_whitelist()
     session_states = set(whitelist["session"]["states"])
@@ -161,7 +164,7 @@ def save_workflow_state(path: Path, data: dict, *, merge: bool = True) -> None:
 
 def resolve_workflow_state_path(cycle_dir: Path) -> Path:
     """Resolve s{N}/workflow-state.md from cycle cache dir via session-state.md."""
-    code_dir = cycle_dir / "lulu-code"
+    code_dir = exec_stage_dir(cycle_dir)
     active = load_session_state(code_dir / "session-state.md")
     return code_dir / f"s{active}" / "workflow-state.md"
 
@@ -176,7 +179,7 @@ def init_starting(
     """Initialize workflow-state.md in Starting state."""
     data = {
         "version": "1",
-        "workflow": "lulu-code",
+        "workflow": EXEC_STAGE,
         "current_state": "Starting",
         "mode": mode,
         "task_list_ref": task_list_ref,
@@ -192,7 +195,7 @@ def init_preparing(path: Path, *, mode: str, task_list_ref: str) -> None:
     """Initialize a new workflow-state.md in Preparing state."""
     data = {
         "version": "1",
-        "workflow": "lulu-code",
+        "workflow": EXEC_STAGE,
         "current_state": "Preparing",
         "mode": mode,
         "task_list_ref": task_list_ref,
@@ -212,7 +215,7 @@ def mark_historical(path: Path) -> None:
     fields["historical"] = "true"
     for key, default in (
         ("version", "1"),
-        ("workflow", "lulu-code"),
+        ("workflow", EXEC_STAGE),
         ("mode", ""),
         ("task_list_ref", ""),
         ("current_task", ""),

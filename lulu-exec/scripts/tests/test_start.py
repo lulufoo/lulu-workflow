@@ -20,7 +20,7 @@ _FID = "20260604102312-e2b86e89"
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
 _FEATURE_CYCLE = [
     "lulu-bet", "lulu-spec", "lulu-approach",
-    "lulu-plan", "lulu-tasks", "lulu-code",
+    "lulu-plan", "lulu-tasks", "lulu-exec",
 ]
 
 
@@ -92,7 +92,7 @@ def _seed_work_order_task_list(tmp_path: Path, content: str) -> None:
 def _seed_gate_and_handoff(tmp_path: Path, task_list_content: str) -> None:
     cd = _cache_dir(tmp_path)
     _make_cycles_json(cd, _FID)
-    _all_prior_delivered(cd, _FID, "lulu-code")
+    _all_prior_delivered(cd, _FID, "lulu-exec")
     _seed_work_order_task_list(tmp_path, task_list_content)
 
 
@@ -113,6 +113,23 @@ def test_parse_work_order_task_list_accepts_letter_suffix_ids_and_escaped_pipes(
     assert tasks[1]["depends"] == ["t12"]
     assert tasks[2]["depends"] == ["t6", "t13"]
     assert all(task["tdd_exempt"] for task in tasks)
+    assert all(task["kind"] == "coding" for task in tasks)
+
+
+def test_parse_work_order_task_list_reads_kind_column():
+    content = """# Task List
+
+| task_id | Title | Target File | Dependencies | Kind | TDD Exempt |
+|---------|-------|-------------|--------------|------|------------|
+| t1 | change menu | `shell.tsx` | — | coding | No |
+| t10 | keep deps | `Cargo.toml` | — | verify | No |
+"""
+    tasks = parse_work_order_task_list(content)
+    assert [task["id"] for task in tasks] == ["t1", "t10"]
+    assert tasks[0]["kind"] == "coding"
+    assert tasks[1]["kind"] == "verify"
+    assert tasks[0]["tdd_exempt"] is False
+    assert tasks[1]["tdd_exempt"] is False
 
 
 def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
@@ -150,7 +167,7 @@ def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
         / "copilot"
         / "lulu-workflow"
         / _FID
-        / "lulu-code"
+        / "lulu-exec"
         / "s1"
         / "workflow-state.md"
     )
@@ -165,7 +182,7 @@ def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
         / "copilot"
         / "lulu-workflow"
         / _FID
-        / "lulu-code"
+        / "lulu-exec"
         / "s1"
         / "code-task-list.md"
     )
@@ -180,7 +197,7 @@ def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
 def test_cli_errors_when_work_order_task_list_missing(tmp_path):
     cd = _cache_dir(tmp_path)
     _make_cycles_json(cd, _FID)
-    _all_prior_delivered(cd, _FID, "lulu-code")
+    _all_prior_delivered(cd, _FID, "lulu-exec")
     wo_dir = cd / _FID / "lulu-tasks"
     wo_dir.mkdir(parents=True, exist_ok=True)
     (wo_dir / "session-state.md").write_text(
@@ -238,7 +255,7 @@ def test_cli_creates_new_round_when_active_preparing(tmp_path):
         / "copilot"
         / "lulu-workflow"
         / _FID
-        / "lulu-code"
+        / "lulu-exec"
         / "session-state.md"
     )
     assert load_session_state(ss_path) == 1
@@ -268,7 +285,7 @@ def test_cli_creates_new_round_when_active_preparing(tmp_path):
         / "copilot"
         / "lulu-workflow"
         / _FID
-        / "lulu-code"
+        / "lulu-exec"
         / "s2"
         / "workflow-state.md"
     )

@@ -20,7 +20,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from tc_closing_checklist_schema import write_passed  # noqa: E402
-from tc_confirm_task_ready import ExitContractError, confirm_task_ready  # noqa: E402
+from tc_confirm_task_ready import ExitContractError, confirm_task_ready, task_kind  # noqa: E402
 from tc_commit_ref_schema import validate_session_commit_refs  # noqa: E402
 from tc_code_task_list import (  # noqa: E402
     all_done,
@@ -38,11 +38,13 @@ from tc_workflow_state_schema import (  # noqa: E402
     save_workflow_state,
 )
 from tc_workspace_schema import load_workspace  # noqa: E402
+from tc_workflow_common import exec_stage_dir  # noqa: E402
 
 
 def _session_dir(cycle_dir: Path) -> Path:
-    active = load_session_state(cycle_dir / "lulu-code" / "session-state.md")
-    return cycle_dir / "lulu-code" / f"s{active}"
+    stage_dir = exec_stage_dir(cycle_dir)
+    active = load_session_state(stage_dir / "session-state.md")
+    return stage_dir / f"s{active}"
 
 
 def _task_list_path(session_dir: Path) -> Path:
@@ -65,7 +67,8 @@ def _validate_closing_ready(session_dir: Path) -> list[dict]:
     if not all_done(tasks):
         raise ValueError("not all tasks are marked done in code-task-list.md")
 
-    validate_session_commit_refs(session_dir, tasks)
+    coding_tasks = [task for task in tasks if task_kind(session_dir, task["id"]) == "coding"]
+    validate_session_commit_refs(session_dir, coding_tasks)
     return tasks
 
 
@@ -149,11 +152,13 @@ def get_pointer(cycle_dir: Path) -> dict[str, Any]:
         recoverable, reason = _executing_recoverable(session_dir, current_task)
         if not recoverable:
             raise _executing_unrecoverable_error(session_dir, current_task, reason or "")
-        return _build_pointer(
+        pointer = _build_pointer(
             current_state=current_state,
             current_task=current_task,
             next_action="dispatch",
         )
+        pointer["kind"] = task_kind(session_dir, current_task)
+        return pointer
 
     if current_state == "Closing":
         _validate_closing_ready(session_dir)
@@ -175,7 +180,7 @@ def get_pointer(cycle_dir: Path) -> dict[str, Any]:
 
 def check_recovery(cycle_dir: Path) -> dict[str, Any]:
     """Read-only entry probe; does not run get-pointer validations."""
-    ss_path = cycle_dir / "lulu-code" / "session-state.md"
+    ss_path = exec_stage_dir(cycle_dir) / "session-state.md"
     if not ss_path.exists():
         return {
             "recoverable": False,
@@ -184,7 +189,7 @@ def check_recovery(cycle_dir: Path) -> dict[str, Any]:
         }
 
     active_session = load_session_state(ss_path)
-    ws_path = cycle_dir / "lulu-code" / f"s{active_session}" / "workflow-state.md"
+    ws_path = exec_stage_dir(cycle_dir) / f"s{active_session}" / "workflow-state.md"
     if not ws_path.exists():
         return {
             "recoverable": False,
@@ -278,12 +283,14 @@ def advance_pointer(cycle_dir: Path, completed_task: str) -> dict[str, Any]:
                 "current_phase": "",
             },
         )
-        return _build_pointer(
+        pointer = _build_pointer(
             current_state="Executing",
             current_task=next_task,
             next_action="dispatch",
             previous_task=completed_task,
         )
+        pointer["kind"] = task_kind(session_dir, next_task)
+        return pointer
 
     _validate_closing_ready(session_dir)
     save_workflow_state(

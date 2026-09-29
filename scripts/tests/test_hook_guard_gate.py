@@ -334,7 +334,7 @@ class TestCheckGate:
         """Walk through all feature cycle stages in order; each advance requires Delivered."""
         from start_gate import check_gate
         stages = ["lulu-bet", "lulu-spec", "lulu-approach",
-                  "lulu-plan", "lulu-tasks", "lulu-code"]
+                  "lulu-plan", "lulu-tasks", "lulu-exec"]
         for i, stage in enumerate(stages):
             if i == 0:
                 ok, _ = check_gate("feat-a", stage, "feature", tmp_path)
@@ -457,7 +457,7 @@ class TestGetTopicDoc:
                                    "topic_id": topic_id})
         self._write_topics_json(tmp_path, topic_id, {"name": "t"})
         # lulu-code not in topic_doc_stage
-        result = get_topic_doc("feat-a", "lulu-code", tmp_path)
+        result = get_topic_doc("feat-a", "lulu-exec", tmp_path)
         assert result is None
 
     def test_valid_topic_no_delivered_session_returns_none(self, tmp_path):
@@ -686,7 +686,7 @@ class TestTopicRefExtended:
                                   {"name": "x", "topic_id": topic_id})
         self._write_topics_json(tmp_path, topic_id, {"name": "t"})
 
-        result = get_topic_doc("feat-a", "lulu-code", tmp_path)
+        result = get_topic_doc("feat-a", "lulu-exec", tmp_path)
 
         assert result is None
 

@@ -124,7 +124,7 @@ class TestResolveContext:
                 conversation_id="parent-conv",
             )
         cycle_log = (cycle_dir / "cycle-log.md").read_text(encoding="utf-8")
-        assert "[ERROR] lulu-code" in cycle_log
+        assert "[ERROR] lulu-exec" in cycle_log
         assert "task t1:" in cycle_log
         assert "command blocked" in cycle_log
 
@@ -327,7 +327,7 @@ class TestCLI:
         assert result.returncode == 1
         assert "SUBAGENT_REQUIRED" in result.stderr
         cycle_log = (cycle_dir / "cycle-log.md").read_text(encoding="utf-8")
-        assert "[ERROR] lulu-code" in cycle_log
+        assert "[ERROR] lulu-exec" in cycle_log
 
     def test_enter_phase_cli_blocks_orchestrator_with_trailing_conversation_id(
         self, tmp_path: Path, monkeypatch

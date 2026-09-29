@@ -17,7 +17,8 @@ _VALUES = (
 _KEYS = ("target_files", "dependencies")
 _WORKTREES = {"feature_worktree", "extra_repo_worktree", "custom_path"}
 _KINDS = {"coding", "verify"}
-_EXIT_KEYS = ("commit", "commit_ref_md", "code_log")
+_CODING_EXIT_KEYS = ("commit", "commit_ref_md", "code_log")
+_VERIFY_EXIT_KEYS = ("receipt",)
 
 
 def task_file(doc_dir: Path, task_id: str) -> Path:
@@ -62,7 +63,8 @@ def validate_task(body: str) -> str:
         raise ValueError("task.md is missing execution_worktree_path")
     if not re.search(r"(?m)^exit_contract:\s*$", frontmatter):
         raise ValueError("task.md is missing exit_contract")
-    for key in _EXIT_KEYS:
+    exit_keys = _CODING_EXIT_KEYS if kind.group(1) == "coding" else _VERIFY_EXIT_KEYS
+    for key in exit_keys:
         if not re.search(rf"(?m)^  {key}:\s*required\s*$", frontmatter):
             raise ValueError(f"exit_contract.{key} must be required")
     return task_id_of(body)
