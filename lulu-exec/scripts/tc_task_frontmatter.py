@@ -41,12 +41,59 @@ def read_task_frontmatter(task_path: Path) -> dict:
     return result
 
 
+TASK_KINDS = ("coding", "action")
+EFFECT_KINDS = ("read_only", "mutates")
+_CRITERION_RE = re.compile(r"^\s*-\s*\[[ xX]\]\s+(.+?)\s*$")
+
+
 def parse_kind_from_frontmatter(fm: dict) -> str:
-    """Return coding or verify. Unknown or missing values become coding."""
+    """Return coding or action. Unknown or missing values become coding."""
     kind = str(fm.get("kind", "coding")).strip()
-    if kind in ("coding", "verify"):
+    if kind in TASK_KINDS:
         return kind
     return "coding"
+
+
+def parse_mutates_targets(fm: dict) -> list[str]:
+    """Return the external systems named by ``mutates: [a, b]``."""
+    raw = str(fm.get("mutates", "")).strip().strip("[]")
+    return [item.strip().strip("'\"") for item in raw.split(",") if item.strip()]
+
+
+def validate_effects(task_id: str, fm: dict) -> list[str]:
+    """Return errors for the effects declaration of an action task."""
+    effects = str(fm.get("effects", "")).strip()
+    if effects not in EFFECT_KINDS:
+        return [f"{task_id}: effects must be one of {list(EFFECT_KINDS)}, got '{effects}'"]
+    targets = parse_mutates_targets(fm)
+    if effects == "mutates" and not targets:
+        return [f"{task_id}: effects mutates requires a non-empty mutates list"]
+    if effects == "read_only" and targets:
+        return [f"{task_id}: effects read_only must not declare mutates targets"]
+    return []
+
+
+def describe_effects(fm: dict) -> str:
+    """Return ``read_only`` or ``mutates: a, b`` for receipts."""
+    effects = str(fm.get("effects", "")).strip()
+    if effects == "mutates":
+        return "mutates: " + ", ".join(parse_mutates_targets(fm))
+    return effects
+
+
+def parse_acceptance_criteria(task_md: str) -> list[str]:
+    """Return checklist items under the Section 1 heading of task.md."""
+    criteria: list[str] = []
+    in_section = False
+    for line in task_md.splitlines():
+        if line.startswith("## "):
+            in_section = line.startswith("## Section 1")
+            continue
+        if in_section:
+            match = _CRITERION_RE.match(line)
+            if match:
+                criteria.append(match.group(1))
+    return criteria
 
 
 def parse_tdd_exempt_from_frontmatter(fm: dict) -> bool | None:

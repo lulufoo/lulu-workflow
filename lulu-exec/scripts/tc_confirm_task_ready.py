@@ -13,8 +13,12 @@ from typing import Any
 from tc_code_task_list import assert_task_done, next_pending_after, parse_tasks
 from tc_commit_ref_schema import load_commit_ref, validate_commit_ref
 from tc_session_state_schema import load_work_order_round
-from tc_task_frontmatter import parse_kind_from_frontmatter, read_task_frontmatter
-from tc_verify_receipt_schema import load_receipt, receipt_path
+from tc_action_receipt_schema import load_receipt, receipt_path
+from tc_task_frontmatter import (
+    parse_acceptance_criteria,
+    parse_kind_from_frontmatter,
+    read_task_frontmatter,
+)
 
 _CODE_LOG_DONE_RE = re.compile(r"^### .+ · enter · Done\b", re.MULTILINE)
 
@@ -41,19 +45,35 @@ def _task_list_path(session_dir: Path) -> Path:
     return session_dir / "code-task-list.md"
 
 
-def task_kind(session_dir: Path, task_id: str) -> str:
-    """Read kind from the work-order task. Default coding when the file is absent."""
+def _work_order_task_path(session_dir: Path, task_id: str) -> Path | None:
     cycle_dir = session_dir.parent.parent
     wo_ss = cycle_dir / "lulu-tasks" / "session-state.md"
     if not wo_ss.exists():
-        return "coding"
+        return None
     try:
         wo_index = f"r{load_work_order_round(wo_ss)}"
-        path = cycle_dir / "lulu-tasks" / wo_index / "tasks" / task_id / "task.md"
+    except (ValueError, OSError):
+        return None
+    return cycle_dir / "lulu-tasks" / wo_index / "tasks" / task_id / "task.md"
+
+
+def task_kind(session_dir: Path, task_id: str) -> str:
+    """Read kind from the work-order task. Default coding when the file is absent."""
+    path = _work_order_task_path(session_dir, task_id)
+    if path is None:
+        return "coding"
+    try:
         fm = read_task_frontmatter(path)
     except (ValueError, FileNotFoundError, OSError):
         return "coding"
     return parse_kind_from_frontmatter(fm)
+
+
+def _acceptance_criteria(session_dir: Path, task_id: str) -> list[str]:
+    path = _work_order_task_path(session_dir, task_id)
+    if path is None or not path.exists():
+        return []
+    return parse_acceptance_criteria(path.read_text(encoding="utf-8"))
 
 
 def confirm_task_ready(
@@ -81,9 +101,13 @@ def confirm_task_ready(
 
     kind = task_kind(session_dir, task_id)
     initial_commit: str | None = None
-    if kind == "verify":
+    if kind == "action":
         try:
-            load_receipt(receipt_path(session_dir, task_id), task_id)
+            load_receipt(
+                receipt_path(session_dir, task_id),
+                task_id,
+                _acceptance_criteria(session_dir, task_id),
+            )
         except ValueError as exc:
             failures.append(("receipt", str(exc)))
     else:

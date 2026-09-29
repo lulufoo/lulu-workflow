@@ -6,19 +6,14 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-_VALUES = (
-    "version",
-    "task_id",
-    "title",
-    "tdd_exempt",
-    "target_repo",
-    "execution_worktree",
-)
+_COMMON_VALUES = ("version", "task_id", "title")
+_CODING_VALUES = ("tdd_exempt", "target_repo", "execution_worktree")
 _KEYS = ("target_files", "dependencies")
 _WORKTREES = {"feature_worktree", "extra_repo_worktree", "custom_path"}
-_KINDS = {"coding", "verify"}
+_KINDS = {"coding", "action"}
+_EFFECTS = {"read_only", "mutates"}
 _CODING_EXIT_KEYS = ("commit", "commit_ref_md", "code_log")
-_VERIFY_EXIT_KEYS = ("receipt",)
+_ACTION_EXIT_KEYS = ("receipt",)
 
 
 def task_file(doc_dir: Path, task_id: str) -> Path:
@@ -40,19 +35,13 @@ def task_id_of(body: str) -> str:
     return match.group(1)
 
 
-def validate_task(body: str) -> str:
-    frontmatter = _frontmatter(body)
-    for key in _VALUES:
+def _require_values(frontmatter: str, keys: tuple[str, ...]) -> None:
+    for key in keys:
         if not re.search(rf"(?m)^{key}:\s*\S", frontmatter):
             raise ValueError(f"task.md is missing {key}")
-    for key in _KEYS:
-        if not re.search(rf"(?m)^{key}:", frontmatter):
-            raise ValueError(f"task.md is missing {key}")
-    kind = re.search(r"(?m)^kind:\s*(\S+)\s*$", frontmatter)
-    if kind is None:
-        raise ValueError("task.md is missing kind")
-    if kind.group(1) not in _KINDS:
-        raise ValueError("kind must be coding or verify")
+
+
+def _validate_worktree(frontmatter: str) -> str:
     worktree = re.search(r"(?m)^execution_worktree:\s*(\S+)\s*$", frontmatter)
     if worktree is None or worktree.group(1) not in _WORKTREES:
         raise ValueError("execution_worktree is not a known value")
@@ -61,9 +50,46 @@ def validate_task(body: str) -> str:
         frontmatter,
     ):
         raise ValueError("task.md is missing execution_worktree_path")
+    return worktree.group(1)
+
+
+def _validate_effects(frontmatter: str) -> None:
+    effects = re.search(r"(?m)^effects:\s*(\S+)\s*$", frontmatter)
+    if effects is None:
+        raise ValueError("task.md is missing effects")
+    if effects.group(1) not in _EFFECTS:
+        raise ValueError("effects must be read_only or mutates")
+    targets = re.search(r"(?m)^mutates:\s*\[\s*[^\]\s][^\]]*\]\s*$", frontmatter)
+    declared = re.search(r"(?m)^mutates:", frontmatter) is not None
+    if effects.group(1) == "mutates" and targets is None:
+        raise ValueError("effects mutates requires a non-empty mutates list")
+    if effects.group(1) == "read_only" and declared:
+        raise ValueError("effects read_only must not declare mutates")
+
+
+def validate_task(body: str) -> str:
+    frontmatter = _frontmatter(body)
+    _require_values(frontmatter, _COMMON_VALUES)
+    for key in _KEYS:
+        if not re.search(rf"(?m)^{key}:", frontmatter):
+            raise ValueError(f"task.md is missing {key}")
+    kind = re.search(r"(?m)^kind:\s*(\S+)\s*$", frontmatter)
+    if kind is None:
+        raise ValueError("task.md is missing kind")
+    if kind.group(1) not in _KINDS:
+        raise ValueError("kind must be coding or action")
+    is_coding = kind.group(1) == "coding"
+    if is_coding:
+        _require_values(frontmatter, _CODING_VALUES)
+        _validate_worktree(frontmatter)
+    else:
+        _validate_effects(frontmatter)
+        if re.search(r"(?m)^execution_worktree:", frontmatter):
+            _validate_worktree(frontmatter)
+            _require_values(frontmatter, ("target_repo",))
     if not re.search(r"(?m)^exit_contract:\s*$", frontmatter):
         raise ValueError("task.md is missing exit_contract")
-    exit_keys = _CODING_EXIT_KEYS if kind.group(1) == "coding" else _VERIFY_EXIT_KEYS
+    exit_keys = _CODING_EXIT_KEYS if is_coding else _ACTION_EXIT_KEYS
     for key in exit_keys:
         if not re.search(rf"(?m)^  {key}:\s*required\s*$", frontmatter):
             raise ValueError(f"exit_contract.{key} must be required")

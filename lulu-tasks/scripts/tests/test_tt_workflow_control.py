@@ -146,10 +146,62 @@ def test_put_task_checks_frontmatter_not_section_order(tmp_path: Path) -> None:
     bad_kind = _TASK.replace("kind: coding\n", "kind: other\n")
     refused_other = _emit(cmd_put_task, tmp_path, cycle_id, bad_kind)
     assert refused_other["ok"] is False
-    assert "coding or verify" in refused_other["error"]
-    verify = _TASK.replace("kind: coding\n", "kind: verify\n").replace(
-        "exit_contract:\n  commit: required\n  commit_ref_md: required\n  code_log: required\n",
-        "exit_contract:\n  receipt: required\n",
-    )
-    stored_verify = _emit(cmd_put_task, tmp_path, cycle_id, verify)
-    assert stored_verify["ok"] is True
+    assert "coding or action" in refused_other["error"]
+    retired = _TASK.replace("kind: coding\n", "kind: verify\n")
+    refused_verify = _emit(cmd_put_task, tmp_path, cycle_id, retired)
+    assert refused_verify["ok"] is False
+    assert "coding or action" in refused_verify["error"]
+
+
+_ACTION = """---
+version: 1
+task_id: t2
+title: Todos are migrated to Linear
+kind: action
+target_files: []
+dependencies: []
+effects: mutates
+mutates: [linear]
+exit_contract:
+  receipt: required
+---
+# t2
+"""
+
+
+def test_put_task_accepts_action_without_worktree(tmp_path: Path) -> None:
+    cycle_id = "tasks-flow-action"
+    _seed(tmp_path, cycle_id)
+    assert _emit(cmd_put_task, tmp_path, cycle_id, _ACTION)["ok"] is True
+    read_only = _ACTION.replace("effects: mutates\nmutates: [linear]\n", "effects: read_only\n")
+    assert _emit(cmd_put_task, tmp_path, cycle_id, read_only)["ok"] is True
+
+
+def test_put_task_refuses_bad_action_declarations(tmp_path: Path) -> None:
+    cycle_id = "tasks-flow-action-bad"
+    _seed(tmp_path, cycle_id)
+    cases = {
+        "missing effects": (
+            _ACTION.replace("effects: mutates\nmutates: [linear]\n", ""),
+            "missing effects",
+        ),
+        "unknown effects": (_ACTION.replace("effects: mutates", "effects: writes"), "read_only or mutates"),
+        "mutates without targets": (_ACTION.replace("mutates: [linear]\n", ""), "non-empty mutates list"),
+        "mutates with empty targets": (_ACTION.replace("[linear]", "[]"), "non-empty mutates list"),
+        "read_only with targets": (
+            _ACTION.replace("effects: mutates", "effects: read_only"),
+            "must not declare mutates",
+        ),
+        "coding exit contract": (
+            _ACTION.replace("  receipt: required\n", "  commit: required\n"),
+            "exit_contract.receipt",
+        ),
+        "worktree without repo": (
+            _ACTION.replace("dependencies: []\n", "dependencies: []\nexecution_worktree: feature_worktree\n"),
+            "target_repo",
+        ),
+    }
+    for name, (body, expected) in cases.items():
+        refused = _emit(cmd_put_task, tmp_path, cycle_id, body)
+        assert refused["ok"] is False, name
+        assert expected in refused["error"], name

@@ -21,6 +21,8 @@ from tc_workflow_common import exec_stage_dir  # noqa: E402
 from tc_code_task_list import parse_tdd_exempt_from_list  # noqa: E402
 from tc_session_state_schema import load_session_state, load_work_order_round  # noqa: E402
 from tc_task_frontmatter import (  # noqa: E402
+    describe_effects,
+    parse_acceptance_criteria,
     parse_kind_from_frontmatter,
     parse_tdd_exempt_from_frontmatter,
     read_task_frontmatter,
@@ -146,22 +148,23 @@ def resolve_task_context(
     kind = parse_kind_from_frontmatter(fm)
 
     target_repo = str(fm.get("target_repo", ""))
-    if not target_repo:
-        raise ValueError(f"task {task_id}: missing target_repo")
-
     execution_worktree = str(fm.get("execution_worktree", ""))
-    if not execution_worktree:
-        raise ValueError(f"task {task_id}: missing execution_worktree")
+    unbound_action = kind == "action" and not execution_worktree
 
-    execution_worktree_path = str(fm.get("execution_worktree_path", ""))
-
-    worktree_abs_path, branch = _resolve_worktree_for_task(
-        workspace=workspace,
-        project_root=project_root,
-        target_repo=target_repo,
-        execution_worktree=execution_worktree,
-        execution_worktree_path=execution_worktree_path,
-    )
+    if unbound_action:
+        worktree_abs_path, branch = project_root.as_posix(), ""
+    else:
+        if not target_repo:
+            raise ValueError(f"task {task_id}: missing target_repo")
+        if not execution_worktree:
+            raise ValueError(f"task {task_id}: missing execution_worktree")
+        worktree_abs_path, branch = _resolve_worktree_for_task(
+            workspace=workspace,
+            project_root=project_root,
+            target_repo=target_repo,
+            execution_worktree=execution_worktree,
+            execution_worktree_path=str(fm.get("execution_worktree_path", "")),
+        )
 
     code_cfg = load_stage_config(project_root, EXEC_STAGE)
     git_cfg = code_cfg.get("git", {})
@@ -184,6 +187,13 @@ def resolve_task_context(
         "commit_message_template": git_cfg.get("commit_message_template", ""),
         "test_command": code_cfg.get("test_command", ""),
     }
+
+    if kind == "action":
+        result["goal"] = str(fm.get("title", "")).strip()
+        result["effects"] = describe_effects(fm)
+        result["acceptance"] = parse_acceptance_criteria(
+            work_order_task_path.read_text(encoding="utf-8")
+        )
 
     if include_model:
         model = extract_subagent_model(code_cfg)

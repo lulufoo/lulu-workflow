@@ -50,7 +50,11 @@ from tc_repo_map_schema import (  # noqa: E402
     repo_map_path,
     required_target_repos,
 )
-from tc_task_frontmatter import read_task_frontmatter  # noqa: E402
+from tc_task_frontmatter import (  # noqa: E402
+    TASK_KINDS,
+    read_task_frontmatter,
+    validate_effects,
+)
 from tc_workspace_schema import assess_workspace_file, load_workspace, save_workspace  # noqa: E402
 
 
@@ -66,9 +70,16 @@ def _validate_single_task(task_id: str, fm: dict) -> list:
     """Return list of error strings; empty list means valid."""
     errors = []
 
+    kind = str(fm.get("kind", "coding")).strip() or "coding"
+    if kind not in TASK_KINDS:
+        return [f"{task_id}: kind must be one of {list(TASK_KINDS)}, got '{kind}'"]
+    if kind == "action":
+        errors.extend(validate_effects(task_id, fm))
+
     ew = fm.get("execution_worktree", "")
     if not ew:
-        errors.append(f"{task_id}: missing execution_worktree")
+        if kind == "coding":
+            errors.append(f"{task_id}: missing execution_worktree")
     elif ew not in _EXECUTION_WORKTREE_VALUES:
         errors.append(
             f"{task_id}: execution_worktree must be one of "
@@ -84,11 +95,13 @@ def _validate_single_task(task_id: str, fm: dict) -> list:
                 f"{task_id}: execution_worktree_path must be relative, got '{ewp}'"
             )
 
-    kind = str(fm.get("kind", "coding")).strip() or "coding"
+    if kind == "action" and ew and not fm.get("target_repo"):
+        errors.append(f"{task_id}: missing target_repo for execution_worktree")
+
     ec = fm.get("exit_contract")
     if not isinstance(ec, dict):
         errors.append(f"{task_id}: missing exit_contract block")
-    elif kind == "verify":
+    elif kind == "action":
         if ec.get("receipt") != "required":
             errors.append(
                 f"{task_id}: exit_contract.receipt must be 'required', got '{ec.get('receipt')}'"
@@ -132,9 +145,10 @@ def validate_tasks(cycle_dir: Path) -> list:
             all_errors.append(str(e))
             continue
         all_errors.extend(_validate_single_task(task_id, fm))
+        bound = bool(fm.get("execution_worktree"))
         task_records.append({
             "task_id": task_id,
-            "target_repo": fm.get("target_repo", ""),
+            "target_repo": fm.get("target_repo", "") if bound else "",
             "execution_worktree": fm.get("execution_worktree", ""),
             "execution_worktree_path": fm.get("execution_worktree_path", ""),
         })
@@ -147,6 +161,8 @@ def validate_tasks(cycle_dir: Path) -> list:
     repo_worktree: dict = {}
     for rec in task_records:
         repo = rec["target_repo"]
+        if not repo:
+            continue
         execution_key = (rec["execution_worktree"], rec["execution_worktree_path"])
         if repo in repo_worktree and repo_worktree[repo] != execution_key:
             print(

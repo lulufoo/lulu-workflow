@@ -8,7 +8,7 @@ Subcommands:
     commit-initial    git add -A, commit, write commit-ref, log
     commit-amend      Amend if worktree dirty; update commit-ref and log
     mark-done         Mark [x] in code-task-list and append enter · Done
-    record-receipt    Write verify-receipt.json for a verify task
+    record-receipt    Write action-receipt.json for an action task (results JSON on stdin)
 
 Every subcommand accepts --conversation-id (auto-injected by hook_guard on Cursor)
 and enforces subagent dispatch before loading $CTX: if the caller's conversation_id
@@ -33,7 +33,7 @@ from tc_commit_message import render_commit_message  # noqa: E402
 from tc_commit_ref_schema import load_commit_ref, write_commit_ref  # noqa: E402
 from tc_git_ops import git_add_all, git_commit, git_commit_amend, git_head_sha, status_clean  # noqa: E402
 from tc_resolve_task_context import resolve_task_context  # noqa: E402
-from tc_verify_receipt_schema import save_receipt, receipt_path  # noqa: E402
+from tc_action_receipt_schema import save_receipt, receipt_path  # noqa: E402
 from tc_run_test_suite import execute_test_command  # noqa: E402
 from tc_workflow_state_schema import load_workflow_state, resolve_workflow_state_path  # noqa: E402
 
@@ -272,31 +272,42 @@ def commit_amend_cmd(
     }
 
 
+def _parse_results(raw: str) -> list[Any]:
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"record-receipt stdin is not JSON: {exc}") from exc
+    if isinstance(data, dict) and "results" in data:
+        data = data["results"]
+    if not isinstance(data, list):
+        raise ValueError("record-receipt stdin must be a list of results")
+    return data
+
+
 def record_receipt_cmd(
     cycle_dir: Path,
     task_id: str,
     project_root: Path,
     *,
-    command: str,
-    observed: str,
+    results: list[Any],
     conversation_id: str = "",
 ) -> dict[str, Any]:
     ctx = _load_ctx(cycle_dir, task_id, project_root, conversation_id=conversation_id)
-    if ctx.get("kind") != "verify":
-        raise ValueError(f"record-receipt is for verify tasks, got kind {ctx.get('kind')!r}")
+    if ctx.get("kind") != "action":
+        raise ValueError(f"record-receipt is for action tasks, got kind {ctx.get('kind')!r}")
     session_dir = Path(ctx["task_output_dir"]).parent.parent
-    dest = receipt_path(session_dir, task_id)
     save_receipt(
-        dest,
+        receipt_path(session_dir, task_id),
         {
-            "version": 1,
+            "version": 2,
             "task_id": task_id,
-            "command": command,
-            "observed": observed,
-            "ok": True,
+            "goal": ctx["goal"],
+            "effects": ctx["effects"],
+            "results": results,
         },
+        ctx["acceptance"],
     )
-    return {"task_id": task_id, "ok": True}
+    return {"task_id": task_id, "criteria": len(ctx["acceptance"]), "ok": True}
 
 
 def mark_done_cmd(
@@ -348,10 +359,12 @@ def _cli() -> int:
     done = sub.add_parser("mark-done", help="Mark task done in list and log Done phase", parents=[conv_id_parent])
     done.add_argument("--task-id", required=True)
 
-    receipt = sub.add_parser("record-receipt", help="Write verify receipt", parents=[conv_id_parent])
+    receipt = sub.add_parser(
+        "record-receipt",
+        help="Write action receipt; stdin is a JSON list of {criterion, evidence, met}",
+        parents=[conv_id_parent],
+    )
     receipt.add_argument("--task-id", required=True)
-    receipt.add_argument("--command", required=True)
-    receipt.add_argument("--observed", required=True)
 
     args = parser.parse_args()
     cycle_dir = Path(args.cycle_dir).resolve()
@@ -407,8 +420,7 @@ def _cli() -> int:
                 cycle_dir,
                 args.task_id,
                 project_root,
-                command=args.command,
-                observed=args.observed,
+                results=_parse_results(sys.stdin.read()),
                 conversation_id=args.conversation_id,
             )
         else:

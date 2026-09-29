@@ -23,11 +23,11 @@ total_tasks: 0
 |---------|-------|-------------|--------------|------|------------|
 | t1 | <task title> | `path/to/file.ext` | — | coding | No |
 | t2 | <task title> | `path/to/file.ext` | t1 | coding | No |
-| t3 | <task title> | `path/to/file.ext` | — | verify | No |
+| t3 | <task title> | `path/to/file.ext` | — | action | No |
 
 > **Split principles**:
 > - `coding`: group by test boundary, not by file. If the task changes functions, it changes 1–3. Deleting one module file is one change. Unchanged functions do not count. Pure UI / pure structural changes with no logic branches may set `tdd_exempt: true`.
-> - `verify`: one stated check. Do not split it by function count.
+> - `action`: one goal. Do not split it by function count.
 
 ---
 

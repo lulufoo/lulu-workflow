@@ -9,10 +9,10 @@ disable-model-invocation: true
 
 Split a delivered plan into an independently executable task-dependency list.
 
-A task has `kind: coding` or `kind: verify`.
+A task has `kind: coding` or `kind: action`.
 
 - `coding` changes code. Function-count, signatures, TDD order, and `tdd_exempt` apply only to this kind.
-- `verify` runs a stated check. It names the command and the observable result. It does not change code.
+- `action` reaches a stated goal by any means. It declares `effects`, lists acceptance criteria that evidence can answer one by one, and binds a worktree only when it names one. It does not commit code.
 
 Delivery starts `lulu-exec` for the whole work order. That session dispatches by `kind`.
 

@@ -112,7 +112,7 @@ def parse_work_order_task_list(content: str):
             depends = [d.strip() for d in depends_raw.split(",") if d.strip()]
         if has_kind and len(cols) >= 6:
             kind_raw = cols[4].strip()
-            kind = kind_raw if kind_raw in ("coding", "verify") else "coding"
+            kind = kind_raw if kind_raw in ("coding", "action") else "coding"
             tdd_exempt_raw = cols[5]
         else:
             kind = "coding"
@@ -162,7 +162,7 @@ def build_code_task_list_md(tasks, source: str, task_list_ref: str) -> str:
         dep_suffix = ""
         if t["depends"]:
             dep_suffix = f" (depends: {', '.join(t['depends'])})"
-        kind_note = " [verify]" if t.get("kind") == "verify" else ""
+        kind_note = " [action]" if t.get("kind") == "action" else ""
         exempt_note = " [tdd_exempt]" if t.get("tdd_exempt") else ""
         lines.append(
             f"- [ ] {t['id']} · {t['title']} · `{t['target_file']}` · ⏳ Pending{dep_suffix}{kind_note}{exempt_note}"
