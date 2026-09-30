@@ -13,8 +13,8 @@ each from its own cognition units.
 | Lens | intent, membership (`lens_tags`), KW altitude | whose viewpoint owns a fact; how deep it must go | section registry, kw-criteria |
 | Presentation | narrative arc, chapters, per-lens writing cognition | where and how substance is shown | `_narrative-arc.json`, form registry, the assembled document |
 
-Invariant: substance carries no presentation. A fact may belong to several
-lenses and is rendered differently under each; membership is stored,
+Invariant: substance carries no presentation. A fact carries one lens and is
+rendered under that lens's charter; membership is stored,
 rendering is applied at Write and never written back to the fact.
 
 ## Stance

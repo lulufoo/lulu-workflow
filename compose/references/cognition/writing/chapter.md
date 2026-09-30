@@ -8,8 +8,7 @@ What a chapter is and what its body owes to its facts.
 
 1. A chapter is one narrative-arc leaf × one lens × the facts placed
    there. It is the unit of writing.
-2. A fact is placed exactly once: one leaf, one chapter, under one lens
-   drawn from its lens tags.
+2. A fact is placed exactly once: one leaf, one chapter, under its lens.
 3. A chapter's id (`cid`) is `{leaf_id}-{lens}`; it names the chapter in
    the arc, the write state, and the assembled document alike.
 4. The narrative arc (`narrative-arc.md`) is the topology: it decides
