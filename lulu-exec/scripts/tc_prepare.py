@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare a new lulu-code session: validate tasks, ensure workspace.json,
+"""Prepare a new lulu-exec session: validate tasks, ensure workspace.json,
 run git P1–P3, and transition Preparing -> Executing.
 
 Usage:
@@ -181,7 +181,7 @@ def validate_tasks(cycle_dir: Path) -> list:
 # ---------------------------------------------------------------------------
 
 def load_git_config(project_root: Path) -> dict:
-    """Read lulu-code.git from stage workflow config."""
+    """Read lulu-exec.git from stage workflow config."""
     if not workflow_config_is_present(project_root):
         raise FileNotFoundError(
             f"workflow-config not found under {project_root.as_posix()}"
@@ -389,7 +389,7 @@ def validate_preparing_to_executing(cycle_dir: Path) -> dict:
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Prepare lulu-code session workspace.")
+    p = argparse.ArgumentParser(description="Prepare lulu-exec session workspace.")
     p.add_argument("--cycle-dir", required=True, help="Absolute path to cycle cache directory.")
     p.add_argument("--project-root", required=True, help="Absolute path to project root.")
     p.add_argument(

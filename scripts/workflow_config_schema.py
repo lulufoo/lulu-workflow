@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Optional
 
 from platform_schema import PLATFORM_PATHS, detect_platform as _detect_platform
-from stage_identity import stage_config_aliases
 
 _WORKFLOW_DIR_MAP = {
     platform: paths["workflow_dir"] for platform, paths in PLATFORM_PATHS.items()
@@ -197,16 +196,13 @@ def resolve_stage_config_path(
     """Return the project stage config or a built-in stage config fallback."""
     _validate_stage_name(stage)
     root = resolve_workflow_config_root(project_root, platform)
-    aliases = stage_config_aliases(stage)
-    for name in aliases:
-        project_path = _stage_file_in_root(root, name)
-        if project_path.exists():
-            return project_path
-    for name in aliases:
-        built_in_path = _skill_stage_config_path(name)
-        if built_in_path.exists():
-            return built_in_path
-    return _stage_file_in_root(root, aliases[0])
+    project_path = _stage_file_in_root(root, stage)
+    if project_path.exists():
+        return project_path
+    built_in_path = _skill_stage_config_path(stage)
+    if built_in_path.exists():
+        return built_in_path
+    return project_path
 
 
 def _read_json_object(path: Path, *, label: str) -> dict:
@@ -234,21 +230,15 @@ def load_stage_config(project_root: Path, stage: str, platform: Optional[str] = 
     """Load one stage config. Missing stage file → {}."""
     _validate_stage_name(stage)
     root = resolve_workflow_config_root(project_root, platform)
-    aliases = stage_config_aliases(stage)
     monolith = _legacy_monolith_in_root(root)
 
-    for name in aliases:
-        stage_cfg = _load_stage_from_stages_dir(root, name)
-        if stage_cfg:
-            return stage_cfg
-        stage_cfg = _load_stage_from_legacy_monolith(monolith, name)
-        if stage_cfg:
-            return stage_cfg
-    for name in aliases:
-        stage_cfg = _load_stage_from_skill_root(name)
-        if stage_cfg:
-            return stage_cfg
-    return {}
+    stage_cfg = _load_stage_from_stages_dir(root, stage)
+    if stage_cfg:
+        return stage_cfg
+    stage_cfg = _load_stage_from_legacy_monolith(monolith, stage)
+    if stage_cfg:
+        return stage_cfg
+    return _load_stage_from_skill_root(stage)
 
 
 def workflow_config_is_present(project_root: Path, platform: Optional[str] = None) -> bool:
@@ -552,29 +542,9 @@ def apply_workflow_config_from_url(
     return root
 
 
-def extract_subagent_model(
-    stage_cfg: dict,
-    platform: Optional[str] = None,
-) -> Optional[str]:
-    """Extract optional subagent model slug from a pre-loaded stage config dict."""
-    plat = detect_platform(platform)
-    subagent = stage_cfg.get("subagent") or {}
-    model = subagent.get(plat)
-    if model is None:
-        return None
-    stripped = str(model).strip()
-    return stripped if stripped else None
-
-
-def resolve_subagent_model(
-    project_root: Path,
-    stage: str,
-    platform: Optional[str] = None,
-) -> Optional[str]:
-    if not workflow_config_is_present(project_root, platform):
-        return None
-    try:
-        stage_cfg = load_stage_config(project_root, stage, platform)
-    except ValueError:
-        return None
-    return extract_subagent_model(stage_cfg, platform)
+def lookup_subagent(stage_cfg: dict) -> str:
+    """Return the stage's subagent model string, or '' when unset."""
+    raw = stage_cfg.get("subagent", "")
+    if not isinstance(raw, str):
+        return ""
+    return raw.strip()

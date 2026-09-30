@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Repo checkout map control for lulu-code Preparing.
+"""Repo checkout map control for lulu-exec Preparing.
 
 Subcommands:
     list-candidates   List $PROJECT_ROOT (if git) and sibling git checkouts
@@ -112,7 +112,7 @@ def cmd_put_map(cycle_dir: Path, project_root: Path) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="lulu-code repo map control")
+    parser = argparse.ArgumentParser(description="lulu-exec repo map control")
     parser.add_argument("--cycle-dir", type=Path)
     parser.add_argument("--project-root", type=Path, required=True)
     sub = parser.add_subparsers(dest="command", required=True)

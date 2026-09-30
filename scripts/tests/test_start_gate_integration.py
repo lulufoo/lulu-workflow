@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for t8b: start.py gate integration (check_gate, re-open, back-fill, get_topic_doc).
 
-All start entrypoints (lulu-spec, lulu-plan, lulu-tasks, lulu-code, decision) must
+All start entrypoints (lulu-spec, lulu-plan, lulu-tasks, lulu-exec, decision) must
 integrate check_gate, current_effective_delivered, invalidate_downstream, and get_topic_doc
 before creating a new session.
 """

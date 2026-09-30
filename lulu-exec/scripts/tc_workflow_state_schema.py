@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Authoritative schema and I/O helpers for lulu-code workflow-state.md.
+"""Authoritative schema and I/O helpers for lulu-exec workflow-state.md.
 
 CLI:
     python3 workflow_state_schema.py --schema
@@ -17,7 +17,7 @@ from typing import Optional
 
 from tc_session_state_schema import load_session_state
 from tc_workflow_common import exec_stage_dir, parse_frontmatter_fields
-from stage_identity import EXEC_STAGE, EXEC_STAGE_LEGACY
+from stage_identity import EXEC_STAGE
 
 _WHITELIST_PATH = Path(__file__).resolve().parents[1] / "transition-whitelist.json"
 
@@ -25,7 +25,7 @@ _SCHEMA: list[dict] = [
     {"field": "version", "type": "string", "required": True,
      "description": "Schema version (currently 1)"},
     {"field": "workflow", "type": "string", "required": True,
-     "description": "Fixed value: lulu-exec (legacy lulu-code accepted on read)"},
+     "description": "Fixed value: lulu-exec"},
     {"field": "current_state", "type": "string", "required": True,
      "description": "Session state: Starting / Preparing / Executing / Closing / Delivered"},
     {"field": "mode", "type": "string", "required": True,
@@ -84,7 +84,7 @@ def validate_workflow_state(data: dict) -> list[str]:
     if "version" in data and data["version"] != "1":
         errors.append(f"invalid version: {data['version']!r} (expected '1')")
 
-    if "workflow" in data and data["workflow"] not in {EXEC_STAGE, EXEC_STAGE_LEGACY}:
+    if "workflow" in data and data["workflow"] != EXEC_STAGE:
         errors.append(
             f"invalid workflow: {data['workflow']!r} (expected '{EXEC_STAGE}')"
         )

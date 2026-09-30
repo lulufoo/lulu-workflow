@@ -64,9 +64,9 @@ def test_put_map_rejects_checkout_outside_candidates(tmp_path: Path):
     workspace = tmp_path / "workspace"
     _init_git(workspace)
     cycle_dir = tmp_path / "cycle"
-    session = cycle_dir / "lulu-code" / "s1"
+    session = cycle_dir / "lulu-exec" / "s1"
     session.mkdir(parents=True)
-    (cycle_dir / "lulu-code" / "session-state.md").write_text(
+    (cycle_dir / "lulu-exec" / "session-state.md").write_text(
         "---\nversion: 1\nactive_session: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
         encoding="utf-8",
     )
@@ -81,9 +81,9 @@ def test_put_map_writes_binds(tmp_path: Path):
     _init_git(workspace)
     _init_git(sibling)
     cycle_dir = tmp_path / "cycle"
-    session = cycle_dir / "lulu-code" / "s1"
+    session = cycle_dir / "lulu-exec" / "s1"
     session.mkdir(parents=True)
-    (cycle_dir / "lulu-code" / "session-state.md").write_text(
+    (cycle_dir / "lulu-exec" / "session-state.md").write_text(
         "---\nversion: 1\nactive_session: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
         encoding="utf-8",
     )
@@ -97,9 +97,9 @@ def test_put_map_accepts_empty_binds_when_no_task_binds_a_repo(tmp_path: Path):
     workspace = tmp_path / "workspace"
     _init_git(workspace)
     cycle_dir = tmp_path / "cycle"
-    session = cycle_dir / "lulu-code" / "s1"
+    session = cycle_dir / "lulu-exec" / "s1"
     session.mkdir(parents=True)
-    (cycle_dir / "lulu-code" / "session-state.md").write_text(
+    (cycle_dir / "lulu-exec" / "session-state.md").write_text(
         "---\nversion: 1\nactive_session: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
         encoding="utf-8",
     )

@@ -18,6 +18,7 @@ from workflow_config_schema import (  # noqa: E402
     get_stage_config_bucket,
     get_stage_config_value,
     load_stage_config,
+    lookup_subagent,
     nest_compose_stage_config,
     resolve_stage_config_path,
     resolve_workflow_config_path,
@@ -34,14 +35,14 @@ _DEFAULT_URL = (
 
 class TestStageConfigLoader:
     def test_load_stage_from_stages_layout(self, tmp_path: Path) -> None:
-        write_stage_config(tmp_path, "lulu-code", {"test_command": "npm test"})
-        assert load_stage_config(tmp_path, "lulu-code") == {"test_command": "npm test"}
+        write_stage_config(tmp_path, "lulu-exec", {"test_command": "npm test"})
+        assert load_stage_config(tmp_path, "lulu-exec") == {"test_command": "npm test"}
 
     def test_leftover_pointer_does_not_redirect(self, tmp_path: Path) -> None:
         monolith = tmp_path / "custom" / "workflow-config.json"
         monolith.parent.mkdir(parents=True)
         monolith.write_text(
-            json.dumps({"lulu-code": {"test_command": "pnpm test"}}),
+            json.dumps({"lulu-exec": {"test_command": "pnpm test"}}),
             encoding="utf-8",
         )
         cfg_path = tmp_path / ".cursor/lulu-workflow/config.json"
@@ -50,7 +51,7 @@ class TestStageConfigLoader:
             json.dumps({"workflowConfig": "custom/workflow-config.json"}),
             encoding="utf-8",
         )
-        assert load_stage_config(tmp_path, "lulu-code", "cursor") != {
+        assert load_stage_config(tmp_path, "lulu-exec", "cursor") != {
             "test_command": "pnpm test",
         }
 
@@ -64,11 +65,11 @@ class TestStageConfigLoader:
         }
 
     def test_missing_stage_returns_empty_dict(self, tmp_path: Path) -> None:
-        write_stage_config(tmp_path, "lulu-code", {"test_command": "npm test"})
+        write_stage_config(tmp_path, "lulu-exec", {"test_command": "npm test"})
         assert load_stage_config(tmp_path, "lulu-plan") == {}
 
     def test_leftover_pointer_ignored_when_stages_present(self, tmp_path: Path) -> None:
-        write_stage_config(tmp_path, "lulu-code", {"test_command": "npm test"})
+        write_stage_config(tmp_path, "lulu-exec", {"test_command": "npm test"})
         cfg_path = tmp_path / ".cursor/lulu-workflow/config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(
@@ -78,18 +79,18 @@ class TestStageConfigLoader:
             encoding="utf-8",
         )
         assert workflow_config_is_present(tmp_path, "cursor")
-        assert load_stage_config(tmp_path, "lulu-code", "cursor") == {
+        assert load_stage_config(tmp_path, "lulu-exec", "cursor") == {
             "test_command": "npm test",
         }
 
     def test_skill_config_dir_is_not_read(self, tmp_path: Path) -> None:
         leftover = tmp_path / "skill-config/lulu-workflow/stages"
         leftover.mkdir(parents=True)
-        (leftover / "lulu-code.json").write_text(
+        (leftover / "lulu-exec.json").write_text(
             json.dumps({"test_command": "UNIQUE_SKILL_CONFIG"}),
             encoding="utf-8",
         )
-        assert load_stage_config(tmp_path, "lulu-code", "cursor") != {
+        assert load_stage_config(tmp_path, "lulu-exec", "cursor") != {
             "test_command": "UNIQUE_SKILL_CONFIG",
         }
         assert not workflow_config_is_present(tmp_path, "cursor")
@@ -100,12 +101,12 @@ class TestSplitMonolithPayload:
         manifest, stages = split_monolith_payload(
             {
                 "version": 1,
-                "lulu-code": {"test_command": "npm test"},
+                "lulu-exec": {"test_command": "npm test"},
                 "decision": {"decision_doc_template_url": "https://example.com/d.md"},
             }
         )
         assert manifest == {"version": 1, "layout": "stages"}
-        assert stages["lulu-code"] == {"test_command": "npm test"}
+        assert stages["lulu-exec"] == {"test_command": "npm test"}
         assert stages["decision"] == {"decision_doc_template_url": "https://example.com/d.md"}
 
     def test_nests_compose_stage_from_profile(self) -> None:
@@ -248,7 +249,7 @@ class TestConfigureWorkflowConfig:
         assert result.stdout.strip().endswith(".cursor/lulu-workflow")
 
     def test_cli_resolve_stage_path(self, tmp_path: Path) -> None:
-        write_stage_config(tmp_path, "lulu-code", {"test_command": "npm test"})
+        write_stage_config(tmp_path, "lulu-exec", {"test_command": "npm test"})
         result = subprocess.run(
             [
                 sys.executable,
@@ -257,7 +258,7 @@ class TestConfigureWorkflowConfig:
                 "--project-root",
                 str(tmp_path),
                 "--stage",
-                "lulu-code",
+                "lulu-exec",
                 "--platform",
                 "cursor",
             ],
@@ -267,9 +268,9 @@ class TestConfigureWorkflowConfig:
         )
         assert result.returncode == 0
         assert result.stdout.strip().endswith(
-            ".cursor/lulu-workflow/stages/lulu-code.json"
+            ".cursor/lulu-workflow/stages/lulu-exec.json"
         )
-        assert resolve_stage_config_path(tmp_path, "lulu-code", "cursor").exists()
+        assert resolve_stage_config_path(tmp_path, "lulu-exec", "cursor").exists()
 
     def test_invalid_json_raises(self, tmp_path: Path, monkeypatch) -> None:
         monkeypatch.setattr(
@@ -284,10 +285,10 @@ class TestConfigureWorkflowConfig:
         write_stage_configs(
             root,
             {"version": 2, "layout": "stages"},
-            {"lulu-code": {"test_command": "make test"}},
+            {"lulu-exec": {"test_command": "make test"}},
         )
         assert json.loads((root / "manifest.json").read_text())["version"] == 2
-        assert json.loads((root / "stages" / "lulu-code.json").read_text())[
+        assert json.loads((root / "stages" / "lulu-exec.json").read_text())[
             "test_command"
         ] == "make test"
 
@@ -301,10 +302,19 @@ class TestEnsureBuiltinStageConfigs:
         assert "lulu-tasks.json" not in names
         assert not (root / "stages/lulu-tasks.json").exists()
         assert json.loads((root / "manifest.json").read_text())["layout"] == "stages"
-        assert load_stage_config(tmp_path, "lulu-exec", "cursor")["test_command"] == (
-            "npm test"
-        )
-        assert load_stage_config(tmp_path, "lulu-code", "cursor")["test_command"] == (
-            "npm test"
-        )
+        assert load_stage_config(tmp_path, "lulu-exec", "cursor")["test_commands"] == {}
+        assert load_stage_config(tmp_path, "lulu-exec", "cursor")["subagent"] == ""
         assert "eval" in load_stage_config(tmp_path, "lulu-tasks", "cursor")
+
+
+class TestLookupSubagent:
+    def test_string_is_stripped(self) -> None:
+        assert lookup_subagent({"subagent": "  composer-2.5-fast  "}) == "composer-2.5-fast"
+
+    def test_empty_or_missing_is_blank(self) -> None:
+        assert lookup_subagent({}) == ""
+        assert lookup_subagent({"subagent": ""}) == ""
+        assert lookup_subagent({"subagent": "   "}) == ""
+
+    def test_legacy_object_is_blank(self) -> None:
+        assert lookup_subagent({"subagent": {"cursor": "composer-2.5-fast"}}) == ""

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for lulu-code prepare.py."""
+"""Tests for lulu-exec prepare.py."""
 
 import json
 import subprocess
@@ -35,7 +35,7 @@ def test_build_worktree_paths_returns_expected_values():
 
 def test_write_workspace_writes_absolute_paths(tmp_path: Path):
     cycle_dir = tmp_path / ".cache" / "copilot" / "lulu-workflow" / "fid-123"
-    session_dir = cycle_dir / "lulu-code" / "s1"
+    session_dir = cycle_dir / "lulu-exec" / "s1"
     session_dir.mkdir(parents=True, exist_ok=True)
     project_root = tmp_path
 
@@ -114,7 +114,7 @@ def _write_repo_map(session_dir: Path, tmp_path: Path) -> None:
 
 def _setup_full_preparing_session(tmp_path: Path) -> tuple[Path, Path]:
     cycle_dir = tmp_path / "cycle-id"
-    session_dir = cycle_dir / "lulu-code" / "s1"
+    session_dir = cycle_dir / "lulu-exec" / "s1"
     session_dir.mkdir(parents=True)
 
     wo_dir = cycle_dir / "lulu-tasks"
@@ -127,7 +127,7 @@ def _setup_full_preparing_session(tmp_path: Path) -> tuple[Path, Path]:
     task_dir.mkdir(parents=True)
     (task_dir / "task.md").write_text(_TASK_MD, encoding="utf-8")
 
-    (cycle_dir / "lulu-code" / "session-state.md").write_text(
+    (cycle_dir / "lulu-exec" / "session-state.md").write_text(
         "---\nversion: 1\nactive_session: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
         encoding="utf-8",
     )
@@ -140,7 +140,7 @@ def _setup_full_preparing_session(tmp_path: Path) -> tuple[Path, Path]:
     config_dir.mkdir(parents=True)
     (config_dir / "workflow-config.json").write_text(
         json.dumps({
-            "lulu-code": {
+            "lulu-exec": {
                 "git": {
                     "worktree_base": ".cache/worktrees",
                     "branch_pattern": "wt/{type}-{slug}",
@@ -158,9 +158,9 @@ def _setup_full_preparing_session(tmp_path: Path) -> tuple[Path, Path]:
 
 def _setup_validate_session(tmp_path: Path) -> tuple[Path, Path]:
     cycle_dir = tmp_path / "cycle-id"
-    session_dir = cycle_dir / "lulu-code" / "s1"
+    session_dir = cycle_dir / "lulu-exec" / "s1"
     session_dir.mkdir(parents=True)
-    (cycle_dir / "lulu-code" / "session-state.md").write_text(
+    (cycle_dir / "lulu-exec" / "session-state.md").write_text(
         "---\nversion: 1\nactive_session: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
         encoding="utf-8",
     )
@@ -219,7 +219,7 @@ def test_validate_idempotent_executing(tmp_path: Path, monkeypatch):
 
 def test_validate_rejects_invalid_state(tmp_path: Path):
     cycle_dir, _ = _setup_validate_session(tmp_path)
-    ws_path = cycle_dir / "lulu-code" / "s1" / "workflow-state.md"
+    ws_path = cycle_dir / "lulu-exec" / "s1" / "workflow-state.md"
     save_workflow_state(ws_path, {"current_state": "Closing", "current_task": "", "current_phase": ""})
     with pytest.raises(ValueError, match="requires Preparing"):
         validate_preparing_to_executing(cycle_dir)
@@ -227,7 +227,7 @@ def test_validate_rejects_invalid_state(tmp_path: Path):
 
 def test_validate_rejects_starting_state(tmp_path: Path):
     cycle_dir, _ = _setup_validate_session(tmp_path)
-    ws_path = cycle_dir / "lulu-code" / "s1" / "workflow-state.md"
+    ws_path = cycle_dir / "lulu-exec" / "s1" / "workflow-state.md"
     save_workflow_state(ws_path, {"current_state": "Starting", "current_task": "", "current_phase": ""})
     with pytest.raises(ValueError, match="requires Preparing"):
         validate_preparing_to_executing(cycle_dir)
@@ -341,7 +341,7 @@ def test_ensure_workspace_reuses_valid_file(tmp_path: Path, monkeypatch):
 
 def test_ensure_workspace_recreates_invalid_json(tmp_path: Path, monkeypatch):
     cycle_dir, _ = _setup_full_preparing_session(tmp_path)
-    ws_path = cycle_dir / "lulu-code" / "s1" / "workspace.json"
+    ws_path = cycle_dir / "lulu-exec" / "s1" / "workspace.json"
     ws_path.write_text("{bad json", encoding="utf-8")
 
     fixed_slug = "fixed-slug-abcd"
@@ -358,7 +358,7 @@ def test_ensure_workspace_recreates_invalid_json(tmp_path: Path, monkeypatch):
 
 def test_ensure_workspace_recreates_missing_field(tmp_path: Path, monkeypatch):
     cycle_dir, _ = _setup_full_preparing_session(tmp_path)
-    ws_path = cycle_dir / "lulu-code" / "s1" / "workspace.json"
+    ws_path = cycle_dir / "lulu-exec" / "s1" / "workspace.json"
     ws_path.write_text(json.dumps({"worktree_path": "/x/"}), encoding="utf-8")
 
     fixed_slug = "new-slug-efgh"
@@ -374,7 +374,7 @@ def test_ensure_workspace_recreates_missing_field(tmp_path: Path, monkeypatch):
 
 def test_main_preserves_executing_current_task(tmp_path: Path, monkeypatch, capsys):
     cycle_dir, _ = _setup_full_preparing_session(tmp_path)
-    session_dir = cycle_dir / "lulu-code" / "s1"
+    session_dir = cycle_dir / "lulu-exec" / "s1"
 
     paths = build_worktree_paths("existing-slug", _git_cfg())
     write_workspace(
@@ -430,7 +430,7 @@ def test_main_preserves_executing_current_task(tmp_path: Path, monkeypatch, caps
 
 def test_write_workspace_records_checkout(tmp_path: Path):
     cycle_dir = tmp_path / ".cache" / "copilot" / "lulu-workflow" / "fid-123"
-    (cycle_dir / "lulu-code" / "s1").mkdir(parents=True)
+    (cycle_dir / "lulu-exec" / "s1").mkdir(parents=True)
     checkout = tmp_path / "lulu-workbench"
     checkout.mkdir()
     paths = {"worktree_dir": ".cache/worktrees/slug-1/", "branch": "wt/feat-slug-1"}
@@ -450,7 +450,7 @@ def test_write_workspace_records_checkout(tmp_path: Path):
 
 def test_main_requires_repo_map(tmp_path: Path, monkeypatch, capsys):
     cycle_dir, _ = _setup_full_preparing_session(tmp_path)
-    (cycle_dir / "lulu-code" / "s1" / "repo-map.json").unlink()
+    (cycle_dir / "lulu-exec" / "s1" / "repo-map.json").unlink()
     monkeypatch.setattr(
         sys,
         "argv",

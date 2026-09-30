@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Session pointer control for lulu-code orchestrator.
+"""Session pointer control for lulu-exec orchestrator.
 
 Subcommands:
     check-recovery       Read-only entry probe for Executing/Closing recovery
@@ -19,6 +19,9 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
 from tc_closing_checklist_schema import write_passed  # noqa: E402
 from tc_confirm_task_ready import ExitContractError, confirm_task_ready, task_kind  # noqa: E402
 from tc_commit_ref_schema import validate_session_commit_refs  # noqa: E402
@@ -30,7 +33,7 @@ from tc_code_task_list import (  # noqa: E402
     parse_tasks,
 )
 from tc_git_ops import validate_session_worktrees_clean  # noqa: E402
-from tc_run_test_suite import run_test_suite  # noqa: E402
+from tc_run_test_suite import checkout_name_for_worktree, run_test_suite  # noqa: E402
 from tc_session_state_schema import load_session_state  # noqa: E402
 from tc_workflow_state_schema import (  # noqa: E402
     load_workflow_state,
@@ -38,7 +41,8 @@ from tc_workflow_state_schema import (  # noqa: E402
     save_workflow_state,
 )
 from tc_workspace_schema import load_workspace  # noqa: E402
-from tc_workflow_common import exec_stage_dir  # noqa: E402
+from tc_workflow_common import EXEC_STAGE, exec_stage_dir, load_stage_config  # noqa: E402
+from workflow_config_schema import lookup_subagent  # noqa: E402
 
 
 def _session_dir(cycle_dir: Path) -> Path:
@@ -127,6 +131,14 @@ def _build_pointer(
     return payload
 
 
+def _resolve_pointer_subagent(session_dir: Path) -> str:
+    workspace_path = session_dir / "workspace.json"
+    if not workspace_path.exists():
+        return ""
+    project_root = Path(load_workspace(workspace_path)["project_root"])
+    return lookup_subagent(load_stage_config(project_root, EXEC_STAGE))
+
+
 def get_pointer(cycle_dir: Path) -> dict[str, Any]:
     ws_path = resolve_workflow_state_path(cycle_dir)
     state = load_workflow_state(ws_path)
@@ -134,20 +146,18 @@ def get_pointer(cycle_dir: Path) -> dict[str, Any]:
     current_state = state["current_state"]
 
     if current_state == "Starting":
-        return _build_pointer(
+        pointer = _build_pointer(
             current_state=current_state,
             current_task="",
             next_action="starting",
         )
-
-    if current_state == "Preparing":
-        return _build_pointer(
+    elif current_state == "Preparing":
+        pointer = _build_pointer(
             current_state=current_state,
             current_task=state.get("current_task", ""),
             next_action="prepare",
         )
-
-    if current_state == "Executing":
+    elif current_state == "Executing":
         current_task = state.get("current_task", "")
         recoverable, reason = _executing_recoverable(session_dir, current_task)
         if not recoverable:
@@ -158,24 +168,24 @@ def get_pointer(cycle_dir: Path) -> dict[str, Any]:
             next_action="dispatch",
         )
         pointer["kind"] = task_kind(session_dir, current_task)
-        return pointer
-
-    if current_state == "Closing":
+    elif current_state == "Closing":
         _validate_closing_ready(session_dir)
-        return _build_pointer(
+        pointer = _build_pointer(
             current_state=current_state,
             current_task="",
             next_action="closing",
         )
-
-    if current_state == "Delivered":
-        return _build_pointer(
+    elif current_state == "Delivered":
+        pointer = _build_pointer(
             current_state=current_state,
             current_task="",
             next_action="done",
         )
+    else:
+        raise ValueError(f"unsupported current_state: {current_state}")
 
-    raise ValueError(f"unsupported current_state: {current_state}")
+    pointer["subagent"] = _resolve_pointer_subagent(session_dir)
+    return pointer
 
 
 def check_recovery(cycle_dir: Path) -> dict[str, Any]:
@@ -332,6 +342,7 @@ def deliver(cycle_dir: Path, project_root: Path | None = None) -> dict[str, Any]
         project_root=project_root,
         worktree_path=worktree_path,
         log_path=log_path,
+        checkout_name=checkout_name_for_worktree(workspace, worktree_path),
     )
     if not test_result.passed:
         raise ValueError(f"test suite failed: exit_code={test_result.exit_code}")
@@ -366,7 +377,7 @@ def deliver(cycle_dir: Path, project_root: Path | None = None) -> dict[str, Any]
 
 
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="lulu-code session pointer control")
+    parser = argparse.ArgumentParser(description="lulu-exec session pointer control")
     parser.add_argument("--cycle-dir", required=True, help="Absolute path to cycle cache directory")
     parser.add_argument(
         "--project-root",

@@ -2,7 +2,6 @@
 """Workflow-config CLI for lulu-workflow.
 
 Subcommands:
-    get-model       Resolve subagent model for a workflow stage (JSON stdout)
     configure           Download workflow-config and write stages/ layout
     resolve-path        Print resolved $WORKFLOW_DIR config root
     resolve-stage-path  Print resolved stages/{stage}.json path
@@ -11,7 +10,6 @@ Subcommands:
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 from typing import Optional
@@ -20,11 +18,9 @@ from fetch_template import FetchTemplateError  # noqa: E402
 from workflow_config_schema import (  # noqa: E402
     apply_workflow_config_from_url,
     resolve_stage_config_path,
-    resolve_subagent_model,
     resolve_workflow_config_path,
 )
 
-_CMD_GET_MODEL = "get-model"
 _CMD_CONFIGURE = "configure"
 _CMD_RESOLVE_PATH = "resolve-path"
 _CMD_RESOLVE_STAGE_PATH = "resolve-stage-path"
@@ -43,15 +39,6 @@ def _add_project_args(parser: argparse.ArgumentParser) -> None:
         choices=["cursor", "copilot"],
         help="Platform override (default: auto-detect).",
     )
-
-
-def _cmd_get_model(args: argparse.Namespace) -> int:
-    model = resolve_subagent_model(args.project_root, args.stage, args.platform)
-    if model:
-        print(json.dumps({"model": model}, ensure_ascii=False))
-    else:
-        print("{}")
-    return 0
 
 
 def _cmd_configure(args: argparse.Namespace) -> int:
@@ -86,13 +73,6 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     _add_project_args(parent)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    get_model = sub.add_parser(
-        _CMD_GET_MODEL,
-        parents=[parent],
-        help="Resolve subagent model for a workflow stage.",
-    )
-    get_model.add_argument("--stage", required=True, help="Workflow stage name (e.g. lulu-code).")
-
     configure = sub.add_parser(
         _CMD_CONFIGURE,
         parents=[parent],
@@ -120,8 +100,6 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     args = parser.parse_args(argv)
     args.project_root = args.project_root.resolve()
 
-    if args.command == _CMD_GET_MODEL:
-        return _cmd_get_model(args)
     if args.command == _CMD_CONFIGURE:
         return _cmd_configure(args)
     if args.command == _CMD_RESOLVE_PATH:

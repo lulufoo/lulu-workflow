@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Task-level control plane for lulu-code task-runner.
+"""Task-level control plane for lulu-exec task-runner.
 
 Subcommands:
     resolve-context   Build $CTX JSON for task-runner Step 0
     enter-phase       Append enter · {phase} to code-log.md
-    run-tests         Run test_command; append test_run log; enforce red/green expectation
+    run-tests         Run the checkout test command; append test_run log; enforce red/green expectation
     commit-initial    git add -A, commit, write commit-ref, log
     commit-amend      Amend if worktree dirty; update commit-ref and log
     mark-done         Mark [x] in code-task-list and append enter · Done
@@ -34,7 +34,7 @@ from tc_commit_ref_schema import load_commit_ref, write_commit_ref  # noqa: E402
 from tc_git_ops import git_add_all, git_commit, git_commit_amend, git_head_sha, status_clean  # noqa: E402
 from tc_resolve_task_context import resolve_task_context  # noqa: E402
 from tc_action_receipt_schema import save_receipt, receipt_path  # noqa: E402
-from tc_run_test_suite import execute_test_command  # noqa: E402
+from tc_run_test_suite import execute_test_command, require_test_command  # noqa: E402
 from tc_workflow_state_schema import load_workflow_state, resolve_workflow_state_path  # noqa: E402
 
 _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
@@ -96,7 +96,7 @@ def _load_ctx(
     conversation_id: str = "",
 ) -> dict[str, Any]:
     _check_subagent_dispatch(cycle_dir, task_id, conversation_id)
-    return resolve_task_context(cycle_dir, task_id, project_root, include_model=False)
+    return resolve_task_context(cycle_dir, task_id, project_root)
 
 
 def _commit_summary(ctx: dict[str, Any]) -> str:
@@ -123,7 +123,9 @@ def resolve_context_cmd(
     *,
     conversation_id: str = "",
 ) -> dict[str, Any]:
-    return _load_ctx(cycle_dir, task_id, project_root, conversation_id=conversation_id)
+    ctx = _load_ctx(cycle_dir, task_id, project_root, conversation_id=conversation_id)
+    ctx.pop("checkout_name", None)
+    return ctx
 
 
 def enter_phase_cmd(
@@ -153,11 +155,14 @@ def run_tests_cmd(
     ctx = _load_ctx(cycle_dir, task_id, project_root, conversation_id=conversation_id)
     worktree = Path(ctx["worktree_abs_path"])
     task_output_dir = Path(ctx["task_output_dir"])
+    command = (ctx.get("test_command") or "").strip()
+    if not command:
+        command = require_test_command(project_root, str(ctx.get("checkout_name") or ""))
 
     test_result = execute_test_command(
         project_root=project_root,
         worktree_path=worktree,
-        test_command=ctx.get("test_command") or None,
+        test_command=command,
     )
     append_test_run(
         task_output_dir,
@@ -334,7 +339,7 @@ def _cli() -> int:
         help="Injected by hook_guard; current caller conversation id.",
     )
 
-    parser = argparse.ArgumentParser(description="lulu-code task control plane", parents=[conv_id_parent])
+    parser = argparse.ArgumentParser(description="lulu-exec task control plane", parents=[conv_id_parent])
     parser.add_argument("--cycle-dir", required=True, help="Absolute path to cycle cache directory")
     parser.add_argument("--project-root", required=True, help="Absolute path to project root")
     sub = parser.add_subparsers(dest="command", required=True)

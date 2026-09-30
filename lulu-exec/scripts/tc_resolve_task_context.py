@@ -15,7 +15,7 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from stage_identity import EXEC_STAGE  # noqa: E402
-from workflow_config_schema import extract_subagent_model, load_stage_config  # noqa: E402
+from workflow_config_schema import load_stage_config  # noqa: E402
 from tc_workflow_common import exec_stage_dir  # noqa: E402
 
 from tc_code_task_list import parse_tdd_exempt_from_list  # noqa: E402
@@ -27,7 +27,29 @@ from tc_task_frontmatter import (  # noqa: E402
     parse_tdd_exempt_from_frontmatter,
     read_task_frontmatter,
 )
+from tc_run_test_suite import lookup_test_command  # noqa: E402
 from tc_workspace_schema import load_workspace  # noqa: E402
+
+
+def resolve_checkout_dir_name(
+    *,
+    target_repo: str,
+    workspace: dict,
+    repo_map_file: Path,
+) -> str:
+    """Return the checkout directory name used as the test_commands key."""
+    if repo_map_file.is_file():
+        from tc_repo_map_schema import load_repo_map
+
+        checkout = load_repo_map(repo_map_file).get(target_repo, "")
+        if checkout:
+            return Path(checkout).name
+    info = (workspace.get("repos") or {}).get(target_repo)
+    if isinstance(info, dict):
+        checkout = str(info.get("checkout") or "")
+        if checkout:
+            return Path(checkout).name
+    return target_repo
 
 
 def _resolve_worktree_for_task(
@@ -113,8 +135,6 @@ def resolve_task_context(
     cycle_dir: Path,
     task_id: str,
     project_root: Path,
-    *,
-    include_model: bool = False,
 ) -> dict[str, Any]:
     """Resolve paths and config for task-runner dispatch input."""
     cycle_dir = cycle_dir.resolve()
@@ -175,6 +195,17 @@ def resolve_task_context(
         task_id=task_id,
     )
 
+    if unbound_action:
+        checkout_name = ""
+        test_command = ""
+    else:
+        checkout_name = resolve_checkout_dir_name(
+            target_repo=target_repo,
+            workspace=workspace,
+            repo_map_file=stage_dir / code_index / "repo-map.json",
+        )
+        test_command = lookup_test_command(code_cfg, checkout_name)
+
     result: dict[str, Any] = {
         "task_id": task_id,
         "kind": kind,
@@ -185,7 +216,8 @@ def resolve_task_context(
         "branch": branch,
         "tdd_exempt": tdd_exempt,
         "commit_message_template": git_cfg.get("commit_message_template", ""),
-        "test_command": code_cfg.get("test_command", ""),
+        "test_command": test_command,
+        "checkout_name": checkout_name,
     }
 
     if kind == "action":
@@ -194,10 +226,5 @@ def resolve_task_context(
         result["acceptance"] = parse_acceptance_criteria(
             work_order_task_path.read_text(encoding="utf-8")
         )
-
-    if include_model:
-        model = extract_subagent_model(code_cfg)
-        if model:
-            result["model"] = model
 
     return result

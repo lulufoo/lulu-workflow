@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for lulu-code start.py task-list parsing and startup handoff."""
+"""Tests for lulu-exec start.py task-list parsing and startup handoff."""
 
 import json
 import os
@@ -103,7 +103,7 @@ def test_parse_work_order_task_list_accepts_letter_suffix_ids_and_escaped_pipes(
 | --- | --- | --- | --- | --- |
 | t10 | workflow-config.json nested product-plan.shaping\\|spec | `skill-config/lulu-workflow/workflow-config.json` | t7 | 是 |
 | t12b | product-plan/SKILL.md shaping/spec 双路径 + G6 规则 | `product-plan/SKILL.md` | t12 | 是 |
-| t16c | [P2] lulu-code/SKILL.md gate-model 门控步骤 | `lulu-code/SKILL.md` | t6, t13 | 是 |
+| t16c | [P2] lulu-exec/SKILL.md gate-model 门控步骤 | `lulu-exec/SKILL.md` | t6, t13 | 是 |
 """
     tasks = parse_work_order_task_list(content)
 
@@ -140,7 +140,7 @@ def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
 | t1 | cycle_init.py mode slug 重命名 + 测试 | `scripts/cycle_init.py`, `scripts/test_cycle_init.py` | — | 否 |
 | t10 | workflow-config.json nested product-plan.shaping\\|spec | `skill-config/lulu-workflow/workflow-config.json` | t7 | 是 |
 | t12b | product-plan/SKILL.md shaping/spec 双路径 + G6 规则 | `product-plan/SKILL.md` | t12 | 是 |
-| t16c | [P2] lulu-code/SKILL.md gate-model 门控步骤 | `lulu-code/SKILL.md` | t6, t13 | 是 |
+| t16c | [P2] lulu-exec/SKILL.md gate-model 门控步骤 | `lulu-exec/SKILL.md` | t6, t13 | 是 |
 """
     _seed_gate_and_handoff(tmp_path, task_list_content)
 

@@ -212,12 +212,12 @@ def _setup_action_cycle(tmp_path: Path, *, task_md: str = _TASK_MD) -> tuple[Pat
     config_dir = project_root / ".cursor" / "lulu-workflow"
     config_dir.mkdir(parents=True)
     (config_dir / "workflow-config.json").write_text(
-        json.dumps({"lulu-code": {"test_command": "echo ok", "git": {}}}), encoding="utf-8"
+        json.dumps({"lulu-exec": {"test_command": "echo ok", "git": {}}}), encoding="utf-8"
     )
 
-    session_dir = cycle_dir / "lulu-code" / "s1"
+    session_dir = cycle_dir / "lulu-exec" / "s1"
     session_dir.mkdir(parents=True)
-    (cycle_dir / "lulu-code" / "session-state.md").write_text(
+    (cycle_dir / "lulu-exec" / "session-state.md").write_text(
         "---\nversion: 1\nactive_session: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
         encoding="utf-8",
     )

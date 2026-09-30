@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Authoritative schema and I/O helpers for lulu-code session-state.md.
+"""Authoritative schema and I/O helpers for lulu-exec session-state.md.
 
 CLI:
     python3 session_state_schema.py --schema
@@ -28,7 +28,7 @@ _REQUIRED_FIELDS = {s["field"] for s in _CODE_SCHEMA if s["required"]}
 
 
 def get_schema() -> list[dict]:
-    """Return field definitions for lulu-code session-state.md."""
+    """Return field definitions for lulu-exec session-state.md."""
     return list(_CODE_SCHEMA)
 
 

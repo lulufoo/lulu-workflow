@@ -129,25 +129,11 @@ def read_md_field(path: Path, field: str, default: str = "") -> str:
 
 
 def hot_root(config: StageArchiveConfig) -> Path:
-    from stage_identity import EXEC_STAGE, EXEC_STAGE_LEGACY
-
-    modern = CACHE_DIR / config.hot_subdir
-    if config.stage == EXEC_STAGE:
-        legacy = CACHE_DIR / EXEC_STAGE_LEGACY
-        if not modern.exists() and legacy.exists():
-            return legacy
-    return modern
+    return CACHE_DIR / config.hot_subdir
 
 
 def archive_dir(config: StageArchiveConfig, conversation_id: str) -> Path:
-    from stage_identity import EXEC_STAGE, EXEC_STAGE_LEGACY
-
-    modern = CACHE_DIR / "_archive" / conversation_id / config.hot_subdir
-    if config.stage == EXEC_STAGE:
-        legacy = CACHE_DIR / "_archive" / conversation_id / EXEC_STAGE_LEGACY
-        if not modern.exists() and legacy.exists():
-            return legacy
-    return modern
+    return CACHE_DIR / "_archive" / conversation_id / config.hot_subdir
 
 
 def hot_conv_dir(config: StageArchiveConfig, conversation_id: str) -> Path:

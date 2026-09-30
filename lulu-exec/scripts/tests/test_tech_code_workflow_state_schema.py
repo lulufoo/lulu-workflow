@@ -35,7 +35,7 @@ _REQUIRED_FIELD_NAMES = {
 
 _VALID_DATA = {
     "version": "1",
-    "workflow": "lulu-code",
+    "workflow": "lulu-exec",
     "current_state": "Executing",
     "mode": "work-order",
     "task_list_ref": "/path/to/code-task-list.md",
@@ -229,7 +229,7 @@ class TestMarkHistorical:
 class TestResolveWorkflowStatePath:
     def test_resolves_from_session_state(self, tmp_path: Path):
         cycle_dir = tmp_path / "cycle-id"
-        code_dir = cycle_dir / "lulu-code"
+        code_dir = cycle_dir / "lulu-exec"
         code_dir.mkdir(parents=True)
         (code_dir / "session-state.md").write_text(
             "---\nversion: 1\nactive_session: 2\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
@@ -239,7 +239,7 @@ class TestResolveWorkflowStatePath:
         (code_dir / "s2" / "workflow-state.md").write_text(
             "---\n"
             "version: 1\n"
-            "workflow: lulu-code\n"
+            "workflow: lulu-exec\n"
             "current_state: Preparing\n"
             "mode: \n"
             "task_list_ref: \n"
@@ -296,7 +296,7 @@ class TestCLI:
 
     def test_read_cycle_dir(self, tmp_path: Path):
         cycle_dir = tmp_path / "cycle-id"
-        code_dir = cycle_dir / "lulu-code"
+        code_dir = cycle_dir / "lulu-exec"
         code_dir.mkdir(parents=True)
         (code_dir / "session-state.md").write_text(
             "---\nversion: 1\nactive_session: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
@@ -310,7 +310,7 @@ class TestCLI:
         )
         assert result.returncode == 0
         parsed = json.loads(result.stdout)
-        assert parsed["workflow"] == "lulu-code"
+        assert parsed["workflow"] == "lulu-exec"
 
     def test_write_flag(self, tmp_path: Path):
         p = tmp_path / "workflow-state.md"
