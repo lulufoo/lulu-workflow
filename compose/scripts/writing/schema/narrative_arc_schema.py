@@ -248,11 +248,11 @@ def _validate_against_facts(
     empty_tags = sorted(
         fid
         for fid, fact in fact_by_id.items()
-        if fid in leaf_fact_owner and not (fact.get("lens_tags") or [])
+        if fid in leaf_fact_owner and not str(fact.get("lens") or "").strip()
     )
     if empty_tags:
         errors.append(
-            f"empty lens_tags blocked at write_ready: {empty_tags}",
+            f"empty lens blocked at write_ready: {empty_tags}",
         )
 
     for leaf in data.get("leaves") or []:
@@ -267,14 +267,10 @@ def _validate_against_facts(
                 fact = fact_by_id.get(fid_s)
                 if not fact:
                     continue
-                tags = {
-                    str(t).strip().upper()
-                    for t in (fact.get("lens_tags") or [])
-                    if str(t).strip()
-                }
-                if lens and lens not in tags:
+                fact_lens = str(fact.get("lens") or "").strip().upper()
+                if lens and lens != fact_lens:
                     errors.append(
-                        f"chapter lens {lens!r} not in fact {fid_s} lens_tags {sorted(tags)}",
+                        f"chapter lens {lens!r} is not fact {fid_s} lens {fact_lens!r}",
                     )
     return errors
 

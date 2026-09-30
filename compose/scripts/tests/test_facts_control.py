@@ -47,15 +47,15 @@ def _l1(rev: Path) -> Path:
 
 def test_validate_accepts_one_lens_per_fact():
     facts = [
-        {"id": "F-1", "text": "one", "lens_tags": ["GO"]},
-        {"id": "F-2", "text": "two", "lens_tags": ["I"]},
+        {"id": "F-1", "text": "one", "lens": "GO"},
+        {"id": "F-2", "text": "two", "lens": "I"},
     ]
     assert validate_facts(facts, allowed_lenses=["CTX", "GO", "I"]) == []
 
 
-def test_validate_accepts_empty_lens_tags_as_legal():
-    """Empty lens_tags is schema-legal (Q1 quarantine candidate, not blocked here)."""
-    facts = [{"id": "F-1", "text": "orphan", "lens_tags": []}]
+def test_validate_accepts_omitted_lens_as_legal():
+    """Omitting lens is schema-legal (Q1 quarantine candidate, not blocked here)."""
+    facts = [{"id": "F-1", "text": "orphan"}]
     assert validate_facts(facts) == []
 
 
@@ -64,7 +64,7 @@ def test_validate_rejects_bad_id_and_extra_fields():
         {
             "id": "A-1",
             "text": "x",
-            "lens_tags": ["CTX"],
+            "lens": "CTX",
             "display_home": "chap-1",
         },
     ]
@@ -73,24 +73,30 @@ def test_validate_rejects_bad_id_and_extra_fields():
     assert any("unexpected fields" in e for e in errors)
 
 
-def test_validate_rejects_duplicate_and_unknown_tags():
-    facts = [{"id": "F-1", "text": "x", "lens_tags": ["CTX", "CTX", "ZZ"]}]
-    errors = validate_facts(facts, allowed_lenses=["CTX"])
-    assert any("duplicate" in e for e in errors)
-    assert any("not in allowed lenses" in e for e in errors)
+def test_validate_rejects_unknown_and_lowercase_lens():
+    unknown = validate_facts(
+        [{"id": "F-1", "text": "x", "lens": "ZZ"}],
+        allowed_lenses=["CTX"],
+    )
+    assert any("not in allowed lenses" in e for e in unknown)
+    lowercase = validate_facts(
+        [{"id": "F-1", "text": "x", "lens": "ctx"}],
+        allowed_lenses=["CTX"],
+    )
+    assert any("uppercase" in e for e in lowercase)
 
 
 def test_validate_accepts_sparse_stable_ids():
     facts = [
-        {"id": "F-1", "text": "a", "lens_tags": ["CTX"]},
-        {"id": "F-3", "text": "b", "lens_tags": ["CTX"]},
+        {"id": "F-1", "text": "a", "lens": "CTX"},
+        {"id": "F-3", "text": "b", "lens": "CTX"},
     ]
     assert validate_facts(facts, allowed_lenses=["CTX"]) == []
 
 
 def test_validate_rejects_zero_fact_id():
     errors = validate_facts(
-        [{"id": "F-0", "text": "zero", "lens_tags": ["CTX"]}],
+        [{"id": "F-0", "text": "zero", "lens": "CTX"}],
         allowed_lenses=["CTX"],
     )
     assert any("F-<positive-n>" in error for error in errors)
@@ -98,8 +104,8 @@ def test_validate_rejects_zero_fact_id():
 
 def test_validate_rejects_duplicate_fact_id():
     facts = [
-        {"id": "F-1", "text": "a", "lens_tags": ["CTX"]},
-        {"id": "F-1", "text": "b", "lens_tags": ["CTX"]},
+        {"id": "F-1", "text": "a", "lens": "CTX"},
+        {"id": "F-1", "text": "b", "lens": "CTX"},
     ]
     errors = validate_facts(facts, allowed_lenses=["CTX"])
     assert any("duplicate" in e for e in errors)
@@ -113,9 +119,9 @@ def test_validate_rejects_empty_and_non_array_root():
 def test_filter_by_lens_stays_addressable(tmp_path: Path):
     """A fact is returned intact (not dissolved into prose)."""
     facts = [
-        {"id": "F-1", "text": "alpha", "lens_tags": ["AR"]},
-        {"id": "F-2", "text": "beta", "lens_tags": ["I"]},
-        {"id": "F-3", "text": "gamma", "lens_tags": ["AR"]},
+        {"id": "F-1", "text": "alpha", "lens": "AR"},
+        {"id": "F-2", "text": "beta", "lens": "I"},
+        {"id": "F-3", "text": "gamma", "lens": "AR"},
     ]
     path = tmp_path / "_facts.json"
     save_facts(path, facts, allowed_lenses=["CTX", "AR", "I"])
@@ -131,18 +137,18 @@ def test_filter_by_lens_stays_addressable(tmp_path: Path):
 
 def test_lenses_present_and_unlensed_ids():
     facts = [
-        {"id": "F-1", "text": "a", "lens_tags": ["CTX", "AR"]},
-        {"id": "F-2", "text": "b", "lens_tags": ["AR"]},
-        {"id": "F-3", "text": "c", "lens_tags": []},
+        {"id": "F-1", "text": "a", "lens": "CTX"},
+        {"id": "F-2", "text": "b", "lens": "AR"},
+        {"id": "F-3", "text": "c"},
     ]
-    assert lenses_present(facts) == {"CTX": 1, "AR": 2}
+    assert lenses_present(facts) == {"CTX": 1, "AR": 1}
     assert unlensed_fact_ids(facts) == ["F-3"]
 
 
 def test_control_write_validate_status(tmp_path: Path):
     facts = [
-        {"id": "F-1", "text": "fact one", "lens_tags": ["GO"]},
-        {"id": "F-2", "text": "fact two", "lens_tags": ["AR"]},
+        {"id": "F-1", "text": "fact one", "lens": "GO"},
+        {"id": "F-2", "text": "fact two", "lens": "AR"},
     ]
     facts_file = tmp_path / "facts.json"
     facts_file.write_text(json.dumps(facts), encoding="utf-8")
@@ -213,7 +219,7 @@ def test_control_status_missing_file(tmp_path: Path):
 
 
 def test_control_write_rejects_invalid_facts(tmp_path: Path):
-    bad = [{"id": "F-1", "text": "", "lens_tags": ["CTX"]}]
+    bad = [{"id": "F-1", "text": "", "lens": "CTX"}]
     facts_file = tmp_path / "facts.json"
     facts_file.write_text(json.dumps(bad), encoding="utf-8")
     rev = _revision(tmp_path)
@@ -243,11 +249,11 @@ def test_control_write_rejects_invalid_facts(tmp_path: Path):
 
 def test_validate_accepts_optional_source():
     facts = [
-        {"id": "F-1", "text": "atom", "lens_tags": ["SK"]},
+        {"id": "F-1", "text": "atom", "lens": "SK"},
         {
             "id": "F-2",
             "text": "derived task",
-            "lens_tags": ["T"],
+            "lens": "T",
             "source": ["F-1", "对应 SK P1"],
         },
     ]
@@ -259,7 +265,7 @@ def test_validate_still_rejects_unknown_extra_fields():
         {
             "id": "F-1",
             "text": "x",
-            "lens_tags": ["CTX"],
+            "lens": "CTX",
             "display_home": "chap-1",
         },
     ]
@@ -271,21 +277,21 @@ def test_validate_rejects_empty_or_bad_source():
     assert any(
         "non-empty array" in e
         for e in validate_facts(
-            [{"id": "F-1", "text": "x", "lens_tags": ["T"], "source": []}],
+            [{"id": "F-1", "text": "x", "lens": "T", "source": []}],
             allowed_lenses=["T"],
         )
     )
     assert any(
         "must be an array" in e
         for e in validate_facts(
-            [{"id": "F-1", "text": "x", "lens_tags": ["T"], "source": "F-1"}],
+            [{"id": "F-1", "text": "x", "lens": "T", "source": "F-1"}],
             allowed_lenses=["T"],
         )
     )
     assert any(
         "non-empty string" in e
         for e in validate_facts(
-            [{"id": "F-1", "text": "x", "lens_tags": ["T"], "source": ["  "]}],
+            [{"id": "F-1", "text": "x", "lens": "T", "source": ["  "]}],
             allowed_lenses=["T"],
         )
     )
@@ -294,7 +300,7 @@ def test_validate_rejects_empty_or_bad_source():
 def test_validate_rejects_source_null():
     """Explicit null must fail (not treated as omit)."""
     errors = validate_facts(
-        [{"id": "F-1", "text": "x", "lens_tags": ["T"], "source": None}],
+        [{"id": "F-1", "text": "x", "lens": "T", "source": None}],
         allowed_lenses=["T"],
     )
     assert any("source" in e and "null" in e.lower() for e in errors)
@@ -303,11 +309,11 @@ def test_validate_rejects_source_null():
 def test_normalize_and_save_round_trip_preserves_source(tmp_path: Path):
     """Grok K1 review: normalize/save must not silently strip ``source``."""
     facts = [
-        {"id": "F-1", "text": "upstream", "lens_tags": ["SK"]},
+        {"id": "F-1", "text": "upstream", "lens": "SK"},
         {
             "id": "F-2",
             "text": "derived",
-            "lens_tags": ["T"],
+            "lens": "T",
             "source": ["F-1", "按 AR 契约"],
         },
     ]
@@ -324,7 +330,7 @@ def test_control_write_round_trips_source(tmp_path: Path):
         {
             "id": "F-1",
             "text": "derived task",
-            "lens_tags": ["T"],
+            "lens": "T",
             "source": ["F-3"],
         },
     ]
@@ -355,7 +361,7 @@ def test_control_write_round_trips_source(tmp_path: Path):
 
 def test_validate_rejects_origin_null():
     errors = validate_facts(
-        [{"id": "F-1", "text": "x", "lens_tags": ["T"], "origin": None}],
+        [{"id": "F-1", "text": "x", "lens": "T", "origin": None}],
         allowed_lenses=["T"],
     )
     assert any("origin" in e and "null" in e.lower() for e in errors)
@@ -367,7 +373,7 @@ def test_validate_rejects_origin_bad_type():
             {
                 "id": "F-1",
                 "text": "x",
-                "lens_tags": ["T"],
+                "lens": "T",
                 "origin": {"type": "unknown", "ref": ["O-1"]},
             }
         ],
@@ -382,7 +388,7 @@ def test_validate_rejects_origin_empty_ref():
             {
                 "id": "F-1",
                 "text": "x",
-                "lens_tags": ["T"],
+                "lens": "T",
                 "origin": {"type": "discovered", "ref": []},
             }
         ],
@@ -394,17 +400,17 @@ def test_validate_rejects_origin_empty_ref():
 def test_normalize_and_save_round_trip_preserves_origin(tmp_path: Path):
     """K4 Phase 1a: normalize/save must not silently strip ``origin``."""
     facts = [
-        {"id": "F-1", "text": "upstream", "lens_tags": ["SK"]},
+        {"id": "F-1", "text": "upstream", "lens": "SK"},
         {
             "id": "F-2",
             "text": "discovered",
-            "lens_tags": ["T"],
+            "lens": "T",
             "origin": {"type": "discovered", "ref": ["O-1"]},
         },
         {
             "id": "F-3",
             "text": "seeded",
-            "lens_tags": ["FL"],
+            "lens": "FL",
             "origin": {
                 "type": "seed",
                 "ref": ["scope:decision-doc.md", "主路径：进入计划任务页"],
@@ -425,7 +431,7 @@ def test_facts_without_origin_still_valid():
     """Backward compatible: existing facts without origin remain legal."""
     assert (
         validate_facts(
-            [{"id": "F-1", "text": "x", "lens_tags": ["T"]}],
+            [{"id": "F-1", "text": "x", "lens": "T"}],
             allowed_lenses=["T"],
         )
         == []
@@ -439,13 +445,13 @@ def test_validate_accepts_derived_with_and_without_derive_mode():
                 {
                     "id": "F-1",
                     "text": "legacy derived",
-                    "lens_tags": ["T"],
+                    "lens": "T",
                     "origin": {"type": "derived", "ref": ["F-0"]},
                 },
                 {
                     "id": "F-2",
                     "text": "floor derived",
-                    "lens_tags": ["T"],
+                    "lens": "T",
                     "origin": {
                         "type": "derived",
                         "ref": ["F-0"],
@@ -455,7 +461,7 @@ def test_validate_accepts_derived_with_and_without_derive_mode():
                 {
                     "id": "F-3",
                     "text": "ceiling derived",
-                    "lens_tags": ["T"],
+                    "lens": "T",
                     "origin": {
                         "type": "derived",
                         "ref": ["F-0"],
@@ -475,7 +481,7 @@ def test_validate_rejects_derive_mode_on_non_derived():
             {
                 "id": "F-1",
                 "text": "seed",
-                "lens_tags": ["T"],
+                "lens": "T",
                 "origin": {
                     "type": "seed",
                     "ref": ["P-1"],
@@ -494,7 +500,7 @@ def test_validate_rejects_bad_derive_mode():
             {
                 "id": "F-1",
                 "text": "x",
-                "lens_tags": ["T"],
+                "lens": "T",
                 "origin": {
                     "type": "derived",
                     "ref": ["F-0"],
@@ -511,7 +517,7 @@ def test_normalize_preserves_derive_mode():
     fact = {
         "id": "F-1",
         "text": "x",
-        "lens_tags": ["T"],
+        "lens": "T",
         "origin": {
             "type": "derived",
             "ref": ["F-7"],
@@ -532,7 +538,7 @@ def test_validate_accepts_carried_and_quarantined_derivation():
                 {
                     "id": "F-1",
                     "text": "kept",
-                    "lens_tags": ["T"],
+                    "lens": "T",
                     "derivation": {
                         "disposition": "carried",
                         "upstream_ref": ["F-12"],
@@ -541,7 +547,6 @@ def test_validate_accepts_carried_and_quarantined_derivation():
                 {
                     "id": "F-2",
                     "text": "isolated",
-                    "lens_tags": [],
                     "derivation": {
                         "disposition": "quarantined",
                         "upstream_ref": ["F-13"],
@@ -556,7 +561,7 @@ def test_validate_accepts_carried_and_quarantined_derivation():
 
 def test_validate_rejects_derivation_null():
     errors = validate_facts(
-        [{"id": "F-1", "text": "x", "lens_tags": ["T"], "derivation": None}],
+        [{"id": "F-1", "text": "x", "lens": "T", "derivation": None}],
         allowed_lenses=["T"],
     )
     assert any("derivation" in e and "null" in e.lower() for e in errors)
@@ -568,7 +573,7 @@ def test_validate_rejects_derivation_empty_upstream_ref():
             {
                 "id": "F-1",
                 "text": "x",
-                "lens_tags": ["T"],
+                "lens": "T",
                 "derivation": {"disposition": "carried", "upstream_ref": []},
             }
         ],
@@ -583,7 +588,7 @@ def test_validate_rejects_derivation_bad_disposition():
             {
                 "id": "F-1",
                 "text": "x",
-                "lens_tags": ["T"],
+                "lens": "T",
                 "derivation": {
                     "disposition": "rewritten",
                     "upstream_ref": ["F-1"],
@@ -601,7 +606,7 @@ def test_validate_rejects_derivation_unknown_field():
             {
                 "id": "F-1",
                 "text": "x",
-                "lens_tags": ["T"],
+                "lens": "T",
                 "derivation": {
                     "disposition": "carried",
                     "upstream_ref": ["F-1"],
@@ -614,13 +619,12 @@ def test_validate_rejects_derivation_unknown_field():
     assert any("unexpected fields" in e for e in errors)
 
 
-def test_validate_rejects_carried_with_empty_lens_tags():
+def test_validate_rejects_carried_without_lens():
     errors = validate_facts(
         [
             {
                 "id": "F-1",
                 "text": "x",
-                "lens_tags": [],
                 "derivation": {
                     "disposition": "carried",
                     "upstream_ref": ["F-9"],
@@ -629,16 +633,16 @@ def test_validate_rejects_carried_with_empty_lens_tags():
         ],
         allowed_lenses=["T"],
     )
-    assert any("carried" in e and "lens_tags" in e for e in errors)
+    assert any("carried" in e and "requires lens" in e for e in errors)
 
 
-def test_validate_rejects_quarantined_with_nonempty_lens_tags():
+def test_validate_rejects_quarantined_with_lens():
     errors = validate_facts(
         [
             {
                 "id": "F-1",
                 "text": "x",
-                "lens_tags": ["T"],
+                "lens": "T",
                 "derivation": {
                     "disposition": "quarantined",
                     "upstream_ref": ["F-9"],
@@ -647,7 +651,7 @@ def test_validate_rejects_quarantined_with_nonempty_lens_tags():
         ],
         allowed_lenses=["T"],
     )
-    assert any("quarantined" in e and "lens_tags" in e for e in errors)
+    assert any("quarantined" in e and "lens omitted" in e for e in errors)
 
 
 def test_validate_accepts_not_needed_with_rule_id():
@@ -657,7 +661,6 @@ def test_validate_accepts_not_needed_with_rule_id():
                 {
                     "id": "F-1",
                     "text": "rejected-path prose",
-                    "lens_tags": [],
                     "derivation": {
                         "disposition": "not_needed",
                         "upstream_ref": ["doc#方向取舍"],
@@ -677,7 +680,6 @@ def test_validate_rejects_not_needed_missing_or_unknown_rule_id():
             {
                 "id": "F-1",
                 "text": "x",
-                "lens_tags": [],
                 "derivation": {
                     "disposition": "not_needed",
                     "upstream_ref": ["doc#a"],
@@ -691,7 +693,6 @@ def test_validate_rejects_not_needed_missing_or_unknown_rule_id():
             {
                 "id": "F-1",
                 "text": "x",
-                "lens_tags": [],
                 "derivation": {
                     "disposition": "not_needed",
                     "upstream_ref": ["doc#a"],
@@ -710,7 +711,7 @@ def test_validate_rejects_not_needed_with_tags_and_require_derivation():
             {
                 "id": "F-1",
                 "text": "x",
-                "lens_tags": ["CTX"],
+                "lens": "CTX",
                 "derivation": {
                     "disposition": "not_needed",
                     "upstream_ref": ["doc#a"],
@@ -721,9 +722,9 @@ def test_validate_rejects_not_needed_with_tags_and_require_derivation():
         allowed_lenses=["CTX"],
         allowed_rule_ids=["D-DEC"],
     )
-    assert any("not_needed" in e and "lens_tags" in e for e in errors)
+    assert any("not_needed" in e and "lens omitted" in e for e in errors)
     missing = validate_facts(
-        [{"id": "F-1", "text": "x", "lens_tags": ["CTX"]}],
+        [{"id": "F-1", "text": "x", "lens": "CTX"}],
         allowed_lenses=["CTX"],
         require_derivation=True,
     )
@@ -735,7 +736,7 @@ def test_unlensed_skips_not_needed_and_pd_materials_filter():
         {
             "id": "F-1",
             "text": "kept",
-            "lens_tags": ["CTX"],
+            "lens": "CTX",
             "derivation": {
                 "disposition": "carried",
                 "upstream_ref": ["doc#1"],
@@ -744,7 +745,6 @@ def test_unlensed_skips_not_needed_and_pd_materials_filter():
         {
             "id": "F-2",
             "text": "q",
-            "lens_tags": [],
             "derivation": {
                 "disposition": "quarantined",
                 "upstream_ref": ["doc#2"],
@@ -753,14 +753,13 @@ def test_unlensed_skips_not_needed_and_pd_materials_filter():
         {
             "id": "F-3",
             "text": "skip",
-            "lens_tags": [],
             "derivation": {
                 "disposition": "not_needed",
                 "upstream_ref": ["doc#3"],
                 "rule_id": "D-RISK",
             },
         },
-        {"id": "F-4", "text": "legacy", "lens_tags": ["AR"]},
+        {"id": "F-4", "text": "legacy", "lens": "AR"},
     ]
     assert unlensed_fact_ids(facts) == ["F-2"]
     materials = pd_material_facts(facts)
@@ -769,11 +768,11 @@ def test_unlensed_skips_not_needed_and_pd_materials_filter():
 
 def test_normalize_and_save_round_trip_preserves_derivation(tmp_path: Path):
     facts = [
-        {"id": "F-1", "text": "plain", "lens_tags": ["T"]},
+        {"id": "F-1", "text": "plain", "lens": "T"},
         {
             "id": "F-2",
             "text": "imported",
-            "lens_tags": ["T"],
+            "lens": "T",
             "derivation": {"disposition": "carried", "upstream_ref": ["F-99"]},
         },
     ]
@@ -798,7 +797,7 @@ def test_save_facts_rejects_incomplete_origin_with_value_error(tmp_path: Path):
                 {
                     "id": "F-1",
                     "text": "x",
-                    "lens_tags": ["T"],
+                    "lens": "T",
                     "origin": {"type": "seed"},
                 }
             ],
@@ -815,7 +814,7 @@ def test_save_facts_rejects_incomplete_origin_with_value_error(tmp_path: Path):
                 {
                     "id": "F-1",
                     "text": "x",
-                    "lens_tags": ["T"],
+                    "lens": "T",
                     "origin": {"type": "discovered", "ref": None},
                 }
             ],
@@ -837,7 +836,7 @@ def test_write_allows_fact_intake_and_rejects_pending_writing(tmp_path: Path) ->
 
     facts_file = tmp_path / "intake.json"
     facts_file.write_text(
-        json.dumps([{"id": "F-1", "text": "intake", "lens_tags": ["CTX"]}]),
+        json.dumps([{"id": "F-1", "text": "intake", "lens": "CTX"}]),
         encoding="utf-8",
     )
     args = argparse.Namespace(
@@ -859,7 +858,7 @@ def test_validate_intake_structure_accepts_pre_disposition_facts():
         {
             "id": "F-1",
             "text": "cut atom",
-            "lens_tags": ["CTX"],
+            "lens": "CTX",
             "derivation": {"upstream_ref": ["doc#L1"]},
             "origin": {"type": "derived", "ref": ["doc"]},
         },
@@ -872,7 +871,7 @@ def test_validate_intake_structure_rejects_disposition_and_discovered():
         {
             "id": "F-1",
             "text": "x",
-            "lens_tags": ["CTX"],
+            "lens": "CTX",
             "derivation": {
                 "disposition": "carried",
                 "upstream_ref": ["doc#1"],
@@ -888,7 +887,7 @@ def test_validate_intake_structure_rejects_disposition_and_discovered():
         {
             "id": "F-1",
             "text": "x",
-            "lens_tags": ["CTX"],
+            "lens": "CTX",
             "derivation": {"upstream_ref": ["doc#1"]},
             "origin": {"type": "discovered", "ref": ["x"]},
         },
@@ -904,7 +903,7 @@ def test_validate_intake_structure_require_seed_origin():
         {
             "id": "F-1",
             "text": "seeded",
-            "lens_tags": ["CTX"],
+            "lens": "CTX",
             "derivation": {"upstream_ref": ["seed#1"]},
             "origin": {"type": "seed", "ref": ["decision"]},
         },
@@ -922,7 +921,7 @@ def test_validate_intake_structure_require_seed_origin():
         {
             "id": "F-1",
             "text": "x",
-            "lens_tags": ["CTX"],
+            "lens": "CTX",
             "derivation": {"upstream_ref": ["doc#1"]},
             "origin": {"type": "derived", "ref": ["doc"]},
         },
@@ -938,7 +937,7 @@ def test_validate_intake_structure_require_seed_origin():
         {
             "id": "F-1",
             "text": "x",
-            "lens_tags": ["CTX"],
+            "lens": "CTX",
             "derivation": {"upstream_ref": ["doc#1"]},
         },
     ]
@@ -961,7 +960,7 @@ def test_control_validate_intake_structure_conflicts_with_require_derivation(
                 {
                     "id": "F-1",
                     "text": "x",
-                    "lens_tags": ["CTX"],
+                    "lens": "CTX",
                     "derivation": {"upstream_ref": ["doc#1"]},
                 }
             ]
@@ -996,7 +995,7 @@ def test_control_validate_intake_structure_ok(tmp_path: Path):
                 {
                     "id": "F-1",
                     "text": "x",
-                    "lens_tags": ["CTX"],
+                    "lens": "CTX",
                     "derivation": {"upstream_ref": ["doc#1"]},
                 }
             ]
@@ -1032,7 +1031,7 @@ def test_control_write_intake_structure_cut_omits_disposition(tmp_path: Path):
         {
             "id": "F-1",
             "text": "atom from source",
-            "lens_tags": ["CTX"],
+            "lens": "CTX",
             "derivation": {"upstream_ref": ["source.md#1"]},
             "origin": {"type": "seed", "ref": ["source.md"]},
         }
@@ -1148,9 +1147,9 @@ def test_control_write_intake_structure_cut_omits_disposition(tmp_path: Path):
 
 def test_strip_derived_facts_keeps_seed_order():
     facts = [
-        {"id": "F-1", "text": "seed", "lens_tags": [], "origin": {"type": "seed", "ref": ["doc"]}},
-        {"id": "F-2", "text": "old", "lens_tags": ["CTX"], "origin": {"type": "derived", "ref": ["F-1"]}},
-        {"id": "F-3", "text": "local", "lens_tags": [], "origin": {"type": "seed", "ref": ["human"]}},
+        {"id": "F-1", "text": "seed", "origin": {"type": "seed", "ref": ["doc"]}},
+        {"id": "F-2", "text": "old", "lens": "CTX", "origin": {"type": "derived", "ref": ["F-1"]}},
+        {"id": "F-3", "text": "local", "origin": {"type": "seed", "ref": ["human"]}},
     ]
     assert is_derived_fact(facts[1]) is True
     kept = strip_derived_facts(facts)
@@ -1186,13 +1185,12 @@ def test_control_strip_derived(tmp_path: Path):
                 {
                     "id": "F-1",
                     "text": "seed",
-                    "lens_tags": [],
                     "origin": {"type": "seed", "ref": ["doc"]},
                 },
                 {
                     "id": "F-2",
                     "text": "old",
-                    "lens_tags": ["CTX"],
+                    "lens": "CTX",
                     "origin": {"type": "derived", "ref": ["F-1"]},
                 },
             ]
@@ -1226,7 +1224,7 @@ def test_validate_without_rules_rejects_not_needed_allows_carried():
             {
                 "id": "F-1",
                 "text": "keep",
-                "lens_tags": ["CTX"],
+                "lens": "CTX",
                 "derivation": {
                     "disposition": "carried",
                     "upstream_ref": ["doc#a"],
@@ -1242,7 +1240,6 @@ def test_validate_without_rules_rejects_not_needed_allows_carried():
             {
                 "id": "F-1",
                 "text": "drop",
-                "lens_tags": [],
                 "derivation": {
                     "disposition": "not_needed",
                     "upstream_ref": ["doc#a"],

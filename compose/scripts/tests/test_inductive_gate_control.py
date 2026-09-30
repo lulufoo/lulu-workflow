@@ -178,7 +178,7 @@ def _ready_cleared(slice_dir: Path) -> None:
     _isolate_lenses(slice_dir, _bind_skill_fixture(slice_dir))
     (slice_dir / "_facts.json").write_text(
         json.dumps(
-            [{"id": "F-seed", "text": "g4 lens source", "lens_tags": ["I"]}]
+            [{"id": "F-seed", "text": "g4 lens source", "lens": "I"}]
         )
         + "\n",
         encoding="utf-8",

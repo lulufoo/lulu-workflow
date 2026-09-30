@@ -290,20 +290,16 @@ def detect_lens_registry(snapshot: Any) -> list[dict[str, str]]:
 
 
 def facts_for_lens(facts: Any, lens: str) -> list[Any]:
-    """Return full facts whose lens_tags contain ``lens``. Empty tags drop."""
+    """Return full facts whose ``lens`` is ``lens``. Facts without one drop."""
     key = str(lens).strip().upper()
     if not key or not isinstance(facts, list):
         return []
-    out: list[Any] = []
-    for item in facts:
-        if not isinstance(item, dict):
-            continue
-        tags = item.get("lens_tags")
-        if not isinstance(tags, list):
-            continue
-        if key in {str(tag).strip().upper() for tag in tags if str(tag).strip()}:
-            out.append(item)
-    return out
+    return [
+        item
+        for item in facts
+        if isinstance(item, dict)
+        and str(item.get("lens") or "").strip().upper() == key
+    ]
 
 
 def detect_lens_registry_entry(snapshot: Any, lens: str) -> dict[str, str]:

@@ -446,7 +446,7 @@ def section_cluster_map(project_root: Path | None = None) -> dict[str, str]:
     """Return section_key -> cluster slug for lenses that declare ``cluster``.
 
     Display/Writing co-location hint only — not a completeness obligation and not a
-    ``lens_tags`` value. See archive-3.0 compose-design-stability-lenses-cluster-design.
+    ``lens`` value. See archive-3.0 compose-design-stability-lenses-cluster-design.
     """
     registry = _active_registry(project_root)
     out: dict[str, str] = {}

@@ -60,7 +60,7 @@ def _facts_file(slice_dir: Path) -> None:
                     {
                         "id": "F-1",
                         "text": "fact",
-                        "lens_tags": ["CTX"],
+                        "lens": "CTX",
                         "source": "test",
                     }
                 ],

@@ -127,7 +127,9 @@ def edge_holes_for_lens(
 ) -> list[str]:
     """Upstream F-ids under derivation edges not covered by any ``lens`` fact."""
     key = _upper(lens)
-    lens_facts = [f for f in facts if key in (f.get("lens_tags") or [])]
+    lens_facts = [
+        f for f in facts if str(f.get("lens") or "").strip().upper() == key
+    ]
     uncovered: list[str] = []
     for u in derivation_upstreams(key, graph):
         for u_fact in filter_by_lens(facts, u):
@@ -314,7 +316,7 @@ def append_derived_facts(
 ) -> list[dict[str, Any]]:
     """Append derived facts with contiguous ``F-(k+1)..`` ids.
 
-    Each item in ``derived`` must supply ``text``, ``lens_tags``, and may
+    Each item in ``derived`` must supply ``text``, ``lens``, and may
     supply ``source`` and/or ``origin`` (both preserved when present). Ids in
     ``derived`` are ignored and reassigned.
 
@@ -333,7 +335,7 @@ def append_derived_facts(
         entry: dict[str, Any] = {
             "id": f"F-{n}",
             "text": item["text"],
-            "lens_tags": item["lens_tags"],
+            "lens": item["lens"],
         }
         if "origin" in item and item["origin"] is not None:
             entry["origin"] = item["origin"]
@@ -386,7 +388,7 @@ def check_derive_nonempty_self_audit(
     emptiness is therefore judged on ``facts_after``; novelty still uses
     ``before_ids``.
 
-    ``待决`` facts still count (they are real facts with ``lens_tags=[L]``).
+    ``待决`` facts still count (they are real facts with ``lens``).
     Empty-upstream triggers are skipped (C1 backstop).
     """
     before_ids = {f["id"] for f in facts_before}
@@ -398,7 +400,8 @@ def check_derive_nonempty_self_audit(
         new_for_lens = [
             f
             for f in facts_after
-            if f["id"] not in before_ids and key in f.get("lens_tags", [])
+            if f["id"] not in before_ids
+            and str(f.get("lens") or "").strip().upper() == key
         ]
         if not new_for_lens:
             errors.append(

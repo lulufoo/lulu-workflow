@@ -99,21 +99,21 @@ def test_unresolved_blocks_write_ready():
 def test_facts_coverage_and_empty_tags():
     data = _write_ready()
     facts = [
-        {"id": "F-1", "text": "a", "lens_tags": ["I"]},
-        {"id": "F-2", "text": "b", "lens_tags": []},
+        {"id": "F-1", "text": "a", "lens": "I"},
+        {"id": "F-2", "text": "b"},
     ]
     errors = validate_narrative_arc(data, facts=facts)
-    assert any("empty lens_tags" in e for e in errors)
+    assert any("empty lens" in e for e in errors)
 
 
 def test_chapter_lens_must_be_in_fact_tags():
     data = _write_ready()
     facts = [
-        {"id": "F-1", "text": "a", "lens_tags": ["ST"]},
-        {"id": "F-2", "text": "b", "lens_tags": ["IF"]},
+        {"id": "F-1", "text": "a", "lens": "ST"},
+        {"id": "F-2", "text": "b", "lens": "IF"},
     ]
     errors = validate_narrative_arc(data, facts=facts)
-    assert any("not in fact F-1 lens_tags" in e for e in errors)
+    assert any("is not fact F-1 lens" in e for e in errors)
 
 
 def test_save_roundtrip(tmp_path: Path):

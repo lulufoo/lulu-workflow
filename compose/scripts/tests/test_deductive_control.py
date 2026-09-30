@@ -47,7 +47,7 @@ def test_pending_init_add_resolve_gate(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
     (rev / "execution" / "_facts.json").write_text(
         json.dumps(
-            [{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}],
+            [{"id": "F-1", "text": "ar", "lens": "AR"}],
             ensure_ascii=False,
         ),
         encoding="utf-8",
@@ -93,7 +93,7 @@ def test_open_pending_kinds_do_not_block_gate(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
     (rev / "execution" / "_facts.json").write_text(
         json.dumps(
-            [{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}],
+            [{"id": "F-1", "text": "ar", "lens": "AR"}],
             ensure_ascii=False,
         ),
         encoding="utf-8",
@@ -138,7 +138,7 @@ def test_kw_shortfall_pending_does_not_block_gate(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
     (rev / "execution" / "_facts.json").write_text(
         json.dumps(
-            [{"id": "F-1", "text": "task thin", "lens_tags": ["T"]}],
+            [{"id": "F-1", "text": "task thin", "lens": "T"}],
             ensure_ascii=False,
         ),
         encoding="utf-8",
@@ -166,7 +166,7 @@ def test_gate_check_fails_when_pending_file_missing(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
     (rev / "execution" / "_facts.json").write_text(
         json.dumps(
-            [{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}],
+            [{"id": "F-1", "text": "ar", "lens": "AR"}],
             ensure_ascii=False,
         ),
         encoding="utf-8",
@@ -184,7 +184,6 @@ def test_gate_check_passes_on_unsettled_unref_quarantine(tmp_path: Path) -> None
                 {
                     "id": "F-1",
                     "text": "quarantine orphan",
-                    "lens_tags": [],
                     "derivation": {
                         "disposition": "quarantined",
                         "upstream_ref": ["U-1"],
@@ -209,7 +208,6 @@ def test_gate_check_passes_when_unref_quarantine_settled(tmp_path: Path) -> None
                 {
                     "id": "F-1",
                     "text": "quarantine orphan",
-                    "lens_tags": [],
                     "derivation": {
                         "disposition": "quarantined",
                         "upstream_ref": ["U-1"],
@@ -254,7 +252,6 @@ def test_quarantine_unref_lists_uncited(tmp_path: Path) -> None:
                 {
                     "id": "F-1",
                     "text": "cited quarantine",
-                    "lens_tags": [],
                     "derivation": {
                         "disposition": "quarantined",
                         "upstream_ref": ["U-1"],
@@ -263,13 +260,12 @@ def test_quarantine_unref_lists_uncited(tmp_path: Path) -> None:
                 {
                     "id": "F-2",
                     "text": "uses F-1",
-                    "lens_tags": ["T"],
+                    "lens": "T",
                     "origin": {"type": "derived", "ref": ["F-1"]},
                 },
                 {
                     "id": "F-3",
                     "text": "still uncited quarantine",
-                    "lens_tags": [],
                     "derivation": {
                         "disposition": "quarantined",
                         "upstream_ref": ["U-2"],
@@ -278,7 +274,6 @@ def test_quarantine_unref_lists_uncited(tmp_path: Path) -> None:
                 {
                     "id": "F-4",
                     "text": "not_needed excluded from unref list",
-                    "lens_tags": [],
                     "derivation": {
                         "disposition": "not_needed",
                         "upstream_ref": ["U-3"],
@@ -306,7 +301,6 @@ def test_disposition_patch_validate_and_apply(tmp_path: Path) -> None:
                 {
                     "id": "F-1",
                     "text": "should carry",
-                    "lens_tags": [],
                     "derivation": {
                         "disposition": "quarantined",
                         "upstream_ref": ["doc#a"],
@@ -315,7 +309,6 @@ def test_disposition_patch_validate_and_apply(tmp_path: Path) -> None:
                 {
                     "id": "F-2",
                     "text": "keep quarantine",
-                    "lens_tags": [],
                     "derivation": {
                         "disposition": "quarantined",
                         "upstream_ref": ["doc#b"],
@@ -335,7 +328,7 @@ def test_disposition_patch_validate_and_apply(tmp_path: Path) -> None:
             {
                 "op": "promote",
                 "fact_id": "F-1",
-                "lens_tags": ["CTX"],
+                "lens": "CTX",
                 "note": "selected-path constraint",
             }
         ],
@@ -382,7 +375,7 @@ def test_disposition_patch_validate_and_apply(tmp_path: Path) -> None:
     assert apply.returncode == 0, apply.stderr
     facts = json.loads((rev / "execution" / "_facts.json").read_text(encoding="utf-8"))
     assert facts[0]["derivation"]["disposition"] == "carried"
-    assert facts[0]["lens_tags"] == ["CTX"]
+    assert facts[0]["lens"] == "CTX"
     assert facts[1]["derivation"]["disposition"] == "quarantined"
 
 
@@ -394,7 +387,7 @@ def _pending_items(revision_dir: Path) -> list[dict]:
 def test_pending_replace_swaps_open_edge_holes(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
     (rev / "execution" / "_facts.json").write_text(
-        json.dumps([{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}]),
+        json.dumps([{"id": "F-1", "text": "ar", "lens": "AR"}]),
         encoding="utf-8",
     )
     assert _run(["pending-init"], rev).returncode == 0
@@ -447,7 +440,7 @@ def test_pending_replace_swaps_open_edge_holes(tmp_path: Path) -> None:
 def test_pending_replace_keeps_resolved_and_other_kinds(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
     (rev / "execution" / "_facts.json").write_text(
-        json.dumps([{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}]),
+        json.dumps([{"id": "F-1", "text": "ar", "lens": "AR"}]),
         encoding="utf-8",
     )
     assert _run(["pending-init"], rev).returncode == 0
@@ -511,7 +504,7 @@ def test_pending_replace_keeps_resolved_and_other_kinds(tmp_path: Path) -> None:
 def test_pending_replace_empty_list_clears_open_edge_holes(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
     (rev / "execution" / "_facts.json").write_text(
-        json.dumps([{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}]),
+        json.dumps([{"id": "F-1", "text": "ar", "lens": "AR"}]),
         encoding="utf-8",
     )
     assert _run(["pending-init"], rev).returncode == 0
@@ -545,7 +538,7 @@ def test_pending_replace_empty_list_clears_open_edge_holes(tmp_path: Path) -> No
 def test_pending_replace_rejects_bad_kind_and_json(tmp_path: Path) -> None:
     rev = _prepare(tmp_path)
     (rev / "execution" / "_facts.json").write_text(
-        json.dumps([{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}]),
+        json.dumps([{"id": "F-1", "text": "ar", "lens": "AR"}]),
         encoding="utf-8",
     )
     assert _run(["pending-init"], rev).returncode == 0

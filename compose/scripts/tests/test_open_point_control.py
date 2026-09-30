@@ -447,7 +447,7 @@ def _skip_clean_env(tmp_path: Path) -> dict[str, str]:
 
 def _write_facts(slice_dir: Path, ctx_text: str) -> None:
     (slice_dir / "_facts.json").write_text(
-        json.dumps([{"id": "F-ctx", "text": ctx_text, "lens_tags": ["CTX"]}]),
+        json.dumps([{"id": "F-ctx", "text": ctx_text, "lens": "CTX"}]),
         encoding="utf-8",
     )
 
@@ -580,11 +580,11 @@ def test_detect_lens_context_filters_facts_and_rejects_unknown(tmp_path: Path):
                 {
                     "id": "F-ctx",
                     "text": "ctx",
-                    "lens_tags": ["CTX"],
+                    "lens": "CTX",
                     "origin": {"type": "seed"},
                 },
-                {"id": "F-empty", "text": "none", "lens_tags": []},
-                {"id": "F-go", "text": "go", "lens_tags": ["GO"]},
+                {"id": "F-empty", "text": "none"},
+                {"id": "F-go", "text": "go", "lens": "GO"},
             ]
         ),
         encoding="utf-8",

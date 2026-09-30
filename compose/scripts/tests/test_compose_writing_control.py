@@ -150,7 +150,7 @@ def _seed_happy_path(
     facts: list[dict] | None = None,
 ) -> list[str]:
     facts = facts or [
-        {"id": "F-1", "text": "Architecture fact.", "lens_tags": ["AR"]},
+        {"id": "F-1", "text": "Architecture fact.", "lens": "AR"},
     ]
     _write_facts(revision_dir, facts)
     save_narrative_arc(_slice(revision_dir) / "_narrative-arc.json", _arc())
@@ -211,7 +211,7 @@ def test_requires_narrative_arc(revision_dir: Path, tmp_path: Path):
     compose_doc.write_text("# Doc\n", encoding="utf-8")
     _write_facts(
         revision_dir,
-        [{"id": "F-1", "text": "Architecture fact.", "lens_tags": ["AR"]}],
+        [{"id": "F-1", "text": "Architecture fact.", "lens": "AR"}],
     )
     error = validate_display_layer_artifacts(
         _slice(revision_dir), compose_doc, tmp_path, "lulu-design",
@@ -269,7 +269,7 @@ def test_fails_when_write_state_incomplete(revision_dir: Path, tmp_path: Path):
     compose_doc = revision_dir / "design-doc.md"
     _write_facts(
         revision_dir,
-        [{"id": "F-1", "text": "Architecture fact.", "lens_tags": ["AR"]}],
+        [{"id": "F-1", "text": "Architecture fact.", "lens": "AR"}],
     )
     save_narrative_arc(_slice(revision_dir) / "_narrative-arc.json", _arc())
     cid = _cid()
@@ -390,7 +390,7 @@ def _seed_discovered_anchor_case(
         {
             "id": "F-1",
             "text": "Attachment copies live under the task dir.",
-            "lens_tags": ["AR"],
+            "lens": "AR",
             "origin": {"type": "discovered", "ref": ["O-1"]},
             "anchors": anchors,
         },
@@ -460,7 +460,7 @@ def test_l6_ignores_seed_facts_under_s1(revision_dir: Path, tmp_path: Path):
         {
             "id": "F-1",
             "text": "Seed architecture decision.",
-            "lens_tags": ["AR"],
+            "lens": "AR",
             "origin": {"type": "seed", "ref": ["scope"]},
             "anchors": [{"kind": "path", "value": "never/in/body/"}],
         },

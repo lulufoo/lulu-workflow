@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for the one-lens-per-fact rule on ``_facts.json`` lens tags."""
+"""Tests for one ``lens`` per fact, including legacy ``lens_tags`` reads."""
 
 from __future__ import annotations
 
@@ -26,8 +26,6 @@ _INTAKE_CTL = (
 )
 _REPO = _COMPOSE.parent
 
-_MULTI_ERROR = "facts[0].lens_tags must hold exactly one lens (got 2)"
-
 
 def _revision(tmp_path: Path) -> Path:
     rev = tmp_path / "revision1"
@@ -37,21 +35,22 @@ def _revision(tmp_path: Path) -> Path:
     return rev
 
 
-def _carried(tags: list[str], fact_id: str = "F-1") -> dict:
-    return {
+def _carried(lens: str | None, fact_id: str = "F-1") -> dict:
+    fact: dict = {
         "id": fact_id,
         "text": "x",
-        "lens_tags": tags,
         "derivation": {"disposition": "carried", "upstream_ref": ["doc#1"]},
         "origin": {"type": "seed", "ref": ["doc"]},
     }
+    if lens is not None:
+        fact["lens"] = lens
+    return fact
 
 
 def _quarantined(fact_id: str = "F-1") -> dict:
     return {
         "id": fact_id,
         "text": "should carry",
-        "lens_tags": [],
         "derivation": {"disposition": "quarantined", "upstream_ref": ["doc#a"]},
     }
 
@@ -71,69 +70,73 @@ def _run_control(cmd: str, rev: Path, facts_file: Path | None = None):
     return subprocess.run(args, check=False, capture_output=True, text=True)
 
 
-def test_validate_rejects_multi_tag():
-    facts = [{"id": "F-1", "text": "two", "lens_tags": ["CTX", "GO"]}]
-    assert validate_facts(facts, allowed_lenses=["CTX", "GO"]) == [_MULTI_ERROR]
+def test_validate_rejects_legacy_lens_tags_field():
+    facts = [{"id": "F-1", "text": "old", "lens_tags": ["CTX"]}]
+    errors = validate_facts(facts, allowed_lenses=["CTX"])
+    assert any("lens_tags" in e for e in errors)
 
 
-def test_validate_accepts_one_tag_and_empty_tags():
-    facts = [{"id": "F-1", "text": "one", "lens_tags": ["CTX"]}, _quarantined("F-2")]
+def test_validate_accepts_lens_and_omitted_lens():
+    facts = [{"id": "F-1", "text": "one", "lens": "CTX"}, _quarantined("F-2")]
     assert validate_facts(facts, allowed_lenses=["CTX"]) == []
 
 
-def test_carried_with_empty_tags_still_rejected():
-    errors = validate_facts([_carried([])], allowed_lenses=["CTX"])
-    assert any("carried requires non-empty lens_tags" in e for e in errors)
+def test_carried_without_lens_is_rejected():
+    errors = validate_facts([_carried(None)], allowed_lenses=["CTX"])
+    assert any("carried requires lens" in e for e in errors)
 
 
-def test_save_facts_rejects_multi_tag(tmp_path: Path):
+def test_save_facts_rejects_legacy_field(tmp_path: Path):
     path = tmp_path / "_facts.json"
-    facts = [{"id": "F-1", "text": "two", "lens_tags": ["CTX", "GO"]}]
-    with pytest.raises(ValueError, match="exactly one lens"):
+    facts = [{"id": "F-1", "text": "old", "lens_tags": ["CTX", "GO"]}]
+    with pytest.raises(ValueError, match="lens_tags"):
         save_facts(path, facts, allowed_lenses=["CTX", "GO"])
     assert not path.exists()
 
 
-def test_load_facts_reads_legacy_multi_tag_as_first_tag(tmp_path: Path):
+def test_load_facts_reads_legacy_tags_as_lens(tmp_path: Path):
     path = tmp_path / "_facts.json"
     raw = [{"id": "F-1", "text": "legacy", "lens_tags": ["GO", "CTX"]}]
     path.write_text(json.dumps(raw), encoding="utf-8")
-    assert load_facts(path)[0]["lens_tags"] == ["GO"]
+    loaded = load_facts(path)[0]
+    assert loaded["lens"] == "GO"
+    assert "lens_tags" not in loaded
     assert json.loads(path.read_text(encoding="utf-8")) == raw
 
     save_facts(path, load_facts(path), allowed_lenses=["CTX", "GO"])
-    assert json.loads(path.read_text(encoding="utf-8"))[0]["lens_tags"] == ["GO"]
+    stored = json.loads(path.read_text(encoding="utf-8"))[0]
+    assert stored["lens"] == "GO"
+    assert "lens_tags" not in stored
 
 
-def test_control_write_rejects_multi_tag(tmp_path: Path):
-    rev = _revision(tmp_path)
-    facts_path = execution_dir(rev) / "_facts.json"
-    multi = tmp_path / "multi.json"
-    multi.write_text(json.dumps([_carried(["CTX", "GO"])]), encoding="utf-8")
-    rejected = _run_control("write", rev, multi)
-    assert rejected.returncode != 0
-    assert "exactly one lens" in rejected.stderr
-    assert not facts_path.exists()
-
-    single = tmp_path / "single.json"
-    single.write_text(json.dumps([_carried(["CTX"])]), encoding="utf-8")
-    assert _run_control("write", rev, single).returncode == 0
-
-
-def test_control_validate_rejects_multi_tag(tmp_path: Path):
+def test_control_validate_rejects_legacy_field(tmp_path: Path):
     rev = _revision(tmp_path)
     (execution_dir(rev) / "_facts.json").write_text(
-        json.dumps([_carried(["CTX", "GO"])]), encoding="utf-8"
+        json.dumps(
+            [
+                {
+                    "id": "F-1",
+                    "text": "x",
+                    "lens_tags": ["CTX", "GO"],
+                    "derivation": {
+                        "disposition": "carried",
+                        "upstream_ref": ["doc#1"],
+                    },
+                    "origin": {"type": "seed", "ref": ["doc"]},
+                }
+            ]
+        ),
+        encoding="utf-8",
     )
     rejected = _run_control("validate", rev)
     assert rejected.returncode != 0
-    assert "exactly one lens" in rejected.stderr
+    assert "lens_tags" in rejected.stderr
 
 
-def _run_patch(cmd: str, rev: Path, tags: list[str], tmp_path: Path):
+def _run_patch(cmd: str, rev: Path, lens: str, tmp_path: Path):
     patch = {
         "version": "1",
-        "ops": [{"op": "promote", "fact_id": "F-1", "lens_tags": tags}],
+        "ops": [{"op": "promote", "fact_id": "F-1", "lens": lens}],
     }
     patch_path = tmp_path / "patch.json"
     patch_path.write_text(json.dumps(patch), encoding="utf-8")
@@ -155,28 +158,24 @@ def _run_patch(cmd: str, rev: Path, tags: list[str], tmp_path: Path):
     )
 
 
-@pytest.mark.parametrize("cmd", ["disposition-patch-validate", "disposition-patch-apply"])
-def test_intake_patch_rejects_multi_tag_op(tmp_path: Path, cmd: str):
+def test_intake_patch_apply_persists_lens(tmp_path: Path):
     rev = _revision(tmp_path)
     facts_path = execution_dir(rev) / "_facts.json"
-    facts_path.write_text(json.dumps([_quarantined()]), encoding="utf-8")
-    before = facts_path.read_text(encoding="utf-8")
-    rejected = _run_patch(cmd, rev, ["CTX", "GO"], tmp_path)
-    assert rejected.returncode != 0
-    assert "exactly one lens" in rejected.stderr
-    assert facts_path.read_text(encoding="utf-8") == before
-    assert _run_patch(cmd, rev, ["CTX"], tmp_path).returncode == 0
-
-
-def test_intake_patch_apply_persists_legacy_multi_tag_as_first_tag(tmp_path: Path):
-    rev = _revision(tmp_path)
-    facts_path = execution_dir(rev) / "_facts.json"
-    legacy = _carried(["GO", "CTX"], "F-2")
+    legacy = {
+        "id": "F-2",
+        "text": "x",
+        "lens_tags": ["GO", "CTX"],
+        "derivation": {"disposition": "carried", "upstream_ref": ["doc#1"]},
+        "origin": {"type": "seed", "ref": ["doc"]},
+    }
     facts_path.write_text(json.dumps([_quarantined(), legacy]), encoding="utf-8")
-    accepted = _run_patch("disposition-patch-apply", rev, ["CTX"], tmp_path)
+    accepted = _run_patch("disposition-patch-apply", rev, "CTX", tmp_path)
     assert accepted.returncode == 0, accepted.stderr
-    stored = {f["id"]: f["lens_tags"] for f in json.loads(facts_path.read_text("utf-8"))}
-    assert stored == {"F-1": ["CTX"], "F-2": ["GO"]}
+    stored = {
+        f["id"]: f.get("lens") for f in json.loads(facts_path.read_text("utf-8"))
+    }
+    assert stored == {"F-1": "CTX", "F-2": "GO"}
+    assert all("lens_tags" not in f for f in json.loads(facts_path.read_text("utf-8")))
 
 
 def _fact_production_module():
@@ -187,10 +186,10 @@ def _fact_production_module():
     return fpc
 
 
-def test_entry_facts_rejects_multi_tag_entry(tmp_path: Path, monkeypatch):
+def test_entry_facts_requires_lens(tmp_path: Path, monkeypatch):
     fpc = _fact_production_module()
     monkeypatch.setattr(fpc, "_allowed_lenses", lambda *_a, **_k: None)
-    with pytest.raises(ValueError, match="exactly one lens"):
+    with pytest.raises(ValueError, match="lens must be a non-empty string"):
         fpc._entry_facts(
             [{"text": "new", "lens_tags": ["CTX", "GO"]}],
             facts_before=[],
@@ -198,10 +197,10 @@ def test_entry_facts_rejects_multi_tag_entry(tmp_path: Path, monkeypatch):
             slice_dir=tmp_path,
         )
     facts, ids, _ = fpc._entry_facts(
-        [{"text": "new", "lens_tags": ["GO"]}],
+        [{"text": "new", "lens": "GO"}],
         facts_before=[],
         origin_ref=["O-1"],
         slice_dir=tmp_path,
     )
     assert ids == ["F-1"]
-    assert facts[0]["lens_tags"] == ["GO"]
+    assert facts[0]["lens"] == "GO"

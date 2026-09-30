@@ -202,7 +202,7 @@ def delete_report(out_dir: Path) -> bool:
 
 
 def allowed_finding_lenses(facts: Any, opens: Any) -> set[str]:
-    """Lenses stamped on current Opens or fact lens_tags."""
+    """Lenses stamped on current Opens or a fact's lens."""
     allowed: set[str] = set()
     if isinstance(opens, list):
         for item in opens:
@@ -215,20 +215,16 @@ def allowed_finding_lenses(facts: Any, opens: Any) -> set[str]:
         for fact in facts:
             if not isinstance(fact, dict):
                 continue
-            tags = fact.get("lens_tags")
-            if not isinstance(tags, list):
-                continue
-            for tag in tags:
-                lens = str(tag).strip().upper()
-                if lens:
-                    allowed.add(lens)
+            lens = str(fact.get("lens") or "").strip().upper()
+            if lens:
+                allowed.add(lens)
     return allowed
 
 
 def validate_finding_lens_sources(
     findings: Any, facts: Any, opens: Any
 ) -> list[str]:
-    """Fail findings whose lens is not on an Open or a fact lens_tag."""
+    """Fail findings whose lens is not on an Open or a fact."""
     if not isinstance(findings, list):
         return []
     allowed = allowed_finding_lenses(facts, opens)
@@ -241,7 +237,7 @@ def validate_finding_lens_sources(
             continue
         if lens not in allowed:
             errors.append(
-                f"findings[{index}].lens has no Open.lens or fact lens_tags source"
+                f"findings[{index}].lens has no Open.lens or fact lens source"
             )
     return errors
 
