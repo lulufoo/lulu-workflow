@@ -60,8 +60,8 @@ Facts: `--help` · `write` · `validate`.
 1. Bind Input.  
 2. `$FACT_DISPOSITION_BUILD context …` (section-registry + role consume_policy).  
 3. don't-list → `not_needed`; Intent → `carried`/`quarantined`; repair don't-list false kills.  
-4. Persist via `$FACTS_CTL write … --single-lens`.  
-5. `$FACTS_CTL validate … --require-derivation --single-lens`.
+4. Persist via `$FACTS_CTL write`.  
+5. `$FACTS_CTL validate … --require-derivation`.
 
 **Done:** validate exit 0.
 
