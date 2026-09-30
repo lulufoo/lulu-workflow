@@ -705,7 +705,7 @@ def test_validate_rejects_not_needed_missing_or_unknown_rule_id():
     assert any("D-NOPE" in e for e in unknown)
 
 
-def test_validate_rejects_not_needed_with_tags_and_require_derivation():
+def test_validate_rejects_not_needed_with_lens_and_require_derivation():
     errors = validate_facts(
         [
             {
