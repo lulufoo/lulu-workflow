@@ -11,9 +11,10 @@ Shape: JSON array of ``{id, text, lens_tags}`` plus optional ``source``
 (``{type, ref}`` structured provenance; K4 Phase 1a) — no envelope.
 
 ``_facts.json`` replaces the single-``home`` ``_partition.json`` atom for the
-fact-first display layer (increment 1, M1). A fact's ``lens_tags`` is an N:M
-membership set (zero, one, or many lens keys) — deliberately **not** a single
-``home``. Empty ``lens_tags`` is schema-legal (Q1 quarantine candidate,
+fact-first display layer (increment 1, M1). A fact's ``lens_tags`` is stored as
+a membership list (zero, one, or many lens keys) — deliberately **not** a single
+``home``; producers limit it to one lens through the opt-in ``single_lens``
+check. Empty ``lens_tags`` is schema-legal (Q1 quarantine candidate,
 audited downstream by Step 6 gates, not blocked here). Display placement
 (``display_home`` / ``form_lens`` / chapter membership) is **not** a fact
 field — it lives in ``_narrative-arc.json`` (chapter plan SoT; archive-5.0)
@@ -227,6 +228,13 @@ def _validate_anchors(prefix: str, anchors: Any) -> list[str]:
     return errors
 
 
+def single_lens_error(prefix: str, tags: list[Any]) -> str | None:
+    """Error text when non-empty ``tags`` do not hold exactly one lens."""
+    if len(tags) > 1:
+        return f"{prefix}.lens_tags must hold exactly one lens (got {len(tags)})"
+    return None
+
+
 def validate_facts(
     facts: Any,
     *,
@@ -235,12 +243,16 @@ def validate_facts(
     require_derivation: bool = False,
     intake_structure: bool = False,
     require_seed_origin: bool = False,
+    single_lens: bool = False,
 ) -> list[str]:
     """Return validation errors for a facts array.
 
     ``intake_structure`` (fact-intake Cut / pre-Eval): every fact must carry
     ``derivation.upstream_ref`` and **omit** ``derivation.disposition``; forbid
     ``origin.type=discovered``. Optional ``require_seed_origin`` for inductive.
+
+    ``single_lens``: every non-empty ``lens_tags`` holds exactly one lens
+    (producer constraint; empty tags stay governed by ``derivation.disposition``).
     """
     errors: list[str] = []
     if not isinstance(facts, list):
@@ -304,6 +316,10 @@ def validate_facts(
                         f"{prefix}.lens_tags[{t_index}] {tag_key!r} not in allowed lenses "
                         f"{sorted(allowed)}",
                     )
+            if single_lens:
+                message = single_lens_error(prefix, tags)
+                if message:
+                    errors.append(message)
             # Empty lens_tags is legal here by design (Q1 quarantine candidate).
 
         if "source" in entry:
@@ -470,6 +486,7 @@ def save_facts(
     require_derivation: bool = False,
     intake_structure: bool = False,
     require_seed_origin: bool = False,
+    single_lens: bool = False,
 ) -> None:
     """Validate and write facts array (preserves optional ``source`` / ``origin``).
 
@@ -487,6 +504,7 @@ def save_facts(
         require_derivation=require_derivation,
         intake_structure=intake_structure,
         require_seed_origin=require_seed_origin,
+        single_lens=single_lens,
     )
     if errors:
         raise ValueError("; ".join(errors))
@@ -499,6 +517,7 @@ def save_facts(
         require_derivation=require_derivation,
         intake_structure=intake_structure,
         require_seed_origin=require_seed_origin,
+        single_lens=single_lens,
     )
     if errors:
         raise ValueError("; ".join(errors))

@@ -41,6 +41,7 @@ from facts_schema import (  # noqa: E402
     facts_path,
     load_facts,
     save_facts,
+    single_lens_error,
     validate_facts,
 )
 from opens_schema import load_opens, opens_path, save_opens, validate_opens  # noqa: E402
@@ -277,6 +278,9 @@ def _entry_facts(
         lens_tags = [str(tag).strip().upper() for tag in tags_raw if str(tag).strip()]
         if not lens_tags:
             raise ValueError(f"facts[{index}]: lens_tags must be non-empty")
+        message = single_lens_error(f"facts[{index}]", lens_tags)
+        if message:
+            raise ValueError(message)
         fact: dict[str, Any] = {
             "id": f"F-{next_id}",
             "text": text,

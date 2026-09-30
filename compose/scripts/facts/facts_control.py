@@ -192,6 +192,7 @@ def cmd_write(args: argparse.Namespace) -> int:
             allowed_lenses=allowed,
             intake_structure=intake_structure,
             require_seed_origin=require_seed_origin,
+            single_lens=bool(getattr(args, "single_lens", False)),
         )
     except ValueError as exc:
         return _fail(str(exc))
@@ -259,6 +260,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         require_derivation=require_derivation,
         intake_structure=intake_structure,
         require_seed_origin=require_seed_origin,
+        single_lens=bool(getattr(args, "single_lens", False)),
     )
     if errors:
         return _fail("; ".join(errors))
@@ -378,6 +380,11 @@ def main() -> int:
         action="store_true",
         help="With --intake-structure: every fact origin.type must be seed",
     )
+    write_p.add_argument(
+        "--single-lens",
+        action="store_true",
+        help="Every non-empty lens_tags must hold exactly one lens",
+    )
     write_p.set_defaults(func=cmd_write)
 
     validate_p = sub.add_parser("validate", help="Validate _facts.json")
@@ -405,6 +412,11 @@ def main() -> int:
         "--require-seed-origin",
         action="store_true",
         help="With --intake-structure: every fact origin.type must be seed",
+    )
+    validate_p.add_argument(
+        "--single-lens",
+        action="store_true",
+        help="Every non-empty lens_tags must hold exactly one lens",
     )
     validate_p.set_defaults(func=cmd_validate)
 

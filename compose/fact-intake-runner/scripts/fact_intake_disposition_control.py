@@ -151,6 +151,7 @@ def cmd_disposition_patch_validate(args: argparse.Namespace) -> int:
         facts,
         allowed_lenses=allowed_lenses,
         allowed_rule_ids=allowed_rule_ids,
+        single_lens=True,
     )
     if errors:
         return _fail("; ".join(errors))
@@ -188,6 +189,7 @@ def cmd_disposition_patch_apply(args: argparse.Namespace) -> int:
         facts,
         allowed_lenses=allowed_lenses,
         allowed_rule_ids=allowed_rule_ids,
+        single_lens=True,
     )
     if errors:
         return _fail("; ".join(errors))

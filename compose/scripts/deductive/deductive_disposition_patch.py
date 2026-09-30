@@ -24,6 +24,7 @@ from facts_schema import (
     DERIVATION_DISPOSITIONS,
     fact_disposition,
     normalize_fact,
+    single_lens_error,
     validate_facts,
 )
 
@@ -37,6 +38,7 @@ def validate_disposition_patch(
     *,
     allowed_lenses: list[str] | None = None,
     allowed_rule_ids: list[str] | None = None,
+    single_lens: bool = False,
 ) -> list[str]:
     errors: list[str] = []
     if not isinstance(patch, dict):
@@ -94,6 +96,9 @@ def validate_disposition_patch(
             if not isinstance(tags, list) or not tags:
                 errors.append(f"{prefix}.lens_tags must be a non-empty array")
             else:
+                message = single_lens_error(prefix, tags) if single_lens else None
+                if message:
+                    errors.append(message)
                 for t_i, tag in enumerate(tags):
                     if not isinstance(tag, str) or not tag.strip():
                         errors.append(
