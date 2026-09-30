@@ -6,16 +6,14 @@ process how archive: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact
 K1 ``source``: living lulu-skills-workspace docs/ssot/compose/mechanism-ssot/compose-fact-architecture.md;
 process how: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact-first-k1-pd-design.md §3.
 
-Shape: JSON array of ``{id, text, lens_tags}`` plus optional ``source``
+Shape: JSON array of ``{id, text, lens}`` plus optional ``source``
 (non-empty string array; Step-3-derived facts only) and optional ``origin``
 (``{type, ref}`` structured provenance; K4 Phase 1a) — no envelope.
 
 ``_facts.json`` replaces the single-``home`` ``_partition.json`` atom for the
-fact-first display layer (increment 1, M1). A fact's ``lens_tags`` is stored as
-a list that holds exactly one lens key (``validate_facts`` rejects more); a
-legacy file with several tags reads as its first tag (``load_facts``). Empty
-``lens_tags`` is schema-legal (Q1 quarantine candidate,
-audited downstream by Step 6 gates, not blocked here). Display placement
+fact-first display layer (increment 1, M1). A fact's ``lens`` is one uppercase
+key, omitted when the fact has none (``quarantined`` / ``not_needed``).
+``load_facts`` reads a legacy ``lens_tags`` array as its first tag. Display placement
 (``display_home`` / ``form_lens`` / chapter membership) is **not** a fact
 field — it lives in ``_narrative-arc.json`` (chapter plan SoT; archive-5.0)
 to avoid double bookkeeping (Grok review Blocker#1).
@@ -34,7 +32,7 @@ facts without ``origin`` remain valid.
 an array of ``{kind, value}`` where ``kind ∈ ANCHOR_KINDS``. Optional and
 backward-compatible; empty normalizes to omission. Lens-invariant substance
 (not presentation) — the L6 gate requires each anchor to survive into the body.
-Inductive non-empty ``lens_tags`` is enforced on the inductive write path only
+Inductive non-empty ``lens`` is enforced on the inductive write path only
 (not here) — see K4 design §4.3.
 """
 
@@ -49,9 +47,9 @@ from compose_state_lock import durable_write_json
 
 FACTS_BASENAME = "_facts.json"
 _FACT_ID_RE = re.compile(r"^F-([1-9]\d*)$")
-_FACT_REQUIRED = ("id", "text", "lens_tags")
+_FACT_REQUIRED = ("id", "text")
 _FACT_OPTIONAL = frozenset(
-    {"source", "origin", "derivation", "anchors"}
+    {"lens", "source", "origin", "derivation", "anchors"}
 )
 ORIGIN_TYPES = frozenset({"seed", "discovered", "derived"})
 ORIGIN_DERIVE_MODES = frozenset({"floor", "ceiling"})
@@ -228,13 +226,6 @@ def _validate_anchors(prefix: str, anchors: Any) -> list[str]:
     return errors
 
 
-def single_lens_error(prefix: str, tags: list[Any]) -> str | None:
-    """Error text when non-empty ``tags`` do not hold exactly one lens."""
-    if len(tags) > 1:
-        return f"{prefix}.lens_tags must hold exactly one lens (got {len(tags)})"
-    return None
-
-
 def validate_facts(
     facts: Any,
     *,
@@ -250,8 +241,8 @@ def validate_facts(
     ``derivation.upstream_ref`` and **omit** ``derivation.disposition``; forbid
     ``origin.type=discovered``. Optional ``require_seed_origin`` for inductive.
 
-    Non-empty ``lens_tags`` hold exactly one lens; empty tags stay governed by
-    ``derivation.disposition``.
+    ``lens``, when present, is one uppercase key. ``carried`` requires it;
+    ``quarantined`` and ``not_needed`` require it omitted.
     """
     errors: list[str] = []
     if not isinstance(facts, list):
@@ -291,34 +282,21 @@ def validate_facts(
         if not isinstance(text, str) or not text.strip():
             errors.append(f"{prefix}.text must be a non-empty string")
 
-        tags = entry.get("lens_tags")
-        if not isinstance(tags, list):
-            errors.append(f"{prefix}.lens_tags must be an array")
-        else:
-            seen_tags: set[str] = set()
-            for t_index, tag in enumerate(tags):
-                if not isinstance(tag, str) or not tag.strip():
+        has_lens = False
+        if "lens" in entry:
+            lens = entry.get("lens")
+            if not isinstance(lens, str) or not lens.strip():
+                errors.append(f"{prefix}.lens must be a non-empty string")
+            else:
+                has_lens = True
+                lens_key = lens.strip().upper()
+                if lens_key != lens.strip():
+                    errors.append(f"{prefix}.lens must be an uppercase lens key")
+                if allowed and lens_key not in allowed:
                     errors.append(
-                        f"{prefix}.lens_tags[{t_index}] must be a non-empty string",
-                    )
-                    continue
-                tag_key = tag.strip().upper()
-                if tag_key != tag.strip():
-                    errors.append(
-                        f"{prefix}.lens_tags[{t_index}] must be uppercase lens key",
-                    )
-                if tag_key in seen_tags:
-                    errors.append(f"{prefix}.lens_tags duplicate: {tag_key!r}")
-                seen_tags.add(tag_key)
-                if allowed and tag_key not in allowed:
-                    errors.append(
-                        f"{prefix}.lens_tags[{t_index}] {tag_key!r} not in allowed lenses "
+                        f"{prefix}.lens {lens_key!r} not in allowed lenses "
                         f"{sorted(allowed)}",
                     )
-            message = single_lens_error(prefix, tags)
-            if message:
-                errors.append(message)
-            # Empty lens_tags is legal here by design (Q1 quarantine candidate).
 
         if "source" in entry:
             if entry["source"] is None:
@@ -377,22 +355,21 @@ def validate_facts(
                         f"{prefix}.derivation.disposition must be omitted "
                         "before Disposition classify (intake structure)",
                     )
-                if isinstance(derivation, dict) and isinstance(tags, list):
+                if isinstance(derivation, dict):
                     disposition = str(derivation.get("disposition", "")).strip().lower()
-                    if disposition == "carried" and len(tags) == 0:
+                    if disposition == "carried" and not has_lens:
                         errors.append(
-                            f"{prefix}: derivation.disposition=carried requires "
-                            "non-empty lens_tags",
+                            f"{prefix}: derivation.disposition=carried requires lens",
                         )
-                    if disposition == "quarantined" and len(tags) > 0:
+                    if disposition == "quarantined" and has_lens:
                         errors.append(
-                            f"{prefix}: derivation.disposition=quarantined requires "
-                            "empty lens_tags",
+                            f"{prefix}: derivation.disposition=quarantined "
+                            "requires lens omitted",
                         )
-                    if disposition == "not_needed" and len(tags) > 0:
+                    if disposition == "not_needed" and has_lens:
                         errors.append(
-                            f"{prefix}: derivation.disposition=not_needed requires "
-                            "empty lens_tags",
+                            f"{prefix}: derivation.disposition=not_needed "
+                            "requires lens omitted",
                         )
 
         if "anchors" in entry:
@@ -415,8 +392,10 @@ def normalize_fact(entry: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {
         "id": str(entry["id"]).strip(),
         "text": str(entry["text"]).strip(),
-        "lens_tags": [str(t).strip().upper() for t in entry.get("lens_tags", [])],
     }
+    lens = entry.get("lens")
+    if isinstance(lens, str) and lens.strip():
+        out["lens"] = lens.strip().upper()
     if "source" in entry and entry["source"] is not None:
         out["source"] = [str(s).strip() for s in entry["source"]]
     if "origin" in entry and entry["origin"] is not None:
@@ -461,20 +440,27 @@ def normalize_fact(entry: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def _first_lens_only(entry: Any) -> Any:
-    """Legacy multi-tag entry → its first tag (in memory; the file is untouched)."""
-    if isinstance(entry, dict):
-        tags = entry.get("lens_tags")
-        if isinstance(tags, list) and len(tags) > 1:
-            return {**entry, "lens_tags": tags[:1]}
-    return entry
+def _legacy_lens(entry: Any) -> Any:
+    """Legacy ``lens_tags`` array → ``lens`` (first tag). The file is untouched."""
+    if not isinstance(entry, dict) or "lens_tags" not in entry:
+        return entry
+    tags = entry.get("lens_tags")
+    rest = {key: value for key, value in entry.items() if key != "lens_tags"}
+    if "lens" in rest or not isinstance(tags, list):
+        return rest
+    for tag in tags:
+        text = str(tag).strip()
+        if text:
+            rest["lens"] = text.upper()
+            break
+    return rest
 
 
 def load_facts(path: Path) -> list[dict[str, Any]]:
     """Load and validate facts file; raise ValueError on failure.
 
-    A legacy fact with several ``lens_tags`` reads as its first tag, so every
-    later write persists exactly one lens.
+    A legacy fact whose ``lens_tags`` holds several tags reads as its first,
+    so every later write persists ``lens``.
     """
     if not path.is_file():
         raise ValueError(f"facts file not found: {path}")
@@ -483,7 +469,7 @@ def load_facts(path: Path) -> list[dict[str, Any]]:
     except json.JSONDecodeError as exc:
         raise ValueError(f"invalid facts JSON: {exc}") from exc
     if isinstance(data, list):
-        data = [_first_lens_only(entry) for entry in data]
+        data = [_legacy_lens(entry) for entry in data]
     errors = validate_facts(data)
     if errors:
         raise ValueError("; ".join(errors))
@@ -541,16 +527,17 @@ def filter_by_lens(facts: list[dict[str, Any]], lens: str) -> list[dict[str, str
     return [
         {"id": f["id"], "text": f["text"]}
         for f in facts
-        if key in f.get("lens_tags", [])
+        if str(f.get("lens") or "").strip().upper() == key
     ]
 
 
 def lenses_present(facts: list[dict[str, Any]]) -> dict[str, int]:
-    """Count of facts per lens tag."""
+    """Count of facts per lens."""
     counts: dict[str, int] = {}
     for fact in facts:
-        for tag in fact.get("lens_tags", []):
-            counts[tag] = counts.get(tag, 0) + 1
+        key = str(fact.get("lens") or "").strip().upper()
+        if key:
+            counts[key] = counts.get(key, 0) + 1
     return counts
 
 
@@ -593,10 +580,10 @@ def pd_material_facts(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def unlensed_fact_ids(facts: list[dict[str, Any]]) -> list[str]:
-    """Quarantine audit candidates: empty lens_tags and not ``not_needed``."""
+    """Quarantine audit candidates: no ``lens`` and not ``not_needed``."""
     ids: list[str] = []
     for fact in facts:
-        if fact.get("lens_tags"):
+        if str(fact.get("lens") or "").strip():
             continue
         if fact_disposition(fact) == "not_needed":
             continue

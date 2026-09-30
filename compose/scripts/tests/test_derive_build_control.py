@@ -144,7 +144,7 @@ def test_lens_bundle_cli_stdout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
                 {
                     "id": "F-1",
                     "text": "carried ctx",
-                    "lens_tags": ["CTX"],
+                    "lens": "CTX",
                     "derivation": {
                         "disposition": "carried",
                         "upstream_ref": ["doc#1"],
@@ -153,7 +153,6 @@ def test_lens_bundle_cli_stdout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
                 {
                     "id": "F-2",
                     "text": "quarantined ctx",
-                    "lens_tags": [],
                     "derivation": {
                         "disposition": "quarantined",
                         "upstream_ref": ["doc#2"],

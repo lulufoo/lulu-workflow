@@ -742,11 +742,11 @@ def test_lens_frontier_clean_is_optional_non_empty_string():
 
 def test_facts_for_lens_keeps_matching_tags_only():
     facts = [
-        {"id": "F-1", "text": "a", "lens_tags": ["CTX"]},
-        {"id": "F-2", "text": "b", "lens_tags": ["ctx", "GO"]},
-        {"id": "F-3", "text": "c", "lens_tags": []},
+        {"id": "F-1", "text": "a", "lens": "CTX"},
+        {"id": "F-2", "text": "b", "lens": "ctx"},
+        {"id": "F-3", "text": "c"},
         {"id": "F-4", "text": "d"},
-        {"id": "F-5", "text": "e", "lens_tags": ["GO"]},
+        {"id": "F-5", "text": "e", "lens": "GO"},
     ]
     assert [item["id"] for item in facts_for_lens(facts, "ctx")] == ["F-1", "F-2"]
     assert facts_for_lens(facts, "NOPE") == []
@@ -767,9 +767,9 @@ def test_detect_lens_context_filters_facts(tmp_path: Path):
     (tmp_path / "_facts.json").write_text(
         json.dumps(
             [
-                {"id": "F-I", "text": "intent", "lens_tags": ["I"]},
-                {"id": "F-empty", "text": "none", "lens_tags": []},
-                {"id": "F-go", "text": "goal", "lens_tags": ["GO"]},
+                {"id": "F-I", "text": "intent", "lens": "I"},
+                {"id": "F-empty", "text": "none"},
+                {"id": "F-go", "text": "goal", "lens": "GO"},
             ]
         ),
         encoding="utf-8",

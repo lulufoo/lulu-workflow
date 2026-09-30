@@ -167,7 +167,7 @@ def test_finding_lens_must_come_from_open_or_fact_tags() -> None:
     assert validate_finding_lens_sources(findings, [], []) != []
     assert (
         validate_finding_lens_sources(
-            findings, [{"id": "F-1", "lens_tags": ["I"]}], []
+            findings, [{"id": "F-1", "lens": "I"}], []
         )
         == []
     )

@@ -7,10 +7,10 @@ Patch shape (JSON):
     "counts": {"carried": int, "quarantined": int, "not_needed": int},  # optional
     "cohorts": [...],  # optional review metadata
     "ops": [
-      {"op": "promote", "fact_id": "F-n", "lens_tags": ["L", ...], "note"?: str},
+      {"op": "promote", "fact_id": "F-n", "lens": "L", "note"?: str},
       {"op": "demote", "fact_id": "F-n",
        "disposition": "quarantined"|"not_needed", "rule_id"?: str, "note"?: str},
-      {"op": "retag", "fact_id": "F-n", "lens_tags": ["L", ...], "note"?: str},
+      {"op": "retag", "fact_id": "F-n", "lens": "L", "note"?: str},
       {"op": "escalate", "fact_id": "F-n", "note"?: str}
     ]
   }
@@ -24,7 +24,6 @@ from facts_schema import (
     DERIVATION_DISPOSITIONS,
     fact_disposition,
     normalize_fact,
-    single_lens_error,
     validate_facts,
 )
 
@@ -91,29 +90,17 @@ def validate_disposition_patch(
             errors.append(f"{prefix}.note must be a non-empty string when present")
 
         if kind in ("promote", "retag"):
-            tags = op.get("lens_tags")
-            if not isinstance(tags, list) or not tags:
-                errors.append(f"{prefix}.lens_tags must be a non-empty array")
-            else:
-                message = single_lens_error(prefix, tags)
-                if message:
-                    errors.append(message)
-                for t_i, tag in enumerate(tags):
-                    if not isinstance(tag, str) or not tag.strip():
-                        errors.append(
-                            f"{prefix}.lens_tags[{t_i}] must be a non-empty string",
-                        )
-                    elif allowed_lenses is not None:
-                        key = tag.strip().upper()
-                        allowed = {
-                            l.strip().upper() for l in allowed_lenses if str(l).strip()
-                        }
-                        if key not in allowed:
-                            errors.append(
-                                f"{prefix}.lens_tags[{t_i}] {key!r} not in "
-                                f"allowed lenses {sorted(allowed)}",
-                            )
-            allowed_keys = {"op", "fact_id", "lens_tags", "note"}
+            lens = op.get("lens")
+            if not isinstance(lens, str) or not lens.strip():
+                errors.append(f"{prefix}.lens must be a non-empty string")
+            elif allowed_lenses is not None:
+                key = lens.strip().upper()
+                allowed = {l.strip().upper() for l in allowed_lenses if str(l).strip()}
+                if key not in allowed:
+                    errors.append(
+                        f"{prefix}.lens {key!r} not in allowed lenses {sorted(allowed)}",
+                    )
+            allowed_keys = {"op", "fact_id", "lens", "note"}
         elif kind == "demote":
             disposition = str(op.get("disposition", "")).strip().lower()
             if disposition not in DEMOTE_DISPOSITIONS:
@@ -187,8 +174,7 @@ def apply_disposition_patch(
             )
 
         if kind == "promote":
-            tags = [str(t).strip().upper() for t in op["lens_tags"]]
-            entry["lens_tags"] = tags
+            entry["lens"] = str(op["lens"]).strip().upper()
             entry["derivation"] = {
                 "disposition": "carried",
                 "upstream_ref": [str(r).strip() for r in upstream],
@@ -196,14 +182,14 @@ def apply_disposition_patch(
         elif kind == "retag":
             if fact_disposition(entry) != "carried":
                 raise ValueError(f"{fid}: retag requires disposition=carried")
-            entry["lens_tags"] = [str(t).strip().upper() for t in op["lens_tags"]]
+            entry["lens"] = str(op["lens"]).strip().upper()
             entry["derivation"] = {
                 "disposition": "carried",
                 "upstream_ref": [str(r).strip() for r in upstream],
             }
         elif kind == "demote":
             disposition = str(op["disposition"]).strip().lower()
-            entry["lens_tags"] = []
+            entry.pop("lens", None)
             new_derivation: dict[str, Any] = {
                 "disposition": disposition,
                 "upstream_ref": [str(r).strip() for r in upstream],

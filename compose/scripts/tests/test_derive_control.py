@@ -71,8 +71,8 @@ def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) ->
     _patch_graph(monkeypatch)
     rev = tmp_path / "revision1"
     step2_facts = [
-        {"id": "F-1", "text": "ar", "lens_tags": ["AR"]},
-        {"id": "F-2", "text": "sk", "lens_tags": ["SK"]},
+        {"id": "F-1", "text": "ar", "lens": "AR"},
+        {"id": "F-2", "text": "sk", "lens": "SK"},
     ]
     _seed_facts(rev, step2_facts)
     before = tmp_path / "before-facts.json"
@@ -83,7 +83,7 @@ def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) ->
             [
                 {
                     "text": "task from sk",
-                    "lens_tags": ["T"],
+                    "lens": "T",
                     "source": ["F-2"],
                 },
             ],
@@ -122,12 +122,12 @@ def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) ->
 
     # Silent T after cascade SK append → audit fails
     cascade_rev = tmp_path / "revision2"
-    cascade_before = [{"id": "F-1", "text": "ar", "lens_tags": ["AR"]}]
+    cascade_before = [{"id": "F-1", "text": "ar", "lens": "AR"}]
     cascade_after = cascade_before + [
         {
             "id": "F-2",
             "text": "sk derived",
-            "lens_tags": ["SK"],
+            "lens": "SK",
             "source": ["F-1"],
         },
     ]
@@ -168,7 +168,7 @@ def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) ->
 
 def test_cmd_audit_empty_triggered_is_noop_success(tmp_path: Path, capsys) -> None:
     rev = tmp_path / "rev-empty"
-    before_facts = [{"id": "F-1", "text": "only", "lens_tags": ["AR"]}]
+    before_facts = [{"id": "F-1", "text": "only", "lens": "AR"}]
     _seed_facts(rev, before_facts)
     before = tmp_path / "before.json"
     before.write_text(json.dumps(before_facts), encoding="utf-8")
@@ -197,8 +197,8 @@ def test_cli_edge_scan_without_intake_eval_gate(
     _seed_facts(
         rev,
         [
-            {"id": "F-1", "text": "ar", "lens_tags": ["AR"]},
-            {"id": "F-2", "text": "sk", "lens_tags": ["SK"]},
+            {"id": "F-1", "text": "ar", "lens": "AR"},
+            {"id": "F-2", "text": "sk", "lens": "SK"},
         ],
     )
     args = argparse.Namespace(
@@ -217,8 +217,8 @@ def test_cli_classify(tmp_path: Path, monkeypatch, capsys) -> None:
     _seed_facts(
         rev,
         [
-            {"id": "F-1", "text": "ar", "lens_tags": ["AR"]},
-            {"id": "F-2", "text": "sk", "lens_tags": ["SK"]},
+            {"id": "F-1", "text": "ar", "lens": "AR"},
+            {"id": "F-2", "text": "sk", "lens": "SK"},
         ],
     )
     assert (

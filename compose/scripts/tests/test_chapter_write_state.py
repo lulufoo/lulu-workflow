@@ -59,12 +59,12 @@ def _seed_facts(rev: Path, *, with_anchors: bool = True) -> None:
         {
             "id": "F-1",
             "text": "fact one",
-            "lens_tags": ["I"],
+            "lens": "I",
         },
         {
             "id": "F-2",
             "text": "fact two",
-            "lens_tags": ["IF"],
+            "lens": "IF",
         },
     ]
     if with_anchors:
@@ -524,8 +524,8 @@ def test_init_validate_requires_write_state(tmp_path: Path):
     (_l1(rev) / "_facts.json").write_text(
         json.dumps(
             [
-                {"id": "F-1", "text": "fact one", "lens_tags": ["I"]},
-                {"id": "F-2", "text": "fact two", "lens_tags": ["IF"]},
+                {"id": "F-1", "text": "fact one", "lens": "I"},
+                {"id": "F-2", "text": "fact two", "lens": "IF"},
             ],
             ensure_ascii=False,
         ),

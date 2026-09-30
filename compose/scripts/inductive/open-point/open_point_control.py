@@ -331,7 +331,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Read-only, one lens: kw_criteria with only rows "
             "KW>=max(ledger frontier,1) (KW0 never), one registry row, "
-            "and id/text of facts whose lens_tags contain --lens. "
+            "and id/text of facts whose lens is --lens. "
             "Does not emit frontier_kw. Unknown lens errors."
         ),
     )

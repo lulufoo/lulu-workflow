@@ -81,7 +81,7 @@ def _ack_and_consume(revision_dir: Path, proposal: dict) -> tuple[int, dict, str
 
 
 def test_append_requires_digest_bound_ack_before_consume(tmp_path: Path):
-    facts_json = json.dumps([{"text": "A settled fact", "lens_tags": ["I"]}])
+    facts_json = json.dumps([{"text": "A settled fact", "lens": "I"}])
     code, proposal, err = _run(
         "propose",
         "--revision-dir",
@@ -133,9 +133,9 @@ def test_delete_preserves_surviving_stable_ids(tmp_path: Path):
     (tmp_path / "execution" / "_facts.json").write_text(
         json.dumps(
             [
-                {"id": "F-1", "text": "one", "lens_tags": ["I"]},
-                {"id": "F-2", "text": "remove", "lens_tags": ["I"]},
-                {"id": "F-3", "text": "three", "lens_tags": ["SK"]},
+                {"id": "F-1", "text": "one", "lens": "I"},
+                {"id": "F-2", "text": "remove", "lens": "I"},
+                {"id": "F-3", "text": "three", "lens": "SK"},
             ]
         ),
         encoding="utf-8",
@@ -167,11 +167,11 @@ def test_consume_rejects_changed_facts_baseline(tmp_path: Path):
         "--kind",
         "append",
         "--facts-json",
-        json.dumps([{"text": "permit fact", "lens_tags": ["I"]}]),
+        json.dumps([{"text": "permit fact", "lens": "I"}]),
     )
     assert code == 0, err
     (tmp_path / "execution" / "_facts.json").write_text(
-        json.dumps([{"id": "F-1", "text": "external fact", "lens_tags": ["I"]}]),
+        json.dumps([{"id": "F-1", "text": "external fact", "lens": "I"}]),
         encoding="utf-8",
     )
 
@@ -188,7 +188,7 @@ def test_only_one_active_permit_and_revoke_unblocks_next_proposal(tmp_path: Path
         "--kind",
         "append",
         "--facts-json",
-        json.dumps([{"text": "first", "lens_tags": ["I"]}]),
+        json.dumps([{"text": "first", "lens": "I"}]),
     )
     assert code == 0, err
     code, _, err = _run(
@@ -198,7 +198,7 @@ def test_only_one_active_permit_and_revoke_unblocks_next_proposal(tmp_path: Path
         "--kind",
         "append",
         "--facts-json",
-        json.dumps([{"text": "second", "lens_tags": ["I"]}]),
+        json.dumps([{"text": "second", "lens": "I"}]),
     )
     assert code != 0
     assert "active permit" in err.lower()
@@ -220,7 +220,7 @@ def test_only_one_active_permit_and_revoke_unblocks_next_proposal(tmp_path: Path
         "--kind",
         "append",
         "--facts-json",
-        json.dumps([{"text": "second", "lens_tags": ["I"]}]),
+        json.dumps([{"text": "second", "lens": "I"}]),
     )
     assert code == 0, err
 
@@ -290,7 +290,7 @@ def _propose_settle(revision_dir: Path, open_id: str = "O-1") -> tuple[int, dict
         "--open-id",
         open_id,
         "--facts-json",
-        json.dumps([{"text": "settled from open", "lens_tags": ["I"]}]),
+        json.dumps([{"text": "settled from open", "lens": "I"}]),
     )
 
 
@@ -578,7 +578,7 @@ def test_repair_required_recovery_restores_exact_before_state(tmp_path: Path):
         "--kind",
         "append",
         "--facts-json",
-        json.dumps([{"text": "permit fact", "lens_tags": ["I"]}]),
+        json.dumps([{"text": "permit fact", "lens": "I"}]),
     )
     assert code == 0, err
     code, _, err = _run(
@@ -595,7 +595,7 @@ def test_repair_required_recovery_restores_exact_before_state(tmp_path: Path):
     )
     assert code == 0, err
     (tmp_path / "execution" / "_facts.json").write_text(
-        json.dumps([{"id": "F-1", "text": "unrelated", "lens_tags": ["I"]}]),
+        json.dumps([{"id": "F-1", "text": "unrelated", "lens": "I"}]),
         encoding="utf-8",
     )
     store_path = tmp_path / "execution" / "_fact-production-permits.json"
