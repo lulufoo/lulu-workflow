@@ -29,7 +29,7 @@ _FEATURE_CYCLE = [
     "lulu-bet", "lulu-spec", "lulu-approach",
     "lulu-plan", "lulu-tasks", "lulu-exec",
 ]
-# Topic cycles end at lulu-arch; lulu-tasks and lulu-code are feature-only.
+# Topic cycles end at lulu-arch; lulu-tasks and lulu-exec are feature-only.
 _TOPIC_CONTAINER_STAGES = ["decision", "lulu-blueprint", "lulu-arch"]
 _TOPIC_CYCLE = [
     "lulu-bet", "lulu-blueprint", "lulu-approach", "lulu-arch",

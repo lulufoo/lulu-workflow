@@ -31,7 +31,6 @@ from tc_workflow_common import (
     detect_cycle_type,
     doc_dir,
     load_container_meta,
-    migrate_exec_stage_dir,
     session_state_path,
     state_path,
     task_list_path,
@@ -194,7 +193,6 @@ def main() -> int:
 
     cycle_type = detect_cycle_type(cycle_id)
     cache_dir = project_root / CACHE_DIR
-    migrate_exec_stage_dir(cache_dir / cycle_id)
     try:
         load_container_meta(cache_dir, cycle_id, cycle_type)
     except ValueError as e:

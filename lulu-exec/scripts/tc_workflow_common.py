@@ -16,11 +16,7 @@ from archive_common import (  # noqa: E402
 )
 from platform_schema import detect_platform  # noqa: E402
 from platforms.paths import cache_dir, workflow_dir  # noqa: E402
-from stage_identity import (  # noqa: E402
-    EXEC_STAGE,
-    exec_stage_dir,
-    migrate_exec_stage_dir,
-)
+from stage_identity import EXEC_STAGE, exec_stage_dir  # noqa: E402
 
 _PLATFORM = detect_platform()
 WORKFLOW_DIR = workflow_dir(_PLATFORM)

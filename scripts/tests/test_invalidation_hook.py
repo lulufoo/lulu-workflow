@@ -117,7 +117,7 @@ def _make_tt_config(config_dir: Path,
 FEATURE_STAGES = [
     "lulu-bet", "lulu-spec",
     "lulu-approach", "lulu-plan",
-    "lulu-tasks", "lulu-code",
+    "lulu-tasks", "lulu-exec",
 ]
 TOPIC_STAGES = [
     "lulu-bet", "lulu-blueprint",
@@ -189,7 +189,7 @@ class TestInvalidateDownstream:
         _make_state(self.cache_dir, "feat-1", "lulu-approach", "r1", "Delivered")
         _write_compose_session_v2(self.cache_dir, "feat-1", "lulu-plan")
         plan_ws = _write_compose_workflow(self.cache_dir, "feat-1", "lulu-plan")
-        for stage in ["lulu-tasks", "lulu-code"]:
+        for stage in ["lulu-tasks", "lulu-exec"]:
             _make_state(self.cache_dir, "feat-1", stage, "r1", "Delivered")
 
         invalidate_downstream("feat-1", "lulu-spec", "feature", self.cache_dir)
@@ -199,7 +199,7 @@ class TestInvalidateDownstream:
         approach = self.cache_dir / "feat-1" / stage_subdir("lulu-approach") / "session-state.md"
         assert parse_frontmatter(approach.read_text())["current_state"] == "Invalidated"
         assert parse_frontmatter(plan_ws.read_text())["current_state"] == "Invalidated"
-        for stage in ["lulu-tasks", "lulu-code"]:
+        for stage in ["lulu-tasks", "lulu-exec"]:
             sp = self.cache_dir / "feat-1" / stage_subdir(stage) / "r1" / "workflow-state.md"
             assert parse_frontmatter(sp.read_text())["current_state"] == "Invalidated", stage
 

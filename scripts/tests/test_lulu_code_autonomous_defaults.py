@@ -1,11 +1,11 @@
-"""AC-7: lulu-code/SKILL.md — guided interaction points → autonomous defaults; topic exception."""
+"""AC-7: lulu-exec/SKILL.md — guided interaction points → autonomous defaults; topic exception."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-_LULU_CODE_SKILL = Path(__file__).resolve().parents[2] / "lulu-code" / "SKILL.md"
-_LULU_CODE_EXECUTING = Path(__file__).resolve().parents[2] / "lulu-code" / "references" / "executing.md"
+_LULU_CODE_SKILL = Path(__file__).resolve().parents[2] / "lulu-exec" / "SKILL.md"
+_LULU_CODE_EXECUTING = Path(__file__).resolve().parents[2] / "lulu-exec" / "references" / "executing.md"
 
 
 def test_lulu_code_no_execution_mode_branching():
@@ -57,6 +57,7 @@ def test_lulu_code_executing_defers_to_reference():
     assert "Load `references/executing.md`" in content
     body = _LULU_CODE_EXECUTING.read_text(encoding="utf-8")
     assert "$TC_POINTER" in body
+    assert "If pointer `subagent` is non-empty, pass it as `model`" in body
     assert "action-runner/SKILL.md" in body
     assert "task-runner/SKILL.md" in body
     assert '"task_id"' in body
@@ -67,7 +68,7 @@ def test_lulu_code_executing_defers_to_reference():
 def test_lulu_code_preparing_defers_to_reference():
     content = _LULU_CODE_SKILL.read_text(encoding="utf-8")
     assert "Load `references/preparing.md`" in content
-    preparing = Path(__file__).resolve().parents[2] / "lulu-code" / "references" / "preparing.md"
+    preparing = Path(__file__).resolve().parents[2] / "lulu-exec" / "references" / "preparing.md"
     body = preparing.read_text(encoding="utf-8")
     assert "$TC_LIST_REPOS" in body
     assert "$TC_PUT_REPOS" in body

@@ -1,4 +1,4 @@
-"""Ensure lulu-code/scripts is on sys.path for tc_* module imports."""
+"""Ensure lulu-exec/scripts is on sys.path for tc_* module imports."""
 
 from __future__ import annotations
 

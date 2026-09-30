@@ -456,7 +456,7 @@ class TestGetTopicDoc:
                                   {"name": "x",
                                    "topic_id": topic_id})
         self._write_topics_json(tmp_path, topic_id, {"name": "t"})
-        # lulu-code not in topic_doc_stage
+        # lulu-exec not in topic_doc_stage
         result = get_topic_doc("feat-a", "lulu-exec", tmp_path)
         assert result is None
 
@@ -679,7 +679,7 @@ class TestTopicRefExtended:
         assert result is None
 
     def test_tech_code_unmapped_returns_none_extended(self, tmp_path):
-        """feature.lulu-code: not in topic_doc_stage → returns None (no error)."""
+        """feature.lulu-exec: not in topic_doc_stage → returns None (no error)."""
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",

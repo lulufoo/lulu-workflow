@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""lulu-code project init — workflow-config is applied via lulu-workflow configure only."""
+"""lulu-exec project init — workflow-config is applied via lulu-workflow configure only."""
 
 import argparse
 import sys
@@ -7,7 +7,7 @@ import sys
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="lulu-code sub-init (no workflow-config writes).",
+        description="lulu-exec sub-init (no workflow-config writes).",
     )
     parser.add_argument("--project-root", required=True, help="Project root directory.")
     return parser.parse_args()

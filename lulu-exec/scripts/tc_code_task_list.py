@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Parse and query lulu-code code-task-list.md task checkboxes."""
+"""Parse and query lulu-exec code-task-list.md task checkboxes."""
 
 from __future__ import annotations
 

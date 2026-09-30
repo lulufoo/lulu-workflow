@@ -53,8 +53,8 @@ def _write_workflow_config(project_root: Path) -> None:
     (config_dir / "workflow-config.json").write_text(
         json.dumps(
             {
-                "lulu-code": {
-                    "test_command": "echo test-output",
+                "lulu-exec": {
+                    "test_commands": {"repo-a": "echo test-output"},
                     "git": {
                         "commit_message_template": "feat({scope}): {task_id} {summary}",
                     },
@@ -74,9 +74,9 @@ def _setup_cycle(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     _write_wo_session_state(cycle_dir)
     _write_workflow_config(project_root)
 
-    session_dir = cycle_dir / "lulu-code" / "s1"
+    session_dir = cycle_dir / "lulu-exec" / "s1"
     session_dir.mkdir(parents=True)
-    (cycle_dir / "lulu-code" / "session-state.md").write_text(
+    (cycle_dir / "lulu-exec" / "session-state.md").write_text(
         "---\nversion: 1\nactive_session: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
         encoding="utf-8",
     )

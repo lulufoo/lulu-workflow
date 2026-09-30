@@ -36,7 +36,7 @@ exit_contract:
 
 def _setup_action_task(tmp_path: Path) -> Path:
     cycle_dir = tmp_path / "cycle"
-    session_dir = cycle_dir / "lulu-code" / "s1"
+    session_dir = cycle_dir / "lulu-exec" / "s1"
     session_dir.mkdir(parents=True)
     wo = cycle_dir / "lulu-tasks"
     (wo / "r1" / "tasks" / "t1").mkdir(parents=True)

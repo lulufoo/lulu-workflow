@@ -33,9 +33,9 @@ _SCRIPT = Path(__file__).resolve().parents[1] / "tc_session_control.py"
 
 def _setup_session(tmp_path: Path, *, state: str = "Preparing", current_task: str = "") -> Path:
     cycle_dir = tmp_path / "cycle-id"
-    session_dir = cycle_dir / "lulu-code" / "s1"
+    session_dir = cycle_dir / "lulu-exec" / "s1"
     session_dir.mkdir(parents=True)
-    (cycle_dir / "lulu-code" / "session-state.md").write_text(
+    (cycle_dir / "lulu-exec" / "session-state.md").write_text(
         "---\nversion: 1\nactive_session: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
         encoding="utf-8",
     )
@@ -58,10 +58,15 @@ def _write_task_list(session_dir: Path, lines: list[str]) -> None:
     (session_dir / "code-task-list.md").write_text(body + "\n", encoding="utf-8")
 
 
-def _write_workspace(session_dir: Path, worktree_path: Path, extra: dict | None = None) -> None:
+def _write_workspace(
+    session_dir: Path,
+    worktree_path: Path,
+    extra: dict | None = None,
+    project_root: Path | None = None,
+) -> None:
     payload = {
         "worktree_path": str(worktree_path.resolve()).rstrip("/") + "/",
-        "project_root": str(session_dir.resolve()),
+        "project_root": str((project_root or session_dir).resolve()),
         "branch": "wt/feat-test",
         "created_at": "2024-01-01T00:00:00+00:00",
     }
@@ -112,7 +117,7 @@ def _fake_git(monkeypatch, *, worktrees: set[str], clean: set[str]):
 class TestGetPointer:
     def test_starting(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path)
-        ws_path = cycle_dir / "lulu-code" / "s1" / "workflow-state.md"
+        ws_path = cycle_dir / "lulu-exec" / "s1" / "workflow-state.md"
         init_starting(ws_path, mode="work-order", task_list_ref=str(ws_path.parent / "code-task-list.md"))
         ptr = get_pointer(cycle_dir)
         assert ptr["next_action"] == "starting"
@@ -126,7 +131,7 @@ class TestGetPointer:
 
     def test_executing_dispatch(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", " "), ("t2", " ")])
         ptr = get_pointer(cycle_dir)
         assert ptr["next_action"] == "dispatch"
@@ -134,14 +139,14 @@ class TestGetPointer:
 
     def test_executing_pointer_drift(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", "x"), ("t2", " ")])
         with pytest.raises(ValueError, match="pointer drift"):
             get_pointer(cycle_dir)
 
     def test_closing(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Closing")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", "x")])
         _write_commit_ref(session_dir, "t1")
         ptr = get_pointer(cycle_dir)
@@ -149,7 +154,7 @@ class TestGetPointer:
 
     def test_closing_malformed_commit_ref(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Closing")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", "x")])
         task_dir = session_dir / "tasks" / "t1"
         task_dir.mkdir(parents=True, exist_ok=True)
@@ -162,11 +167,52 @@ class TestGetPointer:
         ptr = get_pointer(cycle_dir)
         assert ptr["next_action"] == "done"
 
+    def test_subagent_empty_without_workspace(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        session_dir = cycle_dir / "lulu-exec" / "s1"
+        _write_task_list(session_dir, [("t1", " "), ("t2", " ")])
+        ptr = get_pointer(cycle_dir)
+        assert ptr["subagent"] == ""
+
+    def test_subagent_uses_project_config(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        session_dir = cycle_dir / "lulu-exec" / "s1"
+        _write_task_list(session_dir, [("t1", " "), ("t2", " ")])
+        project_root = tmp_path / "project"
+        stage_path = project_root / ".cursor" / "lulu-workflow" / "stages" / "lulu-exec.json"
+        stage_path.parent.mkdir(parents=True)
+        stage_path.write_text(
+            json.dumps({"test_commands": {}, "subagent": "composer-2.5-fast"}),
+            encoding="utf-8",
+        )
+        worktree = tmp_path / "wt"
+        worktree.mkdir()
+        _write_workspace(session_dir, worktree, project_root=project_root)
+        ptr = get_pointer(cycle_dir)
+        assert ptr["subagent"] == "composer-2.5-fast"
+
+    def test_subagent_ignores_legacy_object(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        session_dir = cycle_dir / "lulu-exec" / "s1"
+        _write_task_list(session_dir, [("t1", " "), ("t2", " ")])
+        project_root = tmp_path / "project"
+        stage_path = project_root / ".cursor" / "lulu-workflow" / "stages" / "lulu-exec.json"
+        stage_path.parent.mkdir(parents=True)
+        stage_path.write_text(
+            json.dumps({"subagent": {"cursor": "composer-2.5-fast"}}),
+            encoding="utf-8",
+        )
+        worktree = tmp_path / "wt"
+        worktree.mkdir()
+        _write_workspace(session_dir, worktree, project_root=project_root)
+        ptr = get_pointer(cycle_dir)
+        assert ptr["subagent"] == ""
+
 
 class TestAdvancePointer:
     def test_middle_task(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", "x"), ("t2", " "), ("t3", " ")])
         ptr = advance_pointer(cycle_dir, "t1")
         assert ptr["next_action"] == "dispatch"
@@ -175,7 +221,7 @@ class TestAdvancePointer:
 
     def test_last_task_to_closing_malformed_commit_ref(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t2")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", "x"), ("t2", "x")])
         _write_commit_ref(session_dir, "t1")
         task_dir = session_dir / "tasks" / "t2"
@@ -186,7 +232,7 @@ class TestAdvancePointer:
 
     def test_last_task_to_closing(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t2")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", "x"), ("t2", "x")])
         _write_commit_ref(session_dir, "t1")
         _write_commit_ref(session_dir, "t2")
@@ -196,14 +242,14 @@ class TestAdvancePointer:
 
     def test_mismatch_completed_task(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", "x"), ("t2", " ")])
         with pytest.raises(ValueError, match="does not match current_task"):
             advance_pointer(cycle_dir, "t2")
 
     def test_task_not_done(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", " "), ("t2", " ")])
         with pytest.raises(ValueError, match="not marked done"):
             advance_pointer(cycle_dir, "t1")
@@ -212,7 +258,7 @@ class TestAdvancePointer:
 class TestDeliver:
     def test_deliver_success(self, tmp_path: Path, monkeypatch):
         cycle_dir = _setup_session(tmp_path, state="Closing")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         worktree = tmp_path / "wt"
         worktree.mkdir()
         _write_task_list(session_dir, [("t1", "x")])
@@ -237,7 +283,7 @@ class TestDeliver:
 
     def test_deliver_test_failure_state_stays_closing(self, tmp_path: Path, monkeypatch):
         cycle_dir = _setup_session(tmp_path, state="Closing")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         ws_path = session_dir / "workflow-state.md"
         worktree = tmp_path / "wt"
         worktree.mkdir()
@@ -277,7 +323,7 @@ class TestCheckRecovery:
 
     def test_historical(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path)
-        ws_path = cycle_dir / "lulu-code" / "s1" / "workflow-state.md"
+        ws_path = cycle_dir / "lulu-exec" / "s1" / "workflow-state.md"
         mark_historical(ws_path)
         result = check_recovery(cycle_dir)
         assert result["recoverable"] is False
@@ -285,8 +331,8 @@ class TestCheckRecovery:
 
     def test_missing_workflow_state(self, tmp_path: Path):
         cycle_dir = tmp_path / "cycle-id"
-        (cycle_dir / "lulu-code").mkdir(parents=True)
-        (cycle_dir / "lulu-code" / "session-state.md").write_text(
+        (cycle_dir / "lulu-exec").mkdir(parents=True)
+        (cycle_dir / "lulu-exec" / "session-state.md").write_text(
             "---\nversion: 1\nactive_session: 1\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
             encoding="utf-8",
         )
@@ -296,7 +342,7 @@ class TestCheckRecovery:
 
     def test_executing_valid_pending_task(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", " "), ("t2", " ")])
         result = check_recovery(cycle_dir)
         assert result["recoverable"] is True
@@ -306,7 +352,7 @@ class TestCheckRecovery:
 
     def test_executing_empty_current_task(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", " ")])
         result = check_recovery(cycle_dir)
         assert result["recoverable"] is False
@@ -320,7 +366,7 @@ class TestCheckRecovery:
 
     def test_executing_unknown_task(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t9")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", " ")])
         result = check_recovery(cycle_dir)
         assert result["recoverable"] is False
@@ -328,7 +374,7 @@ class TestCheckRecovery:
 
     def test_executing_pointer_unrecoverable(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", "x"), ("t2", " ")])
         result = check_recovery(cycle_dir)
         assert result["recoverable"] is False
@@ -343,7 +389,7 @@ class TestCheckRecovery:
 
     def test_drift_matches_get_pointer(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", "x"), ("t2", " ")])
         assert check_recovery(cycle_dir)["recoverable"] is False
         with pytest.raises(ValueError, match="pointer drift"):
@@ -353,7 +399,7 @@ class TestCheckRecovery:
 class TestConfirmTaskReady:
     def test_complete_artifacts(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", "x"), ("t2", " ")])
         _write_commit_ref(session_dir, "t1")
         _write_code_log_done(session_dir, "t1")
@@ -364,7 +410,7 @@ class TestConfirmTaskReady:
 
     def test_missing_artifact_raises(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", "x"), ("t2", " ")])
         with pytest.raises(ExitContractError):
             confirm_task_ready_cmd(cycle_dir, "t1")
@@ -383,7 +429,7 @@ class TestCLI:
 
     def test_confirm_task_ready_cli_success(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", "x"), ("t2", " ")])
         _write_commit_ref(session_dir, "t1")
         _write_code_log_done(session_dir, "t1")
@@ -407,7 +453,7 @@ class TestCLI:
 
     def test_confirm_task_ready_cli_missing_artifact(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", "x"), ("t2", " ")])
         result = subprocess.run(
             [
@@ -427,7 +473,7 @@ class TestCLI:
 
     def test_check_recovery_cli(self, tmp_path: Path):
         cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         _write_task_list(session_dir, [("t1", " "), ("t2", " ")])
         result = subprocess.run(
             [sys.executable, str(_SCRIPT), "--cycle-dir", str(cycle_dir), "check-recovery"],

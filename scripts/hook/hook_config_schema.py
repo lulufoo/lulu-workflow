@@ -220,15 +220,6 @@ def resolve_internal_path_guard(
     defaults = internal.get("defaults") or {}
     stages = internal.get("stages") or {}
     stage_cfg = stages.get(stage) or {}
-    if not stage_cfg:
-        from stage_identity import stage_config_aliases
-
-        for alias in stage_config_aliases(stage):
-            if alias == stage:
-                continue
-            stage_cfg = stages.get(alias) or {}
-            if stage_cfg:
-                break
 
     stage_enable = stage_cfg.get("enable", global_enable)
     read_dirs = stage_cfg.get("readDirs", defaults.get("readDirs", ["."]))

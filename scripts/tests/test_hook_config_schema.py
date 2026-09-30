@@ -203,7 +203,7 @@ class TestResolveInternalPathGuard:
     def test_tech_code_allows_project_root_writes(self, tmp_path: Path):
         from hook_config_schema import resolve_internal_path_guard
 
-        resolved = resolve_internal_path_guard(tmp_path, "lulu-code", platform="copilot")
+        resolved = resolve_internal_path_guard(tmp_path, "lulu-exec", platform="copilot")
         assert resolved["readDirs"] == ["."]
         assert resolved["writeDirs"] == ["."]
 

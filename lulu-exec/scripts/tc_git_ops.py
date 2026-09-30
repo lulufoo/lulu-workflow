@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Git CLI helpers for lulu-code Python scripts.
+"""Git CLI helpers for lulu-exec Python scripts.
 
 Provides P1–P3 worktree preparation (``prepare_worktrees``), worktree existence
 and clean-status checks used by ``prepare.py`` and ``session_control.py``.
@@ -282,7 +282,7 @@ def _load_workspace(path: Path) -> dict:
 
 
 def _cli() -> int:
-    parser = argparse.ArgumentParser(description="Git ops helpers for lulu-code")
+    parser = argparse.ArgumentParser(description="Git ops helpers for lulu-exec")
     sub = parser.add_subparsers(dest="command", required=True)
 
     is_wt = sub.add_parser("is-worktree", help="Check if path is inside a git worktree")

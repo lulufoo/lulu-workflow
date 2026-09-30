@@ -24,6 +24,7 @@ Run `$TC_POINTER`. Follow `next_action`:
 
 1. Run `$TC_POINTER`. Pin `current_task` and `kind`.
 2. Dispatch `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`.
+   If pointer `subagent` is non-empty, pass it as `model`.
    - `kind: coding` → load `task-runner/SKILL.md`
    - `kind: action` → load `action-runner/SKILL.md`
    Prompt `## Input` must be this JSON (no other launch payload):

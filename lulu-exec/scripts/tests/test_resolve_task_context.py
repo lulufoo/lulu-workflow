@@ -29,7 +29,7 @@ def _write_wo_session_state(cycle_dir: Path, round_id: str = "1") -> None:
 
 
 def _write_code_session_state(cycle_dir: Path, session_id: str = "1") -> Path:
-    code_dir = cycle_dir / "lulu-code"
+    code_dir = cycle_dir / "lulu-exec"
     code_dir.mkdir(parents=True, exist_ok=True)
     (code_dir / "session-state.md").write_text(
         f"---\nversion: 1\nactive_session: {session_id}\nupdated_at: 2024-01-01T00:00:00+00:00\n---\n",
@@ -77,8 +77,8 @@ def _write_workflow_config(project_root: Path, extra: dict | None = None) -> Non
     config_dir = project_root / ".cursor" / "lulu-workflow"
     config_dir.mkdir(parents=True, exist_ok=True)
     payload = {
-        "lulu-code": {
-            "test_command": "npm test",
+        "lulu-exec": {
+            "test_commands": {"repo-a": "npm test"},
             "git": {
                 "worktree_base": ".cache/worktrees",
                 "branch_pattern": "wt/{type}-{slug}",
@@ -88,7 +88,7 @@ def _write_workflow_config(project_root: Path, extra: dict | None = None) -> Non
         }
     }
     if extra:
-        payload["lulu-code"].update(extra)
+        payload["lulu-exec"].update(extra)
     (config_dir / "workflow-config.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
@@ -122,8 +122,8 @@ class TestResolveTaskContext:
         assert "model" not in result
         assert result["task_id"] == "t1"
         assert "/lulu-tasks/r1/tasks/t1/task.md" in result["work_order_task_path"]
-        assert "/lulu-code/s1/tasks/t1" in result["task_output_dir"]
-        assert "/lulu-code/s1/code-task-list.md" in result["code_task_list_path"]
+        assert "/lulu-exec/s1/tasks/t1" in result["task_output_dir"]
+        assert "/lulu-exec/s1/code-task-list.md" in result["code_task_list_path"]
         assert result["worktree_abs_path"] == str(worktree.resolve())
         assert result["branch"] == "wt/feat-test"
         assert result["tdd_exempt"] is False
@@ -132,7 +132,7 @@ class TestResolveTaskContext:
 
     def test_extra_worktree_mapping(self, tmp_path: Path):
         cycle_dir, project_root, worktree = _setup_happy_path(tmp_path)
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         extra_wt = tmp_path / "wt-b"
         extra_wt.mkdir()
         _write_workspace(
@@ -156,7 +156,7 @@ class TestResolveTaskContext:
 
     def test_repos_entry_overrides_primary(self, tmp_path: Path):
         cycle_dir, project_root, worktree = _setup_happy_path(tmp_path)
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         mapped = tmp_path / "mapped-wt"
         mapped.mkdir()
         _write_workspace(
@@ -176,7 +176,7 @@ class TestResolveTaskContext:
 
     def test_tdd_exempt_from_list(self, tmp_path: Path):
         cycle_dir, project_root, _ = _setup_happy_path(tmp_path)
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         (session_dir / "code-task-list.md").write_text(
             "- [ ] t1 · Exempt task [tdd_exempt]\n",
             encoding="utf-8",
@@ -186,7 +186,7 @@ class TestResolveTaskContext:
 
     def test_tdd_exempt_frontmatter_wins(self, tmp_path: Path):
         cycle_dir, project_root, _ = _setup_happy_path(tmp_path)
-        session_dir = cycle_dir / "lulu-code" / "s1"
+        session_dir = cycle_dir / "lulu-exec" / "s1"
         (session_dir / "code-task-list.md").write_text("- [ ] t1 · task\n", encoding="utf-8")
         task_md = cycle_dir / "lulu-tasks" / "r1" / "tasks" / "t1" / "task.md"
         task_md.write_text(
@@ -221,12 +221,6 @@ class TestResolveTaskContext:
         with pytest.raises(ValueError, match="workspace.json not found"):
             resolve_task_context(cycle_dir, "t1", project_root)
 
-    def test_includes_model_when_requested(self, tmp_path: Path):
-        cycle_dir, project_root, _ = _setup_happy_path(tmp_path)
-        _write_workflow_config(project_root, {"subagent": {"cursor": "Auto"}})
-        result = resolve_task_context(cycle_dir, "t1", project_root, include_model=True)
-        assert result["model"] == "Auto"
-
     def test_leftover_pointer_is_ignored(self, tmp_path: Path):
         cycle_dir, project_root, _ = _setup_happy_path(tmp_path)
         _write_platform_config(project_root, "custom/missing-config.json")
@@ -242,4 +236,4 @@ class TestResolveTaskContext:
         config_path.unlink()
         result = resolve_task_context(cycle_dir, "t1", project_root)
         assert result["test_command"] == ""
-        assert result["commit_message_template"] == ""
+        assert result["commit_message_template"] == "feat({scope}): {task_id} {summary}"

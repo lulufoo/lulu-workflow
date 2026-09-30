@@ -29,7 +29,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from tc_workflow_common import EXEC_STAGE, load_stage_config, workflow_config_is_present
+from tc_workflow_common import EXEC_STAGE, load_stage_config
+from workflow_config_schema import resolve_stage_config_path
 
 
 @dataclass
@@ -41,15 +42,44 @@ class TestResult:
     output: str = ""
 
 
-def resolve_test_command(project_root: Path) -> str:
-    """Read lulu-code.test_command from workflow stage config."""
-    if not workflow_config_is_present(project_root):
-        raise ValueError(f"workflow-config not found under {project_root.as_posix()}")
-    code_cfg = load_stage_config(project_root, EXEC_STAGE)
-    command = code_cfg.get("test_command", "")
-    if not command or not str(command).strip():
-        raise ValueError("test_command not configured in lulu-exec stage config")
-    return str(command).strip()
+def lookup_test_command(stage_cfg: dict, checkout_name: str) -> str:
+    """Return the command for one checkout directory name, or '' when unset."""
+    commands = stage_cfg.get("test_commands")
+    if not isinstance(commands, dict) or not checkout_name.strip():
+        return ""
+    raw = commands.get(checkout_name, "")
+    if raw is None:
+        return ""
+    return str(raw).strip()
+
+
+def require_test_command(project_root: Path, checkout_name: str) -> str:
+    """Return the configured command or raise with the stage file path."""
+    command = lookup_test_command(load_stage_config(project_root, EXEC_STAGE), checkout_name)
+    if command:
+        return command
+    path = resolve_stage_config_path(project_root, EXEC_STAGE)
+    name = checkout_name.strip() or "(unknown)"
+    raise ValueError(
+        f"test command not configured for {name}. "
+        f"Set test_commands.{name} in {path.as_posix()}"
+    )
+
+
+def checkout_name_for_worktree(workspace: dict, worktree_path: Path) -> str:
+    """Map a prepared worktree path back to its checkout directory name."""
+    target = worktree_path.resolve().as_posix().rstrip("/")
+    for info in (workspace.get("repos") or {}).values():
+        if not isinstance(info, dict):
+            continue
+        path = str(info.get("path") or "").rstrip("/")
+        if path != target:
+            continue
+        checkout = str(info.get("checkout") or "")
+        if checkout:
+            return Path(checkout).name
+        return Path(path).name
+    return worktree_path.resolve().name
 
 
 def format_test_log_entry(
@@ -83,9 +113,10 @@ def execute_test_command(
     project_root: Path,
     worktree_path: Path,
     test_command: str | None = None,
+    checkout_name: str = "",
 ) -> TestResult:
-    """Run test_command in worktree; return result without writing a log."""
-    command = test_command or resolve_test_command(project_root)
+    """Run one checkout's test command in worktree; return result without writing a log."""
+    command = (test_command or "").strip() or require_test_command(project_root, checkout_name)
     cwd = worktree_path.resolve()
     start = time.monotonic()
     result = subprocess.run(
@@ -112,11 +143,13 @@ def run_test_suite(
     project_root: Path,
     worktree_path: Path,
     log_path: Path,
+    checkout_name: str,
 ) -> TestResult:
-    """Run lulu-code.test_command in worktree; append log entry; return result."""
+    """Run the checkout's test command in worktree; append log entry; return result."""
     test_result = execute_test_command(
         project_root=project_root,
         worktree_path=worktree_path,
+        checkout_name=checkout_name,
     )
     timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     entry = format_test_log_entry(
@@ -141,6 +174,11 @@ def _cli() -> int:
     parser.add_argument("--project-root", required=True, help="Absolute path to project root")
     parser.add_argument("--worktree", required=True, help="Absolute path to primary worktree")
     parser.add_argument("--log-path", required=True, help="Absolute path to closing-test-log.md")
+    parser.add_argument(
+        "--checkout-name",
+        required=True,
+        help="Checkout directory name used as the test_commands key.",
+    )
     args = parser.parse_args()
 
     try:
@@ -148,6 +186,7 @@ def _cli() -> int:
             project_root=Path(args.project_root).resolve(),
             worktree_path=Path(args.worktree).resolve(),
             log_path=Path(args.log_path).resolve(),
+            checkout_name=args.checkout_name,
         )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
