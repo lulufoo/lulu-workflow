@@ -740,7 +740,7 @@ def test_lens_frontier_clean_is_optional_non_empty_string():
     assert any("clean" in err for err in validate_lens_frontier(bad))
 
 
-def test_facts_for_lens_keeps_matching_tags_only():
+def test_facts_for_lens_keeps_matching_lens_only():
     facts = [
         {"id": "F-1", "text": "a", "lens": "CTX"},
         {"id": "F-2", "text": "b", "lens": "ctx"},

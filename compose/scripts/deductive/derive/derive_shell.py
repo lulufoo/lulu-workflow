@@ -367,7 +367,7 @@ def upstream_fact_count(
     lens: str,
     graph: dict[str, Any],
 ) -> int:
-    """Count of facts tagged with any derivation-upstream of ``lens``."""
+    """Count of facts owned by any derivation-upstream of ``lens``."""
     total = 0
     for u in derivation_upstreams(lens, graph):
         total += len(filter_by_lens(facts, u))

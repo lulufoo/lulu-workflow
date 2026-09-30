@@ -96,7 +96,7 @@ def test_unresolved_blocks_write_ready():
     assert any("unresolved" in e for e in errors)
 
 
-def test_facts_coverage_and_empty_tags():
+def test_facts_coverage_and_unlensed_fact():
     data = _write_ready()
     facts = [
         {"id": "F-1", "text": "a", "lens": "I"},
@@ -106,7 +106,7 @@ def test_facts_coverage_and_empty_tags():
     assert any("empty lens" in e for e in errors)
 
 
-def test_chapter_lens_must_be_in_fact_tags():
+def test_chapter_lens_must_be_match_fact_lens():
     data = _write_ready()
     facts = [
         {"id": "F-1", "text": "a", "lens": "ST"},

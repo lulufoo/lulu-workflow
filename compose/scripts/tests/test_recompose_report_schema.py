@@ -155,7 +155,7 @@ def test_check_not_closable_when_findings_remain() -> None:
     assert len(result["findings"]) == 1
 
 
-def test_finding_lens_must_come_from_open_or_fact_tags() -> None:
+def test_finding_lens_must_come_from_open_or_fact_lens() -> None:
     findings = [
         {
             "question": "Who owns retry?",

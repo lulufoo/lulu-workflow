@@ -4,7 +4,7 @@
 Subcommands:
     write          Persist facts JSON (AI-produced) after schema validation
     validate       Validate existing ``_facts.json``
-    status         Print fact counts by lens tag (+ unlensed count)
+    status         Print fact counts by lens (+ unlensed count)
     strip-derived  Remove ``origin.type=derived`` facts; no-op if none or missing file
 
     CLI details: ``python3 facts_control.py --help``

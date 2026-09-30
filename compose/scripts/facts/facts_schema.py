@@ -506,7 +506,7 @@ def save_facts(
     if errors:
         raise ValueError("; ".join(errors))
     normalized = [normalize_fact(f) for f in facts]
-    # Re-validate after normalize (uppercase tags, stripped strings).
+    # Re-validate after normalize (uppercase lens, stripped strings).
     errors = validate_facts(
         normalized,
         allowed_lenses=allowed_lenses,
@@ -521,7 +521,7 @@ def save_facts(
 
 
 def filter_by_lens(facts: list[dict[str, Any]], lens: str) -> list[dict[str, str]]:
-    """Return facts tagged with one lens — addressable ``{id,text}``, never
+    """Return facts owned by one lens — addressable ``{id,text}``, never
     dissolved into prose (unlike Partition's ``filter_i_star``)."""
     key = lens.strip().upper()
     return [

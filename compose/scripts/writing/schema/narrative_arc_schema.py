@@ -48,7 +48,7 @@ def validate_narrative_arc(
     facts: list[dict[str, Any]] | None = None,
     allowed_lenses: set[str] | None = None,
 ) -> list[str]:
-    """Validate arc JSON. When ``facts`` is set, enforce full coverage / tags."""
+    """Validate arc JSON. When ``facts`` is set, enforce full coverage and fact lens ownership."""
     errors: list[str] = []
     if not isinstance(data, dict):
         return ["narrative_arc root must be an object"]
@@ -245,14 +245,14 @@ def _validate_against_facts(
     if status != "write_ready":
         return errors
 
-    empty_tags = sorted(
+    unlensed = sorted(
         fid
         for fid, fact in fact_by_id.items()
         if fid in leaf_fact_owner and not str(fact.get("lens") or "").strip()
     )
-    if empty_tags:
+    if unlensed:
         errors.append(
-            f"empty lens blocked at write_ready: {empty_tags}",
+            f"empty lens blocked at write_ready: {unlensed}",
         )
 
     for leaf in data.get("leaves") or []:

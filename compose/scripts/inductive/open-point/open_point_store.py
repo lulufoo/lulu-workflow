@@ -318,7 +318,7 @@ def detect_lens_context(
     """Everything one lens's Detect judges from, in one payload.
 
     KW rows still to judge (below the ledger frontier and KW0 dropped),
-    one registry row, and ``id``/``text`` of facts tagged ``lens``.
+    one registry row, and ``id``/``text`` of facts whose ``lens`` is the given key.
     """
     key = str(lens).strip().upper()
     if not key:
