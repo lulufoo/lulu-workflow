@@ -257,6 +257,8 @@ class TestShouldInjectConversationId:
             'python3 "${SKILL_ROOT}/scripts/runtime_control.py" --project-root /tmp resolve-session-context',
             'python3 "$SKILL_DIR/scripts/tt_start.py" --cycle-id fid1',
             'python3 "${SKILL_DIR}/scripts/dec_start.py" --cycle-id fid1',
+            'python3 "$DECISION_SKILL_DIR/scripts/dec_start.py" --cycle-id fid1',
+            'python3 "${DECISION_SKILL_DIR}/scripts/dec_start.py" --cycle-id fid1',
             'python3 "$SKILL_DIR/scripts/tc_start.py" --cycle-id fid1',
             'python3 "$SKILL_ROOT/compose/scripts/session/start.py" --profile lulu-plan --cycle-id fid1',
         ],
