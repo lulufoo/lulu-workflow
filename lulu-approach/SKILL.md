@@ -49,12 +49,10 @@ invocation. Do not read session data files for routing.
 | Macro | Command |
 |-------|---------|
 | `$DEC_START` | `python3 "$DECISION_SKILL_DIR/scripts/dec_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--domain-constraints-file "<path>"] [--session-dir "<session_dir>"]` |
-| `$DEC_GET_ACTIVE` | `python3 "$DECISION_SKILL_DIR/scripts/dec_active_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" get-active` |
 | `$DEC_REOPEN` | `python3 "$DECISION_SKILL_DIR/scripts/dec_reopen.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--permit "<permit_path>"]` |
 | `$GATE_CONTROL` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$GET_PAYLOAD` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" get-payload` |
+| `$GET_PAYLOAD` | `$GATE_CONTROL get-payload` |
 | `$BATCH_RECLOSE` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" batch-reclose --payloads '<json object>'` |
-| `$REGISTER_CONTROL` | `python3 "$DECISION_SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
 | `$REGISTER_COMMIT` | `python3 "$DECISION_SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" register-commit --operations '<json array>'` |
 | `$RS_COMMIT` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" rs-commit --gate "<G>" --operations '<json array>'` |
 | `$SESSION_INTEGRITY` | `python3 "$DECISION_SKILL_DIR/scripts/dec_session_integrity.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
