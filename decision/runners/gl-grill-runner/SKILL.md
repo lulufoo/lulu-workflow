@@ -49,7 +49,7 @@ Apply Decision [Signals](../../SKILL.md#signals) throughout GL.
 
 ## Act
 
-1. If `$CTX.gates.GL.status == stale`, follow `$SKILL_DIR/references/rs-stale-gate-update.md`. Exactly one:
+1. If `$CTX.gates.GL.status == stale`, follow `$DECISION_SKILL_DIR/references/rs-stale-gate-update.md`. Exactly one:
    - `$CTX.resume_gate` is `GL` → continue at 2.
    - `$CTX.resume_gate` is not `GL` → return `GATE_COMPLETE GL` and skip the loop.
 2. Obtain locked Q via `$GATE_CONTROL get-payload` (or fields already on `$CTX`);

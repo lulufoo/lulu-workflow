@@ -3,7 +3,7 @@
 ## Entry
 
 Use only after `$RS_COMMIT` succeeds and the user selects Batch.
-Otherwise, use `$SKILL_DIR/references/rs-stale-gate-update.md` Per-gate.
+Otherwise, use `$DECISION_SKILL_DIR/references/rs-stale-gate-update.md` Per-gate.
 
 ## Prepare
 

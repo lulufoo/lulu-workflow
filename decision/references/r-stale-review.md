@@ -9,7 +9,7 @@ the R runner owns persistence, close, and handoff.
 1. Compare the stale payload returned by `$GET_PAYLOAD --stale-only` with the
    complete risk pack in `$CTX.registers`.
 2. For any classification change, load
-   `$SKILL_DIR/runners/risk-scan-runner/SKILL.md` in **full** mode (draft only).
+   `$DECISION_SKILL_DIR/runners/risk-scan-runner/SKILL.md` in **full** mode (draft only).
 3. Show affected rows, incremental differences, and proposed dispositions.
 4. Obtain one explicit confirmation before any close. Persist confirmed
    classification with `$GATE_CONTROL apply-r-assumptions` (`--help`).

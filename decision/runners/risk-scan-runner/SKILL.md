@@ -56,7 +56,7 @@ into a Constraint.
 2. **incremental:** confirm Diff hits with the user; persist with
    `$GATE_CONTROL apply-r-assumptions` (`--help`); pin `$CTX` if returned.
    If this Diff left `open`, load
-   `$SKILL_DIR/runners/risk-release-runner/SKILL.md` for each such row. Return
+   `$DECISION_SKILL_DIR/runners/risk-release-runner/SKILL.md` for each such row. Return
    `SCAN_COMPLETE` once each such row returned `RELEASE_COMPLETE` or
    `RELEASE_PENDING`, or the user routed away. `RELEASE_PENDING` rows stay
    `open` and keep blocking ordinary close.

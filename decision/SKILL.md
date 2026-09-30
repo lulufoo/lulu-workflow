@@ -20,11 +20,11 @@ Through one structured decision, settle the work into a user-confirmed, landable
 ## Contract
 
 <HARD-GATE>
-Do NOT proceed until you have read `../_runtime.md` and loaded:
+Do NOT proceed until the holder has provided:
 
-- `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
-- `$SKILL_DIR` = `$SKILL_ROOT/decision` (before Session Foundation)
-- Feature identification logic from `## Session Foundation`
+- `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR`
+- `$DECISION_SKILL_DIR` = `$SKILL_ROOT/decision`
+- a confirmed `$CYCLE_ID`
 </HARD-GATE>
 
 <HARD-GATE name="Domain Constraints">
@@ -39,14 +39,14 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 | Macro | Command |
 |-------|---------|
-| `$DEC_START` | `python3 "$SKILL_DIR/scripts/dec_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--conversation-id "<conversation_id>"] [--domain-constraints-file "<path>"] [--session-dir "<session_dir>"]` |
-| `$DEC_REOPEN` | `python3 "$SKILL_DIR/scripts/dec_reopen.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--permit "<permit_path>"]` |
-| `$GATE_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
+| `$DEC_START` | `python3 "$DECISION_SKILL_DIR/scripts/dec_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--conversation-id "<conversation_id>"] [--domain-constraints-file "<path>"] [--session-dir "<session_dir>"]` |
+| `$DEC_REOPEN` | `python3 "$DECISION_SKILL_DIR/scripts/dec_reopen.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--permit "<permit_path>"]` |
+| `$GATE_CONTROL` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
 | `$GET_PAYLOAD` | `$GATE_CONTROL get-payload` |
-| `$REGISTER_CONTROL` | `python3 "$SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$REGISTER_COMMIT` | `python3 "$SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" register-commit --operations '<json array>'` |
-| `$RS_COMMIT` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" rs-commit --gate "<G>" --operations '<json array>'` |
-| `$BATCH_RECLOSE` | `python3 "$SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" batch-reclose --payloads '<json object>'` |
+| `$REGISTER_CONTROL` | `python3 "$DECISION_SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
+| `$REGISTER_COMMIT` | `python3 "$DECISION_SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" register-commit --operations '<json array>'` |
+| `$RS_COMMIT` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" rs-commit --gate "<G>" --operations '<json array>'` |
+| `$BATCH_RECLOSE` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" batch-reclose --payloads '<json object>'` |
 
 Subcommand contracts: module docstrings / `--help`. Loaded runners inherit these
 macros; runner-only macros stay local.
@@ -55,9 +55,8 @@ macros; runner-only macros stay local.
 
 ## Start
 
-1. Identify the active cycle through `_runtime.md` § Session Foundation. Do not run `$DEC_START` until `$CYCLE_ID` is confirmed.
-2. Run `$DEC_START`. Holder stages pass their own `--constraints`; generic `decision` may omit it. When the platform provides a conversation ID, pass `--conversation-id`.
-3. After `$DEC_START` or a holder binding returns `context_docs`: run `$GATE_CONTROL resolve-context`; pin `$CTX`; load each returned context document once; declare the bound session and use only the new `$CTX`.
+1. Run `$DEC_START`. Holder stages pass their own `--constraints`; generic `decision` may omit it. When the platform provides a conversation ID, pass `--conversation-id`.
+2. After `$DEC_START` or a holder binding returns `context_docs`: run `$GATE_CONTROL resolve-context`; pin `$CTX`; load each returned context document once; declare the bound session and use only the new `$CTX`.
 
 ---
 
@@ -76,29 +75,29 @@ Route only from `$CTX` and macro stdout; never access session artifacts directly
 
 | Route | Runner |
 |-------|--------|
-| P | `$SKILL_DIR/runners/p-registers-runner/SKILL.md` |
-| RS | `$SKILL_DIR/runners/rs-realign-runner/SKILL.md` |
+| P | `$DECISION_SKILL_DIR/runners/p-registers-runner/SKILL.md` |
+| RS | `$DECISION_SKILL_DIR/runners/rs-realign-runner/SKILL.md` |
 
 **Gate**
 
 | Route | Runner |
 |-------|--------|
-| O | `$SKILL_DIR/runners/o-open-channel-runner/SKILL.md` |
-| Q | `$SKILL_DIR/runners/q-problem-runner/SKILL.md` |
-| GL | `$SKILL_DIR/runners/gl-grill-runner/SKILL.md` |
-| E | `$SKILL_DIR/runners/e-direction-runner/SKILL.md` |
-| D | `$SKILL_DIR/runners/d-decision-runner/SKILL.md` |
-| X | `$SKILL_DIR/runners/x-full-diagnosis-runner/SKILL.md` |
-| R | `$SKILL_DIR/runners/r-expose-bets-runner/SKILL.md` |
-| DC | `$SKILL_DIR/runners/dc-delivery-runner/SKILL.md` |
+| O | `$DECISION_SKILL_DIR/runners/o-open-channel-runner/SKILL.md` |
+| Q | `$DECISION_SKILL_DIR/runners/q-problem-runner/SKILL.md` |
+| GL | `$DECISION_SKILL_DIR/runners/gl-grill-runner/SKILL.md` |
+| E | `$DECISION_SKILL_DIR/runners/e-direction-runner/SKILL.md` |
+| D | `$DECISION_SKILL_DIR/runners/d-decision-runner/SKILL.md` |
+| X | `$DECISION_SKILL_DIR/runners/x-full-diagnosis-runner/SKILL.md` |
+| R | `$DECISION_SKILL_DIR/runners/r-expose-bets-runner/SKILL.md` |
+| DC | `$DECISION_SKILL_DIR/runners/dc-delivery-runner/SKILL.md` |
 
 **Tools**
 
 | Route | Runner |
 |-------|--------|
-| Scan | `$SKILL_DIR/runners/risk-scan-runner/SKILL.md` |
-| Release | `$SKILL_DIR/runners/risk-release-runner/SKILL.md` |
-| HD | `$SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` |
+| Scan | `$DECISION_SKILL_DIR/runners/risk-scan-runner/SKILL.md` |
+| Release | `$DECISION_SKILL_DIR/runners/risk-release-runner/SKILL.md` |
+| HD | `$DECISION_SKILL_DIR/runners/hd-human-decision-runner/SKILL.md` |
 
 ---
 
