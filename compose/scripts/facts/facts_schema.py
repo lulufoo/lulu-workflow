@@ -12,8 +12,7 @@ Shape: JSON array of ``{id, text, lens}`` plus optional ``source``
 
 ``_facts.json`` replaces the single-``home`` ``_partition.json`` atom for the
 fact-first display layer (increment 1, M1). A fact's ``lens`` is one uppercase
-key, omitted when the fact has none (``quarantined`` / ``not_needed``).
-``load_facts`` reads a legacy ``lens_tags`` array as its first tag. Display placement
+key, omitted when the fact has none (``quarantined`` / ``not_needed``). Display placement
 (``display_home`` / ``form_lens`` / chapter membership) is **not** a fact
 field — it lives in ``_narrative-arc.json`` (chapter plan SoT; archive-5.0)
 to avoid double bookkeeping (Grok review Blocker#1).
@@ -440,36 +439,14 @@ def normalize_fact(entry: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def _legacy_lens(entry: Any) -> Any:
-    """Legacy ``lens_tags`` array → ``lens`` (first tag). The file is untouched."""
-    if not isinstance(entry, dict) or "lens_tags" not in entry:
-        return entry
-    tags = entry.get("lens_tags")
-    rest = {key: value for key, value in entry.items() if key != "lens_tags"}
-    if "lens" in rest or not isinstance(tags, list):
-        return rest
-    for tag in tags:
-        text = str(tag).strip()
-        if text:
-            rest["lens"] = text.upper()
-            break
-    return rest
-
-
 def load_facts(path: Path) -> list[dict[str, Any]]:
-    """Load and validate facts file; raise ValueError on failure.
-
-    A legacy fact whose ``lens_tags`` holds several tags reads as its first,
-    so every later write persists ``lens``.
-    """
+    """Load and validate facts file; raise ValueError on failure."""
     if not path.is_file():
         raise ValueError(f"facts file not found: {path}")
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ValueError(f"invalid facts JSON: {exc}") from exc
-    if isinstance(data, list):
-        data = [_legacy_lens(entry) for entry in data]
     errors = validate_facts(data)
     if errors:
         raise ValueError("; ".join(errors))
