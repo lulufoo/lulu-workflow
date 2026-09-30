@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for one ``lens`` per fact; the legacy ``lens_tags`` array is rejected."""
+"""Tests for one ``lens`` per fact."""
 
 from __future__ import annotations
 
@@ -16,11 +16,10 @@ sys.path.insert(0, str(_COMPOSE / "scripts" / "_kernel"))
 sys.path.insert(0, str(_FACTS))
 
 from workflow_paths import seed_revision_profile_pointer  # noqa: E402
-from facts_schema import load_facts, save_facts, validate_facts  # noqa: E402
+from facts_schema import validate_facts  # noqa: E402
 from execution_state_schema import execution_dir  # noqa: E402
 from init_working_helpers import seed_execution_revision  # noqa: E402
 
-_CTL = _FACTS / "facts_control.py"
 _INTAKE_CTL = (
     _COMPOSE / "fact-intake-runner" / "scripts" / "fact_intake_disposition_control.py"
 )
@@ -55,27 +54,6 @@ def _quarantined(fact_id: str = "F-1") -> dict:
     }
 
 
-def _run_control(cmd: str, rev: Path, facts_file: Path | None = None):
-    args = [
-        sys.executable,
-        str(_CTL),
-        cmd,
-        "--revision-dir",
-        str(rev),
-        "--project-root",
-        str(_REPO),
-    ]
-    if facts_file is not None:
-        args += ["--facts-file", str(facts_file)]
-    return subprocess.run(args, check=False, capture_output=True, text=True)
-
-
-def test_validate_rejects_legacy_lens_tags_field():
-    facts = [{"id": "F-1", "text": "old", "lens_tags": ["CTX"]}]
-    errors = validate_facts(facts, allowed_lenses=["CTX"])
-    assert any("lens_tags" in e for e in errors)
-
-
 def test_validate_accepts_lens_and_omitted_lens():
     facts = [{"id": "F-1", "text": "one", "lens": "CTX"}, _quarantined("F-2")]
     assert validate_facts(facts, allowed_lenses=["CTX"]) == []
@@ -84,47 +62,6 @@ def test_validate_accepts_lens_and_omitted_lens():
 def test_carried_without_lens_is_rejected():
     errors = validate_facts([_carried(None)], allowed_lenses=["CTX"])
     assert any("carried requires lens" in e for e in errors)
-
-
-def test_save_facts_rejects_legacy_field(tmp_path: Path):
-    path = tmp_path / "_facts.json"
-    facts = [{"id": "F-1", "text": "old", "lens_tags": ["CTX", "GO"]}]
-    with pytest.raises(ValueError, match="lens_tags"):
-        save_facts(path, facts, allowed_lenses=["CTX", "GO"])
-    assert not path.exists()
-
-
-def test_load_facts_rejects_legacy_field(tmp_path: Path):
-    path = tmp_path / "_facts.json"
-    raw = [{"id": "F-1", "text": "legacy", "lens_tags": ["GO", "CTX"]}]
-    path.write_text(json.dumps(raw), encoding="utf-8")
-    with pytest.raises(ValueError, match="lens_tags"):
-        load_facts(path)
-    assert json.loads(path.read_text(encoding="utf-8")) == raw
-
-
-def test_control_validate_rejects_legacy_field(tmp_path: Path):
-    rev = _revision(tmp_path)
-    (execution_dir(rev) / "_facts.json").write_text(
-        json.dumps(
-            [
-                {
-                    "id": "F-1",
-                    "text": "x",
-                    "lens_tags": ["CTX", "GO"],
-                    "derivation": {
-                        "disposition": "carried",
-                        "upstream_ref": ["doc#1"],
-                    },
-                    "origin": {"type": "seed", "ref": ["doc"]},
-                }
-            ]
-        ),
-        encoding="utf-8",
-    )
-    rejected = _run_control("validate", rev)
-    assert rejected.returncode != 0
-    assert "lens_tags" in rejected.stderr
 
 
 def _run_patch(cmd: str, rev: Path, lens: str, tmp_path: Path):
@@ -169,7 +106,6 @@ def test_intake_patch_apply_persists_lens(tmp_path: Path):
         f["id"]: f.get("lens") for f in json.loads(facts_path.read_text("utf-8"))
     }
     assert stored == {"F-1": "CTX", "F-2": "GO"}
-    assert all("lens_tags" not in f for f in json.loads(facts_path.read_text("utf-8")))
 
 
 def _fact_production_module():
@@ -185,7 +121,7 @@ def test_entry_facts_requires_lens(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(fpc, "_allowed_lenses", lambda *_a, **_k: None)
     with pytest.raises(ValueError, match="lens must be a non-empty string"):
         fpc._entry_facts(
-            [{"text": "new", "lens_tags": ["CTX", "GO"]}],
+            [{"text": "new"}],
             facts_before=[],
             origin_ref=["O-1"],
             slice_dir=tmp_path,
