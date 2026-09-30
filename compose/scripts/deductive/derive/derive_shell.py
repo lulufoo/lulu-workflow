@@ -326,6 +326,17 @@ def append_derived_facts(
     normalize_fact). Cascade-aware — later derived facts can inherit from
     earlier ones in the same batch.
     """
+    for idx, item in enumerate(derived):
+        if not isinstance(item, dict):
+            raise ValueError(f"derived[{idx}] must be an object")
+        expected = {
+            "text": "non-empty string",
+            "lens": 'one uppercase lens key, e.g. "CTX"',
+        }
+        for field, hint in expected.items():
+            value = item.get(field)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"derived[{idx}].{field} is required ({hint})")
     out = [normalize_fact(f) for f in facts]
     n = next_fact_id(out)
     anchors_by_id: dict[str, list[dict[str, Any]]] = {

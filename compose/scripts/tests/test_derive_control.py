@@ -67,6 +67,32 @@ def _patch_graph(monkeypatch) -> None:
     )
 
 
+def test_cli_append_reports_missing_lens_without_traceback(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    _patch_graph(monkeypatch)
+    rev = tmp_path / "revision1"
+    base = [{"id": "F-1", "text": "ar", "lens": "AR"}]
+    _seed_facts(rev, base)
+    derived = tmp_path / "derived.json"
+    derived.write_text(
+        json.dumps([{"text": "task", "lens_tags": ["T"], "source": ["F-1"]}]),
+        encoding="utf-8",
+    )
+
+    code = mod.cmd_append(
+        argparse.Namespace(
+            revision_dir=rev, derived_file=derived, project_root=tmp_path
+        ),
+    )
+    err = capsys.readouterr().err
+    assert code == 1
+    assert "derived[0].lens is required" in err
+    assert "KeyError" not in err
+    on_disk = json.loads((rev / "execution" / "_facts.json").read_text(encoding="utf-8"))
+    assert on_disk == base
+
+
 def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) -> None:
     _patch_graph(monkeypatch)
     rev = tmp_path / "revision1"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for one ``lens`` per fact, including legacy ``lens_tags`` reads."""
+"""Tests for one ``lens`` per fact; the legacy ``lens_tags`` array is rejected."""
 
 from __future__ import annotations
 
@@ -94,19 +94,13 @@ def test_save_facts_rejects_legacy_field(tmp_path: Path):
     assert not path.exists()
 
 
-def test_load_facts_reads_legacy_tags_as_lens(tmp_path: Path):
+def test_load_facts_rejects_legacy_field(tmp_path: Path):
     path = tmp_path / "_facts.json"
     raw = [{"id": "F-1", "text": "legacy", "lens_tags": ["GO", "CTX"]}]
     path.write_text(json.dumps(raw), encoding="utf-8")
-    loaded = load_facts(path)[0]
-    assert loaded["lens"] == "GO"
-    assert "lens_tags" not in loaded
+    with pytest.raises(ValueError, match="lens_tags"):
+        load_facts(path)
     assert json.loads(path.read_text(encoding="utf-8")) == raw
-
-    save_facts(path, load_facts(path), allowed_lenses=["CTX", "GO"])
-    stored = json.loads(path.read_text(encoding="utf-8"))[0]
-    assert stored["lens"] == "GO"
-    assert "lens_tags" not in stored
 
 
 def test_control_validate_rejects_legacy_field(tmp_path: Path):
@@ -161,14 +155,14 @@ def _run_patch(cmd: str, rev: Path, lens: str, tmp_path: Path):
 def test_intake_patch_apply_persists_lens(tmp_path: Path):
     rev = _revision(tmp_path)
     facts_path = execution_dir(rev) / "_facts.json"
-    legacy = {
+    other = {
         "id": "F-2",
         "text": "x",
-        "lens_tags": ["GO", "CTX"],
+        "lens": "GO",
         "derivation": {"disposition": "carried", "upstream_ref": ["doc#1"]},
         "origin": {"type": "seed", "ref": ["doc"]},
     }
-    facts_path.write_text(json.dumps([_quarantined(), legacy]), encoding="utf-8")
+    facts_path.write_text(json.dumps([_quarantined(), other]), encoding="utf-8")
     accepted = _run_patch("disposition-patch-apply", rev, "CTX", tmp_path)
     assert accepted.returncode == 0, accepted.stderr
     stored = {
