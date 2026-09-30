@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+from compose_start_test_helpers import compose_start_args as _compose_start_args
+
 _LDEV = Path(__file__).resolve().parents[2]
 _CONFIG_DIR = _LDEV / "config"
 
@@ -151,36 +153,6 @@ def _make_session(
         encoding="utf-8",
     )
     return ws
-
-
-def _write_scope_package(tmp_path: Path, source: Path | None = None) -> Path:
-    src = source if source is not None else (tmp_path / "scope-source.md")
-    if not src.is_file():
-        src.parent.mkdir(parents=True, exist_ok=True)
-        src.write_text("# scope\n", encoding="utf-8")
-    resolved = src.resolve()
-    path = tmp_path / "scope-package.json"
-    path.write_text(
-        json.dumps({"version": 2, "source_path": str(resolved)}, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    return path.resolve()
-
-
-def _compose_start_args(
-    profile_id: str,
-    tmp_path: Path,
-    source: Path | None = None,
-    *extra: str,
-) -> list[str]:
-    scope = _write_scope_package(tmp_path, source)
-    return [
-        "--profile-path",
-        str(_LDEV / profile_id / "compose-profile.json"),
-        "--scope-package",
-        str(scope),
-        *extra,
-    ]
 
 
 def _start_payload(result: subprocess.CompletedProcess) -> dict:

@@ -10,11 +10,16 @@ from typing import Optional
 
 import pytest
 
+from compose_start_test_helpers import compose_start_args
+
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
 _LDEV = _SRC / "lulu-workflow"
 _KERNEL_START = _LDEV / "compose" / "scripts" / "session" / "start.py"
 _COMPOSE_START_STAGES = frozenset({"lulu-plan", "lulu-spec", "lulu-arch", "lulu-blueprint"})
 _STAGES = ["decision", "lulu-spec", "lulu-plan", "lulu-tasks", "lulu-exec"]
+# compose start only checks the gate; cycle registration in cycles.json is the holder's
+# preflight responsibility, so unregistered-cycle rejection is asserted on these stages only.
+_CYCLE_REGISTRATION_STAGES = ["decision", "lulu-tasks", "lulu-exec"]
 
 # Use lulu-tasks's tt_workflow_common for unit tests of shared functions.
 _TWO_SCRIPTS = _SRC / "lulu-workflow" / "lulu-tasks" / "scripts"
@@ -246,14 +251,6 @@ def _seed_work_order_handoff(cache_dir: Path, cycle_id: str, active_doc: int = 1
 _LDEV = _SRC / "lulu-workflow"
 
 
-def _compose_start_args(profile_id: str, *extra: str) -> list[str]:
-    return [
-        "--profile-path",
-        str(_LDEV / profile_id / "compose-profile.json"),
-        *extra,
-    ]
-
-
 def _seed_decision_config(tmp_path: Path) -> None:
     """Seed workflow-config + local decision-doc template for dec_start init-session."""
     cfg_dir = tmp_path / ".github" / "lulu-workflow"
@@ -291,14 +288,8 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
     """Return required extra CLI args for each stage."""
     if stage == "decision":
         return _diag_holder_args("lulu-bet")
-    if stage == "lulu-spec":
-        return _compose_start_args("lulu-spec")
-    elif stage == "lulu-blueprint":
-        return _compose_start_args("lulu-blueprint")
-    elif stage == "lulu-arch":
-        return _compose_start_args("lulu-arch")
-    elif stage == "lulu-plan":
-        return _compose_start_args("lulu-plan")
+    if stage in ("lulu-spec", "lulu-blueprint", "lulu-arch", "lulu-plan"):
+        return compose_start_args(stage, tmp_path)
     elif stage == "lulu-tasks":
         tech_ref = tmp_path / "tech-doc.md"
         tech_ref.write_text("# Tech Doc\n", encoding="utf-8")
@@ -483,7 +474,7 @@ class TestTopicIdSessionPath:
                 sys.executable, str(_start_py("lulu-blueprint")),
                 "--project-root", str(tmp_path),
                 "--cycle-id", _TOPIC_ID,
-            ] + _compose_start_args("lulu-blueprint"),
+            ] + compose_start_args("lulu-blueprint", tmp_path),
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("lulu-blueprint")),
         )
@@ -498,7 +489,7 @@ class TestTopicIdSessionPath:
 
 
 class TestContainerRoutingErrors:
-    @pytest.mark.parametrize("stage", _STAGES)
+    @pytest.mark.parametrize("stage", _CYCLE_REGISTRATION_STAGES)
     def test_cycle_id_not_in_features_json_exits_nonzero(self, stage, tmp_path):
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, "other-00000000-aaaabbbb")
@@ -516,7 +507,7 @@ class TestContainerRoutingErrors:
             f"{stage}: expected nonzero exit when cycle_id not in cycles.json"
         )
 
-    @pytest.mark.parametrize("stage", _STAGES)
+    @pytest.mark.parametrize("stage", _CYCLE_REGISTRATION_STAGES)
     def test_topic_id_without_topics_json_exits_nonzero(self, stage, tmp_path):
         cd = _cache_dir(tmp_path)
         cd.mkdir(parents=True, exist_ok=True)
@@ -534,7 +525,7 @@ class TestContainerRoutingErrors:
             f"{stage}: expected nonzero exit when cycles.json absent"
         )
 
-    @pytest.mark.parametrize("stage", _STAGES)
+    @pytest.mark.parametrize("stage", _CYCLE_REGISTRATION_STAGES)
     def test_topic_id_not_in_topics_json_exits_nonzero(self, stage, tmp_path):
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, "topic-other-000-aaaabbbb")

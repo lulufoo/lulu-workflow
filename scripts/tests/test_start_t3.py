@@ -10,6 +10,8 @@ from typing import Optional
 
 import pytest
 
+from compose_start_test_helpers import compose_start_args
+
 _SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
 _LDEV = _SRC / "lulu-workflow"
 _STAGES = ["decision", "lulu-blueprint", "lulu-arch", "lulu-plan", "lulu-tasks", "lulu-exec"]
@@ -380,7 +382,7 @@ class TestArgparseBehavior:
             [sys.executable, str(_start_py("lulu-blueprint")),
              "--project-root", str(tmp_path),
              "--cycle-id", _TOPIC_ID,
-             "--profile-path", str(_LDEV / "lulu-blueprint" / "compose-profile.json")],
+             *compose_start_args("lulu-blueprint", tmp_path)],
             capture_output=True, text=True, env=env,
             cwd=str(_scripts_dir("lulu-blueprint")),
         )
@@ -411,7 +413,7 @@ class TestSessionPath:
             [sys.executable, str(_start_py("lulu-blueprint")),
              "--project-root", str(tmp_path),
              "--cycle-id", _TOPIC_ID,
-             "--profile-path", str(_LDEV / "lulu-blueprint" / "compose-profile.json")],
+             *compose_start_args("lulu-blueprint", tmp_path)],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("lulu-blueprint")),
         )
@@ -422,7 +424,7 @@ class TestSessionPath:
             [sys.executable, str(_start_py("lulu-plan")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
-             "--profile-path", str(_LDEV / "lulu-plan" / "compose-profile.json")],
+             *compose_start_args("lulu-plan", tmp_path)],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("lulu-plan")),
         )
@@ -515,7 +517,7 @@ class TestSessionPath:
             [sys.executable, str(_start_py("lulu-plan")),
              "--project-root", str(tmp_path),
              "--cycle-id", _FID,
-             "--profile-path", str(_LDEV / "lulu-plan" / "compose-profile.json"),
+             *compose_start_args("lulu-plan", tmp_path),
              "--conversation-id", _CONV_ID],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("lulu-plan")),
