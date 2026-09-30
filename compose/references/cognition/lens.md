@@ -15,8 +15,8 @@ What a lens is, and how a stage's lenses connect into one chain.
    document section it was cut from, or the Open it landed from. If context
    still leaves several lenses, choose the lens whose intent is closest to the
    fact. Whether to split a fact is decided by the fact standard, not here.
-   Storage keeps `lens_tags` as an array; one lens is a producer constraint,
-   not a storage shape.
+   Storage keeps `lens_tags` as an array holding that one lens; a stored fact
+   with several tags reads as its first.
 5. A lens is neither a chapter nor a writing style. Membership is stored;
    presentation is applied later, per lens.
 
