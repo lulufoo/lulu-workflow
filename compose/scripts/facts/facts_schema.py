@@ -12,9 +12,9 @@ Shape: JSON array of ``{id, text, lens_tags}`` plus optional ``source``
 
 ``_facts.json`` replaces the single-``home`` ``_partition.json`` atom for the
 fact-first display layer (increment 1, M1). A fact's ``lens_tags`` is stored as
-a membership list (zero, one, or many lens keys) — deliberately **not** a single
-``home``; producers limit it to one lens through the opt-in ``single_lens``
-check. Empty ``lens_tags`` is schema-legal (Q1 quarantine candidate,
+a list that holds exactly one lens key (``validate_facts`` rejects more); a
+legacy file with several tags reads as its first tag (``load_facts``). Empty
+``lens_tags`` is schema-legal (Q1 quarantine candidate,
 audited downstream by Step 6 gates, not blocked here). Display placement
 (``display_home`` / ``form_lens`` / chapter membership) is **not** a fact
 field — it lives in ``_narrative-arc.json`` (chapter plan SoT; archive-5.0)
@@ -243,7 +243,6 @@ def validate_facts(
     require_derivation: bool = False,
     intake_structure: bool = False,
     require_seed_origin: bool = False,
-    single_lens: bool = False,
 ) -> list[str]:
     """Return validation errors for a facts array.
 
@@ -251,8 +250,8 @@ def validate_facts(
     ``derivation.upstream_ref`` and **omit** ``derivation.disposition``; forbid
     ``origin.type=discovered``. Optional ``require_seed_origin`` for inductive.
 
-    ``single_lens``: every non-empty ``lens_tags`` holds exactly one lens
-    (producer constraint; empty tags stay governed by ``derivation.disposition``).
+    Non-empty ``lens_tags`` hold exactly one lens; empty tags stay governed by
+    ``derivation.disposition``.
     """
     errors: list[str] = []
     if not isinstance(facts, list):
@@ -316,10 +315,9 @@ def validate_facts(
                         f"{prefix}.lens_tags[{t_index}] {tag_key!r} not in allowed lenses "
                         f"{sorted(allowed)}",
                     )
-            if single_lens:
-                message = single_lens_error(prefix, tags)
-                if message:
-                    errors.append(message)
+            message = single_lens_error(prefix, tags)
+            if message:
+                errors.append(message)
             # Empty lens_tags is legal here by design (Q1 quarantine candidate).
 
         if "source" in entry:
@@ -463,14 +461,29 @@ def normalize_fact(entry: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _first_lens_only(entry: Any) -> Any:
+    """Legacy multi-tag entry → its first tag (in memory; the file is untouched)."""
+    if isinstance(entry, dict):
+        tags = entry.get("lens_tags")
+        if isinstance(tags, list) and len(tags) > 1:
+            return {**entry, "lens_tags": tags[:1]}
+    return entry
+
+
 def load_facts(path: Path) -> list[dict[str, Any]]:
-    """Load and validate facts file; raise ValueError on failure."""
+    """Load and validate facts file; raise ValueError on failure.
+
+    A legacy fact with several ``lens_tags`` reads as its first tag, so every
+    later write persists exactly one lens.
+    """
     if not path.is_file():
         raise ValueError(f"facts file not found: {path}")
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ValueError(f"invalid facts JSON: {exc}") from exc
+    if isinstance(data, list):
+        data = [_first_lens_only(entry) for entry in data]
     errors = validate_facts(data)
     if errors:
         raise ValueError("; ".join(errors))
@@ -486,7 +499,6 @@ def save_facts(
     require_derivation: bool = False,
     intake_structure: bool = False,
     require_seed_origin: bool = False,
-    single_lens: bool = False,
 ) -> None:
     """Validate and write facts array (preserves optional ``source`` / ``origin``).
 
@@ -504,7 +516,6 @@ def save_facts(
         require_derivation=require_derivation,
         intake_structure=intake_structure,
         require_seed_origin=require_seed_origin,
-        single_lens=single_lens,
     )
     if errors:
         raise ValueError("; ".join(errors))
@@ -517,7 +528,6 @@ def save_facts(
         require_derivation=require_derivation,
         intake_structure=intake_structure,
         require_seed_origin=require_seed_origin,
-        single_lens=single_lens,
     )
     if errors:
         raise ValueError("; ".join(errors))
@@ -526,8 +536,7 @@ def save_facts(
 
 def filter_by_lens(facts: list[dict[str, Any]], lens: str) -> list[dict[str, str]]:
     """Return facts tagged with one lens — addressable ``{id,text}``, never
-    dissolved into prose (unlike Partition's ``filter_i_star``): a fact keeps
-    its identity because it may also be tagged to other lenses (N:M)."""
+    dissolved into prose (unlike Partition's ``filter_i_star``)."""
     key = lens.strip().upper()
     return [
         {"id": f["id"], "text": f["text"]}
@@ -537,7 +546,7 @@ def filter_by_lens(facts: list[dict[str, Any]], lens: str) -> list[dict[str, str
 
 
 def lenses_present(facts: list[dict[str, Any]]) -> dict[str, int]:
-    """Count of facts per lens tag. Sum may exceed len(facts) (N:M)."""
+    """Count of facts per lens tag."""
     counts: dict[str, int] = {}
     for fact in facts:
         for tag in fact.get("lens_tags", []):
