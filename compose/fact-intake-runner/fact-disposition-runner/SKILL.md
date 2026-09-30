@@ -37,9 +37,13 @@ One verdict per atom:
 
 ```text
 not_needed  ⇐ one consume_policy rule holds        (cite rule_id; no tags)
-carried     ⇐ some lens intent owns it             (tags = those lenses)
+carried     ⇐ some lens intent owns it             (tags = one lens, chosen per lens.md)
 quarantined ⇐ otherwise                            (no tags)
 ```
+
+One lens per fact: read its source section (`derivation.upstream_ref`) first;
+if still ambiguous, take the lens whose intent is closest. Splitting is not
+decided here.
 
 ## Script Macros
 
@@ -56,8 +60,8 @@ Facts: `--help` · `write` · `validate`.
 1. Bind Input.  
 2. `$FACT_DISPOSITION_BUILD context …` (section-registry + role consume_policy).  
 3. don't-list → `not_needed`; Intent → `carried`/`quarantined`; repair don't-list false kills.  
-4. Persist via `$FACTS_CTL write`.  
-5. `$FACTS_CTL validate … --require-derivation`.
+4. Persist via `$FACTS_CTL write … --single-lens`.  
+5. `$FACTS_CTL validate … --require-derivation --single-lens`.
 
 **Done:** validate exit 0.
 
