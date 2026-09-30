@@ -45,7 +45,7 @@ Context terms carry the meanings defined in these units.
 Placement composes them:
 
 ```text
-place(fact) = one leaf → one chapter,  chapter.lens ∈ fact.lens_tags
+place(fact) = one leaf → one chapter,  chapter.lens = the fact's lens (lens_tags)
 ```
 
 The arc gives topology and titles; `lens_tags` decide membership only.
