@@ -6,6 +6,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 _DERIVE = Path(__file__).resolve().parent.parent / "deductive" / "derive"
 sys.path.insert(0, str(_DERIVE))
 
@@ -180,6 +182,18 @@ def test_append_derived_facts_contiguous_ids_and_source():
     assert out[2]["lens"] == "T"
     assert out[2]["source"] == ["F-1"]
     assert out[3]["source"] == ["F-2", "按 AR 契约"]
+
+
+def test_append_derived_facts_requires_lens_and_text():
+    base = [{"id": "F-1", "text": "sk", "lens": "SK"}]
+    with pytest.raises(ValueError, match=r"derived\[0\]\.lens is required"):
+        append_derived_facts(base, [{"text": "x", "lens_tags": ["T"]}])
+    with pytest.raises(ValueError, match=r"derived\[1\]\.text is required"):
+        append_derived_facts(
+            base, [{"text": "ok", "lens": "T"}, {"lens": "T"}]
+        )
+    with pytest.raises(ValueError, match=r"derived\[0\]\.lens is required"):
+        append_derived_facts(base, [{"text": "x", "lens": ["T"]}])
 
 
 def test_append_derived_facts_preserves_origin():
