@@ -50,10 +50,10 @@ _WORKFLOW_PY_PATH = re.compile(
     r"lulu-workflow[/\\][^\s;|&\"']+\.py\b"
 )
 
-# Literal $SKILL_ROOT / ${SKILL_ROOT} / $SKILL_DIR / ${SKILL_DIR} ...py paths
+# Literal $SKILL_ROOT / $SKILL_DIR / $DECISION_SKILL_DIR (and ${...}) ...py paths
 # (preToolUse sees the command before shell expands variables).
 _SKILL_VAR_PY_PATH = re.compile(
-    r"\$\{?SKILL_(?:ROOT|DIR)\}?/[^\s;|&\"']+\.py\b"
+    r"\$\{?(?:SKILL_ROOT|SKILL_DIR|DECISION_SKILL_DIR)\}?/[^\s;|&\"']+\.py\b"
 )
 
 _CONV_ID_INJECT_SCRIPT_SUFFIXES = (
