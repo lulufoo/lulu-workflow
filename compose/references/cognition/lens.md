@@ -11,8 +11,12 @@ What a lens is, and how a stage's lenses connect into one chain.
 2. `intent` is the lens's inclusion charter: what substance belongs here.
 3. `intent_boundary` is its exclusion list: substance named there belongs
    to other lenses and is never authored under this one.
-4. Membership is N:M. One fact may belong to several lenses; each lens
-   reads it under its own charter.
+4. Each fact carries one lens. Choose it from the fact's source context: the
+   document section it was cut from, or the Open it landed from. If context
+   still leaves several lenses, choose the lens whose intent is closest to the
+   fact. Whether to split a fact is decided by the fact standard, not here.
+   Storage keeps `lens_tags` as an array; one lens is a producer constraint,
+   not a storage shape.
 5. A lens is neither a chapter nor a writing style. Membership is stored;
    presentation is applied later, per lens.
 
