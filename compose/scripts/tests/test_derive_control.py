@@ -76,7 +76,7 @@ def test_cli_append_reports_missing_lens_without_traceback(
     _seed_facts(rev, base)
     derived = tmp_path / "derived.json"
     derived.write_text(
-        json.dumps([{"text": "task", "lens_tags": ["T"], "source": ["F-1"]}]),
+        json.dumps([{"text": "task", "source": ["F-1"]}]),
         encoding="utf-8",
     )
 

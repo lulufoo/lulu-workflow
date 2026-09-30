@@ -187,7 +187,7 @@ def test_append_derived_facts_contiguous_ids_and_source():
 def test_append_derived_facts_requires_lens_and_text():
     base = [{"id": "F-1", "text": "sk", "lens": "SK"}]
     with pytest.raises(ValueError, match=r"derived\[0\]\.lens is required"):
-        append_derived_facts(base, [{"text": "x", "lens_tags": ["T"]}])
+        append_derived_facts(base, [{"text": "x"}])
     with pytest.raises(ValueError, match=r"derived\[1\]\.text is required"):
         append_derived_facts(
             base, [{"text": "ok", "lens": "T"}, {"lens": "T"}]
