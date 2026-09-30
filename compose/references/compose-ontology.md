@@ -10,7 +10,7 @@ each from its own cognition units.
 | Layer | Holds | Answers | Lives in |
 |---|---|---|---|
 | Substance | facts and their anchors | what is true in this stage | `_facts.json`, producer-written |
-| Lens | intent, membership (`lens_tags`), KW altitude | whose viewpoint owns a fact; how deep it must go | section registry, kw-criteria |
+| Lens | intent, membership (`lens`), KW altitude | whose viewpoint owns a fact; how deep it must go | section registry, kw-criteria |
 | Presentation | narrative arc, chapters, per-lens writing cognition | where and how substance is shown | `_narrative-arc.json`, form registry, the assembled document |
 
 Invariant: substance carries no presentation. A fact carries one lens and is

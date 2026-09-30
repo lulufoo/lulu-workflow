@@ -63,7 +63,7 @@ For lens `CTX`, write one temporary `<derived-file>`:
 [
   {
     "text": "<projected fact>",
-    "lens_tags": ["CTX"],
+    "lens": "CTX",
     "origin": {
       "type": "derived",
       "ref": ["F-7"],

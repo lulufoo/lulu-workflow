@@ -26,7 +26,7 @@ Who each build choice listens to, and how hard that bind is.
 | Group/leaf **titles and grouping shape** | Substance story in facts (objects, behaviors, contract surfaces, end-state, verification, …) | **Must** |
 | Group/leaf **order** | Role `priority_tendency` | **Must** (exception: fact dependency forces prerequisite first) |
 | **Intra-tier order** (groups tied in one `priority_tendency` slot) | Descending narrative altitude: whole before its parts | **Should** (tie-breaker; explicit Role order or fact dependency overrides) |
-| Fact membership + phase-2 write-unit split | Lens tags + registry lens relations | **Must** — never whole-document leaf order; never the presentation title schema |
+| Fact membership + phase-2 write-unit split | The fact's lens + registry lens relations | **Must** — never whole-document leaf order; never the presentation title schema |
 | Split / do not mix | Domain `expression_conventions.scannability` (full text for active profile) | **Must** |
 | Genre mission / through-line check | Domain `cognitive_frame` / `audience_type` | **Must** (enforced by Check) |
 
@@ -46,7 +46,7 @@ Where each fact sits, and what that station is named.
 - One top title carries one duty. Do not glue duties with 与/及/和, `and`, or `&`.
 - A title below the roots names a station: an object, a surface, or a behavior area. It does not compress a fact claim. Claims stay in the content.
 - Related aspects may be paired. An assertion chain is replaced by the name of their shared object.
-- Titles do not come from registry lens order, Role priority, lens tags, or Role vocabulary.
+- Titles do not come from registry lens order, Role priority, a fact's lens, or Role vocabulary.
 
 ## Split
 
