@@ -56,7 +56,7 @@ in G4. Then call:
 
 The control validates the report against current facts and Opens, atomically
 registers all findings as Opens (each `finding.lens` must come from an
-implicated Open.`lens` or a fact `lens_tags` value), reopens G3,
+implicated Open.`lens` or a fact `lens` value), reopens G3,
 resets G4, and invalidates the report. After G3 closes again, run the complete
 G4 audit from fresh context.
 

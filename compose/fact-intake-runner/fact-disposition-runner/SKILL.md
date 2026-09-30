@@ -7,7 +7,7 @@ description: >-
 # fact-disposition-runner
 
 Classify existing `_facts.json` atoms into `carried` / `quarantined` /
-`not_needed`; write disposition + lens_tags (Intent rule).
+`not_needed`; write disposition + lens (Intent rule).
 
 **Must:** `$FACT_DISPOSITION_BUILD context`; write dispositions; pass
 tightened validate.  
@@ -28,7 +28,7 @@ Context terms carry the meanings defined in these units.
 
 | Term | Unit |
 |---|---|
-| fact atom, `lens_tags` | `../../references/cognition/fact.md` |
+| fact atom, `lens` | `../../references/cognition/fact.md` |
 | registry `intent`, `intent_boundary` | `../../references/cognition/lens.md` |
 | `derivation.disposition`, `rule_id` | `../../references/cognition/producer/provenance.md` |
 | role `consume_policy` | `../../references/cognition/profile/role.md` |
@@ -36,9 +36,9 @@ Context terms carry the meanings defined in these units.
 One verdict per atom:
 
 ```text
-not_needed  ⇐ one consume_policy rule holds        (cite rule_id; no tags)
-carried     ⇐ some lens intent owns it             (tags = one lens, chosen per lens.md)
-quarantined ⇐ otherwise                            (no tags)
+not_needed  ⇐ one consume_policy rule holds        (cite rule_id; omit lens)
+carried     ⇐ some lens intent owns it             (lens = one key, chosen per lens.md)
+quarantined ⇐ otherwise                            (omit lens)
 ```
 
 One lens per fact: read its source section (`derivation.upstream_ref`) first;

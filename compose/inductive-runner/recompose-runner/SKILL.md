@@ -24,7 +24,7 @@ Context terms carry the meanings defined in these units.
 | Term | Unit |
 |---|---|
 | `facts_snapshot`, fact | `../../references/cognition/fact.md` |
-| `lens_tags`, finding `lens` | `../../references/cognition/lens.md` |
+| fact `lens`, finding `lens` | `../../references/cognition/lens.md` |
 
 A contradiction is judged at the substance layer: two facts that cannot
 both be true in this slice. A difference in presentation is not one.
@@ -49,7 +49,7 @@ Return:
 
 - `echoed_digests.facts` and `echoed_digests.opens`: the received digests;
 - `findings`: `[{question, basis, blocking, lens}]` — one object per issue;
-  stamp `lens` only from an implicated Open's `lens` or a fact `lens_tags`
+  stamp `lens` only from an implicated Open's `lens` or a fact's `lens`
   value; fail if neither yields a lens; do not guess a registry key;
 - `buildable`, `reversible`, and `verifiable`;
 - `evidence`: brief support for those three predicates only.

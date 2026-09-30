@@ -26,7 +26,7 @@ Facts and their fields carry the meanings defined in these units.
 | Term | Unit |
 |---|---|
 | deduction, projection, hole, leftover | `../references/cognition/producer/deduce.md` |
-| fact, `lens_tags`, `anchors` | `../references/cognition/fact.md` |
+| fact, `lens`, `anchors` | `../references/cognition/fact.md` |
 | lens, `section-registry` edges | `../references/cognition/lens.md` |
 | `origin` (`derived`), `derivation.disposition` | `../references/cognition/producer/provenance.md` |
 | role `consume_policy` | `../references/cognition/profile/role.md` |
@@ -135,7 +135,7 @@ Return control to the parent compose stage. Parent runs
 
 ## Return Contract
 
-**Facts:** `_facts.json` — `F-n` with `text`, `lens_tags` (empty for `quarantined` /
+**Facts:** `_facts.json` — `F-n` with `text`, `lens` (omitted for `quarantined` /
 `not_needed`), optional `origin` / `derivation` / `source` / `anchors`. Intake
 facts: `derivation.disposition` ∈ {`carried`,`quarantined`,`not_needed`};
 `not_needed` requires `rule_id` ∈ role `consume_policy.rules[].id`.
