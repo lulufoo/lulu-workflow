@@ -30,10 +30,10 @@ is legal.
 
 | Mode | When | Behavior |
 |------|------|----------|
-| `prepare` | Pack not ready | Off-turn: read `$CTX.gl.exchanges` in full; load `$SKILL_DIR/runners/risk-scan-runner/SKILL.md` in **full** mode; draft the pack and proposed exit. **No user confirm.** |
+| `prepare` | Pack not ready | Off-turn: read `$CTX.gl.exchanges` in full; load `$DECISION_SKILL_DIR/runners/risk-scan-runner/SKILL.md` in **full** mode; draft the pack and proposed exit. **No user confirm.** |
 | `present` | Pack ready | Show the pack and proposed exit together. On confirm: `$GATE_CONTROL apply-r-assumptions` (`--help`); then `handle` or `close`. |
 | `revise` | User requests expose changes | Apply changes, then re-present the full pack. |
-| `handle` | After persist, any `risk_state=open` remains and exit is still `dc` | H→M→L: load `$SKILL_DIR/runners/risk-release-runner/SKILL.md` for the next open row; one op; repeat or exit. Table changes → `present` / `revise`; upstream wrong → `rs`; cannot finish → `human_decision`. |
+| `handle` | After persist, any `risk_state=open` remains and exit is still `dc` | H→M→L: load `$DECISION_SKILL_DIR/runners/risk-release-runner/SKILL.md` for the next open row; one op; repeat or exit. Table changes → `present` / `revise`; upstream wrong → `rs`; cannot finish → `human_decision`. |
 | `close` | `G-handled` met | `$GATE_CONTROL gate-close --gate R` (`--help`). |
 
 ## Signals
@@ -43,7 +43,7 @@ Apply Decision [Signals](../../SKILL.md#signals) throughout R.
 ## Divert
 
 - If `$CTX.gates.R.status == stale`: follow
-  `$SKILL_DIR/references/r-stale-review.md`, then Exit.
+  `$DECISION_SKILL_DIR/references/r-stale-review.md`, then Exit.
 - `exit=rs` → load RS runner. `exit=human_decision` → load HD runner.
 
 ## Run

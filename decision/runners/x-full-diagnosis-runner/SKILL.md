@@ -44,7 +44,7 @@ For each active dimension:
 
 ## Session Loop
 
-1. If `$CTX.gates.X.status == stale`, follow `$SKILL_DIR/references/rs-stale-gate-update.md`. Exactly one:
+1. If `$CTX.gates.X.status == stale`, follow `$DECISION_SKILL_DIR/references/rs-stale-gate-update.md`. Exactly one:
    - `$CTX.resume_gate` is `X` → continue at 2.
    - `$CTX.resume_gate` is not `X` → return `GATE_COMPLETE X` and skip 2–3.
 2. Run Dimension Diagnosis for every active dimension.

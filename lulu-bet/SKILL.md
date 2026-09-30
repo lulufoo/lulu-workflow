@@ -13,6 +13,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
 - `$SKILL_DIR` = `$SKILL_ROOT/lulu-bet` (before Session Foundation)
+- `$DECISION_SKILL_DIR` = `$SKILL_ROOT/decision`
 - Feature identification logic from `## Session Foundation`
 </HARD-GATE>
 

@@ -13,8 +13,8 @@ confirmation. Complete when the user confirms the decision is correct to deliver
 
 | Macro | Command |
 |-------|---------|
-| `$DEC_EVAL` | `python3 "$SKILL_DIR/scripts/dec_eval_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$SESSION_INTEGRITY` | `python3 "$SKILL_DIR/scripts/dec_session_integrity.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
+| `$DEC_EVAL` | `python3 "$DECISION_SKILL_DIR/scripts/dec_eval_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
+| `$SESSION_INTEGRITY` | `python3 "$DECISION_SKILL_DIR/scripts/dec_session_integrity.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
 
 Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`.
 
@@ -33,7 +33,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 
 ## Present
 
-1. `$SESSION_INTEGRITY render` once before `present`. Layout / section set: `render --help`. Template: `$SKILL_DIR/templates/decision-doc.template.md`.
+1. `$SESSION_INTEGRITY render` once before `present`. Layout / section set: `render --help`. Template: `$DECISION_SKILL_DIR/templates/decision-doc.template.md`.
 2. Show the rendered doc; omit file paths.
 3. After close, do not announce stage Delivered or next stages.
 
@@ -41,7 +41,7 @@ Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`
 
 Eval owns probe-runner dispatch; Decision never dispatches Eval runners or remediation. Contracts: `eval/eval-profile.json`, `$DEC_EVAL` / `$EVAL_CONTROL` `--help`, `eval/methods/decision-consistency.md`.
 
-1. Pin `$EVAL_ADAPTER_CONFIG` = `$SKILL_DIR/eval/eval-profile.json`.
+1. Pin `$EVAL_ADAPTER_CONFIG` = `$DECISION_SKILL_DIR/eval/eval-profile.json`.
 2. Load `$SKILL_ROOT/eval/SKILL.md` and execute its **Begin Eval** probe-only
    segment.
 3. Pin the successful `complete-probe-only` JSON as `probe_result`.
@@ -69,7 +69,7 @@ Apply Decision [Signals](../../SKILL.md#signals) throughout DC.
 ## Act
 
 1. If `$CTX.gates.DC.status == stale`, follow
-   `$SKILL_DIR/references/rs-stale-gate-update.md` Assess only, then
+   `$DECISION_SKILL_DIR/references/rs-stale-gate-update.md` Assess only, then
    continue.
 2. Loop Modes (Signals and Routes as above) until `close` succeeds.
 

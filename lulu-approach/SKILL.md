@@ -12,15 +12,13 @@ Domain holder for technical diagnostic decisions. It orchestrates one `decision`
 Do NOT proceed until you have read `../_runtime.md` and `../decision/SKILL.md` in full, and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
-- `$SKILL_DIR` = `$SKILL_ROOT/lulu-approach` (before Session Foundation)
+- `$SKILL_DIR` = `$SKILL_ROOT/lulu-approach`
 - `$DECISION_SKILL_DIR` = `$SKILL_ROOT/decision`
 - `$APPROACH_ROOT` = `$CACHE_DIR/<cycle_id>/lulu-approach` (the decision session)
 - Feature identification logic from `## Session Foundation`
 </HARD-GATE>
 
 ## Script Macros
-
-### Local approach macros
 
 | Macro | Command |
 |-------|---------|
@@ -31,20 +29,7 @@ Do NOT proceed until you have read `../_runtime.md` and `../decision/SKILL.md` i
 | `$APPROACH_SESSION` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT" <subcommand> --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
 | `$APPROACH_DELIVER` | `python3 "$SKILL_DIR/scripts/approach_shell_control.py" --approach-root "$APPROACH_ROOT" deliver --cycle-id "<cycle_id>" --project-root "$(pwd)" --confirm` |
 
-### Imported decision macros
-
-| Macro | Command |
-|-------|---------|
-| `$DEC_START` | `python3 "$DECISION_SKILL_DIR/scripts/dec_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--domain-constraints-file "<path>"] [--session-dir "<session_dir>"]` |
-| `$DEC_REOPEN` | `python3 "$DECISION_SKILL_DIR/scripts/dec_reopen.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--permit "<permit_path>"]` |
-| `$GATE_CONTROL` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$GET_PAYLOAD` | `$GATE_CONTROL get-payload` |
-| `$BATCH_RECLOSE` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" batch-reclose --payloads '<json object>'` |
-| `$REGISTER_COMMIT` | `python3 "$DECISION_SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" register-commit --operations '<json array>'` |
-| `$RS_COMMIT` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" rs-commit --gate "<G>" --operations '<json array>'` |
-| `$SESSION_INTEGRITY` | `python3 "$DECISION_SKILL_DIR/scripts/dec_session_integrity.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-
-`<constraints_path>` is `$SKILL_DIR/constraints-$CYCLE_TYPE.json`.
+Decision macros (`$DEC_START`, `$GATE_CONTROL`, `$RS_COMMIT`, ...) are defined in `../decision/SKILL.md`; `<constraints_path>` is `$SKILL_DIR/constraints-$CYCLE_TYPE.json`.
 
 - Subcommand and stdout contracts remain in script module docstrings or `--help`.
 - Any command that exits non-zero stops the flow: report stderr.

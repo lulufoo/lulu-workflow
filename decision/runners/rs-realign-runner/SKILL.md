@@ -64,7 +64,7 @@ Batch starts only after this choice.
    `stale-from` separately, or enumerate downstream gates.
 5. Non-zero exit → stop, report the error, and wait for user direction.
 6. State whether the change is a light patch and why; ask Batch vs Per-gate.
-7. Batch → follow `$SKILL_DIR/references/rs-stale-batch-confirm.md`; return its
+7. Batch → follow `$DECISION_SKILL_DIR/references/rs-stale-batch-confirm.md`; return its
    `BATCH_COMPLETE`.
 8. Per-gate → return `RS_COMPLETE reenter=<G>`; the kernel loads that stale
    gate's runner.

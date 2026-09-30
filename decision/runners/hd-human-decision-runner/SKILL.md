@@ -28,7 +28,7 @@ Does not close a spine gate or change the active gate.
 
 1. Present the R failure context and ask the user to choose an Outcomes row.
 2. Upstream wrong → identify the align gate, then load
-   `$SKILL_DIR/runners/rs-realign-runner/SKILL.md`.
+   `$DECISION_SKILL_DIR/runners/rs-realign-runner/SKILL.md`.
 3. No decision possible → report `Unable to Decide` with the required contents.
 
 Return `HD_COMPLETE exit=rs|unable` or hand off to RS runner.
