@@ -45,9 +45,9 @@ def _l1(rev: Path) -> Path:
     return execution_dir(rev)
 
 
-def test_validate_accepts_n_to_m_tags():
+def test_validate_accepts_one_lens_per_fact():
     facts = [
-        {"id": "F-1", "text": "one", "lens_tags": ["CTX", "GO"]},
+        {"id": "F-1", "text": "one", "lens_tags": ["GO"]},
         {"id": "F-2", "text": "two", "lens_tags": ["I"]},
     ]
     assert validate_facts(facts, allowed_lenses=["CTX", "GO", "I"]) == []
@@ -111,9 +111,9 @@ def test_validate_rejects_empty_and_non_array_root():
 
 
 def test_filter_by_lens_stays_addressable(tmp_path: Path):
-    """N:M: a fact tagged to two lenses is returned intact (not dissolved into prose)."""
+    """A fact is returned intact (not dissolved into prose)."""
     facts = [
-        {"id": "F-1", "text": "alpha", "lens_tags": ["CTX", "AR"]},
+        {"id": "F-1", "text": "alpha", "lens_tags": ["AR"]},
         {"id": "F-2", "text": "beta", "lens_tags": ["I"]},
         {"id": "F-3", "text": "gamma", "lens_tags": ["AR"]},
     ]
@@ -141,7 +141,7 @@ def test_lenses_present_and_unlensed_ids():
 
 def test_control_write_validate_status(tmp_path: Path):
     facts = [
-        {"id": "F-1", "text": "fact one", "lens_tags": ["GO", "AR"]},
+        {"id": "F-1", "text": "fact one", "lens_tags": ["GO"]},
         {"id": "F-2", "text": "fact two", "lens_tags": ["AR"]},
     ]
     facts_file = tmp_path / "facts.json"
@@ -168,7 +168,7 @@ def test_control_write_validate_status(tmp_path: Path):
     assert (_l1(rev) / "_facts.json").is_file()
     payload = json.loads(write.stdout)
     assert payload["facts_total"] == 2
-    assert payload["by_lens"] == {"GO": 1, "AR": 2}
+    assert payload["by_lens"] == {"GO": 1, "AR": 1}
     assert payload["unlensed_total"] == 0
 
     validate = subprocess.run(
