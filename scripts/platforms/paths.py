@@ -19,7 +19,7 @@ _GITIGNORE_ENTRY: dict[str, str] = {
     "claude": ".claude",
 }
 
-SKILL_INSTALL_ROOT = Path.home() / ".agents" / "skills" / SKILL_NAME
+SKILL_INSTALL_COMMAND_ROOT = f"~/.agents/skills/{SKILL_NAME}"
 
 CLAUDE_PRE_TOOL_USE_MATCHER = "Write|Edit|Read|Bash"
 CURSOR_PRE_TOOL_USE_MATCHER = "Write|Edit|Read|Shell"
@@ -43,7 +43,7 @@ def gitignore_entry(platform: str) -> str | None:
 
 def hook_guard_command(platform: str) -> str:
     """Return hooks.json command string for the installed skill hook entry."""
-    command = f"python3 {SKILL_INSTALL_ROOT / 'scripts' / 'hook' / 'hook_guard.py'}"
+    command = f"python3 {SKILL_INSTALL_COMMAND_ROOT}/scripts/hook/hook_guard.py"
     if platform in ("copilot", "claude"):
         command += f" --platform {platform}"
     return command
@@ -52,6 +52,6 @@ def hook_guard_command(platform: str) -> str:
 def hook_prompt_command(platform: str) -> str:
     """Return beforeSubmitPrompt command for externalPathGuard.sessionAllow."""
     return (
-        f"python3 {SKILL_INSTALL_ROOT / 'scripts' / 'hook' / 'hook_prompt.py'}"
+        f"python3 {SKILL_INSTALL_COMMAND_ROOT}/scripts/hook/hook_prompt.py"
         f" --platform {platform}"
     )
