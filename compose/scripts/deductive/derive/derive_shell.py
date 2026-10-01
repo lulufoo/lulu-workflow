@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Mechanical shell for kernel Step 3 (deductive derivation, K1).
 
-Process how archive: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact-first-k1-pd-design.md §2.
-
 Step 3 = AI semantic step + this mechanical shell. Scripts never invent derived
 work-item text — they only:
   * decide which required lenses trigger (zero-only + derivation edge);

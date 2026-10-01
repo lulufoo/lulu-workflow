@@ -11,9 +11,6 @@ Subcommands:
     assemble-arc          Assemble full doc from ``_narrative-arc.json`` + bodies
 
 CLI details: ``python3 compose_doc_control.py --help``
-
-Process how:
-docs/archive/lulu-workflow/compose/archive-5.0/compose-narrative-arc-assemble-presentation-design.md
 """
 
 from __future__ import annotations

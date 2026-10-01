@@ -22,8 +22,6 @@ Subcommands:
     complete-assumption    Write release_terms + check evidence + risk_state=completed on
                            RK# (or leftover A#). Structured terms need
                            --check-result pass --check-evidence; `Accepted` is M/L only.
-                           Evidence gate: docs/archive/lulu-workflow/decision/
-                           decision-risk-release-evidence-gate-design.md
     set-risk-state         Set risk_state to ignore|open on RK# (or leftover A#)
     apply-r-assumptions    Persist risk rows on risks[] without requiring active_gate=R
     migrate-session        Bootstrap gate-state/registers for legacy sessions

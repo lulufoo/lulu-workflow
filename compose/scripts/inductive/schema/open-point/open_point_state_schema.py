@@ -2,9 +2,6 @@
 """Schema and I/O for slice ``open-point-state.json``.
 
 Loop position only: idle|processing plus the active batch/open ids.
-
-Design rationale:
-docs/archive/lulu-workflow/compose/archive-34.0/compose-g3-open-point-loop-refactor-design.md
 """
 
 from __future__ import annotations

@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """Schema and I/O for revision ``_facts.json`` (compose fact-first SoT).
 
-Process how archive: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact-first-display-layer-design.md §3.1;
-K1 ``source``, process how: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact-first-k1-pd-design.md §3.
-
 Shape: JSON array of ``{id, text, lens}`` plus optional ``source``
 (non-empty string array; Step-3-derived facts only) and optional ``origin``
 (``{type, ref}`` structured provenance; K4 Phase 1a) — no envelope.

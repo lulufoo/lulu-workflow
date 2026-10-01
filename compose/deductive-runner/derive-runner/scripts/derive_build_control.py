@@ -4,9 +4,6 @@
 Subcommands:
     context       Registry + section_order
     lens-bundle   Per-lens KW slice (## LENS) + Ceiling material facts
-
-Rationale (design): docs/archive/lulu-workflow/compose/archive-32.0/
-compose-derive-edge-holes-lifecycle-scheme-draft.md
 """
 
 from __future__ import annotations

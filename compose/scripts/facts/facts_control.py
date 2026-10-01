@@ -12,8 +12,6 @@ Subcommands:
     All commands operate on ``revision/execution/_facts.json``.
     Writes require the execution state to be FactIntake, Inductive, or Deductive.
 
-Process how archive: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact-first-display-layer-design.md §3.1, §11 (M1);
-optional ``source`` field: compose-fact-first-k1-pd-design.md §3.
 Wired into fact-first Writing (Steps 2 and 6).
 """
 

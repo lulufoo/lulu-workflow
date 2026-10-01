@@ -6,17 +6,6 @@ working slice, then calls the store.
 
 Subcommands print JSON to stdout. Exit 0 on success, exit 1 on
 validation / stale / invariant errors.
-
-Design rationale:
-docs/archive/lulu-workflow/compose/archive-42.0/compose-g3-coarsest-gap-ruler-design.md
-docs/archive/lulu-workflow/compose/archive-43.0/compose-g3-gate-phase-map-design.md
-docs/archive/lulu-workflow/compose/compose-g3-detect-context-slim-design.md
-docs/archive/lulu-workflow/compose/archive-50.0/compose-g3-detect-lens-context-design.md
-docs/archive/lulu-workflow/compose/archive-67.0/compose-g3-detect-verdict-slim-design.md
-docs/archive/lulu-workflow/compose/archive-68.0/compose-g3-detect-clean-skip-design.md
-docs/archive/lulu-workflow/compose/archive-69.0/compose-g3-detect-probe-only-design.md
-docs/archive/lulu-workflow/compose/archive-70.0/compose-g3-detect-lens-payload-complete-design.md
-docs/archive/lulu-workflow/compose/archive-71.0/compose-g3-detect-cognition-skill-design.md
 """
 
 from __future__ import annotations

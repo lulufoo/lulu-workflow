@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 """Schema I/O for ``deductive-pending.json`` (confirm-gate SoT).
-
-Design rationale (source repo, why-only):
-docs/archive/lulu-workflow/compose/archive-3.0/compose-deductive-runner-architecture-design.md §4.5.
 """
 
 from __future__ import annotations

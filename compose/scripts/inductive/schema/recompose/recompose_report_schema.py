@@ -4,9 +4,6 @@
 One report per working slice. Binds facts/opens digests; does not copy facts.
 Empty findings are valid only when buildable, reversible, and verifiable
 are all true.
-
-Design rationale:
-docs/archive/lulu-workflow/compose/archive-37.0/compose-g3-detect-execution-closure-design.md
 """
 
 from __future__ import annotations
