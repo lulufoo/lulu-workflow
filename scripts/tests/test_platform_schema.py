@@ -113,6 +113,6 @@ def test_resolve_platform_context_defaults_cursor(tmp_path, monkeypatch):
         "platform": "cursor",
         "project_root": str(project_root.resolve()),
         "skill_root": str((tmp_path / "skill").resolve()),
-        "workflow_dir": ".cursor/lulu-workflow",
+        "workflow_dir": ".agents/config/lulu-workflow",
         "cache_dir": ".cache/cursor/lulu-workflow",
     }

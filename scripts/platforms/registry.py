@@ -24,6 +24,26 @@ PLATFORM_PATHS: dict[str, dict[str, Path]] = {
     },
 }
 
+AGENTS_WORKFLOW_DIR = Path(".agents/config/lulu-workflow")
+LEGACY_WORKFLOW_DIRS = {
+    platform: paths["workflow_dir"] for platform, paths in PLATFORM_PATHS.items()
+}
+
+
+def resolve_workflow_dir(platform: str, project_root: Optional[Path] = None) -> Path:
+    """Platform-neutral .agents/config dir wins; legacy per-platform dir is fallback.
+
+    Existence is probed under project_root when given, else under the CWD.
+    Returns the workflow dir relative to that base.
+    """
+    base = project_root if project_root is not None else Path(".")
+    if (base / AGENTS_WORKFLOW_DIR).is_dir():
+        return AGENTS_WORKFLOW_DIR
+    legacy = LEGACY_WORKFLOW_DIRS.get(platform, LEGACY_WORKFLOW_DIRS["cursor"])
+    if (base / legacy).is_dir():
+        return legacy
+    return AGENTS_WORKFLOW_DIR
+
 
 class PlatformDetectionError(Exception):
     """Raised when platform cannot be detected and no override is available."""
@@ -77,12 +97,11 @@ def resolve_platform_context(
     """Build resolve-platform-context stdout payload."""
     root = project_root.resolve()
     plat = detect_platform(strict=False)
-    paths = PLATFORM_PATHS[plat]
     skill_root = resolve_skill_root(script_path=script_path)
     return {
         "platform": plat,
         "project_root": str(root),
         "skill_root": str(skill_root),
-        "workflow_dir": paths["workflow_dir"].as_posix(),
-        "cache_dir": paths["cache_dir"].as_posix(),
+        "workflow_dir": resolve_workflow_dir(plat, root).as_posix(),
+        "cache_dir": PLATFORM_PATHS[plat]["cache_dir"].as_posix(),
     }

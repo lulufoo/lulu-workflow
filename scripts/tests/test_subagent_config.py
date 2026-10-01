@@ -27,14 +27,14 @@ class TestPlatformConfigPath:
         from subagent_config import platform_config_path
 
         assert platform_config_path(tmp_path, "cursor") == (
-            tmp_path / ".cursor/lulu-workflow/config.json"
+            tmp_path / ".agents/config/lulu-workflow/config.json"
         )
 
     def test_copilot_path(self, tmp_path):
         from subagent_config import platform_config_path
 
         assert platform_config_path(tmp_path, "copilot") == (
-            tmp_path / ".github/lulu-workflow/config.json"
+            tmp_path / ".agents/config/lulu-workflow/config.json"
         )
 
 
@@ -43,7 +43,7 @@ class TestResolveWorkflowConfigPath:
         from subagent_config import resolve_workflow_config_path
 
         assert resolve_workflow_config_path(tmp_path, "cursor") == (
-            tmp_path / ".cursor/lulu-workflow"
+            tmp_path / ".agents/config/lulu-workflow"
         )
 
     def test_leftover_pointer_does_not_change_root(self, tmp_path):

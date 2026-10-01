@@ -128,7 +128,7 @@ class TestRunInitProjectPlatformBranch:
         with patch("init_ops.SUB_WORKFLOWS", []):
             rc = run_init_project(tmp_path, "cursor")
         assert rc == 0
-        root = tmp_path / ".cursor/lulu-workflow"
+        root = tmp_path / ".agents/config/lulu-workflow"
         assert not (root / "config.json").exists()
         assert (root / "workflow-guard-config.json").is_file()
         assert (root / "manifest.json").is_file()
