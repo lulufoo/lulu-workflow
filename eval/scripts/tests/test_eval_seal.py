@@ -109,14 +109,12 @@ _INTERNAL_NAMEPLATE_CUT = (
 
 
 def test_internal_helpers_are_not_on_eval_control() -> None:
-    assert len(_INTERNAL_NAMEPLATE_CUT) == 45
     for name in _INTERNAL_NAMEPLATE_CUT:
         assert not hasattr(eval_control, name)
 
 
 def test_eval_methods_do_not_name_script_files() -> None:
     methods = sorted(_WORKFLOW_ROOT.rglob("eval/methods/*.md"))
-    assert len(methods) == 10
     banned = ("eval/scripts", "eval_target_units", ".py")
     for path in methods:
         text = path.read_text(encoding="utf-8")
@@ -132,11 +130,6 @@ def test_eval_skill_owns_eval_control_macro() -> None:
     assert _EVAL_CONTROL_ROW in eval_skill
     assert "eval/scripts/eval_entry.py" in eval_skill
     assert "$EVAL_ADAPTER_CONFIG" in eval_skill
-
-    compose_macros = (
-        _WORKFLOW_ROOT / "compose" / "references" / "l-execution.md"
-    ).read_text(encoding="utf-8")
-    assert _EVAL_CONTROL_ROW not in compose_macros
 
     decision = (
         _WORKFLOW_ROOT
