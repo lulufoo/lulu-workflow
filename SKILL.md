@@ -25,7 +25,7 @@ Both lines start at `lulu-brainstorm`. The product track and the architecture tr
 | Line | Purpose | Shape |
 |------|---------|-------|
 | **topic** | Shape product and architecture | `lulu-brainstorm` forks to `lulu-bet` → `lulu-blueprint` and `lulu-approach` → `lulu-arch` |
-| **feature** | Carry a feature through to code | `lulu-brainstorm` forks to `lulu-bet` → `lulu-spec` and `lulu-approach` → `lulu-design`; both join `lulu-plan` → `lulu-tasks` → `lulu-exec` → `lulu-review` |
+| **feature** | Carry a feature through to code | `lulu-brainstorm` forks to `lulu-bet` → `lulu-spec` and `lulu-approach` → `lulu-design`; both join `lulu-plan` → `lulu-tasks` → `lulu-exec` |
 
 1. `lulu-bet` and `lulu-approach` appear on both lines.
 2. On `feature`, the two tracks join at `lulu-plan`.
@@ -48,7 +48,6 @@ Load one sub-SKILL after `$CYCLE_ID` is confirmed.
 | `lulu-exec` / `c` | Task exec | Read [lulu-exec/SKILL.md](./lulu-exec/SKILL.md) |
 
 1. The sub-SKILL owns drafting, evaluation, and delivery.
-2. `lulu-review` is the last node on the feature line. This tree has no `lulu-review/SKILL.md`.
 
 ## Bootstrap
 
