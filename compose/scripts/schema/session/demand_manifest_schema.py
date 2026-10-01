@@ -2,8 +2,7 @@
 """Demand manifest (``<prefix>-demands.json``) schema helpers.
 
 A *demand manifest* is a producer-side delivery artifact: an atomized list of
-demand units that a downstream stage may consume as its ``intent_baseline``
-(process how archive: ``docs/archive/lulu-workflow/compose/archive-1.0/inductive-intent-baseline-source.md`` §5.10).
+demand units that a downstream stage may consume as its ``intent_baseline``.
 
 This module is **mechanical only** — it mints sequential ids, validates shape,
 and reads/writes the file. It never enumerates or judges demand *content*: the

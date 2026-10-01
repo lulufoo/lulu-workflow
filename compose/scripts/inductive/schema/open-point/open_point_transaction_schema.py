@@ -2,9 +2,6 @@
 """Schema and I/O for slice ``_open-point-txn.json``.
 
 Written only by the store while the caller already holds compose_state_lock.
-
-Design rationale:
-docs/archive/lulu-workflow/compose/archive-34.0/compose-g3-open-point-loop-refactor-design.md
 """
 
 from __future__ import annotations

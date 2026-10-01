@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Schema and I/O for decision registers.json.
-
-Design rationale: docs/archive/lulu-workflow/decision/decision-risk-release-timing-design.md
-Evidence gate (check_result / check_evidence):
-    docs/archive/lulu-workflow/decision/decision-risk-release-evidence-gate-design.md
-"""
+"""Schema and I/O for decision registers.json."""
 
 from __future__ import annotations
 

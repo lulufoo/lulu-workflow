@@ -5,8 +5,6 @@
 semantic arc: facts, validated Role/Domain instances, and section registry.
 
 This control never authors or persists an arc.
-
-Process how: docs/archive/lulu-workflow/compose/archive-25.0/
 """
 
 from __future__ import annotations

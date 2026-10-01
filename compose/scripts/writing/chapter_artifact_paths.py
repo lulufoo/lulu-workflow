@@ -3,7 +3,7 @@
 
 Case-preserving ``cid`` — narrative-arc chapter ids are ``{leaf.id}-{lens}``
 (e.g. ``A01-AR``); case-folding would silently mangle paths into e.g.
-``_derive-A01-ar.json``. Process how: docs/archive/lulu-workflow/compose/archive-5.0/.
+``_derive-A01-ar.json``.
 """
 
 from __future__ import annotations

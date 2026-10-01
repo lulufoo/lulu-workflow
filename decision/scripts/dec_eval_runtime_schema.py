@@ -2,7 +2,6 @@
 """Decision-owned Eval runtime state (maps onto Eval Working/evaluating).
 
 Pass flag is last_outcome == "pass". No failure_count / max_rounds.
-Design: docs/archive/lulu-workflow/decision/decision-eval-pass-flag-replace-round-limit.md
 """
 
 from __future__ import annotations

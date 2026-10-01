@@ -2,9 +2,6 @@
 
 Library only: import ``load_compose_template`` or
 ``resolve_compose_template_path``. No agent CLI.
-
-Design rationale:
-docs/archive/lulu-workflow/compose/archive-51.0/compose-template-skill-only-load-design.md
 """
 
 from __future__ import annotations

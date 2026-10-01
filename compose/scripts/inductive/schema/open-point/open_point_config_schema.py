@@ -3,9 +3,6 @@
 
 ``detect_skip_clean`` defaults false when the file or key is absent.
 ``LULU_COMPOSE_CONFIG`` overrides the path (tests).
-
-Design rationale:
-docs/archive/lulu-workflow/compose/archive-68.0/compose-g3-detect-clean-skip-design.md
 """
 
 from __future__ import annotations

@@ -4,8 +4,6 @@
 Single-file two-phase narrative arc:
   status ``mapped``      — leaves + fact_ids (phase 1)
   status ``write_ready`` — plus per-leaf chapters (lens → fact_ids) (phase 2)
-
-Process how: docs/archive/lulu-workflow/compose/archive-5.0/compose-narrative-arc-lens-v2-landing-design.md
 """
 
 from __future__ import annotations

@@ -4,9 +4,6 @@
 Called by start after a revision is published, or when retrying an
 unfinished publish. Commits cycle-visible side effects and sets
 holder_finalized=true. Not a SKILL step.
-
-Design rationale:
-docs/archive/lulu-workflow/compose/archive-33.0/compose-outer-shell-management-subdesign.md
 """
 
 from __future__ import annotations
