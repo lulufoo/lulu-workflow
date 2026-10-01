@@ -9,21 +9,11 @@ from pathlib import Path
 
 _COMPOSE = Path(__file__).resolve().parents[2]
 _WORKFLOW = _COMPOSE.parent
-_REPO = _WORKFLOW.parent
 _MODEL = _COMPOSE / "inductive-runner" / "references" / "topic-model.md"
 _DRIVER = _COMPOSE / "inductive-runner" / "references" / "topic-question-driver.md"
 _GATE = _COMPOSE / "inductive-runner" / "gates" / "g2-topic-loop.md"
 _SHARED_ASK = _WORKFLOW / "shared" / "references" / "ask-protocol.md"
 _OLD_ASK = _WORKFLOW / "decision" / "references" / "ask-protocol.md"
-_ARCH = (
-    _REPO
-    / "lulu-skills-workspace"
-    / ".cursor"
-    / "skills"
-    / "lulu-discipline-skills"
-    / "skill"
-    / "skill-architecture-constraints.md"
-)
 
 _Q = _WORKFLOW / "decision" / "runners" / "q-problem-runner" / "SKILL.md"
 _GL = _WORKFLOW / "decision" / "runners" / "gl-grill-runner" / "SKILL.md"
@@ -93,12 +83,25 @@ def test_shared_ask_protocol_is_single_runtime_ssot():
         )
 
 
-def test_shared_is_an_allowlisted_leaf():
-    arch = _ARCH.read_text(encoding="utf-8")
-    assert "`shared` is a references-only leaf library" in arch
-    assert "compose | decision" in arch
-    assert "→  shared" in arch
-    assert "shared           ↛  *" in arch
+def test_shared_is_a_references_only_leaf():
+    shared = _WORKFLOW / "shared"
+    files = [path for path in shared.rglob("*") if path.is_file()]
+
+    assert files
+    assert not (shared / "SKILL.md").exists()
+    for path in files:
+        relative = path.relative_to(shared)
+        assert relative.parts[0] == "references", relative
+        assert path.suffix == ".md", relative
+        text = path.read_text(encoding="utf-8")
+        assert "$SKILL_ROOT/" not in text, relative
+        assert "../" not in text, relative
+
+    for module in ("compose", "decision"):
+        assert "$SKILL_ROOT/shared/references/" in "".join(
+            path.read_text(encoding="utf-8")
+            for path in (_WORKFLOW / module).rglob("*.md")
+        ), module
 
 
 def test_fresh_install_carries_shared_protocol(tmp_path: Path):

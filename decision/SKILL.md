@@ -11,7 +11,7 @@ Through one structured decision, settle the work into a user-confirmed, landable
 ## Principles
 
 1. **Fully expose risks** — surface risks arising from any Prior, Constraint, or Assumption.
-2. **Clear unresolved doubts** — offer `/converge` when doubts remain.
+2. **Clear unresolved doubts** — when doubts remain, offer to resolve them one question at a time.
 3. **Respect evidence boundaries** — never present an unverified premise as a verified conclusion.
 4. **User prior over framework** — integrate the user's judgments; never let the framework override them.
 

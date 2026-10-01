@@ -41,8 +41,8 @@ Typical: "My product's experience is poor, I want to redesign it, but I have no 
 | Situation | Route to |
 |---|---|
 | Direction is already clear; needs rigorous choice / risk exposure | `decision` (brainstorm is its upstream) |
-| Needs external evidence / industry or competitive synthesis | `landscape` (looks outward; brainstorm looks inward) |
-| Already committed to building a specific thing; needs a spec | superpowers `brainstorming` → writing-plans |
+| Needs external evidence / industry or competitive synthesis | Gather the evidence outside brainstorm, then return (brainstorm looks inward) |
+| Already committed to building a specific thing; needs a spec | `lulu-bet` → `lulu-spec` |
 
 ### Relationship to lulu-workflow
 
