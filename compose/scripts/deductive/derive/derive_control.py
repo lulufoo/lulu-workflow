@@ -7,8 +7,7 @@ Subcommands:
     append     Append derived facts (contiguous ids) and write ``_facts.json``
     classify   Classify zero-coverage required lenses (derivation vs true gap)
 
-Design rationale (lulu-skills-workspace, why-only): docs/ssot/compose/mechanism-ssot/compose-fact-architecture.md (Pd);
-process how archive: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact-first-k1-pd-design.md §2/§5.
+Process how archive: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact-first-k1-pd-design.md §2/§5.
 Scripts never invent derived work-item text — only mechanical shell.
 """
 

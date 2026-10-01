@@ -74,8 +74,7 @@ def get_topic_ref(cycle_id: str, stage: str, cache_dir: Path) -> Optional[TopicR
     Resolved entirely from generic cache artifacts (``cycles.json``,
     ``transition-table.json``, the topic's own ``delivered-refs.json``) — never
     from a stage's own ``scripts/`` — so this stays valid across decision and
-    compose kernels alike (see .cursor/skills/lulu-discipline-skills/skill/skill-architecture-constraints.md
-    § lulu-workflow Module Dependencies).
+    compose kernels alike.
     """
     cycles_path = cache_dir / "cycles.json"
     if not cycles_path.exists():

@@ -431,8 +431,7 @@ def section_headings(project_root: Path | None = None) -> dict[str, str]:
 def section_presence_map(project_root: Path | None = None) -> dict[str, str]:
     """Return section_key -> presence ('required'|'optional', default 'required').
 
-    Design rationale (lulu-skills-workspace, why-only): docs/ssot/compose/mechanism-ssot/compose-lens-architecture.md;
-    process how archive: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact-first-display-layer-design.md §3.2, §11.3
+    Process how archive: docs/archive/lulu-workflow/compose/archive-2.0/compose-fact-first-display-layer-design.md §3.2, §11.3
     (M3, 需求2). Feeds derive coverage helpers (``derive_triggers`` / ``true_coverage_gaps``).
     """
     registry = _active_registry(project_root)
