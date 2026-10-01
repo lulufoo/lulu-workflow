@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from platforms.registry import PLATFORM_PATHS, SKILL_NAME
+from platforms.registry import PLATFORM_PATHS, SKILL_NAME, resolve_workflow_dir
 
 HOOK_PLATFORMS = frozenset({"cursor", "copilot", "claude"})
 
@@ -19,18 +19,14 @@ _GITIGNORE_ENTRY: dict[str, str] = {
     "claude": ".claude",
 }
 
-_SKILL_INSTALL_ROOT: dict[str, Path] = {
-    "cursor": Path.home() / ".cursor" / "skills" / SKILL_NAME,
-    "copilot": Path.home() / ".copilot" / "skills" / SKILL_NAME,
-    "claude": Path.home() / ".claude" / "skills" / SKILL_NAME,
-}
+SKILL_INSTALL_ROOT = Path.home() / ".agents" / "skills" / SKILL_NAME
 
 CLAUDE_PRE_TOOL_USE_MATCHER = "Write|Edit|Read|Bash"
 CURSOR_PRE_TOOL_USE_MATCHER = "Write|Edit|Read|Shell"
 
 
 def workflow_dir(platform: str) -> Path:
-    return PLATFORM_PATHS[platform]["workflow_dir"]
+    return resolve_workflow_dir(platform)
 
 
 def cache_dir(platform: str) -> Path:
@@ -47,8 +43,7 @@ def gitignore_entry(platform: str) -> str | None:
 
 def hook_guard_command(platform: str) -> str:
     """Return hooks.json command string for the installed skill hook entry."""
-    root = _SKILL_INSTALL_ROOT[platform]
-    command = f"python3 {root / 'scripts' / 'hook' / 'hook_guard.py'}"
+    command = f"python3 {SKILL_INSTALL_ROOT / 'scripts' / 'hook' / 'hook_guard.py'}"
     if platform in ("copilot", "claude"):
         command += f" --platform {platform}"
     return command
@@ -56,5 +51,7 @@ def hook_guard_command(platform: str) -> str:
 
 def hook_prompt_command(platform: str) -> str:
     """Return beforeSubmitPrompt command for externalPathGuard.sessionAllow."""
-    root = _SKILL_INSTALL_ROOT[platform]
-    return f"python3 {root / 'scripts' / 'hook' / 'hook_prompt.py'} --platform {platform}"
+    return (
+        f"python3 {SKILL_INSTALL_ROOT / 'scripts' / 'hook' / 'hook_prompt.py'}"
+        f" --platform {platform}"
+    )
