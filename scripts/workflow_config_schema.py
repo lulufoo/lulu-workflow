@@ -21,10 +21,7 @@ from pathlib import Path
 from typing import Optional
 
 from platform_schema import PLATFORM_PATHS, detect_platform as _detect_platform
-
-_WORKFLOW_DIR_MAP = {
-    platform: paths["workflow_dir"] for platform, paths in PLATFORM_PATHS.items()
-}
+from platforms.registry import resolve_workflow_dir as _resolve_workflow_dir
 
 _LEGACY_WORKFLOW_CONFIG_FILENAME = "workflow-config.json"
 _STAGES_SUBDIR = "stages"
@@ -101,8 +98,7 @@ def default_platform_config() -> dict:
 
 def platform_config_path(project_root: Path, platform: Optional[str] = None) -> Path:
     plat = detect_platform(platform)
-    workflow_dir = _WORKFLOW_DIR_MAP.get(plat, _WORKFLOW_DIR_MAP["cursor"])
-    return project_root / workflow_dir / "config.json"
+    return project_root / _resolve_workflow_dir(plat, project_root) / "config.json"
 
 
 def read_platform_config(project_root: Path, platform: Optional[str] = None) -> dict:
@@ -139,7 +135,7 @@ def resolve_workflow_config_path(
 ) -> Path:
     """Return the project workflow config root: $WORKFLOW_DIR."""
     plat = detect_platform(platform)
-    return project_root / _WORKFLOW_DIR_MAP.get(plat, _WORKFLOW_DIR_MAP["cursor"])
+    return project_root / _resolve_workflow_dir(plat, project_root)
 
 
 def resolve_workflow_config_root(

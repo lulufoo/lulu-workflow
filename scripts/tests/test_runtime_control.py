@@ -36,7 +36,7 @@ class TestResolvePlatformContext:
         payload = json.loads(result.stdout.strip())
         assert payload["platform"] == "cursor"
         assert payload["project_root"] == str(tmp_path.resolve())
-        assert payload["workflow_dir"] == ".cursor/lulu-workflow"
+        assert payload["workflow_dir"] == ".agents/config/lulu-workflow"
         assert payload["cache_dir"] == ".cache/cursor/lulu-workflow"
         assert Path(payload["skill_root"]).name == "lulu-workflow"
 

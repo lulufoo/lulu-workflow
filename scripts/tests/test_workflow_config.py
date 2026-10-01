@@ -228,7 +228,7 @@ class TestConfigureWorkflowConfig:
             check=False,
         )
         assert result.returncode == 0
-        assert result.stdout.strip().endswith(".cursor/lulu-workflow")
+        assert result.stdout.strip().endswith(".agents/config/lulu-workflow")
 
     def test_cli_resolve_path(self, tmp_path: Path) -> None:
         result = subprocess.run(
@@ -246,7 +246,7 @@ class TestConfigureWorkflowConfig:
             check=False,
         )
         assert result.returncode == 0
-        assert result.stdout.strip().endswith(".cursor/lulu-workflow")
+        assert result.stdout.strip().endswith(".agents/config/lulu-workflow")
 
     def test_cli_resolve_stage_path(self, tmp_path: Path) -> None:
         write_stage_config(tmp_path, "lulu-exec", {"test_command": "npm test"})
@@ -296,7 +296,7 @@ class TestConfigureWorkflowConfig:
 class TestEnsureBuiltinStageConfigs:
     def test_writes_missing_builtin_stages(self, tmp_path: Path) -> None:
         created = ensure_builtin_stage_configs(tmp_path, "cursor")
-        root = tmp_path / ".cursor/lulu-workflow"
+        root = tmp_path / ".agents/config/lulu-workflow"
         names = {path.name for path in created}
         assert "lulu-exec.json" in names
         assert "lulu-tasks.json" not in names

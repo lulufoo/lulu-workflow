@@ -75,7 +75,7 @@ class TestResolveHookConfigPath:
         from hook_config_schema import resolve_hook_config_path
 
         assert resolve_hook_config_path(tmp_path, "cursor") == (
-            tmp_path / ".cursor/lulu-workflow/workflow-guard-config.json"
+            tmp_path / ".agents/config/lulu-workflow/workflow-guard-config.json"
         )
 
     def test_leftover_pointer_is_ignored(self, tmp_path: Path):
