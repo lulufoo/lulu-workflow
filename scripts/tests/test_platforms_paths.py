@@ -19,7 +19,7 @@ from platforms.paths import (  # noqa: E402
 
 class TestPlatformPaths:
     def test_workflow_dir_cursor(self):
-        assert workflow_dir("cursor") == Path(".cursor/lulu-workflow")
+        assert workflow_dir("cursor") == Path(".agents/config/lulu-workflow")
 
     def test_cache_dir_claude(self):
         assert cache_dir("claude") == Path(".cache/claude/lulu-workflow")
