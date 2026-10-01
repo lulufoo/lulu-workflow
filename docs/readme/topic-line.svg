@@ -47,8 +47,8 @@
   <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10" fill="#64748b">
     <text x="36" y="135">Divergent thinking</text>
     <text x="204" y="91">Product decision</text>
-    <text x="356" y="91">Product doc</text>
+    <text x="356" y="91">Product arch doc</text>
     <text x="204" y="197">Technical decision</text>
-    <text x="356" y="197">Architecture doc</text>
+    <text x="356" y="197">Tech arch doc</text>
   </g>
 </svg>
