@@ -11,7 +11,7 @@
   &nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License" align="absmiddle"></a>
   &nbsp;
-  <img src="https://img.shields.io/badge/status-experimental-orange.svg?style=flat-square" alt="Status: experimental" align="absmiddle">
+  <img src="https://img.shields.io/badge/status-Beta%20v1.0-orange.svg?style=flat-square" alt="Status: Beta v1.0" align="absmiddle">
 </p>
 
 ---
@@ -32,20 +32,11 @@ Both lines start at `lulu-brainstorm` and split into two tracks: a product track
 
 ### Topic line
 
-```mermaid
-flowchart LR
-  brainstorm[lulu-brainstorm] --> bet[lulu-bet] --> blueprint[lulu-blueprint]
-  brainstorm --> approach[lulu-approach] --> arch[lulu-arch]
-```
+<img src="docs/readme/topic-line.svg" alt="Topic line: lulu-brainstorm splits into lulu-bet then lulu-blueprint, and lulu-approach then lulu-arch" width="504" />
 
 ### Feature line
 
-```mermaid
-flowchart LR
-  brainstorm[lulu-brainstorm] --> bet[lulu-bet] --> spec[lulu-spec] --> plan[lulu-plan]
-  brainstorm --> approach[lulu-approach] --> design[lulu-design] --> plan
-  plan --> tasks[lulu-tasks] --> exec[lulu-exec]
-```
+<img src="docs/readme/feature-line.svg" alt="Feature line: lulu-brainstorm splits into lulu-bet then lulu-spec, and lulu-approach then lulu-design; both join at lulu-plan, then lulu-tasks and lulu-exec" width="952" />
 
 - The two tracks have no order between them. On the feature line they join at `lulu-plan`.
 - `lulu-bet` is the recommended start for full-feature work. Purely technical work can start at `lulu-approach`.

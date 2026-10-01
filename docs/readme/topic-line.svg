@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 504 244" width="504" height="244" fill="none" role="img" aria-labelledby="t d">
+  <title id="t">Topic line</title>
+  <desc id="d">lulu-brainstorm splits into a product track, lulu-bet then lulu-blueprint, and a technical track, lulu-approach then lulu-arch.</desc>
+  <defs>
+    <filter id="lift" x="-10%" y="-20%" width="120%" height="150%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="503" height="243" rx="16" fill="#fafbfc" stroke="#e3e6ec"/>
+
+  <rect x="176" y="24" width="304" height="90" rx="14" fill="#3b82f6" fill-opacity="0.05" stroke="#3b82f6" stroke-opacity="0.28"/>
+  <rect x="176" y="130" width="304" height="90" rx="14" fill="#64748b" fill-opacity="0.06" stroke="#64748b" stroke-opacity="0.28"/>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="9.5" font-weight="600" letter-spacing="1.2">
+    <text x="192" y="42" fill="#2563eb">PRODUCT TRACK</text>
+    <text x="192" y="148" fill="#475569">TECHNICAL TRACK</text>
+  </g>
+
+  <g stroke="#64748b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M144 122H160Q168 122 168 114V86Q168 78 176 78H185"/>
+    <path d="M144 122H160Q168 122 168 130V176Q168 184 176 184H185"/>
+    <path d="M312 78H337"/>
+    <path d="M312 184H337"/>
+  </g>
+  <g fill="#64748b">
+    <polygon points="185,73.5 192,78 185,82.5"/>
+    <polygon points="185,179.5 192,184 185,188.5"/>
+    <polygon points="337,73.5 344,78 337,82.5"/>
+    <polygon points="337,179.5 344,184 337,188.5"/>
+  </g>
+
+  <g filter="url(#lift)" fill="#ffffff" stroke-width="1.5">
+    <rect x="24" y="98" width="120" height="48" rx="8" stroke="#334155"/>
+    <rect x="192" y="54" width="120" height="48" rx="8" stroke="#60a5fa"/>
+    <rect x="344" y="54" width="120" height="48" rx="8" stroke="#60a5fa"/>
+    <rect x="192" y="160" width="120" height="48" rx="8" stroke="#94a3b8"/>
+    <rect x="344" y="160" width="120" height="48" rx="8" stroke="#94a3b8"/>
+  </g>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="11" font-weight="600" fill="#1d1d1f">
+    <text x="36" y="119">lulu-brainstorm</text>
+    <text x="204" y="75">lulu-bet</text>
+    <text x="356" y="75">lulu-blueprint</text>
+    <text x="204" y="181">lulu-approach</text>
+    <text x="356" y="181">lulu-arch</text>
+  </g>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="10" fill="#64748b">
+    <text x="36" y="135">Divergent thinking</text>
+    <text x="204" y="91">Product decision</text>
+    <text x="356" y="91">Product doc</text>
+    <text x="204" y="197">Technical decision</text>
+    <text x="356" y="197">Architecture doc</text>
+  </g>
+</svg>
