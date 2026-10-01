@@ -29,38 +29,41 @@ Work runs in a **cycle**, and a cycle is one of two types.
 - A **topic** cycle shapes product and architecture. It ends in an architecture doc, and you then start a feature cycle that references it.
 - A **feature** cycle carries one feature through to code.
 
+Both lines start at `lulu-brainstorm` and split into two tracks: a product track and a technical track.
+
 ### Topic line
 
 ```mermaid
 flowchart LR
-  bet[lulu-bet] --> blueprint[lulu-blueprint] --> approach[lulu-approach] --> arch[lulu-arch]
+  brainstorm[lulu-brainstorm] --> bet[lulu-bet] --> blueprint[lulu-blueprint]
+  brainstorm --> approach[lulu-approach] --> arch[lulu-arch]
 ```
 
 ### Feature line
 
 ```mermaid
 flowchart LR
-  bet[lulu-bet] --> spec[lulu-spec] --> approach[lulu-approach]
-  approach --> design[lulu-design] --> plan[lulu-plan]
-  approach -.-> plan
+  brainstorm[lulu-brainstorm] --> bet[lulu-bet] --> spec[lulu-spec] --> plan[lulu-plan]
+  brainstorm --> approach[lulu-approach] -.-> design[lulu-design] --> plan
   plan --> tasks[lulu-tasks] --> exec[lulu-exec]
 ```
 
+- The two tracks have no order between them. On the feature line they join at `lulu-plan`.
+- [`lulu-brainstorm`](./lulu-brainstorm/SKILL.md) is the optional entry to both lines. It is not a gated stage: it keeps no cycle state and is not in the transition table. Use it at any point before a problem is defined.
 - `lulu-bet` is the recommended start for full-feature work. Purely technical work can start at `lulu-approach`.
-- `lulu-approach` can go to `lulu-design` first, or straight to `lulu-plan` (dotted).
-- [`lulu-brainstorm`](./lulu-brainstorm/SKILL.md) sits outside both lines. Use it at any point before a problem is defined.
+- `lulu-design` is optional. `lulu-approach` can go straight to `lulu-plan` (dotted).
 
 ## Stages
 
 | Stage | Key | Line | What it does | Needs | Produces |
 |---|---|---|---|---|---|
-| [`lulu-brainstorm`](./lulu-brainstorm/SKILL.md) | — | any | Divergent thinking before a problem is defined. Surfaces your framing and tests which constraints are real | nothing | A mirror summary of what opened. No ranking |
+| [`lulu-brainstorm`](./lulu-brainstorm/SKILL.md) | — | topic, feature (entry) | Divergent thinking before a problem is defined. Surfaces your framing and tests which constraints are real | nothing | A mirror summary of what opened. No ranking |
 | [`lulu-bet`](./lulu-bet/SKILL.md) | `pd` | topic, feature | Product decision | — | Product decision package |
 | [`lulu-blueprint`](./lulu-blueprint/SKILL.md) | `pa` | topic | Product doc for a topic | Delivered `lulu-bet` | Product doc |
 | [`lulu-spec`](./lulu-spec/SKILL.md) | `ps` | feature | Product doc for a feature | Delivered `lulu-bet` | Product doc |
-| [`lulu-approach`](./lulu-approach/SKILL.md) | `td` | topic, feature | Technical decision | The previous stage on the line | Tech decision package |
+| [`lulu-approach`](./lulu-approach/SKILL.md) | `td` | topic, feature | Technical decision | — | Tech decision package |
 | [`lulu-arch`](./lulu-arch/SKILL.md) | `ta` | topic | Architecture doc for a topic | Delivered `lulu-approach` | Arch doc |
-| [`lulu-design`](./lulu-design/SKILL.md) | `ds` | feature | Design doc for a feature | Delivered `lulu-approach` (and `lulu-spec` for product work) | Design doc |
+| [`lulu-design`](./lulu-design/SKILL.md) | `ds` | feature | Design doc for a feature | Delivered `lulu-approach` | Design doc |
 | [`lulu-plan`](./lulu-plan/SKILL.md) | `t` | feature | Implementation-ready plan | `lulu-spec` and `lulu-design` for product work. `lulu-design` or `lulu-approach` for technical work | Plan doc |
 | [`lulu-tasks`](./lulu-tasks/SKILL.md) | `w` | feature | Splits the plan into independently executable tasks | Delivered plan | Work order: a task-dependency list |
 | [`lulu-exec`](./lulu-exec/SKILL.md) | `c` | feature | Executes the work order | Delivered work order | Delivered code and task receipts |
@@ -87,6 +90,7 @@ The stages come in three kinds.
 ## How the stages hand over
 
 - A stage is done when it has delivered. The next stage starts from that delivered artifact.
+- The two tracks are independent. `lulu-plan` starts once the tracks it needs have delivered.
 - When a stage delivers, you are shown the stages that may follow it and you pick one. A transition that is not allowed is refused at stage entry.
 - If new information invalidates an earlier stage, roll back to it. Everything downstream is invalidated and restarts from there.
 
