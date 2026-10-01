@@ -7,7 +7,7 @@
 <p align="center"><b>A staged development workflow for AI coding agents.</b></p>
 
 <p align="center">
-  <a href="https://lulufoo.github.io/interview/lulu-workflow.html"><img src="https://img.shields.io/badge/docs-architecture%20map-green.svg?style=flat-square" alt="Architecture map" align="absmiddle"></a>
+  <a href="https://lulufoo.github.io/interview/lulu-workflow.html"><img src="https://img.shields.io/badge/docs-architecture-green.svg?style=flat-square" alt="Architecture" align="absmiddle"></a>
   &nbsp;
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License" align="absmiddle"></a>
   &nbsp;
@@ -62,7 +62,7 @@ Cursor, GitHub Copilot, Claude Code, and Codex.
 
 Session hooks and state are platform-neutral, and each platform gets its own adapter. Lulu Workflow has no dependency on other Lulu skill packs or on an issue tracker.
 
-## Architecture map
+## Architecture
 
 This README covers the first layer of the [architecture map](https://lulufoo.github.io/interview/lulu-workflow.html), Workflow Collaboration. The layers beneath it are Harness Engineering, Domain Modeling, the SKILL design paradigm, and the cognition about AI collaboration that drives the design. The map covers them.
 
