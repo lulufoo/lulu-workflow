@@ -32,7 +32,8 @@ from tt_eval_runtime_schema import (
 )
 from tt_eval_target_schema import eval_target_path
 
-_EVAL_CAPABILITY = "probe-only"
+_EVAL_CAPABILITY = "full-remediation"
+_COMPLETION_MODE = "return_to_caller"
 _SESSION_KEY = "tasks"
 
 
@@ -68,6 +69,7 @@ def request_eval_handoff(
             "cycle_type": "feature",
             "upstream_baseline_ref": "",
             "eval_capability": _EVAL_CAPABILITY,
+            "completion_mode": _COMPLETION_MODE,
         },
     )
     errors = validate_eval_handoff_v2(handoff)

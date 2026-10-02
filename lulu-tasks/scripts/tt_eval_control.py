@@ -1,16 +1,23 @@
 #!/usr/bin/env python3
-"""lulu-tasks Eval control — start a pass and route one probe-only round.
+"""lulu-tasks Eval control — start a pass and route one full-remediation round.
 
-One pass is one Eval round that probes every dimension in parallel.
+One pass is one Eval round: every dimension probes in parallel, then Eval
+remediates task chapters in place. The round is not re-probed.
 
 CLI:
     python3 tt_eval_control.py --project-root . --cycle-id <id> begin-pass
     python3 tt_eval_control.py --project-root . --cycle-id <id> status
-    python3 tt_eval_control.py --project-root . --cycle-id <id> route-probe-result --probe-result-json '<object>'
+    python3 tt_eval_control.py --project-root . --cycle-id <id> route-remediation-result --result-json '<object>'
 
-route-probe-result stdout:
+route-remediation-result input:
+    a successful `remediation-complete` payload            -> disposition ready
+    a failed `apply-remediation` payload whose reason starts
+    with `tasks-scope-rejected`                             -> disposition drafting;
+                                                               issues = pending Review rows
+    anything else                                           -> {"ok": false, ...}
+
+route-remediation-result stdout:
     {"ok": true, "disposition": "drafting" | "ready", "issues": [...]}
-    {"ok": false, "error": ...}   when any issue carries a SoT root cause
 """
 
 from __future__ import annotations
@@ -23,18 +30,22 @@ from typing import Any
 
 _SCRIPTS = Path(__file__).resolve().parent
 _EVAL_ADAPTER = _SCRIPTS / "eval"
-for _path in (_SCRIPTS, _EVAL_ADAPTER):
+_EVAL_SCRIPTS = _SCRIPTS.parents[1] / "eval" / "scripts"
+for _path in (_SCRIPTS, _EVAL_ADAPTER, _EVAL_SCRIPTS):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
-from tasks_eval_adapter import TasksEvalAdapter  # noqa: E402
-from tt_eval_runtime_schema import load_runtime, runtime_path  # noqa: E402
+from eval_path import ensure_eval_script_layers  # noqa: E402
 
-_FORBIDDEN_ROOT_CAUSES = frozenset({
-    "SOT-DEFECT",
-    "UNRESOLVABLE",
-    "DECISION-REQUIRED",
-})
+ensure_eval_script_layers()
+
+from review_io import parse_review_file  # noqa: E402
+from tasks_eval_adapter import TasksEvalAdapter  # noqa: E402
+from tasks_eval_target_publish import SCOPE_REJECTED  # noqa: E402
+from tt_eval_runtime_schema import evaluate_dir, load_runtime, runtime_path  # noqa: E402
+
+_REVIEW_GLOB = "tasks-review-e*.md"
+_ISSUE_FIELDS = ("id", "root_cause", "location", "description")
 
 
 def _emit(payload: dict[str, Any]) -> int:
@@ -44,10 +55,6 @@ def _emit(payload: dict[str, Any]) -> int:
 
 def _emit_error(message: str) -> int:
     return _emit({"ok": False, "error": message})
-
-
-def _root_cause(issue: dict[str, Any]) -> str:
-    return str(issue.get("root_cause") or "").strip().upper()
 
 
 def cmd_begin_pass(project_root: Path, cycle_id: str) -> int:
@@ -89,17 +96,40 @@ def cmd_status(project_root: Path, cycle_id: str) -> int:
     })
 
 
-def cmd_route_probe_result(
+def _pending_review_issues(session_dir: Path, evaluate_round: int) -> list[dict[str, str]]:
+    issues: list[dict[str, str]] = []
+    for review in sorted(evaluate_dir(session_dir, evaluate_round).glob(_REVIEW_GLOB)):
+        for row in parse_review_file(review):
+            if row.get("status", "").lower() != "pending":
+                continue
+            issue = {field: row.get(field, "") for field in _ISSUE_FIELDS}
+            issue["review_path"] = review.resolve().as_posix()
+            issues.append(issue)
+    return issues
+
+
+def _classify_result(result: dict[str, Any]) -> str | None:
+    command = result.get("command")
+    if result.get("ok") is True and command == "remediation-complete":
+        return "ready"
+    reason = str(result.get("reason") or result.get("error") or "")
+    if result.get("ok") is False and command == "apply-remediation" and reason.startswith(SCOPE_REJECTED):
+        return "drafting"
+    return None
+
+
+def cmd_route_remediation_result(
     project_root: Path,
     cycle_id: str,
     *,
-    probe_result: dict[str, Any],
+    result: dict[str, Any],
 ) -> int:
-    if probe_result.get("ok") is not True or probe_result.get("command") != "complete-probe-only":
-        return _emit_error("probe result must be a successful complete-probe-only payload")
-    issues = probe_result.get("issues")
-    if not isinstance(issues, list) or any(not isinstance(issue, dict) for issue in issues):
-        return _emit_error("probe result issues must be an array of objects")
+    disposition = _classify_result(result)
+    if disposition is None:
+        return _emit_error(
+            "result must be a successful remediation-complete payload or an "
+            f"apply-remediation failure whose reason starts with {SCOPE_REJECTED!r}"
+        )
     adapter = TasksEvalAdapter()
     try:
         session_dir = adapter.session_dir(cycle_id, project_root)
@@ -107,24 +137,31 @@ def cmd_route_probe_result(
         return _emit_error(str(exc))
     runtime = load_runtime(runtime_path(session_dir))
     if runtime.get("focus_phase") != "evaluating":
-        return _emit_error("route-probe-result requires focus_phase=evaluating")
-    forbidden = [issue for issue in issues if _root_cause(issue) in _FORBIDDEN_ROOT_CAUSES]
-    outcome = "fail" if issues else "pass"
+        return _emit_error("route-remediation-result requires focus_phase=evaluating")
+    issues: list[dict[str, Any]] = []
+    if disposition == "drafting":
+        try:
+            issues = _pending_review_issues(session_dir, int(runtime.get("evaluate_round") or 0))
+        except (OSError, ValueError) as exc:
+            return _emit_error(f"cannot read Review files: {exc}")
+        issues.insert(0, {
+            "id": "scope",
+            "root_cause": "WO-ERROR",
+            "location": "task-list.md",
+            "description": str(result.get("reason") or result.get("error") or SCOPE_REJECTED),
+        })
     try:
-        adapter.finalize_eval_outcome(cycle_id, project_root, outcome=outcome, issues=list(issues))
+        adapter.finalize_eval_outcome(
+            cycle_id,
+            project_root,
+            outcome="pass" if disposition == "ready" else "fail",
+            issues=issues,
+        )
     except (FileNotFoundError, ValueError, OSError) as exc:
         return _emit_error(str(exc))
     runtime = load_runtime(runtime_path(session_dir))
-    if forbidden:
-        runtime["last_disposition"] = "rejected"
-        runtime["last_issues"] = list(issues)
-        adapter.save_runtime(cycle_id, project_root, runtime)
-        return _emit_error(
-            "probe emitted a SoT root cause; lulu-tasks eval does not handle it"
-        )
-    disposition = "drafting" if issues else "ready"
     runtime["last_disposition"] = disposition
-    runtime["last_issues"] = list(issues)
+    runtime["last_issues"] = issues
     adapter.save_runtime(cycle_id, project_root, runtime)
     return _emit({"ok": True, "disposition": disposition, "issues": issues})
 
@@ -136,8 +173,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("begin-pass")
     sub.add_parser("status")
-    route = sub.add_parser("route-probe-result")
-    route.add_argument("--probe-result-json", required=True)
+    route = sub.add_parser("route-remediation-result")
+    route.add_argument("--result-json", required=True)
     return parser.parse_args(argv)
 
 
@@ -149,14 +186,14 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_begin_pass(project_root, cycle_id)
     if args.command == "status":
         return cmd_status(project_root, cycle_id)
-    if args.command == "route-probe-result":
+    if args.command == "route-remediation-result":
         try:
-            probe_result = json.loads(args.probe_result_json)
+            result = json.loads(args.result_json)
         except json.JSONDecodeError as exc:
-            return _emit_error(f"invalid --probe-result-json: {exc}")
-        if not isinstance(probe_result, dict):
-            return _emit_error("--probe-result-json must be a JSON object")
-        return cmd_route_probe_result(project_root, cycle_id, probe_result=probe_result)
+            return _emit_error(f"invalid --result-json: {exc}")
+        if not isinstance(result, dict):
+            return _emit_error("--result-json must be a JSON object")
+        return cmd_route_remediation_result(project_root, cycle_id, result=result)
     return _emit_error(f"unknown command: {args.command!r}")
 
 

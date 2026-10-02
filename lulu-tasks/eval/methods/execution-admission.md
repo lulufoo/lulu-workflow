@@ -1,6 +1,6 @@
 # Method — Task execution admission
 
-Probe each `<!-- chapter:task-tN -->` once. `root_cause` is `WO-ERROR`. Quote the task passage. Do not edit the EvalTarget.
+Probe each `<!-- chapter:task-tN -->` once. `root_cause` is `WO-ERROR`. Quote the task passage. The probe does not edit the EvalTarget.
 
 `kind` is `coding` or `action`. Checks 1, 2, 3, and 5 apply only to `coding`. Checks 7 and 8 apply only to `action`. Checks 4 and 6 apply to both. When `kind` is `coding` and `tdd_exempt: true`, skip checks 2 and 5 for that task.
 
@@ -18,3 +18,7 @@ Probe each `<!-- chapter:task-tN -->` once. `root_cause` is `WO-ERROR`. Quote th
 ## action
 
 The title states the goal. Each acceptance criterion is an observable condition that evidence such as an id, link, command output, or count can answer.
+
+## Remediation
+
+Edit `<!-- chapter:task-tN -->` bodies only. The tech-doc and task-list chapters stay byte-identical; task chapters are neither added nor removed. A split (check 1), a missing edge (check 6), or any fix that needs the task-list cannot be resolved in this round: include that task-list edit in the diff so the work-order owner rejects the round and returns the order to Drafting with the findings.

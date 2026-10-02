@@ -3,5 +3,5 @@
   "enabled": true,
   "adapter_module": "lulu-tasks/scripts/eval/tasks_eval_adapter.py",
   "adapter_class": "TasksEvalAdapter",
-  "eval_capability": "probe-only"
+  "eval_capability": "full-remediation"
 }

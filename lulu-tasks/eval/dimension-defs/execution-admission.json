@@ -8,7 +8,7 @@
   "sots": [],
   "method": {
     "ref": "lulu-workflow/lulu-tasks/eval/methods/execution-admission.md",
-    "focus": "Probe each task chapter for executability. Emit WO-ERROR only. Skip TDD and test-case checks when tdd_exempt is true. Do not edit the EvalTarget."
+    "focus": "Probe each task chapter for executability. Emit WO-ERROR only. Skip TDD and test-case checks when tdd_exempt is true. The probe does not edit the EvalTarget; remediation edits task chapters only."
   },
   "review": {
     "seq": 1,

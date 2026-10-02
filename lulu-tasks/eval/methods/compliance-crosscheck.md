@@ -2,7 +2,7 @@
 
 Probe the EvalTarget once. `<!-- chapter:tech-doc -->` is the reference. Task-list and `<!-- chapter:task-tN -->` are the work order.
 
-The reference is treated as sound. Emit `WO-MISS` or `WO-ERROR` only. Do not emit `SOT-DEFECT`, `UNRESOLVABLE`, or `DECISION-REQUIRED`. Do not edit the EvalTarget.
+The reference is treated as sound. Emit `WO-MISS` or `WO-ERROR` only. Do not emit `SOT-DEFECT`, `UNRESOLVABLE`, or `DECISION-REQUIRED`. The probe does not edit the EvalTarget.
 
 ## Check 1 — Coverage (`WO-MISS`)
 
@@ -17,3 +17,7 @@ Each task acceptance criterion that restates a tech-doc requirement cites that s
 A task constraint that contradicts a tech-doc hard rule is `WO-ERROR`. A task that adds behavior the tech-doc chapter does not contain is `WO-ERROR`.
 
 Silence in the tech-doc chapter is not a finding.
+
+## Remediation
+
+Edit `<!-- chapter:task-tN -->` bodies only. The tech-doc and task-list chapters stay byte-identical; task chapters are neither added nor removed. A finding that needs a new task or a task-list change cannot be resolved in this round: include that task-list edit in the diff so the work-order owner rejects the round and returns the order to Drafting with the findings.

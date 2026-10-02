@@ -4,7 +4,7 @@ Check that every `tasks/t{N}/task.md` can be executed from its own text.
 
 **When to run:** `execution-admission`, in the same Eval round as `compliance-crosscheck`. The probe method is `lulu-tasks/eval/methods/execution-admission.md`.
 
-**Result:** A failed check is `WO-ERROR`. Record the task passage and return the session to Drafting. `kind` is `coding` or `action`. Checks 1, 2, 3, and 5 apply only to `coding`. Checks 7 and 8 apply only to `action`. When `kind` is `coding` and `tdd_exempt: true`, skip checks 2 and 5 for that task.
+**Result:** A failed check is `WO-ERROR`. Record the task passage. Eval remediates it inside the task chapter; a fix that needs the task-list returns the session to Drafting. `kind` is `coding` or `action`. Checks 1, 2, 3, and 5 apply only to `coding`. Checks 7 and 8 apply only to `action`. When `kind` is `coding` and `tdd_exempt: true`, skip checks 2 and 5 for that task.
 
 ---
 

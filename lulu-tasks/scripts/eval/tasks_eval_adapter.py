@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""lulu-tasks WorkflowAdapter. Every dimension probes in one probe-only round."""
+"""lulu-tasks WorkflowAdapter. One full-remediation round probes every dimension.
+
+Remediation may change task chapters only; tasks_eval_target_publish refuses
+anything else so the parent returns the work order to Drafting.
+"""
 
 from __future__ import annotations
 
@@ -33,6 +37,7 @@ from tasks_eval_publish import (  # noqa: E402
     read_eval_target_digest,
     request_eval_handoff,
 )
+from tasks_eval_target_publish import commit_eval_target, restore_eval_target  # noqa: E402
 from tt_eval_runtime_schema import (  # noqa: E402
     DIMENSIONS,
     evaluate_dir,
@@ -61,10 +66,10 @@ _CORPUS_REF = f"{_CORPUS_ID}@{_CORPUS_VERSION}"
 
 
 class TasksEvalAdapter:
-    """Probe-only adapter. The corpus contains every dimension; dispatch is parallel."""
+    """Full-remediation adapter. The corpus contains every dimension; dispatch is parallel."""
 
     WORKFLOW_ID = _WORKFLOW_ID
-    EVAL_CAPABILITY = "probe-only"
+    EVAL_CAPABILITY = "full-remediation"
 
     def workflow_root(self) -> Path:
         return _WORKFLOW_ROOT
@@ -250,6 +255,12 @@ class TasksEvalAdapter:
     def read_eval_target_digest(self, cycle_id: str, project_root: Path, *, target_path: Path) -> str:
         del cycle_id, project_root
         return read_eval_target_digest(target_path)
+
+    def commit_eval_target(self, cycle_id: str, project_root: Path, *, staged_target_path: Path, base_digest: str, lease_id: str) -> dict[str, Any]:
+        return commit_eval_target(self, cycle_id, project_root, staged_target_path=staged_target_path, base_digest=base_digest, lease_id=lease_id)
+
+    def restore_eval_target(self, cycle_id: str, project_root: Path, *, snapshot_path: Path, expected_current_digest: str, lease_id: str) -> dict[str, Any]:
+        return restore_eval_target(self, cycle_id, project_root, snapshot_path=snapshot_path, expected_current_digest=expected_current_digest, lease_id=lease_id)
 
     def discard_eval_staging(self, cycle_id: str, project_root: Path, *, lease_id: str) -> dict[str, Any]:
         return discard_eval_staging(self, cycle_id, project_root, lease_id=lease_id)
