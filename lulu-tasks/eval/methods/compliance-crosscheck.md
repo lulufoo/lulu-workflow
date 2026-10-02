@@ -10,7 +10,7 @@ Each deliverable behavior in the tech-doc chapter has at least one task that car
 
 ## Check 2 — Traceability (`WO-MISS`)
 
-Each task acceptance criterion that restates a tech-doc requirement cites that section. A requirement present in the tech-doc chapter and absent from the citing task is `WO-MISS`.
+Each task acceptance criterion or constraint that restates a tech-doc requirement or hard rule cites that section. A requirement or hard rule present in the tech-doc chapter for a task's behavior and absent from that task is `WO-MISS`.
 
 ## Check 3 — Work-order deviations (`WO-ERROR`)
 

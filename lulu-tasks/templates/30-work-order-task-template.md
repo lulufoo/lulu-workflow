@@ -53,7 +53,7 @@ exit_contract:
 
 > **coding only.** Omit this section for `action`. Acceptance criteria come first. Read code only for the signature being specified.
 >
-> **Writing constraints**: One block per changed function, 1–3 blocks; a fourth block means the task-list splits first. `Signature` lists every parameter with its type, then the return type.
+> **Writing constraints**: One block per changed function. `Signature` lists every parameter with its type, then the return type.
 
 ```
 Function name: <function_name>

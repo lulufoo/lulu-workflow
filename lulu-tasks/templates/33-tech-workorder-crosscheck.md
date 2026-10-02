@@ -23,13 +23,13 @@ Enumerate behaviors, functions, and integration points. A heading is not a unit.
 
 ### 2 — Traceability (`WO-MISS`)
 
-An acceptance criterion that restates a tech-doc requirement cites that section.
+An acceptance criterion or constraint that restates a tech-doc requirement or hard rule cites that section.
 
 | Check | Pass |
 |-------|------|
-| Citation | The criterion names the tech-doc section it restates |
-| Presence | A requirement in the tech-doc appears in the task that cites it |
-| Evidence | The tech-doc passage, and the task criterion that omits it |
+| Citation | The criterion or constraint names the tech-doc section it restates |
+| Presence | A requirement or hard rule in the tech-doc for a task's behavior appears in that task |
+| Evidence | The tech-doc passage, and the task passage that omits it |
 
 ### 3 — Deviations (`WO-ERROR`)
 
@@ -47,6 +47,6 @@ A task constraint matches the tech-doc hard rule it implements. The task adds no
 
 - [ ] Deliverable behaviors are enumerated from the tech-doc, not from its headings
 - [ ] Each behavior has a task that implements it
-- [ ] Each acceptance criterion that restates a tech-doc requirement cites that section
+- [ ] Each acceptance criterion or constraint that restates a tech-doc requirement or hard rule cites that section
 - [ ] Each task constraint matches the tech-doc hard rule it implements
 - [ ] No task adds behavior the tech-doc does not contain
