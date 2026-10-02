@@ -26,8 +26,8 @@ total_tasks: 0
 | t3 | <task title> | `path/to/file.ext` | — | action | No |
 
 > **Split principles**:
-> - `coding`: group by test boundary, not by file. If the task changes functions, it changes 1–3; count them as the task's Section 2 blocks. Deleting one module file is one change. Unchanged functions do not count. Pure UI / pure structural changes with no logic branches may set `tdd_exempt: true`.
-> - `action`: one goal. Do not split it by function count.
+> - `coding`: group by test boundary, not by file. Pure UI / pure structural changes with no logic branches may set `tdd_exempt: true`.
+> - `action`: one goal.
 
 ---
 
