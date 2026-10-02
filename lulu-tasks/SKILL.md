@@ -1,13 +1,13 @@
 ---
 name: lulu-tasks
 description: >-
-  Split a delivered plan into an independently executable task-dependency list.
+  Split a delivered plan or approach decision into an independently executable task-dependency list.
 disable-model-invocation: true
 ---
 
 # tasks-workflow
 
-Split a delivered plan into an independently executable task-dependency list.
+Split a delivered plan, or an approach decision when no plan is delivered, into an independently executable task-dependency list. `tech-doc` in this skill means that reference document.
 
 A task has `kind: coding` or `kind: action`.
 
@@ -28,7 +28,7 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 | Macro | Command |
 |-------|---------|
-| `$TT_START` | `python3 "$SKILL_DIR/scripts/tt_start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID" --tech-ref "<tech_ref>"` |
+| `$TT_START` | `python3 "$SKILL_DIR/scripts/tt_start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$TT_FLOW` | `python3 "$SKILL_DIR/scripts/tt_workflow_control.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
 | `$TT_CTX` | `$TT_FLOW resolve-context` |
 
@@ -37,9 +37,8 @@ Subcommand contracts: module docstring / `--help`.
 ## Start
 
 1. Identify the active cycle through `_runtime.md` § Session Foundation. Do not run `$TT_START` until `$CYCLE_ID` is confirmed.
-2. Feature: pass the delivered plan path from the current conversation as `--tech-ref`. Topic: ask for that absolute path.
-3. Run `$TT_START`. A non-zero result is Blocking.
-4. Run `$TT_CTX` and pin the JSON as `$CTX`.
+2. Run `$TT_START`. It reads the delivered plan, or the delivered approach decision when no plan is delivered, from the cycle's delivered refs. A non-zero result is Blocking.
+3. Run `$TT_CTX` and pin the JSON as `$CTX`.
 
 ## Router
 

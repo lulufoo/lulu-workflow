@@ -18,7 +18,7 @@
     { "from": null, "to": ["lulu-bet", "lulu-approach"] },
     { "from": "lulu-bet", "to": ["lulu-spec"] },
     { "from": "lulu-spec", "to": ["lulu-approach"] },
-    { "from": "lulu-approach", "to": ["lulu-design", "lulu-plan"] },
+    { "from": "lulu-approach", "to": ["lulu-design", "lulu-plan", "lulu-tasks"] },
     { "from": "lulu-design", "to": ["lulu-plan"] },
     { "from": "lulu-plan", "to": ["lulu-tasks"] },
     { "from": "lulu-tasks", "to": ["lulu-exec"] },

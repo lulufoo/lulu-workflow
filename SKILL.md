@@ -29,6 +29,7 @@ Both lines start at `lulu-brainstorm`. The product track and the architecture tr
 
 1. `lulu-bet` and `lulu-approach` appear on both lines.
 2. On `feature`, the two tracks join at `lulu-plan`.
+3. On `feature`, `lulu-approach` may also go straight to `lulu-tasks` when no plan is needed.
 
 ## Routing
 

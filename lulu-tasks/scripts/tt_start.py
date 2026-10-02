@@ -14,6 +14,7 @@ from transition_table import load_stage_order  # noqa: E402
 from workflow_sessions import current_effective_delivered, get_sessions  # noqa: E402
 
 from tt_archive import run as run_archive
+from tt_reference_schema import resolve_reference
 from tt_session_schema import read_active_doc, session_file, write_session_state
 from tt_workflow_common import (
     CACHE_DIR,
@@ -62,11 +63,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--project-root", default=".", help="Project root directory.")
     parser.add_argument("--cycle-id", required=True, help="Cycle ID (from cycle_init.py).")
     parser.add_argument(
-        "--tech-ref",
-        required=True,
-        help="Absolute path to the Delivered tech-doc.md that drives this work order.",
-    )
-    parser.add_argument(
         "--conversation-id",
         default="",
         help="Cursor/Copilot conversation ID for active-context indexing.",
@@ -78,11 +74,6 @@ def main() -> int:
     args = parse_args()
     project_root = Path(args.project_root).resolve()
     cycle_id = args.cycle_id.strip()
-    tech_ref = args.tech_ref.strip()
-
-    if not Path(tech_ref).exists():
-        print(f"错误：--tech-ref 文件不存在：{tech_ref}")
-        return 1
 
     cycle_type = detect_cycle_type(cycle_id)
     cache_dir = project_root / CACHE_DIR
@@ -113,6 +104,12 @@ def main() -> int:
     if not ok:
         print(f"Gate blocked: {reason}", file=sys.stderr)
         sys.exit(1)
+
+    try:
+        reference = resolve_reference(cycle_id, project_root)
+    except ValueError as exc:
+        print(f"错误：{exc}", file=sys.stderr)
+        return 1
 
     # Step 5: get_topic_doc (feature containers only, if topic_id exists)
     try:
@@ -148,13 +145,14 @@ def main() -> int:
         workflow_file(project_root, cycle_id, active_doc),
         current_state="Drafting",
         evaluate_round=0,
-        tech_ref=tech_ref,
+        tech_ref=reference["tech_ref"],
     )
     print(json.dumps({
         "ok": True,
         "cycle_type": cycle_type,
         "current_state": "Drafting",
-        "tech_ref": tech_ref,
+        "source": reference["source"],
+        "tech_ref": reference["tech_ref"],
         "evaluate_round": 0,
     }, ensure_ascii=False))
     return 0

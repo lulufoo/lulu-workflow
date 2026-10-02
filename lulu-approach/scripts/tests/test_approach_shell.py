@@ -109,7 +109,7 @@ def test_confirm_seal_registers_decision_package_ref(tmp_path: Path) -> None:
     pkg = decision_package_path(root)
     assert pkg.is_file()
     assert result["decision_package"] == str(pkg.resolve())
-    assert result["next_steps"] == ["lulu-design", "lulu-plan"]
+    assert result["next_steps"] == ["lulu-design", "lulu-plan", "lulu-tasks"]
     assert not residual.is_file()
 
     refs_path = delivered_refs_file_path(cycle_id, project_root)

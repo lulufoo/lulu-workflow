@@ -291,9 +291,10 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
     if stage in ("lulu-spec", "lulu-blueprint", "lulu-arch", "lulu-plan"):
         return compose_start_args(stage, tmp_path)
     elif stage == "lulu-tasks":
-        tech_ref = tmp_path / "tech-doc.md"
-        tech_ref.write_text("# Tech Doc\n", encoding="utf-8")
-        return ["--tech-ref", str(tech_ref)]
+        cd = _cache_dir(tmp_path)
+        _seed_tech_plan_delivered_refs(cd, _CYCLE_ID, tmp_path)
+        _seed_tech_plan_delivered_refs(cd, _TOPIC_ID, tmp_path)
+        return []
     elif stage == "lulu-exec":
         cd = _cache_dir(tmp_path)
         _seed_work_order_handoff(cd, _CYCLE_ID)
