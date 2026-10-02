@@ -50,7 +50,7 @@ def test_lulu_tasks_feature_autonomous_defaults():
 
 def test_lulu_tasks_remediation_edits_task_chapters_only():
     content = _EVALUATING.read_text(encoding="utf-8")
-    assert "Remediation edits task chapters only" in content
+    assert "Eval remediates task chapters in place" in content
     assert "tasks-scope-rejected" in content
     assert "route-remediation-result" in content
     assert "$TT_EVAL" in content

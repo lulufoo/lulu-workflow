@@ -53,7 +53,7 @@ exit_contract:
 
 > **coding only.** Omit this section for `action`. Acceptance criteria come first. Read code only for the signature being specified.
 >
-> **Writing constraints**: One block per function this task changes; the block count is the task's function count. Write 1–3 blocks, or one bounded `tdd_exempt: true` unit. A task that needs a fourth block goes back to `task-list.md` and splits. Unchanged functions get no block. `Signature` names every parameter with its type, then the return type.
+> **Writing constraints**: One block per changed function, 1–3 blocks; a fourth block means the task-list splits first. `Signature` lists every parameter with its type, then the return type.
 
 ```
 Function name: <function_name>
@@ -68,7 +68,7 @@ Side effects:  <none / describe side effects>
 
 > **Nature**: Must be followed. A `coding` task that breaks one does not meet the cited rule. An `action` task that breaks one does not meet the cited rule.
 >
-> **Writing constraints**: Every line cites its `tech-doc §N`. A rule with no section to cite is not a constraint; put it in Section 4 or leave it out.
+> **Writing constraints**: Each constraint cites its `tech-doc §N`; a rule with nothing to cite goes to Section 4 or is dropped.
 
 - Constraint 1: <rule text> (tech-doc §N)  
 - Constraint 2: <rule text> (tech-doc §N)  
