@@ -48,9 +48,11 @@ def test_lulu_tasks_feature_autonomous_defaults():
     assert "auto-chain" not in _SKILL.read_text(encoding="utf-8")
 
 
-def test_lulu_tasks_probe_does_not_edit_the_work_order():
+def test_lulu_tasks_remediation_edits_task_chapters_only():
     content = _EVALUATING.read_text(encoding="utf-8")
-    assert "does not edit it" in content
+    assert "Remediation edits task chapters only" in content
+    assert "tasks-scope-rejected" in content
+    assert "route-remediation-result" in content
     assert "$TT_EVAL" in content
 
 
@@ -62,8 +64,11 @@ def test_lulu_tasks_reads_skill_templates_not_fetch_cli():
 
 
 def test_eval_methods_replace_private_runner():
+    import json
+
     assert not (_ROOT / "eval-runner" / "SKILL.md").exists()
-    assert (_ROOT / "eval" / "eval-profile.json").is_file()
+    profile = json.loads((_ROOT / "eval" / "eval-profile.json").read_text(encoding="utf-8"))
+    assert profile["eval_capability"] == "full-remediation"
     for name in (
         "compliance-crosscheck",
         "execution-admission",

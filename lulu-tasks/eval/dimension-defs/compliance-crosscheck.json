@@ -8,7 +8,7 @@
   "sots": [],
   "method": {
     "ref": "lulu-workflow/lulu-tasks/eval/methods/compliance-crosscheck.md",
-    "focus": "Probe task chapters against the tech-doc chapter. Missing coverage is WO-MISS. Task text that contradicts or exceeds the tech-doc is WO-ERROR. Do not edit the EvalTarget."
+    "focus": "Probe task chapters against the tech-doc chapter. Missing coverage is WO-MISS. Task text that contradicts or exceeds the tech-doc is WO-ERROR. The probe does not edit the EvalTarget; remediation edits task chapters only."
   },
   "review": {
     "seq": 1,

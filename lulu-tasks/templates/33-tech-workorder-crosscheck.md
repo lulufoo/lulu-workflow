@@ -4,7 +4,7 @@ Check the work order against the tech-doc. The tech-doc is the reference.
 
 **When to run:** `compliance-crosscheck`. The probe method is `lulu-tasks/eval/methods/compliance-crosscheck.md`.
 
-**Result:** A coverage or citation gap is `WO-MISS`. A contradiction or an added behavior is `WO-ERROR`. Quote the passage and return the session to Drafting. Silence in the tech-doc is not a finding.
+**Result:** A coverage or citation gap is `WO-MISS`. A contradiction or an added behavior is `WO-ERROR`. Quote the passage. Eval remediates it inside the task chapter; a fix that needs a new task or a task-list change returns the session to Drafting. Silence in the tech-doc is not a finding.
 
 ---
 
