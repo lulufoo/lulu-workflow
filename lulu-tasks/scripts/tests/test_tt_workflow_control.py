@@ -107,16 +107,16 @@ def test_ready_then_deliver_and_drafting_does_not_deliver(tmp_path: Path) -> Non
     assert not (tmp_path / CACHE_DIR / other / CACHE_SUBDIR / "r1" / "human-delivery-gate.md").exists()
 
 
-def test_continue_does_not_change_state_and_drafting_disposition_does(tmp_path: Path) -> None:
+def test_unknown_disposition_keeps_state_and_drafting_disposition_moves(tmp_path: Path) -> None:
     cycle_id = "tasks-flow-disp"
     _seed(tmp_path, cycle_id, state="Evaluating", evaluate_round=2)
-    kept = _emit(
+    refused = _emit(
         cmd_apply_eval_disposition,
         tmp_path,
         cycle_id,
         {"ok": True, "disposition": "continue", "next_phase": "compliance-crosscheck"},
     )
-    assert kept["next_phase"] == "compliance-crosscheck"
+    assert refused["ok"] is False
     assert read_workflow_state(workflow_file(tmp_path, cycle_id, 1))["current_state"] == "Evaluating"
     drafted = _emit(
         cmd_apply_eval_disposition,

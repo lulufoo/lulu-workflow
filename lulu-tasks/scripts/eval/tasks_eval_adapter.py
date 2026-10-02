@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""lulu-tasks WorkflowAdapter. One dimension per probe-only round."""
+"""lulu-tasks WorkflowAdapter. Every dimension probes in one probe-only round."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ from tasks_eval_publish import (  # noqa: E402
     request_eval_handoff,
 )
 from tt_eval_runtime_schema import (  # noqa: E402
-    PHASES,
+    DIMENSIONS,
     evaluate_dir,
     evaluate_state_path,
     load_runtime,
@@ -61,7 +61,7 @@ _CORPUS_REF = f"{_CORPUS_ID}@{_CORPUS_VERSION}"
 
 
 class TasksEvalAdapter:
-    """Probe-only adapter. The corpus contains the current phase only."""
+    """Probe-only adapter. The corpus contains every dimension; dispatch is parallel."""
 
     WORKFLOW_ID = _WORKFLOW_ID
     EVAL_CAPABILITY = "probe-only"
@@ -183,16 +183,16 @@ class TasksEvalAdapter:
         return _WORKFLOW_ROOT / "lulu-tasks" / "eval" / "dimension-defs"
 
     def resolve_eval_corpus(self, cycle_id: str, project_root: Path) -> dict[str, Any]:
-        runtime = load_runtime(runtime_path(self.session_dir(cycle_id, project_root)))
-        phase = str(runtime.get("phase") or PHASES[0])
-        if phase not in PHASES:
-            raise ValueError(f"unknown tasks eval phase: {phase}")
-        dimension = load_dimension_def(self.dimension_defs_dir() / f"{phase}.json")
+        del cycle_id, project_root
+        defs_dir = self.dimension_defs_dir()
+        dimensions = [
+            load_dimension_def(defs_dir / f"{dim_id}.json") for dim_id in DIMENSIONS
+        ]
         return compose_corpus(
             corpus_id=_CORPUS_ID,
             corpus_version=_CORPUS_VERSION,
             scope="lulu-tasks",
-            dimensions=[dimension],
+            dimensions=dimensions,
             review_output_prefix="tasks-review",
         )
 
