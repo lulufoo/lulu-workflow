@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""lulu-tasks Eval runtime. One probe phase at a time; the parent owns Drafting."""
+"""lulu-tasks Eval runtime. One round probes every dimension; the parent owns Drafting."""
 
 from __future__ import annotations
 
@@ -11,10 +11,11 @@ from typing import Any
 
 RUNTIME_FILENAME = "tasks-eval-runtime.json"
 EVAL_WORKFLOW_STATE_FILENAME = "tasks-eval-workflow-state.md"
-PHASES = (
+DIMENSIONS = (
     "compliance-crosscheck",
     "execution-admission",
 )
+_LEGACY_KEYS = ("phase", "probing_phase")
 
 
 def _now_iso() -> str:
@@ -40,8 +41,6 @@ def evaluate_dir(session_dir: Path, evaluate_round: int) -> Path:
 def default_runtime() -> dict[str, Any]:
     return {
         "version": 1,
-        "phase": PHASES[0],
-        "probing_phase": "",
         "focus_phase": "pending",
         "evaluate_round": 0,
         "pass_id": 0,
@@ -62,6 +61,8 @@ def load_runtime(path: Path) -> dict[str, Any]:
         raise ValueError(f"tasks eval runtime must be an object: {path}")
     merged = default_runtime()
     merged.update(data)
+    for key in _LEGACY_KEYS:
+        merged.pop(key, None)
     if not isinstance(merged.get("last_issues"), list):
         merged["last_issues"] = []
     return merged
@@ -96,20 +97,12 @@ def write_workflow_state_file(path: Path, runtime: dict[str, Any]) -> None:
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def next_phase(phase: str) -> str | None:
-    index = PHASES.index(phase)
-    if index + 1 >= len(PHASES):
-        return None
-    return PHASES[index + 1]
-
-
 def enter_evaluating_runtime(runtime: dict[str, Any]) -> dict[str, Any]:
     updated = dict(runtime)
     if updated.get("focus_phase") == "evaluating":
         return updated
     updated["focus_phase"] = "evaluating"
     updated["evaluate_round"] = int(updated.get("evaluate_round") or 0) + 1
-    updated["probing_phase"] = str(updated.get("phase") or PHASES[0])
     updated["last_outcome"] = ""
     return updated
 

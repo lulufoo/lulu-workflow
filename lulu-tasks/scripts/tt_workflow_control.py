@@ -116,13 +116,6 @@ def cmd_apply_eval_disposition(project_root: Path, cycle_id: str, payload: dict[
         _doc_dir, state_path, state = _doc(project_root, cycle_id)
         if state["current_state"] != "Evaluating":
             raise ValueError("apply-eval-disposition requires Evaluating")
-        if disposition == "continue":
-            return _emit({
-                "ok": True,
-                "disposition": "continue",
-                "next_phase": payload.get("next_phase") or "",
-                "current_state": "Evaluating",
-            })
         if disposition == "drafting":
             nxt = transition_workflow(state_path, "Drafting")
         elif disposition == "ready":

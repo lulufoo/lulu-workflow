@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
-"""lulu-tasks Eval control — start a pass and route one probe-only result.
+"""lulu-tasks Eval control — start a pass and route one probe-only round.
+
+One pass is one Eval round that probes every dimension in parallel.
 
 CLI:
     python3 tt_eval_control.py --project-root . --cycle-id <id> begin-pass
     python3 tt_eval_control.py --project-root . --cycle-id <id> status
     python3 tt_eval_control.py --project-root . --cycle-id <id> route-probe-result --probe-result-json '<object>'
+
+route-probe-result stdout:
+    {"ok": true, "disposition": "drafting" | "ready", "issues": [...]}
+    {"ok": false, "error": ...}   when any issue carries a SoT root cause
 """
 
 from __future__ import annotations
@@ -22,12 +28,7 @@ for _path in (_SCRIPTS, _EVAL_ADAPTER):
         sys.path.insert(0, str(_path))
 
 from tasks_eval_adapter import TasksEvalAdapter  # noqa: E402
-from tt_eval_runtime_schema import (  # noqa: E402
-    PHASES,
-    load_runtime,
-    next_phase,
-    runtime_path,
-)
+from tt_eval_runtime_schema import load_runtime, runtime_path  # noqa: E402
 
 _FORBIDDEN_ROOT_CAUSES = frozenset({
     "SOT-DEFECT",
@@ -64,18 +65,12 @@ def cmd_begin_pass(project_root: Path, cycle_id: str) -> int:
     runtime = load_runtime(runtime_path(session_dir))
     if runtime.get("focus_phase") == "evaluating":
         return _emit_error("begin-pass refused while a probe is in progress")
-    runtime["phase"] = PHASES[0]
-    runtime["probing_phase"] = ""
     runtime["last_outcome"] = ""
     runtime["last_disposition"] = ""
     runtime["last_issues"] = []
     runtime["pass_id"] = int(runtime.get("pass_id") or 0) + 1
     adapter.save_runtime(cycle_id, project_root, runtime)
-    return _emit({
-        "ok": True,
-        "phase": PHASES[0],
-        "pass_id": runtime["pass_id"],
-    })
+    return _emit({"ok": True, "pass_id": runtime["pass_id"]})
 
 
 def cmd_status(project_root: Path, cycle_id: str) -> int:
@@ -87,8 +82,6 @@ def cmd_status(project_root: Path, cycle_id: str) -> int:
     runtime = load_runtime(runtime_path(session_dir))
     return _emit({
         "ok": True,
-        "phase": runtime.get("phase"),
-        "probing_phase": runtime.get("probing_phase"),
         "focus_phase": runtime.get("focus_phase"),
         "pass_id": runtime.get("pass_id"),
         "last_disposition": runtime.get("last_disposition"),
@@ -115,9 +108,6 @@ def cmd_route_probe_result(
     runtime = load_runtime(runtime_path(session_dir))
     if runtime.get("focus_phase") != "evaluating":
         return _emit_error("route-probe-result requires focus_phase=evaluating")
-    phase = str(runtime.get("probing_phase") or "")
-    if phase not in PHASES:
-        return _emit_error(f"probe phase is {phase!r}")
     forbidden = [issue for issue in issues if _root_cause(issue) in _FORBIDDEN_ROOT_CAUSES]
     outcome = "fail" if issues else "pass"
     try:
@@ -128,46 +118,15 @@ def cmd_route_probe_result(
     if forbidden:
         runtime["last_disposition"] = "rejected"
         runtime["last_issues"] = list(issues)
-        runtime["phase"] = PHASES[0]
         adapter.save_runtime(cycle_id, project_root, runtime)
         return _emit_error(
             "probe emitted a SoT root cause; lulu-tasks eval does not handle it"
         )
-    if issues:
-        runtime["phase"] = PHASES[0]
-        runtime["last_disposition"] = "drafting"
-        runtime["last_issues"] = list(issues)
-        adapter.save_runtime(cycle_id, project_root, runtime)
-        return _emit({
-            "ok": True,
-            "disposition": "drafting",
-            "phase": phase,
-            "next_phase": "",
-            "issues": issues,
-        })
-    following = next_phase(phase)
-    if following is None:
-        runtime["last_disposition"] = "ready"
-        runtime["last_issues"] = []
-        adapter.save_runtime(cycle_id, project_root, runtime)
-        return _emit({
-            "ok": True,
-            "disposition": "ready",
-            "phase": phase,
-            "next_phase": "",
-            "issues": [],
-        })
-    runtime["phase"] = following
-    runtime["last_disposition"] = "continue"
-    runtime["last_issues"] = []
+    disposition = "drafting" if issues else "ready"
+    runtime["last_disposition"] = disposition
+    runtime["last_issues"] = list(issues)
     adapter.save_runtime(cycle_id, project_root, runtime)
-    return _emit({
-        "ok": True,
-        "disposition": "continue",
-        "phase": phase,
-        "next_phase": following,
-        "issues": [],
-    })
+    return _emit({"ok": True, "disposition": disposition, "issues": issues})
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

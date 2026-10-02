@@ -11,6 +11,6 @@
     ]
   },
   "evaluate": {
-    "phases": ["compliance-crosscheck", "execution-admission"]
+    "dimensions": ["compliance-crosscheck", "execution-admission"]
   }
 }
