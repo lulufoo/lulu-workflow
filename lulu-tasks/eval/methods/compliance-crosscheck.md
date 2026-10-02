@@ -20,4 +20,4 @@ Silence in the tech-doc chapter is not a finding.
 
 ## Remediation
 
-Edit `<!-- chapter:task-tN -->` bodies only. The tech-doc and task-list chapters stay byte-identical; task chapters are neither added nor removed. A finding that needs a new task or a task-list change cannot be resolved in this round: include that task-list edit in the diff so the work-order owner rejects the round and returns the order to Drafting with the findings.
+Edit existing `<!-- chapter:task-tN -->` bodies only. A finding that needs a new task or a task-list change is out of this round's scope: write that task-list edit into the diff anyway; the work-order owner rejects the round and returns the order to Drafting with the findings.
