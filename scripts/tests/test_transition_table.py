@@ -26,6 +26,7 @@ class TestNextStepsForStage:
         assert next_steps_for_stage("lulu-approach", "feature") == [
             "lulu-design",
             "lulu-plan",
+            "lulu-tasks",
         ]
 
     def test_terminal_stage(self):

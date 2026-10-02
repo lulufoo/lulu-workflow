@@ -228,10 +228,6 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
         return _compose_start_args("lulu-spec", tmp_path)
     if stage == "lulu-plan":
         return _compose_start_args("lulu-plan", tmp_path)
-    if stage == "lulu-tasks":
-        tech_ref = tmp_path / "tech-doc.md"
-        tech_ref.write_text("# Tech Doc\n", encoding="utf-8")
-        return ["--tech-ref", str(tech_ref)]
     if stage == "lulu-exec":
         return []
     return []
@@ -377,7 +373,7 @@ def _run_start(
         _seed_decision_config(tmp_path)
     if stage == "lulu-spec":
         _seed_product_spec_delivered_refs(_cache_dir(tmp_path), cycle_id, tmp_path)
-    if stage == "lulu-plan":
+    if stage in ("lulu-plan", "lulu-tasks"):
         _seed_tech_plan_delivered_refs(_cache_dir(tmp_path), cycle_id, tmp_path)
     cmd = [
         sys.executable, str(_start_py(stage)),

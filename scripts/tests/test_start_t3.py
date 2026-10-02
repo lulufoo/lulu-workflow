@@ -247,7 +247,7 @@ def _seed_gate_for_stage(tmp_path: Path, to_stage: str, *, cycle_id: str = _FID)
         _make_session(cd, cycle_id, stage, "r1")
     if prior:
         _make_cycle_state(cd, cycle_id, prior[-1])
-    if to_stage == "lulu-plan":
+    if to_stage in ("lulu-plan", "lulu-tasks"):
         _seed_tech_plan_delivered_refs(cd, cycle_id, tmp_path)
     if to_stage == "lulu-blueprint":
         _seed_lulu_bet_delivered_refs(cd, cycle_id, tmp_path)
@@ -431,14 +431,10 @@ class TestSessionPath:
 
     def _run_work_order(self, tmp_path):
         _seed_gate_for_stage(tmp_path, "lulu-tasks")
-        # lulu-tasks requires --tech-ref (existing file)
-        tech_ref = tmp_path / "tech-doc.md"
-        tech_ref.write_text("# Tech Doc\n", encoding="utf-8")
         return subprocess.run(
             [sys.executable, str(_start_py("lulu-tasks")),
              "--project-root", str(tmp_path),
-             "--cycle-id", _FID,
-             "--tech-ref", str(tech_ref)],
+             "--cycle-id", _FID],
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(_scripts_dir("lulu-tasks")),
         )
@@ -542,6 +538,25 @@ class TestSessionPath:
         self._run_work_order(tmp_path)
         ss = _cache_dir(tmp_path) / _FID / "lulu-tasks" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
+
+    def test_work_order_starts_straight_from_approach(self, tmp_path):
+        cd = _cache_dir(tmp_path)
+        _make_cycles_json(cd, _FID)
+        for stage in ("lulu-bet", "lulu-spec", "lulu-approach"):
+            _make_session(cd, _FID, stage, "r1")
+        _make_cycle_state(cd, _FID, "lulu-approach")
+        _seed_tech_plan_delivered_refs(cd, _FID, tmp_path)
+        result = subprocess.run(
+            [sys.executable, str(_start_py("lulu-tasks")),
+             "--project-root", str(tmp_path),
+             "--cycle-id", _FID],
+            capture_output=True, text=True, env=_ENV_COPILOT,
+            cwd=str(_scripts_dir("lulu-tasks")),
+        )
+        assert result.returncode == 0, result.stderr
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+        assert payload["source"] == "lulu-approach"
+        assert payload["tech_ref"].endswith("decision-doc.md")
 
     def test_code_session_file_at_feature_first_path(self, tmp_path):
         self._run_code(tmp_path)

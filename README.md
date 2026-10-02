@@ -40,6 +40,7 @@ Both lines start at `lulu-brainstorm` and split into two tracks: a product track
 
 - The two tracks have no order between them. On the feature line they join at `lulu-plan`.
 - `lulu-bet` is the recommended start for full-feature work. Purely technical work can start at `lulu-approach`.
+- A change that needs no plan can go from `lulu-approach` straight to `lulu-tasks`.
 
 ## Stages
 
@@ -53,7 +54,7 @@ Both lines start at `lulu-brainstorm` and split into two tracks: a product track
 | [`lulu-arch`](./lulu-arch/SKILL.md) | `ta` | topic | Tech arch doc for a topic | Delivered `lulu-approach` | Tech arch doc |
 | [`lulu-design`](./lulu-design/SKILL.md) | `ds` | feature | Design doc for a feature | Delivered `lulu-approach` | Design doc |
 | [`lulu-plan`](./lulu-plan/SKILL.md) | `t` | feature | Implementation-ready plan | Delivered `lulu-spec` and `lulu-design` | Plan doc |
-| [`lulu-tasks`](./lulu-tasks/SKILL.md) | `w` | feature | Splits the plan into independently executable tasks | Delivered plan | Work order: a task-dependency list |
+| [`lulu-tasks`](./lulu-tasks/SKILL.md) | `w` | feature | Splits the plan, or the approach decision when no plan is delivered, into independently executable tasks | Delivered `lulu-plan` or `lulu-approach` | Work order: a task-dependency list |
 | [`lulu-exec`](./lulu-exec/SKILL.md) | `c` | feature | Executes the work order | Delivered work order | Delivered code and task receipts |
 
 ## Platforms

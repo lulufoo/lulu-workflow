@@ -24,25 +24,23 @@ def test_lulu_tasks_no_execution_mode_branching():
     assert "guided mode" not in content.lower()
 
 
-def test_lulu_tasks_feature_auto_tech_ref():
+def test_lulu_tasks_reference_comes_from_delivered_refs():
     content = _SKILL.read_text(encoding="utf-8")
-    assert "Feature:" in content
-    assert "--tech-ref" in content
+    assert "--tech-ref" not in content
     assert "delivered plan" in content
+    assert "approach decision" in content
 
 
-def test_lulu_tasks_topic_manual_confirm_paths():
-    drafting = _DRAFTING.read_text(encoding="utf-8")
-    delivery = _DELIVERY.read_text(encoding="utf-8")
-    assert "Topic waits until the user confirms the split" in drafting
-    assert "Topic waits for an explicit delivery confirmation" in delivery
+def test_lulu_tasks_has_no_topic_branches():
+    for unit in (_SKILL, _DRAFTING, _DELIVERY):
+        assert "Topic" not in unit.read_text(encoding="utf-8")
 
 
 def test_lulu_tasks_feature_autonomous_defaults():
     drafting = _DRAFTING.read_text(encoding="utf-8")
     evaluating = _EVALUATING.read_text(encoding="utf-8")
     delivery = _DELIVERY.read_text(encoding="utf-8")
-    assert "Feature runs `$TT_ENTER_EVAL` immediately" in drafting
+    assert "Run `$TT_ENTER_EVAL`" in drafting
     assert "disposition: drafting" in evaluating
     assert "Start `lulu-exec`" in delivery
     assert "auto-chain" not in _SKILL.read_text(encoding="utf-8")
@@ -79,7 +77,7 @@ def test_eval_methods_replace_private_runner():
 
 def test_entry_skill_does_not_write_session_files():
     content = _SKILL.read_text(encoding="utf-8")
-    assert "Split a delivered plan into an independently executable task-dependency list." in content
+    assert "into an independently executable task-dependency list." in content
     router = content.split("## Router", 1)[1]
     assert "python3" not in router
     assert "workflow-state.md" not in content
