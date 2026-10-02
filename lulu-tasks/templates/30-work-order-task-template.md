@@ -33,7 +33,7 @@ exit_contract:
 
 ## Section 1: Acceptance Criteria
 
-> **Writing constraints**: `coding` covers a normal case, a boundary case, and an exception. `tdd_exempt: true` may use `N/A`. `action` states its goal in `title` and lists one checklist item per acceptance criterion. Each item is an observable condition that a reader can check against evidence such as an id, link, command output, or count. An `action` has no function spec. Write the goal so re-running it is safe: inspect the current state, act only on what is missing.
+> **Writing constraints**: `coding` lists at least one item under each of the three headings below. `N/A` is allowed only when `tdd_exempt: true`. `action` states its goal in `title` and lists one checklist item per acceptance criterion. Each item is an observable condition that a reader can check against evidence such as an id, link, command output, or count. An `action` has no function spec. Write the goal so re-running it is safe: inspect the current state, act only on what is missing.
 
 **Normal scenarios**
 
@@ -52,24 +52,26 @@ exit_contract:
 ## Section 2: Function Specs
 
 > **coding only.** Omit this section for `action`. Acceptance criteria come first. Read code only for the signature being specified.
+>
+> **Writing constraints**: One block per function this task changes; the block count is the task's function count. Write 1–3 blocks, or one bounded `tdd_exempt: true` unit. A task that needs a fourth block goes back to `task-list.md` and splits. Unchanged functions get no block. `Signature` names every parameter with its type, then the return type.
 
 ```
 Function name: <function_name>
-Signature:     <parameter list> → <return type>
+Signature:     (<param>: <type>, <param>: <type>) → <return type>
 Responsibility: one sentence describing what the function does
 Side effects:  <none / describe side effects>
 ```
-
-If there are multiple functions, list each separately.
 
 ---
 
 ## Section 3: Constraints (hard implementation rules, copied from tech-doc)
 
 > **Nature**: Must be followed. A `coding` task that breaks one does not meet the cited rule. An `action` task that breaks one does not meet the cited rule.
+>
+> **Writing constraints**: Every line cites its `tech-doc §N`. A rule with no section to cite is not a constraint; put it in Section 4 or leave it out.
 
-- Constraint 1: <source tech-doc §N>  
-- Constraint 2: <source tech-doc §N>  
+- Constraint 1: <rule text> (tech-doc §N)  
+- Constraint 2: <rule text> (tech-doc §N)  
 
 ---
 
