@@ -92,7 +92,8 @@ After a Conclusion Candidate or free-dialogue conclusion: behavior map for
 convergent close.
 
 - Conclude: Summarize → `set-conclusion` → human confirm →
-  `confirm-conclusion` → `fact-store-runner` → Seeking (`topic-landscape`).
+  `confirm-conclusion` → `fact-store-runner` with the confirmed
+  conclusion and topic scope → Seeking (`topic-landscape`).
 
 ## Close
 
