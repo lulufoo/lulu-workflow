@@ -23,6 +23,7 @@ from derive_shell import (  # noqa: E402
     fact_covers_upstream,
     has_derivation,
     normalize_dependency_graph,
+    supplied_lenses,
     topo_order_triggered,
     true_coverage_gaps,
     upstream_fact_count,
@@ -70,7 +71,7 @@ def test_has_derivation_and_upstreams():
 def test_derive_triggers_zero_only_required_with_edge():
     g = _planish_graph()
     order = ["AR", "SK", "T", "GO"]
-    supply = {"AR": "ask", "SK": "ask", "T": "ask", "GO": "none"}
+    supply = {"AR": "ask", "SK": "ask", "T": "derive", "GO": "none"}
     facts = [
         {"id": "F-1", "text": "ar fact", "lens": "AR"},
         {"id": "F-2", "text": "sk fact", "lens": "SK"},
@@ -82,7 +83,7 @@ def test_derive_triggers_skips_partial_coverage_zero_only():
     """supplied ∧ facts>0 ∧ derivation edge → do NOT trigger (zero-only)."""
     g = _planish_graph()
     order = ["T"]
-    supply = {"T": "ask"}
+    supply = {"T": "derive"}
     facts = [{"id": "F-1", "text": "partial T", "lens": "T"}]
     assert derive_triggers(order, supply, facts, g) == []
 
@@ -98,7 +99,7 @@ def test_edge_holes_when_partial_t_does_not_cite_upstream():
     assert edge_holes_for_lens("T", facts, g) == ["F-1", "F-2"]
     holes = edge_hole_triggers(
         ["AR", "SK", "T", "GO"],
-        {"AR": "ask", "SK": "ask", "T": "ask", "GO": "none"},
+        {"AR": "ask", "SK": "ask", "T": "derive", "GO": "none"},
         facts,
         g,
     )
@@ -120,7 +121,7 @@ def test_edge_holes_cleared_when_t_cites_upstream_fids():
     assert edge_holes_for_lens("T", facts, g) == []
     assert edge_hole_triggers(
         ["AR", "SK", "T"],
-        {"AR": "ask", "SK": "ask", "T": "ask"},
+        {"AR": "ask", "SK": "ask", "T": "derive"},
         facts,
         g,
     ) == {}
@@ -131,10 +132,10 @@ def test_derive_triggers_skips_none_and_true_gaps():
     order = ["T", "GO", "ZZ"]
     # ZZ required, zero facts, no derivation edge → true gap, not trigger
     g["sections"]["ZZ"] = {"upstream": [], "relations": {}}
-    supply = {"T": "ask", "GO": "none", "ZZ": "ask"}
+    supply = {"T": "derive", "GO": "none", "ZZ": "ask"}
     facts = [{"id": "F-1", "text": "sk", "lens": "SK"}]
     assert derive_triggers(order, supply, facts, g) == ["T"]
-    assert true_coverage_gaps(order, supply, facts, g) == ["ZZ"]
+    assert true_coverage_gaps(order, supply, facts, g) == []
 
 
 def test_topo_order_upstream_first_cascade():
@@ -273,7 +274,7 @@ def test_cascade_visibility_via_append_then_filter():
         AR={"upstream": [], "relations": {}},
     )
     facts = [{"id": "F-1", "text": "ar", "lens": "AR"}]
-    supply = {"SK": "ask", "T": "ask", "AR": "ask"}
+    supply = {"SK": "derive", "T": "derive", "AR": "ask"}
     assert derive_triggers(["AR", "SK", "T"], supply, facts, g) == ["SK", "T"]
     order = topo_order_triggered(["SK", "T"], g)
     assert order == ["SK", "T"]
@@ -362,7 +363,7 @@ def test_classify_zero_supplied_lenses_buckets():
     supply = {
         "AR": "ask",
         "SK": "ask",
-        "T": "ask",
+        "T": "derive",
         "GO": "none",
         "ZZ": "ask",
     }
@@ -372,7 +373,7 @@ def test_classify_zero_supplied_lenses_buckets():
     ]
     buckets = classify_zero_supplied_lenses(order, supply, facts, g)
     assert buckets["derivation"] == ["T"]
-    assert buckets["true_gaps"] == ["ZZ"]
+    assert buckets["true_gaps"] == []
 
 
 def test_normalize_dependency_graph_lowercases_relations():
@@ -393,7 +394,7 @@ def test_planish_e2e_append_c1_pass_with_source():
     """§7.3 mechanical e2e: Step 2 T=0 → Step 3 append → C1 pass + source preserved."""
     g = _planish_graph()
     order = ["AR", "SK", "T", "GO"]
-    supply = {"AR": "ask", "SK": "ask", "T": "ask", "GO": "none"}
+    supply = {"AR": "ask", "SK": "ask", "T": "derive", "GO": "none"}
     step2_facts = [
         {"id": "F-1", "text": "ar contract", "lens": "AR"},
         {"id": "F-2", "text": "sk phase", "lens": "SK"},
@@ -415,3 +416,29 @@ def test_planish_e2e_append_c1_pass_with_source():
     assert check_derive_nonempty_self_audit(step2_facts, after, ["T"], g) == []
     assert derive_triggers(order, supply, after, g) == []
     assert true_coverage_gaps(order, supply, after, g) == []
+
+
+def test_no_group_a_yields_empty_participants():
+    g = _planish_graph()
+    order = ["AR", "SK", "T", "GO"]
+    supply = {"AR": "ask", "SK": "ask", "T": "ask", "GO": "none"}
+    facts = [
+        {"id": "F-1", "text": "ar fact", "lens": "AR"},
+        {"id": "F-2", "text": "sk fact", "lens": "SK"},
+    ]
+    assert supplied_lenses(order, supply, g) == []
+    assert derive_triggers(order, supply, facts, g) == []
+    assert edge_hole_triggers(order, supply, facts, g) == {}
+
+
+def test_ask_dependent_of_group_a_is_participant_without_floor_holes():
+    g = _graph(
+        SK={"upstream": [], "relations": {}},
+        T={"upstream": ["SK"], "relations": {"SK": "decompose"}},
+        VF={"upstream": ["T"], "relations": {"T": "operationalize"}},
+    )
+    order = ["SK", "T", "VF"]
+    supply = {"SK": "ask", "T": "derive", "VF": "ask"}
+    assert supplied_lenses(order, supply, g) == ["T", "VF"]
+    facts = [{"id": "F-1", "text": "task", "lens": "T"}]
+    assert edge_hole_triggers(order, supply, facts, g) == {}

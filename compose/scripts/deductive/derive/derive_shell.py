@@ -3,8 +3,8 @@
 
 Step 3 = AI semantic step + this mechanical shell. Scripts never invent derived
 work-item text — they only:
-  * decide which supplied lenses (``supply`` not ``none``) trigger (zero-only +
-    derivation edge);
+  * decide which participant lenses (Group A ``supply=derive``, plus non-``none``
+    lenses whose upstream hits Group A) trigger (zero-only + derivation edge);
   * order triggered lenses topologically (upstream-first, cascade-visible);
   * allocate contiguous ``F-(k+1)..`` ids when appending derived facts;
   * run the non-empty self-audit when upstream facts existed (cascade-aware).
@@ -138,20 +138,46 @@ def edge_holes_for_lens(
     return uncovered
 
 
-def supplied_lenses(
+def _supply_of(lens: str, supply_map: dict[str, str]) -> str:
+    """Return ``ask``, ``derive``, or ``none``. Missing / unknown counts as ``ask``."""
+    normalized = {
+        _upper(k): str(v).strip().lower() for k, v in (supply_map or {}).items()
+    }
+    raw = normalized.get(_upper(lens), "ask")
+    return raw if raw in {"ask", "derive", "none"} else "ask"
+
+
+def group_a_lenses(
     section_order: list[str],
     supply_map: dict[str, str],
 ) -> list[str]:
-    """Lens keys whose ``supply`` is not ``none`` (``ask`` or ``derive``).
+    """Lens keys whose ``supply`` is ``derive``, in ``section_order``."""
+    return [_upper(lens) for lens in section_order if _supply_of(lens, supply_map) == "derive"]
 
-    A lens missing from ``supply_map`` or carrying an unknown value counts as ``ask``.
+
+def supplied_lenses(
+    section_order: list[str],
+    supply_map: dict[str, str],
+    graph: dict[str, Any],
+) -> list[str]:
+    """Deductive participants: Group A ∪ non-``none`` lenses that list a Group A upstream.
+
+    Group A is ``supply=derive``. Dependence is a direct upstream hit, any relation.
+    ``supply=none`` is excluded even when an upstream is in Group A.
+    A missing / unknown supply counts as ``ask``.
     """
-    normalized = {_upper(k): str(v).strip().lower() for k, v in (supply_map or {}).items()}
-    return [
-        _upper(lens)
-        for lens in section_order
-        if normalized.get(_upper(lens), "ask") != "none"
-    ]
+    group_a = set(group_a_lenses(section_order, supply_map))
+    out: list[str] = []
+    seen: set[str] = set()
+    for lens in section_order:
+        key = _upper(lens)
+        if key in seen or _supply_of(key, supply_map) == "none":
+            continue
+        upstreams = {edge["upstream_section"] for edge in _edges(graph, key)}
+        if key in group_a or (upstreams & group_a):
+            out.append(key)
+            seen.add(key)
+    return out
 
 
 def edge_hole_triggers(
@@ -160,12 +186,12 @@ def edge_hole_triggers(
     facts: list[dict[str, Any]],
     graph: dict[str, Any],
 ) -> dict[str, list[str]]:
-    """Supplied lenses with derivation edges → list of uncovered upstream F-ids.
+    """Participant lenses with derivation edges → uncovered upstream F-ids.
 
     Replaces zero-only as the mechanical floor for deductive-runner (rev.3).
     """
     out: dict[str, list[str]] = {}
-    for key in supplied_lenses(section_order, supply_map):
+    for key in supplied_lenses(section_order, supply_map, graph):
         if not has_derivation(key, graph):
             continue
         holes = edge_holes_for_lens(key, facts, graph)
@@ -180,7 +206,7 @@ def derive_triggers(
     facts: list[dict[str, Any]],
     graph: dict[str, Any],
 ) -> list[str]:
-    """Lenses with supplied ∧ 0 facts ∧ has derivation (zero-only floor helper).
+    """Lenses with participant ∧ 0 facts ∧ has derivation (zero-only floor helper).
 
     Used inside ``edge-scan`` alongside edge-hole detection.
     Partial coverage (facts > 0) never triggers — K1 §2.2 zero-only.
@@ -196,7 +222,7 @@ def true_coverage_gaps(
     facts: list[dict[str, Any]],
     graph: dict[str, Any],
 ) -> list[str]:
-    """Supplied ∧ 0 facts ∧ **no** derivation edge — Step 3 must not invent."""
+    """Participant ∧ 0 facts ∧ **no** derivation edge — Step 3 must not invent."""
     return classify_zero_supplied_lenses(section_order, supply_map, facts, graph)[
         "true_gaps"
     ]
@@ -208,14 +234,14 @@ def classify_zero_supplied_lenses(
     facts: list[dict[str, Any]],
     graph: dict[str, Any],
 ) -> dict[str, list[str]]:
-    """Split zero-coverage supplied lenses into derivation vs true-gap buckets.
+    """Split zero-coverage participant lenses into derivation vs true-gap buckets.
 
     Used by Step 6 routing (re-run Step 2→3 vs Round) and to enrich C1 messages.
     """
     coverage = lenses_present(facts)
     derivation: list[str] = []
     true_gaps: list[str] = []
-    for key in supplied_lenses(section_order, supply_map):
+    for key in supplied_lenses(section_order, supply_map, graph):
         if coverage.get(key, 0) != 0:
             continue
         if has_derivation(key, graph):

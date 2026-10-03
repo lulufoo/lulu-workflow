@@ -6,16 +6,15 @@ description: >-
 
 # deductive-runner
 
-Orchestrate deductive fact production from already-intaken facts through
-a leftover display. Done when facts validate, the user confirms that
-display, and the parent can enter Writing.
+Orchestrate deductive fact production from already-intaken facts. Done
+when facts validate and the parent can enter Writing.
 
 ## Responsibility
 
 | Area | Boundary |
 |------|----------|
 | Invocation | Run only from compose L-execution on the deductive path. |
-| Owns | pending-init → Derive → Pending Confirm → Complete. |
+| Owns | pending-init → Derive → Pending Confirm → Complete. `$FAST_COMPLETE` true skips Derive and Confirm. |
 | Delegates | `derive-runner` owns Floor / Ceiling / Cascade. |
 | Downstream | Writing, delivery Eval, and FreeEdit remain with the parent. |
 
@@ -33,8 +32,8 @@ Facts and their fields carry the meanings defined in these units.
 
 Derive material is the carried intake facts plus facts already derived;
 quarantined and not_needed facts are provenance records, not material.
-Facts and pending are the source of truth; the AI shows leftovers, the user
-confirms once, scripts move state.
+Facts and pending are the source of truth. When `$FAST_COMPLETE` is false,
+the AI shows leftovers and the user confirms once; scripts move state.
 
 ## Invariants
 
@@ -45,7 +44,7 @@ confirms once, scripts move state.
    never hand-write state JSON.
 4. Preserve user decision ownership: do not invent decisions or label off-edge
    obligations as `derived`.
-5. Show unreferenced quarantined ids and leftover `edge_hole` links.
+5. When `$FAST_COMPLETE` is false, show unreferenced quarantined ids and leftover `edge_hole` links.
 
 ## Inputs
 
@@ -84,7 +83,9 @@ invent derived work-item text.
 $DEDUCTIVE_CTL pending-init
 ```
 
-**Done:** command exits 0; pending store exists. Proceed to Step 2.
+Bind `$FAST_COMPLETE` from stdout `fast_complete`.
+
+**Done:** exit 0; pending store exists. `$FAST_COMPLETE` true → Step 4. Else Step 2.
 
 ### Step 2 — Derive
 
