@@ -1,18 +1,15 @@
 ---
 name: fact-cut-runner
 description: >-
-  Compose fact-intake L1: whole-doc cut and disposition classify into
-  one `_facts.json`.
+  Compose fact-intake L1: whole-doc cut and disposition classify.
 ---
 
 # fact-cut-runner
 
-Read `$SOURCE_PATH` once. Write focus-slice `_facts.json` atoms with
-`origin.type=seed`, `derivation.upstream_ref`, and disposition. Tag each
-atom while cutting.
+Read `$SOURCE_PATH` once and write classified seed atoms. Done when
+`$FACTS_CTL validate --require-derivation` exits 0.
 
-**Must:** `$FACT_CUT_BUILD context` then cut+tag+write; pass
-`--require-derivation` validate.  
+**Must:** `$FACT_CUT_BUILD context`; cut+tag+write.  
 **Must not:** Confirm; Eval; `fact-store-runner`; edit source doc; write
 `discovered`.
 
@@ -60,18 +57,18 @@ Contract in `--help`.
 
 ## Boundaries
 
-- Control calls: `context` once; `write` once; `validate --require-derivation` once (add `--require-seed-origin` when `$REQUIRE_SEED_ORIGIN=true`). A failed fetch or validate fails the pass.
-- Evidence closure: `context` stdout, this SKILL, the Cognition units, and `$SOURCE_PATH` are the whole evidence. Read nothing outside the closure.
-- Do not list scripts, read a sibling runner, or read another cycle's `_facts.json`.
-- Write once: seed + `upstream_ref` + disposition. Do not pass `--intake-structure`.
+- Control calls: `context` once; `write` once; `validate --require-derivation` once. Add `--require-seed-origin` when `$REQUIRE_SEED_ORIGIN=true`. A failed call fails the pass.
+- Evidence closure: `context` stdout, this SKILL, the Cognition units, and `$SOURCE_PATH`. Read nothing outside the closure.
+- Do not list scripts or read another cycle's facts.
+- Write seed + `upstream_ref` + disposition.
 
 ## Execution
 
 1. Bind Input.  
 2. `$FACT_CUT_BUILD context --revision-dir … --project-root … --cycle-id …`  
 3. Whole-doc cut; tag each atom; repair don't-list false kills.  
-4. `$FACTS_CTL write …` (no `--intake-structure`; add `--require-seed-origin` when `$REQUIRE_SEED_ORIGIN=true`).  
-5. `$FACTS_CTL validate … --require-derivation` (same `--require-seed-origin` rule).
+4. `$FACTS_CTL write`.  
+5. `$FACTS_CTL validate --require-derivation`.
 
 **Done:** validate exit 0.
 
