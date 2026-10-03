@@ -81,6 +81,16 @@ def _parse_json(raw: str, label: str) -> Any:
     raise AssertionError("unreachable")
 
 
+def _opens_from_json(raw: str) -> list[Any]:
+    envelope = _parse_json(raw, "--opens-json")
+    if not isinstance(envelope, dict):
+        raise ValueError('--opens-json must be a JSON object {"opens": [...]}')
+    opens = envelope.get("opens")
+    if not isinstance(opens, list):
+        raise ValueError("--opens-json.opens must be a JSON array")
+    return opens
+
+
 def _active_open(bundle: dict[str, Any]) -> dict[str, Any] | None:
     open_id = bundle["state"].get("active_open_id")
     if not open_id:
@@ -200,9 +210,7 @@ def cmd_process_context(slice_dir: Path, args: argparse.Namespace) -> None:
 
 
 def cmd_add_opens(slice_dir: Path, args: argparse.Namespace) -> None:
-    opens = _parse_json(args.opens_json, "--opens-json")
-    if not isinstance(opens, list):
-        raise ValueError("--opens-json must be a JSON array")
+    opens = _opens_from_json(args.opens_json)
     detect = None
     if args.detect_json:
         detect = _parse_json(args.detect_json, "--detect-json")
@@ -340,13 +348,14 @@ def _build_parser() -> argparse.ArgumentParser:
     add = sub.add_parser(
         "add-opens",
         help=(
-            "Register 0..N opens. Detect must pass --detect-json "
+            "Register 0..N opens. --opens-json is "
+            '{"opens": [...]} . Detect must pass --detect-json '
             '{"verdicts": [{lens, gap_kw, candidates[]}, ...]} covering '
             "exactly the detect-context pending_lenses; gap_kw is null "
             "exactly when candidates is empty. A candidate may carry kw "
             "(0..4, not below the lens frontier); when it does, gap_kw is "
             "the coarsest kw, and kw is dropped when opens register. "
-            "Empty --opens-json is legal "
+            'Empty {"opens": []} is legal '
             "only with detect metadata. Measurements and the receipt derive "
             "from verdicts; carried lenses get gap_kw null. AI Detect means "
             "must be probe. Non-null gap_kw writes "
