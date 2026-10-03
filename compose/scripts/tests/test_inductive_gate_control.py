@@ -17,17 +17,14 @@ _GATE_CTL = _INDUCTIVE_DIR / "inductive_gate_control.py"
 _DESIGN_DOMAIN = (
     _REPO /  "lulu-design" / "templates" / "domain-instance.json"
 )
-_G4_CTL = _INDUCTIVE_DIR / "recompose" / "inductive_recompose_control.py"
 _KERNEL = Path(__file__).resolve().parent.parent / "_kernel"
 
 sys.path.insert(0, str(_INDUCTIVE_DIR / "open-point"))
 sys.path.insert(0, str(_INDUCTIVE_DIR))
-for _name in ("gate", "topic", "open-point", "recompose"):
+for _name in ("gate", "topic", "open-point"):
     sys.path.insert(0, str(_INDUCTIVE_DIR / "schema" / _name))
 sys.path.insert(0, str(_KERNEL))
 
-from compose_state_lock import canonical_digest  # noqa: E402
-from recompose_report_schema import recompose_report_path, load_report  # noqa: E402
 from lens_frontier_schema import (  # noqa: E402
     default_lens_entry,
     lens_frontier_path,
@@ -42,7 +39,6 @@ from open_point_store import (  # noqa: E402
     load_bundle,
     registry_lens_keys,
 )
-from opens_schema import load_opens, opens_path  # noqa: E402
 
 _PARENT_CONV = "11111111-1111-4111-8111-111111111111"
 _SUBAGENT_CONV = "22222222-2222-4222-8222-222222222222"
@@ -129,19 +125,6 @@ def _run_gate(out_dir: Path, *args: str) -> tuple[int, dict]:
     return res.returncode, payload
 
 
-def _run_g4(out_dir: Path, *args: str) -> tuple[int, dict]:
-    res = subprocess.run(
-        [sys.executable, str(_G4_CTL), "--out-dir", str(out_dir), *args],
-        capture_output=True,
-        text=True,
-    )
-    try:
-        payload = json.loads(res.stdout)
-    except json.JSONDecodeError:
-        payload = {"ok": False, "raw": res.stdout, "stderr": res.stderr}
-    return res.returncode, payload
-
-
 def _seed_session(out_dir: Path) -> None:
     res = subprocess.run(
         [
@@ -163,23 +146,11 @@ def _seed_session(out_dir: Path) -> None:
     assert res.returncode == 0, res.stdout + res.stderr
 
 
-def _json_or_empty(path: Path):
-    if not path.is_file():
-        return []
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _current_digests(slice_dir: Path) -> tuple[str, str]:
-    facts = _json_or_empty(slice_dir / "_facts.json")
-    opens = _json_or_empty(slice_dir / "inductive-opens.json")
-    return canonical_digest(facts), canonical_digest(opens)
-
-
 def _ready_cleared(slice_dir: Path) -> None:
     _isolate_lenses(slice_dir, _bind_skill_fixture(slice_dir))
     (slice_dir / "_facts.json").write_text(
         json.dumps(
-            [{"id": "F-seed", "text": "g4 lens source", "lens": "I"}]
+            [{"id": "F-seed", "text": "lens source", "lens": "I"}]
         )
         + "\n",
         encoding="utf-8",
@@ -234,7 +205,7 @@ def _drive_to_g3(out_dir: Path) -> None:
     _close_g2(out_dir)
 
 
-def _drive_to_g4(out_dir: Path) -> None:
+def _close_g3(out_dir: Path) -> None:
     _drive_to_g3(out_dir)
     _ready_cleared(out_dir)
     add_opens(
@@ -247,42 +218,6 @@ def _drive_to_g4(out_dir: Path) -> None:
         out_dir, "gate-close", "--gate", "G3", "--mode", "cleared", "--confirm"
     )
     assert code == 0, result
-
-
-def _ok_recompose_report(out_dir: Path, **overrides) -> dict:
-    facts_digest, opens_digest = _current_digests(out_dir)
-    base = {
-        "version": 1,
-        "facts_digest": facts_digest,
-        "opens_digest": opens_digest,
-        "findings": [],
-        "buildable": True,
-        "reversible": True,
-        "verifiable": True,
-        "evidence": {
-            "buildable": "facts compose a buildable set",
-            "reversible": "consequential actions have reversal paths",
-            "verifiable": "settled claims have observable checks",
-        },
-        "produced_by": "subagent",
-    }
-    base.update(overrides)
-    return base
-
-
-def _record_ok_recompose_report(out_dir: Path, **overrides) -> tuple[int, dict]:
-    return _run_g4(
-        out_dir,
-        "--conversation-id",
-        _SUBAGENT_CONV,
-        "record-recompose-report",
-        "--json",
-        json.dumps(_ok_recompose_report(out_dir, **overrides)),
-    )
-
-
-def _report_digest(out_dir: Path) -> str:
-    return canonical_digest(load_report(recompose_report_path(out_dir)))
 
 
 def test_init_session_fills_gate_stage_from_revision_pointer(tmp_path: Path) -> None:
@@ -392,7 +327,6 @@ def test_resolve_context_fails_when_stage_empty(tmp_path: Path) -> None:
                 "gates": {
                     "G2": {"status": "active", "closed_at": None, "payload": None},
                     "G3": {"status": "pending", "closed_at": None, "payload": None},
-                    "G4": {"status": "pending", "closed_at": None, "payload": None},
                 },
                 "updated_at": "2026-01-01T00:00:00+00:00",
             }
@@ -435,76 +369,21 @@ def test_gate_close_accepts_hook_injected_conversation_id(tmp_path: Path):
     assert result.get("closed") == "G2"
 
 
-def test_gate_reopen_g3_sections_is_rejected(tmp_path: Path) -> None:
-    _drive_to_g4(tmp_path)
-    code, result = _run_gate(tmp_path, "gate-reopen", "--gate", "G3", "--sections", "I")
-    assert code != 0
-    assert "sections" in str(result).lower()
-
-
-def test_gate_reopen_g3_without_from_report_fails(tmp_path: Path) -> None:
-    _drive_to_g4(tmp_path)
+def test_gate_reopen_g3_is_rejected(tmp_path: Path) -> None:
+    _close_g3(tmp_path)
     code, result = _run_gate(tmp_path, "gate-reopen", "--gate", "G3")
     assert code != 0
-    assert "from-report" in str(result).lower()
+    assert "g3" in str(result).lower()
 
 
-def test_gate_reopen_g3_from_report_registers_findings_and_deletes_report(
-    tmp_path: Path,
-) -> None:
-    _drive_to_g4(tmp_path)
-    finding = {
-        "question": "Who owns retry?",
-        "basis": "Two facts disagree on ownership",
-        "blocking": True,
-        "lens": "I",
-    }
-    code, recorded = _record_ok_recompose_report(
-        tmp_path,
-        findings=[finding],
-        buildable=False,
-    )
-    assert code == 0, recorded
-    digest = recorded.get("report_digest") or _report_digest(tmp_path)
-    report_path = recompose_report_path(tmp_path)
-    assert report_path.is_file()
-
-    code, result = _run_gate(
-        tmp_path,
-        "gate-reopen",
-        "--gate",
-        "G3",
-        "--from-report",
-        "--report-digest",
-        digest,
-    )
-    assert code == 0, result
-    assert result.get("reopened") == "G3"
-    assert result.get("active_gate") == "G3"
-    assert not report_path.exists()
-    opens = load_opens(opens_path(tmp_path))
-    assert len(opens) == 1
-    assert opens[0]["question"] == finding["question"]
-    assert opens[0]["basis"] == finding["basis"]
-    assert opens[0]["blocking"] is True
-    assert opens[0]["source"] == {"actor": "ai", "means": "audit"}
-    bundle = load_bundle(tmp_path)
-    assert bundle["state"]["phase"] == "processing"
-    assert bundle["state"]["active_open_id"] == opens[0]["id"]
-
-
-def test_gate_reopen_g2_deletes_g4_report(tmp_path: Path) -> None:
-    _drive_to_g4(tmp_path)
-    code, recorded = _record_ok_recompose_report(tmp_path)
-    assert code == 0, recorded
-    report_path = recompose_report_path(tmp_path)
-    assert report_path.is_file()
+def test_gate_reopen_g2_resets_g3(tmp_path: Path) -> None:
+    _close_g3(tmp_path)
     code, result = _run_gate(tmp_path, "gate-reopen", "--gate", "G2")
     assert code == 0, result
     assert result.get("reopened") == "G2"
     assert result.get("active_gate") == "G2"
-    assert result.get("deleted_g4_report") is True
-    assert not report_path.exists()
+    state = json.loads((tmp_path / "inductive-gate-state.json").read_text(encoding="utf-8"))
+    assert state["gates"]["G3"]["status"] == "pending"
 
 
 def test_gate_close_g2_topic_loop_payload(tmp_path: Path):
@@ -637,10 +516,11 @@ def test_gate_close_g3_cleared_requires_fresh_zero_result_and_no_opens(
 
 
 def test_gate_close_g3_cleared_succeeds_on_fresh_zero_result(tmp_path: Path) -> None:
-    _drive_to_g4(tmp_path)
+    _close_g3(tmp_path)
     state = json.loads((tmp_path / "inductive-gate-state.json").read_text(encoding="utf-8"))
     assert state["gates"]["G3"]["status"] == "closed"
-    assert state["active_gate"] == "G4"
+    assert state["active_gate"] == "complete"
+    assert "G4" not in state["gates"]
 
 
 def test_gate_close_g3_hard_skip_abandons_batch_and_allows_nonblocking(
@@ -659,6 +539,7 @@ def test_gate_close_g3_hard_skip_abandons_batch_and_allows_nonblocking(
     )
     assert code == 0, result
     assert result.get("closed") == "G3"
+    assert result.get("active_gate") == "complete"
     bundle = load_bundle(tmp_path)
     assert bundle["state"]["phase"] == "idle"
     assert bundle["state"]["active_batch_id"] is None
@@ -669,76 +550,37 @@ def test_gate_close_g3_hard_skip_abandons_batch_and_allows_nonblocking(
     )
 
 
-def test_g4_record_rejects_stale_facts_or_opens_digest(tmp_path: Path) -> None:
-    _drive_to_g4(tmp_path)
-    stale = _ok_recompose_report(tmp_path, facts_digest="0" * 64)
-    code, result = _run_g4(
-        tmp_path,
-        "--conversation-id",
-        _SUBAGENT_CONV,
-        "record-recompose-report",
-        "--json",
-        json.dumps(stale),
-    )
-    assert code != 0
-    assert "stale" in str(result).lower() or "digest" in str(result).lower()
-
-
-def test_gate_close_g4_succeeds_on_empty_findings_and_true_predicates(
-    tmp_path: Path,
-) -> None:
-    _drive_to_g4(tmp_path)
-    code, recorded = _record_ok_recompose_report(tmp_path)
-    assert code == 0, recorded
+def test_gate_close_g4_is_rejected(tmp_path: Path) -> None:
+    _close_g3(tmp_path)
     code, result = _run_gate(tmp_path, "gate-close", "--gate", "G4")
-    assert code == 0, result
-    assert result.get("closed") == "G4"
-    assert result.get("active_gate") == "complete"
+    assert code != 0
+    assert "invalid gate" in str(result).lower() or "g4" in str(result).lower()
+
+
+def test_load_active_gate_g4_is_incompatible(tmp_path: Path) -> None:
+    from inductive_gate_state_schema import (  # noqa: WPS433
+        close_gate,
+        init_gate_state,
+        load_gate_state,
+        validate_gate_state,
+    )
+
+    path = tmp_path / "inductive-gate-state.json"
+    state = init_gate_state(cycle_id="c1", stage="lulu-design")
+    for gate in ("G2", "G3"):
+        state = close_gate(state, gate)
+    state["active_gate"] = "G4"
+    path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="G4 is retired"):
+        load_gate_state(path)
+    errors = validate_gate_state(state)
+    assert any("G4 is retired" in item for item in errors)
+
+
+def test_gate_close_g3_reaches_complete(tmp_path: Path) -> None:
+    _close_g3(tmp_path)
     code, ctx = _run_gate(tmp_path, "resolve-context")
     assert code == 0, ctx
     assert ctx.get("active_gate") == "complete"
-    dqi_path = tmp_path / "inductive-dqi.json"
-    if dqi_path.is_file():
-        dqi = json.loads(dqi_path.read_text(encoding="utf-8"))
-        assert "recompose_check" not in dqi
-
-
-def test_gate_close_g4_fails_when_findings_remain_or_predicate_false(
-    tmp_path: Path,
-) -> None:
-    _drive_to_g4(tmp_path)
-    code, recorded = _record_ok_recompose_report(
-        tmp_path,
-        findings=[
-            {
-                "question": "Who owns retry?",
-                "basis": "Two facts disagree",
-                "blocking": True,
-                "lens": "I",
-            }
-        ],
-        buildable=False,
-    )
-    assert code == 0, recorded
-    code, result = _run_gate(tmp_path, "gate-close", "--gate", "G4")
-    assert code != 0
-    assert "finding" in str(result).lower() or "buildable" in str(result).lower()
-
-
-def test_g4_facade_check_and_list_speak_findings_and_digests(tmp_path: Path) -> None:
-    _drive_to_g4(tmp_path)
-    facts_digest, opens_digest = _current_digests(tmp_path)
-    code, recorded = _record_ok_recompose_report(tmp_path)
-    assert code == 0, recorded
-    code, result = _run_gate(tmp_path, "g4-check-report")
-    assert code == 0, result
-    assert result.get("closable") is True
-    assert result.get("findings") == []
-    assert result.get("facts_digest") == facts_digest
-    assert result.get("opens_digest") == opens_digest
-
-    code, listed = _run_gate(tmp_path, "g4-list-report")
-    assert code == 0, listed
-    assert listed.get("buildable") is True
-    assert listed.get("findings") == []
-    assert listed.get("facts_digest") == facts_digest
+    assert ctx.get("gates", {}).get("G3") == "closed"
+    assert "G4" not in (ctx.get("gates") or {})

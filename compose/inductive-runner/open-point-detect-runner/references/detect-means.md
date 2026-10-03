@@ -17,6 +17,6 @@ Evidence is this lens's `facts_snapshot` plus this lens's
 
 A hit is silence or an unresolved question. Silence on a row whose
 subject is absent from this slice's facts is not a hit. Skip
-already-settled questions. Do not judge correctness; that is G4.
+already-settled questions. Do not judge correctness.
 
 Stamp `actor=ai`, `means=probe`.

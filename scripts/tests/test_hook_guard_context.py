@@ -139,7 +139,6 @@ class TestShouldInjectConversationId:
             "python3 ~/.cursor/skills/lulu-workflow/lulu-exec/scripts/tc_start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-workflow/lulu-exec/scripts/tc_task_control.py resolve-context --task-id t1",
             "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/inductive/inductive_gate_control.py init-session --out-dir /tmp/r1",
-            "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/inductive/recompose/inductive_recompose_control.py record-recompose-report --out-dir /tmp/r1 --json '{}'",
         ],
     )
     def test_start_py_invocation(self, command):
@@ -182,7 +181,7 @@ class TestShouldInjectConversationId:
     def test_inductive_injects_when_flag_absent(self):
         cmd = (
             "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/inductive/"
-            "recompose/inductive_recompose_control.py record-recompose-report --out-dir /tmp/r1 --json '{}'"
+            "inductive_gate_control.py init-session --out-dir /tmp/r1"
         )
         updated = hook_entry._apply_conversation_id(cmd, "9001dc22-85f1-404b-869c-2e471433da4d")
         assert updated is not None

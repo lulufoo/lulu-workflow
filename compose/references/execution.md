@@ -133,6 +133,5 @@ On `Completed`, stop this reference. Do not deliver.
 | `{SKILL_ROOT}/compose/chapter-write-runner/SKILL.md` | Writing assemble |
 | `{SKILL_ROOT}/compose/inductive-runner/open-point-detect-runner/SKILL.md` | Inductive Open detection |
 | `{SKILL_ROOT}/compose/inductive-runner/open-point-process-runner/SKILL.md` | Inductive Open processing |
-| `{SKILL_ROOT}/compose/inductive-runner/recompose-runner/SKILL.md` | Inductive runner internal |
 | `{SKILL_ROOT}/compose/writing-runner/SKILL.md` | Writing |
 | `{SKILL_ROOT}/eval/SKILL.md` | Evaluating |

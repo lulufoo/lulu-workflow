@@ -15,7 +15,7 @@ _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 _SCRIPTS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_INDUCTIVE_DIR / "open-point"))
 sys.path.insert(0, str(_INDUCTIVE_DIR))
-for _name in ("gate", "topic", "open-point", "recompose"):
+for _name in ("gate", "topic", "open-point"):
     sys.path.insert(0, str(_INDUCTIVE_DIR / "schema" / _name))
 sys.path.insert(0, str(_SCRIPTS / "templates"))
 sys.path.insert(0, str(_SCRIPTS / "_kernel"))

@@ -2,9 +2,8 @@
 """Unique writer for Open-point opens, state, batches, receipts, and txn.
 
 The caller must already hold ``compose_state_lock`` on the working slice.
-This module never takes the lock. Extra txn targets may include
-``g4-recompose-report.json`` and slice ``inductive-gate-state.json``.
-``None`` deletes a target after recording before/after digests.
+This module never takes the lock. ``None`` deletes a target after recording
+before/after digests.
 """
 
 from __future__ import annotations
@@ -22,18 +21,14 @@ _SESSION = _COMPOSE_SCRIPTS / "schema" / "session"
 _REGISTRY = _COMPOSE_SCRIPTS / "schema" / "section" / "registry"
 _TEMPLATES = _COMPOSE_SCRIPTS / "templates"
 _SCHEMA_DIRS = (
-    _INDUCTIVE / "schema" / "gate",
     _INDUCTIVE / "schema" / "topic",
     _INDUCTIVE / "schema" / "open-point",
-    _INDUCTIVE / "schema" / "recompose",
 )
 for _path in (_HERE, *_SCHEMA_DIRS, _KERNEL, _SESSION, _REGISTRY, _TEMPLATES):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
 from compose_state_lock import canonical_digest, durable_unlink, durable_write_json  # noqa: E402
-from recompose_report_schema import normalize_report, validate_report  # noqa: E402
-from inductive_gate_state_schema import normalize_gate_state, validate_gate_state  # noqa: E402
 from execution_state_schema import is_revision_root, load_execution_state  # noqa: E402
 from open_point_batch_schema import (  # noqa: E402
     empty_open_point_batches,
@@ -108,9 +103,6 @@ _WRITERS = {
     "open-point-detect-receipts.json": save_open_point_receipts,
     FRONTIER_BASENAME: save_lens_frontier,
 }
-_EXTRA_TARGETS = frozenset(
-    {"g4-recompose-report.json", "inductive-gate-state.json"}
-)
 DELETE_AFTER_DIGEST = canonical_digest(None)
 
 
@@ -555,7 +547,7 @@ def load_bundle(slice_dir: Path) -> dict[str, Any]:
 
 def _normalize_payload(name: str, value: Any) -> Any:
     if value is None:
-        if name not in _WRITERS and name not in _EXTRA_TARGETS:
+        if name not in _WRITERS:
             raise ValueError(f"unknown open-point target {name!r}")
         return None
     if name == "inductive-opens.json":
@@ -583,22 +575,6 @@ def _normalize_payload(name: str, value: Any) -> Any:
         if errors:
             raise ValueError("; ".join(errors))
         return normalize_lens_frontier(value)
-    if name == "g4-recompose-report.json":
-        if not isinstance(value, dict):
-            raise ValueError("g4-recompose-report must be an object")
-        normalized = normalize_report(value)
-        errors = validate_report(normalized)
-        if errors:
-            raise ValueError("; ".join(errors))
-        return normalized
-    if name == "inductive-gate-state.json":
-        if not isinstance(value, dict):
-            raise ValueError("inductive-gate-state must be an object")
-        normalized = normalize_gate_state(value)
-        errors = validate_gate_state(normalized)
-        if errors:
-            raise ValueError("; ".join(errors))
-        return normalized
     raise ValueError(f"unknown open-point target {name!r}")
 
 

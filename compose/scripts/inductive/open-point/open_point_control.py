@@ -27,7 +27,6 @@ _SCHEMA_DIRS = (
     _INDUCTIVE / "schema" / "gate",
     _INDUCTIVE / "schema" / "topic",
     _INDUCTIVE / "schema" / "open-point",
-    _INDUCTIVE / "schema" / "recompose",
 )
 for _path in (_HERE, *_SCHEMA_DIRS, _SESSION, _KERNEL, _SCOPE, _TEMPLATES):
     if str(_path) not in sys.path:

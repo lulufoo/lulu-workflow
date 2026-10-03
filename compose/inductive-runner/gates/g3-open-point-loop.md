@@ -99,8 +99,8 @@ open):
 After the human chooses `cleared` or `hard-skip`, call
 `$INDUCTIVE_GATE_CTL gate-close --gate G3 --mode <cleared|hard-skip> --confirm`
 once for that confirmed choice. The control validates the exit. On rejection,
-report the reason and remain in G3. On success, resolve a fresh `$CTX` and load
-the gate it names.
+report the reason and remain in G3. On success, resolve a fresh `$CTX`. When
+`active_gate` is `complete`, return to the parent. Do not load another gate.
 
 ## Boundaries
 

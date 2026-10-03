@@ -14,7 +14,7 @@ _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 _CTL = _INDUCTIVE_DIR / "open-point" / "open_point_control.py"
 sys.path.insert(0, str(_INDUCTIVE_DIR / "open-point"))
 sys.path.insert(0, str(_INDUCTIVE_DIR))
-for _name in ("gate", "topic", "open-point", "recompose"):
+for _name in ("gate", "topic", "open-point"):
     sys.path.insert(0, str(_INDUCTIVE_DIR / "schema" / _name))
 
 from inductive_gate_state_schema import (  # noqa: E402

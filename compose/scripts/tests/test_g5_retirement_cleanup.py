@@ -56,7 +56,7 @@ def _set_state(rev: Path, state: str) -> None:
 
 def _g5_gate_payload() -> dict:
     state = init_gate_state(cycle_id=_CYCLE, stage=_PROFILE)
-    for gate in ("G2", "G3", "G4"):
+    for gate in ("G2", "G3"):
         state = close_gate(state, gate)
     state["active_gate"] = "G5"
     return state
@@ -168,6 +168,8 @@ def test_runtime_surface_has_no_g5_or_support_mixin() -> None:
     compose = _WORKFLOW / "compose"
     assert not (compose / "inductive-runner" / "gates" / "g1-shape.md").exists()
     assert not (compose / "scripts" / "inductive" / "inductive_shape_control.py").exists()
+    assert not (compose / "inductive-runner" / "gates" / "g4-recompose.md").exists()
+    assert not (compose / "inductive-runner" / "recompose-runner").exists()
     assert not (compose / "inductive-runner" / "gates" / "g5-provenance.md").exists()
     assert not (compose / "inductive-runner" / "g5-provenance-runner").exists()
     assert not (compose / "scripts" / "inductive" / "provenance_gate_control.py").exists()

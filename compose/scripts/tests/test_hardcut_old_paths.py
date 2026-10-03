@@ -50,6 +50,10 @@ _DELETED_MODULES = (
     "compose/scripts/inductive/topic_current_control.py",
     "compose/scripts/inductive/inductive_g4_control.py",
     "compose/scripts/inductive/recompose/inductive_g4_control.py",
+    "compose/scripts/inductive/recompose/inductive_recompose_control.py",
+    "compose/scripts/inductive/schema/recompose/recompose_report_schema.py",
+    "compose/inductive-runner/gates/g4-recompose.md",
+    "compose/inductive-runner/recompose-runner/SKILL.md",
     "compose/scripts/inductive/schema/g2/topic_current_schema.py",
     "compose/scripts/inductive/schema/g2/g2_topic_exit_schema.py",
     "compose/scripts/inductive/schema/g2/g2_topic_landscape_schema.py",
@@ -104,6 +108,8 @@ _DELETED_TESTS = (
     "compose/scripts/tests/test_chapter_fc_gates.py",
     "compose/scripts/tests/test_inductive_g4_control.py",
     "compose/scripts/tests/test_g4_recompose_report_schema.py",
+    "compose/scripts/tests/test_inductive_recompose_control.py",
+    "compose/scripts/tests/test_recompose_report_schema.py",
 )
 
 _FORBIDDEN_SKILL_TOKENS = (
