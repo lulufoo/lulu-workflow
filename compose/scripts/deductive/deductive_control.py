@@ -2,7 +2,7 @@
 """CLI for deductive-runner confirm-gate + quarantine-unref listing.
 
 Subcommands:
-    pending-init       Ensure pending store exists
+    pending-init       Ensure pending store exists; report group_a / fast_complete
     pending-add        Add an open pending item
     pending-replace    Replace open edge_hole items from a leftover list
     pending-resolve    Resolve an open item (resolved|escalated|out_of_scope)
@@ -54,7 +54,7 @@ from facts_schema import (  # noqa: E402
 )
 from compose_state_lock import compose_state_lock  # noqa: E402
 from execution_state_schema import execution_dir  # noqa: E402
-from derive_shell import collect_ref_tokens  # noqa: E402
+from derive_shell import collect_ref_tokens, group_a_lenses  # noqa: E402
 from deductive_disposition_patch import (  # noqa: E402
     apply_disposition_patch,
     disposition_counts,
@@ -64,7 +64,11 @@ from compose_template_loader import (  # noqa: E402
     ComposeTemplateLoadError,
     load_compose_template,
 )
-from section_registry_schema import fetch_section_registry, lens_key_sequence  # noqa: E402
+from section_registry_schema import (  # noqa: E402
+    SUPPLY_DEFAULT,
+    fetch_section_registry,
+    lens_key_sequence,
+)
 from workflow_paths import resolve_revision_runtime_profile  # noqa: E402
 
 _SCOPE = _SCRIPTS / "schema" / "section" / "scope"
@@ -101,12 +105,33 @@ def cmd_pending_init(args: argparse.Namespace) -> int:
     else:
         data = empty_pending()
         save_pending(path, data)
+    try:
+        runtime = _runtime_profile(args)
+        registry = fetch_section_registry(
+            args.project_root.resolve(),
+            profile_id=runtime.profile_id,
+            profile_path=runtime.profile_path,
+        )
+        section_order = lens_key_sequence(registry)
+        supply_map = {
+            str(k).upper(): str(
+                (registry.get("sections") or {}).get(k, {}).get(
+                    "supply", SUPPLY_DEFAULT
+                )
+            ).strip().lower()
+            for k in section_order
+        }
+        group_a = group_a_lenses(section_order, supply_map)
+    except Exception as exc:  # noqa: BLE001
+        return _fail(f"section-registry unavailable: {exc}")
     return _ok(
         {
             "ok": True,
             "command": "pending-init",
             "path": path.as_posix(),
             "open_count": len(open_items(data)),
+            "group_a": group_a,
+            "fast_complete": len(group_a) == 0,
         }
     )
 
@@ -483,7 +508,10 @@ def main() -> int:
     parser.add_argument("--project-root", type=Path, default=Path.cwd())
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_init = sub.add_parser("pending-init", help="Ensure pending store exists")
+    p_init = sub.add_parser(
+        "pending-init",
+        help="Ensure pending store exists; report group_a and fast_complete",
+    )
     p_init.set_defaults(func=cmd_pending_init)
 
     p_add = sub.add_parser("pending-add", help="Add open pending item")

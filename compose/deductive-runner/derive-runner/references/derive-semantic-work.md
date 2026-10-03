@@ -28,10 +28,12 @@ pending.
 
 ## Ceiling
 
-Purpose: one KW thicken pass per supplied lens.
+Purpose: one KW thicken pass per participant lens.
 
-Walk supplied lenses in `$VAR_LENS_ORDER`: every lens whose `supply` in
-`$VAR_SECTION_REGISTRY` is not `none`.
+Walk participant lenses in `$VAR_LENS_ORDER`. A participant is a lens
+whose `supply` is `derive` (Group A), or a non-`none` lens whose
+upstream includes a Group A lens. Read `supply` from
+`$VAR_SECTION_REGISTRY`.
 
 1. `$DERIVE_BUILD lens-bundle --lens L …` → `kw_criteria` and `facts`
    (`--help`).

@@ -124,10 +124,27 @@ def test_plan_registry_marks_sk_and_t_derive():
     }
 
 
-def test_supplied_lenses_includes_derive_and_excludes_none():
+def test_supplied_lenses_is_group_a_and_direct_dependents():
     order = ["A", "D", "N"]
     supply = {"A": "ask", "D": "derive", "N": "none"}
-    assert supplied_lenses(order, supply) == ["A", "D"]
+    graph = normalize_dependency_graph(
+        {
+            "sections": {
+                "A": {"upstream": [], "relations": {}},
+                "D": {"upstream": ["A"], "relations": {"A": "instantiate"}},
+                "N": {"upstream": ["D"], "relations": {"D": "operationalize"}},
+            }
+        }
+    )
+    assert supplied_lenses(order, supply, graph) == ["D"]
+
+
+def test_plan_participants_are_sk_t_vf():
+    registry = _plan_registry()
+    graph = normalize_dependency_graph(dependency_graph_subset(registry))
+    assert supplied_lenses(
+        lens_key_sequence(registry), _plan_supply(registry), graph
+    ) == ["SK", "T", "VF"]
 
 
 def test_plan_deduction_fills_derive_lenses_with_zero_facts():

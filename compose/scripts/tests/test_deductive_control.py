@@ -25,8 +25,16 @@ def _prepare(tmp_path: Path) -> Path:
     return rev
 
 
-def _run(args: list[str], revision_dir: Path) -> subprocess.CompletedProcess[str]:
-    seed_revision_profile_pointer(revision_dir)
+def _run(
+    args: list[str],
+    revision_dir: Path,
+    *,
+    profile_id: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    if profile_id is None:
+        seed_revision_profile_pointer(revision_dir)
+    else:
+        seed_revision_profile_pointer(revision_dir, profile_id=profile_id)
     return subprocess.run(
         [
             sys.executable,
@@ -560,3 +568,22 @@ def test_pending_replace_rejects_bad_kind_and_json(tmp_path: Path) -> None:
     )
     assert bad_json.returncode != 0
     assert "must be an array" in bad_json.stderr
+
+
+def test_pending_init_plan_group_a_not_fast_complete(tmp_path: Path) -> None:
+    rev = _prepare(tmp_path)
+    init = _run(["pending-init"], rev)
+    assert init.returncode == 0, init.stderr
+    payload = json.loads(init.stdout)
+    assert payload["group_a"] == ["SK", "T"]
+    assert payload["fast_complete"] is False
+
+
+def test_pending_init_empty_group_a_fast_complete(tmp_path: Path) -> None:
+    rev = tmp_path / "revision1"
+    rev.mkdir()
+    init = _run(["pending-init"], rev, profile_id="lulu-design")
+    assert init.returncode == 0, init.stderr
+    payload = json.loads(init.stdout)
+    assert payload["group_a"] == []
+    assert payload["fast_complete"] is True
