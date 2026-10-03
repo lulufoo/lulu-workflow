@@ -37,8 +37,9 @@ _RELATION_TYPES = frozenset(
 )
 
 _REGISTRY_SCHEME_KEY = "section-registry"
-_PRESENCE_VALUES = frozenset({"required", "optional"})
-_PRESENCE_DEFAULT = "required"
+SUPPLY_VALUES = frozenset({"ask", "derive", "none"})
+SUPPLY_DEFAULT = "ask"
+DERIVATION_RELATIONS = frozenset({"decompose", "instantiate"})
 # Optional co-location key for Writing chapter clustering (not a lens / not coverage).
 _CLUSTER_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
@@ -191,6 +192,17 @@ def lens_key_sequence(data: dict[str, Any]) -> list[str]:
     return []
 
 
+def _has_derivation_edge(entry: dict[str, Any]) -> bool:
+    upstream = {str(item).upper() for item in entry.get("upstream") or []}
+    relations = entry.get("relations")
+    if not isinstance(relations, dict):
+        return False
+    return any(
+        str(rel_key).upper() in upstream and str(rel_type) in DERIVATION_RELATIONS
+        for rel_key, rel_type in relations.items()
+    )
+
+
 def validate_section_registry(data: dict[str, Any]) -> list[str]:
     """Validate section registry payload."""
     errors: list[str] = []
@@ -239,11 +251,11 @@ def validate_section_registry(data: dict[str, Any]) -> list[str]:
             errors.append(
                 f"sections.{key}.intent_boundary must be a non-empty string when present"
             )
-        presence = entry.get("presence")
-        if presence is not None and presence not in _PRESENCE_VALUES:
+        supply = entry.get("supply")
+        if supply is not None and supply not in SUPPLY_VALUES:
             errors.append(
-                f"sections.{key}.presence must be one of {sorted(_PRESENCE_VALUES)} "
-                f"(got {presence!r})"
+                f"sections.{key}.supply must be one of {sorted(SUPPLY_VALUES)} "
+                f"(got {supply!r})"
             )
         cluster = entry.get("cluster")
         if cluster is not None:
@@ -288,6 +300,11 @@ def validate_section_registry(data: dict[str, Any]) -> list[str]:
                     errors.append(
                         f"sections.{key}.relations.{rel_key} invalid relation: {rel_type!r}"
                     )
+        if supply == "derive" and not _has_derivation_edge(entry):
+            errors.append(
+                f"sections.{key}.supply derive requires a decompose or instantiate "
+                "upstream relation"
+            )
         if entry.get("guidance") is not None:
             errors.append(f"sections.{key}.guidance is not supported; use section-form-registry")
             continue
@@ -341,8 +358,8 @@ def normalize_section_registry(data: dict[str, Any]) -> dict[str, Any]:
         intent_boundary = entry.get("intent_boundary")
         if isinstance(intent_boundary, str) and intent_boundary.strip():
             normalized["intent_boundary"] = intent_boundary.strip()
-        presence = entry.get("presence")
-        normalized["presence"] = presence if presence in _PRESENCE_VALUES else _PRESENCE_DEFAULT
+        supply = entry.get("supply")
+        normalized["supply"] = supply if supply in SUPPLY_VALUES else SUPPLY_DEFAULT
         cluster = entry.get("cluster")
         if isinstance(cluster, str) and cluster.strip():
             normalized["cluster"] = cluster.strip()
@@ -424,18 +441,6 @@ def section_headings(project_root: Path | None = None) -> dict[str, str]:
     registry = _active_registry(project_root)
     return {
         key: registry["sections"][key]["heading"]
-        for key in lens_key_sequence(registry)
-    }
-
-
-def section_presence_map(project_root: Path | None = None) -> dict[str, str]:
-    """Return section_key -> presence ('required'|'optional', default 'required').
-
-    Feeds derive coverage helpers (``derive_triggers`` / ``true_coverage_gaps``).
-    """
-    registry = _active_registry(project_root)
-    return {
-        key: registry["sections"][key].get("presence", _PRESENCE_DEFAULT)
         for key in lens_key_sequence(registry)
     }
 

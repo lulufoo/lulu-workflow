@@ -62,7 +62,7 @@ derived(lens) = Project( material facts on upstream edges → lens )
 | Layer | Role |
 |-------|------|
 | **Floor** | Close uncovered derivation edges by projecting known facts onto the hole lens. |
-| **Ceiling** | Judge every required lens against the published KW table and thicken thin ones from existing edges. |
+| **Ceiling** | Judge every supplied lens against the published KW table and thicken thin ones from existing edges. |
 | **Cascade** | Sole persist exit after Ceiling. Owns leftover hole records. |
 
 ## Execution
@@ -86,7 +86,7 @@ derived(lens) = Project( material facts on upstream edges → lens )
 |-------|-----------|
 | Validate | exit 0 |
 | Floor | holes closed in-round or left for Cascade |
-| Ceiling | every required lens judged; thin lenses got one compensate pass |
+| Ceiling | every supplied lens judged; thin lenses got one compensate pass |
 | Cascade | persist after scan; Otherwise has the leftover ledger |
 
 ## Summary

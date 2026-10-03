@@ -48,6 +48,7 @@ from open_point_store import (  # noqa: E402
     lens_snapshot,
     load_bundle,
     preview_settle,
+    preview_settle_group,
     registry_lens_keys,
 )
 from open_point_batch_schema import (  # noqa: E402
@@ -293,6 +294,32 @@ def _entry_facts(
     return facts, fact_ids, undeclared
 
 
+def _group_open_ids(args: argparse.Namespace) -> list[str]:
+    raw = str(getattr(args, "open_ids", None) or "")
+    ids = [item.strip() for item in raw.split(",") if item.strip()]
+    if len(set(ids)) != len(ids):
+        raise ValueError("--open-ids must not repeat an open")
+    return ids
+
+
+def _entries_by_open(
+    entries: list[dict[str, Any]], targets: list[str], grouped: list[str]
+) -> dict[str, list[dict[str, Any]]]:
+    """Single settle: every entry belongs to the one open. Group: entries name it."""
+    if not grouped:
+        return {targets[0]: entries}
+    by_open: dict[str, list[dict[str, Any]]] = {target: [] for target in targets}
+    for index, entry in enumerate(entries):
+        owner = str(entry.get("open_id") or "").strip() if isinstance(entry, dict) else ""
+        if owner not in by_open:
+            raise ValueError(f"facts[{index}]: open_id must be one of {targets}")
+        by_open[owner].append(entry)
+    empty = [target for target, items in by_open.items() if not items]
+    if empty:
+        raise ValueError(f"settle group opens without facts: {empty}")
+    return by_open
+
+
 def _build_proposal(
     args: argparse.Namespace,
     slice_dir: Path,
@@ -362,9 +389,11 @@ def _build_proposal(
         }
         preview = {"kind": kind, "deleted": deleted, "facts_after": facts_after}
     elif kind == "settle_open":
+        group_ids = _group_open_ids(args)
         open_id = str(args.open_id or "").strip()
-        if not open_id:
-            raise ValueError("settle_open proposal requires --open-id")
+        if not group_ids and not open_id:
+            raise ValueError("settle_open proposal requires --open-id or --open-ids")
+        targets = group_ids or [open_id]
         bundle = load_bundle(slice_dir)
         opens_before = bundle["opens"]
         opens_before_exists = opens_path(slice_dir).is_file()
@@ -372,36 +401,52 @@ def _build_proposal(
         state_before_exists = open_point_state_path(slice_dir).is_file()
         batches_before = bundle["batches"]
         batches_before_exists = open_point_batches_path(slice_dir).is_file()
-        if (
+        if not group_ids and (
             state_before.get("phase") != "processing"
             or state_before.get("active_open_id") != open_id
         ):
             raise ValueError(f"open {open_id!r} is not the active open")
-        open_before = _find_open(opens_before, open_id)
-        if open_before is None:
-            raise ValueError(f"open not found: {open_id!r}")
-        if open_before.get("status") != "open":
-            raise ValueError(f"open {open_id!r} is not status=open")
-        entries = _load_entries(args)
-        facts_after, fact_ids, undeclared = _entry_facts(
-            entries,
-            facts_before=facts_before,
-            origin_ref=[open_id],
-            slice_dir=slice_dir,
-            project_root=project_root,
+        opens_found: dict[str, dict[str, Any]] = {}
+        for target in targets:
+            found = _find_open(opens_before, target)
+            if found is None:
+                raise ValueError(f"open not found: {target!r}")
+            if found.get("status") != "open":
+                raise ValueError(f"open {target!r} is not status=open")
+            opens_found[target] = found
+        entries_by_open = _entries_by_open(_load_entries(args), targets, group_ids)
+        facts_after = facts_before
+        resolved_by: dict[str, list[str]] = {}
+        for target in targets:
+            facts_after, ids, undeclared = _entry_facts(
+                entries_by_open[target],
+                facts_before=facts_after,
+                origin_ref=[target],
+                slice_dir=slice_dir,
+                project_root=project_root,
+            )
+            _distribute_code_refs(
+                undeclared,
+                [
+                    str(ref).strip()
+                    for ref in (opens_found[target].get("code_refs") or [])
+                    if str(ref).strip()
+                ],
+            )
+            resolved_by[target] = ids
+        fact_ids = [fid for ids in resolved_by.values() for fid in ids]
+        previewed = (
+            preview_settle_group(slice_dir, resolved_by)
+            if group_ids
+            else preview_settle(slice_dir, open_id, fact_ids)
         )
-        _distribute_code_refs(
-            undeclared,
-            [str(ref).strip() for ref in (open_before.get("code_refs") or []) if str(ref).strip()],
-        )
-        previewed = preview_settle(slice_dir, open_id, fact_ids)
         opens_after = previewed["opens"]
         state_after = previewed["state"]
         batches_after = previewed["batches"]
         errors = validate_opens(opens_after)
         if errors:
             raise ValueError("; ".join(errors))
-        open_after = _find_open(opens_after, open_id)
+        settled: Any = targets if group_ids else open_id
         payload = {
             "kind": kind,
             "facts_after": facts_after,
@@ -412,13 +457,14 @@ def _build_proposal(
             "state_file_exists_after": True,
             "batches_after": batches_after,
             "batches_file_exists_after": True,
-            "settled": open_id,
+            "settled": settled,
             "fact_ids": fact_ids,
         }
+        after_by_id = {item["id"]: item for item in opens_after}
         preview = {
             "kind": kind,
-            "open_before": open_before,
-            "open_after": open_after,
+            "open_before": opens_found[open_id] if not group_ids else list(opens_found.values()),
+            "open_after": after_by_id[open_id] if not group_ids else [after_by_id[t] for t in targets],
             "facts_after": facts_after,
             "fact_ids": fact_ids,
         }
@@ -884,6 +930,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--facts-json", default=None, help="Candidate facts JSON or stdin")
     p.add_argument("--open-id", default=None)
+    p.add_argument(
+        "--open-ids",
+        default=None,
+        help=(
+            "settle_open group: comma-separated Opens of one lens in the "
+            "active batch; every fact in --facts-json names its open_id"
+        ),
+    )
     p.add_argument("--id", default=None, help="Fact id F-n for update/delete")
     p.add_argument("--text", default=None, help="Replacement fact text for update")
     p.set_defaults(func=cmd_propose)

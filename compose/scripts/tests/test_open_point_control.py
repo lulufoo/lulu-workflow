@@ -35,6 +35,8 @@ _PLAN_DOMAIN = (
     Path(__file__).resolve().parents[3] / "lulu-plan" / "templates" / "domain-instance.json"
 )
 _PLAN_LENSES = ["CTX", "GO", "SC", "AR", "I", "SK", "T", "VF"]
+_DERIVED_LENSES = ["SK", "T"]
+_ASKED_LENSES = [lens for lens in _PLAN_LENSES if lens not in _DERIVED_LENSES]
 
 
 def _bind_session(session_base: Path, profile_path: Path) -> None:
@@ -129,7 +131,7 @@ def _detect_json(out_dir: Path, raw_candidates, project_root: str):
             key = str(item["lens"]).strip().upper()
             by_lens.setdefault(key, []).append(dict(item))
     verdicts = []
-    for key in _PLAN_LENSES:
+    for key in _ASKED_LENSES:
         entry = lenses.get(key) or default_lens_entry()
         start = int(entry.get("frontier_kw") or 0)
         hits = by_lens.get(key, [])
@@ -137,6 +139,10 @@ def _detect_json(out_dir: Path, raw_candidates, project_root: str):
             {"lens": key, "gap_kw": start if hits else None, "candidates": hits}
         )
     return json.dumps({"verdicts": verdicts})
+
+
+def _opens_json(opens: list) -> str:
+    return json.dumps({"opens": opens})
 
 
 def test_detect_context_refused_when_processing(tmp_path: Path):
@@ -155,7 +161,7 @@ def test_add_opens_json_round_trip(tmp_path: Path):
         slice_dir,
         "add-opens",
         "--opens-json",
-        json.dumps(opens),
+        _opens_json(opens),
         project_root=root,
     )
     assert code == 0, payload
@@ -166,6 +172,16 @@ def test_add_opens_json_round_trip(tmp_path: Path):
         "second",
     ]
     assert [item["id"] for item in registered] == ["O-1", "O-2"]
+    code, payload = _run(
+        slice_dir,
+        "add-opens",
+        "--opens-json",
+        json.dumps(opens),
+        project_root=root,
+    )
+    assert code == 1
+    assert payload["ok"] is False
+    assert 'JSON object {"opens": [...]}' in payload["error"]
     code, ctx = _run(slice_dir, "resolve-context", project_root=root)
     assert code == 0, ctx
     assert ctx["state"]["phase"] == "processing"
@@ -185,6 +201,23 @@ def test_process_context_omits_digests_and_scope_without_project_root(tmp_path: 
     assert "open_digest" not in payload
     assert "batch_digest" not in payload
     assert "project_evidence_scope" not in payload
+
+
+def test_process_context_returns_group_and_skip_open_accepts_group(tmp_path: Path):
+    slice_dir, root = _slice_env(tmp_path)
+    add_opens(
+        slice_dir,
+        opens=[_human_open(), _human_open(question="second", blocking=False)],
+        project_root=root,
+    )
+    code, payload = _run(slice_dir, "process-context")
+    assert code == 0, payload
+    assert [item["id"] for item in payload["group"]["opens"]] == ["O-1", "O-2"]
+    assert payload["group"]["lens"] == payload["open"]["lens"]
+    code, payload = _run(slice_dir, "skip-open", "--open-id", "O-1", "--open-id", "O-2")
+    assert code == 0, payload
+    assert payload["state"]["active_open_id"] == "O-1"
+    assert payload["batch"]["open_ids"] == ["O-1", "O-2"]
 
 
 def test_process_context_includes_scope_when_project_root(tmp_path: Path):
@@ -270,7 +303,7 @@ def test_check_close_cleared_ignores_facts_mutation_after_zero_result(tmp_path: 
         slice_dir,
         "add-opens",
         "--opens-json",
-        "[]",
+        _opens_json([]),
         "--detect-json",
         _detect_json(slice_dir, [], root),
         project_root=root,
@@ -327,7 +360,7 @@ def test_detect_context_emits_slim_snapshots(tmp_path: Path):
     assert "lenses" not in payload
     assert "opens" not in payload
     assert "frontiers" not in payload
-    assert payload["pending_lenses"] == _PLAN_LENSES
+    assert payload["pending_lenses"] == _ASKED_LENSES
     assert payload["guide"] == _plan_guide()
     assert set(payload["guide"]) == {"cognitive_frame", "intent_anchor"}
     assert "frontier_kw" not in json.dumps(payload)
@@ -394,7 +427,7 @@ def test_add_opens_rejects_non_probe_detect_means(tmp_path: Path):
         slice_dir,
         "add-opens",
         "--opens-json",
-        json.dumps(raw),
+        _opens_json(raw),
         "--detect-json",
         json.dumps(detect),
         project_root=root,
@@ -410,7 +443,7 @@ def test_set_frontier_does_not_block_cleared(tmp_path: Path):
         slice_dir,
         "add-opens",
         "--opens-json",
-        "[]",
+        _opens_json([]),
         "--detect-json",
         _detect_json(slice_dir, [], root),
         project_root=root,
@@ -434,7 +467,7 @@ def test_detect_context_fetches_registry_from_skill_without_slice_file(
     code, payload = _run(slice_dir, "detect-context", project_root=root)
     assert code == 0, payload
     assert "lens_registry" not in payload
-    assert payload["pending_lenses"] == _PLAN_LENSES
+    assert payload["pending_lenses"] == _ASKED_LENSES
     assert not (slice_dir / "section-registry.json").exists()
     assert not (slice_dir / "section-kw-criteria.md").exists()
 
@@ -465,7 +498,7 @@ def test_empty_detect_records_clean_but_switch_off_keeps_all_pending(tmp_path: P
         slice_dir,
         "add-opens",
         "--opens-json",
-        "[]",
+        _opens_json([]),
         "--detect-json",
         _detect_json(slice_dir, [], root),
         project_root=root,
@@ -473,12 +506,15 @@ def test_empty_detect_records_clean_but_switch_off_keeps_all_pending(tmp_path: P
     )
     assert code == 0, payload
     frontier = load_lens_frontier(lens_frontier_path(slice_dir))
-    assert all(entry.get("clean") for entry in frontier["lenses"].values())
+    for lens in _ASKED_LENSES:
+        assert frontier["lenses"][lens].get("clean")
+    for lens in _DERIVED_LENSES:
+        assert not frontier["lenses"][lens].get("clean")
     code, payload = _run(
         slice_dir, "detect-context", project_root=root, extra_env=off_env
     )
     assert code == 0, payload
-    assert payload["pending_lenses"] == _PLAN_LENSES
+    assert payload["pending_lenses"] == _ASKED_LENSES
     assert "clean" not in json.dumps(payload["pending_lenses"])
 
 
@@ -490,7 +526,7 @@ def test_switch_on_skips_clean_lenses_until_facts_change(tmp_path: Path):
         slice_dir,
         "add-opens",
         "--opens-json",
-        "[]",
+        _opens_json([]),
         "--detect-json",
         _detect_json(slice_dir, [], root),
         project_root=root,
@@ -518,7 +554,7 @@ def test_switch_on_add_opens_fills_carried_lenses_and_rejects_extra(tmp_path: Pa
         slice_dir,
         "add-opens",
         "--opens-json",
-        "[]",
+        _opens_json([]),
         "--detect-json",
         _detect_json(slice_dir, [], root),
         project_root=root,
@@ -530,7 +566,7 @@ def test_switch_on_add_opens_fills_carried_lenses_and_rejects_extra(tmp_path: Pa
         slice_dir,
         "add-opens",
         "--opens-json",
-        "[]",
+        _opens_json([]),
         "--detect-json",
         _detect_json(slice_dir, [], root),
         project_root=root,
@@ -552,7 +588,7 @@ def test_switch_on_add_opens_fills_carried_lenses_and_rejects_extra(tmp_path: Pa
         slice_dir,
         "add-opens",
         "--opens-json",
-        json.dumps(raw),
+        _opens_json(raw),
         "--detect-json",
         json.dumps(verdicts),
         project_root=root,

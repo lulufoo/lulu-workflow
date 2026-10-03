@@ -37,13 +37,13 @@ _SECTION_REGISTRY = {
             "heading": "Architecture",
             "intent": "x",
             "intent_boundary": "not y",
-            "presence": "required",
+            "supply": "ask",
         },
         "GO": {
             "heading": "Goal",
             "intent": "x",
             "intent_boundary": "not y",
-            "presence": "optional",
+            "supply": "none",
         },
     },
 }

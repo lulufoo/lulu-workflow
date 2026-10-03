@@ -401,6 +401,86 @@ def test_settle_open_two_open_batch_advances_active_open(tmp_path: Path):
     assert batches["batches"][0]["status"] == "active"
 
 
+def _propose_settle_group(revision_dir: Path, open_ids: str, entries: list[dict]):
+    return _run(
+        "propose",
+        "--revision-dir",
+        str(revision_dir),
+        "--kind",
+        "settle_open",
+        "--open-ids",
+        open_ids,
+        "--facts-json",
+        json.dumps(entries),
+    )
+
+
+def test_settle_open_group_lands_one_permit_for_several_opens(tmp_path: Path):
+    _seed_open_loop(
+        tmp_path / "execution",
+        opens=[
+            _open_item("O-1"),
+            _open_item("O-2", lens="GO"),
+            _open_item("O-3", question="q3"),
+        ],
+    )
+    code, proposal, err = _propose_settle_group(
+        tmp_path,
+        "O-1,O-3",
+        [
+            {"text": "first", "lens": "I", "open_id": "O-1"},
+            {"text": "second", "lens": "I", "open_id": "O-3"},
+            {"text": "third", "lens": "I", "open_id": "O-3"},
+        ],
+    )
+    assert code == 0, err
+    assert isinstance(proposal["preview"]["open_after"], list)
+    code, payload, err = _ack_and_consume(tmp_path, proposal)
+    assert code == 0, err
+    assert payload["settled"] == ["O-1", "O-3"]
+    facts = _read_json(tmp_path / "execution" / "_facts.json")
+    assert [(f["id"], f["origin"]["ref"]) for f in facts] == [
+        ("F-1", ["O-1"]),
+        ("F-2", ["O-3"]),
+        ("F-3", ["O-3"]),
+    ]
+    opens = _read_json(tmp_path / "execution" / "inductive-opens.json")
+    assert [(o["status"], o.get("resolved_by")) for o in opens] == [
+        ("settled", ["F-1"]),
+        ("open", None),
+        ("settled", ["F-2", "F-3"]),
+    ]
+    state = _read_json(tmp_path / "execution" / "open-point-state.json")
+    assert state["active_open_id"] == "O-2"
+
+
+def test_settle_open_group_requires_facts_per_open_and_one_lens(tmp_path: Path):
+    _seed_open_loop(
+        tmp_path / "execution",
+        opens=[_open_item("O-1"), _open_item("O-2", question="q2"), _open_item("O-3", lens="GO")],
+    )
+    code, _, err = _propose_settle_group(
+        tmp_path, "O-1,O-2", [{"text": "only first", "lens": "I", "open_id": "O-1"}]
+    )
+    assert code != 0
+    assert "without facts" in err
+    code, _, err = _propose_settle_group(
+        tmp_path, "O-1,O-2", [{"text": "x", "lens": "I"}]
+    )
+    assert code != 0
+    assert "open_id" in err
+    code, _, err = _propose_settle_group(
+        tmp_path,
+        "O-1,O-3",
+        [
+            {"text": "x", "lens": "I", "open_id": "O-1"},
+            {"text": "y", "lens": "GO", "open_id": "O-3"},
+        ],
+    )
+    assert code != 0
+    assert "one lens" in err
+
+
 def test_propose_settle_fails_when_open_is_not_active(tmp_path: Path):
     _seed_open_loop(
         tmp_path / "execution",

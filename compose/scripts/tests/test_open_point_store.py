@@ -60,7 +60,7 @@ _FIXTURE_REGISTRY = {
     "document_preamble": "test",
     "section_order": ["I"],
     "sections": {
-        "I": {"heading": "Intent", "intent": "constraints", "presence": "required"}
+        "I": {"heading": "Intent", "intent": "constraints", "supply": "ask"}
     },
 }
 _FIXTURE_KW = (
@@ -148,7 +148,7 @@ def test_detect_projections_keep_only_needed_fields():
                     "heading": "Intent",
                     "intent": "constraints",
                     "intent_boundary": "not tasks",
-                    "presence": "required",
+                    "supply": "ask",
                     "aliases": ["invariants"],
                 },
                 "ST": {"heading": "Structure"},
@@ -341,6 +341,118 @@ def test_defer_and_reject_advance_like_settle(tmp_path: Path):
     assert bundle["opens"][1]["status"] == "rejected"
     assert bundle["state"]["active_open_id"] == "O-3"
     assert bundle["batches"]["batches"][0]["status"] == "active"
+
+
+_TWO_LENS_REGISTRY = {
+    "version": "1",
+    "document_preamble": "test",
+    "section_order": ["I", "FL"],
+    "sections": {
+        "I": {"heading": "Intent", "intent": "constraints", "supply": "ask"},
+        "FL": {"heading": "Flow", "intent": "flow", "supply": "ask"},
+    },
+}
+
+
+@pytest.fixture
+def two_lens_registry(monkeypatch: pytest.MonkeyPatch):
+    def _text(role: str, _slice_dir: Path, _project_root: object = None) -> str:
+        if role == "section-registry":
+            return json.dumps(_TWO_LENS_REGISTRY)
+        if role == "section-kw-criteria":
+            return _FIXTURE_KW
+        raise ValueError(f"{role} missing from SKILL")
+
+    monkeypatch.setattr("open_point_store._skill_template_text", _text)
+
+
+def test_process_group_is_active_first_same_lens_open_items(tmp_path: Path, two_lens_registry):
+    from open_point_store import process_group  # noqa: WPS433
+
+    add_opens(
+        tmp_path,
+        opens=[
+            _human_open(question="a"),
+            _human_open(question="b", lens="FL"),
+            _human_open(question="c"),
+        ],
+    )
+    group = process_group(load_bundle(tmp_path))
+    assert group["lens"] == "I"
+    assert [item["id"] for item in group["opens"]] == ["O-1", "O-3"]
+    defer_open(tmp_path, "O-3", "later")
+    group = process_group(load_bundle(tmp_path))
+    assert [item["id"] for item in group["opens"]] == ["O-1"]
+
+
+def test_defer_non_active_open_keeps_active_pointer(tmp_path: Path):
+    add_opens(
+        tmp_path,
+        opens=[_human_open(), _human_open(question="two"), _human_open(question="three")],
+    )
+    reject_open(tmp_path, "O-2", "false positive")
+    bundle = load_bundle(tmp_path)
+    assert bundle["opens"][1]["status"] == "rejected"
+    assert bundle["state"]["active_open_id"] == "O-1"
+    with pytest.raises(ValueError, match="open item of the active batch"):
+        defer_open(tmp_path, "O-2", "again")
+
+
+def test_settle_group_closes_all_and_advances_past_group(tmp_path: Path, two_lens_registry):
+    from open_point_store import apply_loop_after, preview_settle_group  # noqa: WPS433
+
+    add_opens(
+        tmp_path,
+        opens=[
+            _human_open(question="a"),
+            _human_open(question="b", lens="FL"),
+            _human_open(question="c"),
+        ],
+    )
+    preview = preview_settle_group(tmp_path, {"O-1": ["F-1"], "O-3": ["F-2", "F-3"]})
+    assert [item["status"] for item in preview["opens"]] == [
+        "settled",
+        "open",
+        "settled",
+    ]
+    assert preview["opens"][2]["resolved_by"] == ["F-2", "F-3"]
+    assert preview["state"]["active_open_id"] == "O-2"
+    apply_loop_after(
+        tmp_path,
+        opens=preview["opens"],
+        state=preview["state"],
+        batches=preview["batches"],
+    )
+    assert load_bundle(tmp_path)["state"]["active_open_id"] == "O-2"
+
+
+def test_settle_group_rejects_cross_lens_and_completes_batch(tmp_path: Path, two_lens_registry):
+    from open_point_store import preview_settle_group  # noqa: WPS433
+
+    add_opens(
+        tmp_path,
+        opens=[_human_open(question="a"), _human_open(question="b", lens="FL")],
+    )
+    with pytest.raises(ValueError, match="one lens"):
+        preview_settle_group(tmp_path, {"O-1": ["F-1"], "O-2": ["F-2"]})
+    add_opens(tmp_path, opens=[_human_open(question="c")])
+    preview = preview_settle_group(tmp_path, {"O-1": ["F-1"], "O-3": ["F-2"]})
+    assert preview["state"]["active_open_id"] == "O-2"
+
+
+def test_skip_group_moves_members_to_tail_in_order(tmp_path: Path, two_lens_registry):
+    add_opens(
+        tmp_path,
+        opens=[
+            _human_open(question="a"),
+            _human_open(question="b", lens="FL"),
+            _human_open(question="c"),
+        ],
+    )
+    skip_open(tmp_path, ["O-1", "O-3"])
+    bundle = load_bundle(tmp_path)
+    assert bundle["batches"]["batches"][0]["open_ids"] == ["O-2", "O-1", "O-3"]
+    assert bundle["state"]["active_open_id"] == "O-2"
 
 
 def test_deleted_detect_candidates_write_nonzero_receipt_no_batch(tmp_path: Path):
@@ -561,6 +673,36 @@ def test_detect_rejects_gap_below_frontier(tmp_path: Path):
                     {"lens": "I", "gap_kw": 1, "candidates": [_candidate()]}
                 ]
             },
+        )
+
+
+def test_detect_multi_row_candidates_write_coarsest_gap_and_drop_kw(tmp_path: Path):
+    _write_registry_and_kw(tmp_path)
+    ensure_frontier(tmp_path)
+    coarse = _candidate(kw=1)
+    fine = _candidate(question="Which seam is unowned?", kw=2)
+    add_opens(
+        tmp_path,
+        opens=[coarse, fine],
+        detect={"verdicts": [{"lens": "I", "gap_kw": 1, "candidates": [coarse, fine]}]},
+    )
+    frontier = load_lens_frontier(lens_frontier_path(tmp_path))
+    assert frontier["lenses"]["I"]["frontier_kw"] == 1
+    receipt = load_bundle(tmp_path)["receipts"]["receipts"][0]
+    assert receipt["raw_candidate_count"] == 2
+    assert all("kw" not in item for item in load_bundle(tmp_path)["opens"])
+
+
+def test_detect_rejects_candidate_kw_below_frontier(tmp_path: Path):
+    _write_registry_and_kw(tmp_path)
+    ensure_frontier(tmp_path)
+    set_frontier(tmp_path, "I", 2)
+    stale = _candidate(kw=1)
+    with pytest.raises(ValueError, match="candidate kw 1"):
+        add_opens(
+            tmp_path,
+            opens=[stale],
+            detect={"verdicts": [{"lens": "I", "gap_kw": 2, "candidates": [stale]}]},
         )
 
 

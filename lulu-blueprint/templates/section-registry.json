@@ -22,7 +22,7 @@
       "relations": {},
       "intent": "Problem domain and convergence direction for product architecture exploration: (1) trigger — why product shaping happens now; (2) current product situation — verified user, market, and constraint state; (3) impact — cost of leaving product uncertainty unresolved; (4) direction — the topic-level product direction this exploration converges toward (observable, reviewable, not a feature backlog).",
       "intent_boundary": "Scope boundaries, excluded product paths, capability partitioning, key decision detail, and open questions belong to BD, PS, PR, and OQ. Feature acceptance criteria, user-story detail, and technical architecture belong to downstream lulu-spec / lulu-arch / lulu-approach.",
-      "presence": "required"
+      "supply": "ask"
     },
     "BD": {
       "heading": "Boundaries",
@@ -40,7 +40,7 @@
       },
       "intent": "The boundary set for this product exploration as a whole: which user segments, capability domains, or product surfaces are in scope for shaping; product paths explicitly not chosen; product constraints and invariants that must hold across future features. Scope, exclusions, and constraints are presented together to protect the direction in SI from dilution.",
       "intent_boundary": "Capability layout and user-value partitioning belong to PS. Trade-off comparison and adopt/reject rationale belong to PR. Blocking assumptions belong to OQ. Enterprise-wide portfolio restructuring and single-feature PRD detail are out of scope unless authorized in decision-doc.",
-      "presence": "required"
+      "supply": "ask"
     },
     "PS": {
       "heading": "Product Shape",
@@ -60,7 +60,7 @@
       },
       "intent": "Topic-level product structure view: core capabilities or value domains, responsibility partitioning, dependency direction among product surfaces; how future features attach to this structure (milestone granularity, not user-story backlog). When cross-domain user journeys matter at topic level, name the architecturally significant capability boundaries sufficient for downstream lulu-approach to inherit product premises without re-deriving partitions.",
       "intent_boundary": "Feature-level user stories and acceptance criteria belong to lulu-spec. Technical module layout belongs to lulu-arch. Decision rationale belongs to PR.",
-      "presence": "required"
+      "supply": "ask"
     },
     "PR": {
       "heading": "Product Rationale",
@@ -80,7 +80,7 @@
       },
       "intent": "Adopted product judgments, rejected alternative directions and rationale (including explicitly rejected paths), reversibility, and evolution premises. Rationale is product-level trade-off reasoning, not authorization statements alone and not feature-level PRD detail.",
       "intent_boundary": "Capability layout belongs to PS. Assumptions awaiting closure belong to OQ. Technical architecture and implementation tactics belong to downstream lulu-approach / lulu-arch.",
-      "presence": "required"
+      "supply": "ask"
     },
     "OQ": {
       "heading": "Open Questions",
@@ -100,7 +100,7 @@
       },
       "intent": "Product assumptions, open questions, and risks not yet closed at topic level; each item labeled whether it blocks opening a new feature cycle (blocks-next-cycle or non-blocking) and anchored to the gap in SI, PS, or PR it closes.",
       "intent_boundary": "Closed decisions belong to PR. Feature acceptance criteria and technical verification gaps belong to downstream lulu-spec / lulu-arch.",
-      "presence": "optional"
+      "supply": "none"
     }
   }
 }

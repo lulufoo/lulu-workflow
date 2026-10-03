@@ -28,10 +28,10 @@ pending.
 
 ## Ceiling
 
-Purpose: one KW thicken pass per required lens.
+Purpose: one KW thicken pass per supplied lens.
 
-Walk required lenses in `$VAR_LENS_ORDER` (`presence` from
-`$VAR_SECTION_REGISTRY`).
+Walk supplied lenses in `$VAR_LENS_ORDER`: every lens whose `supply` in
+`$VAR_SECTION_REGISTRY` is not `none`.
 
 1. `$DERIVE_BUILD lens-bundle --lens L …` → `kw_criteria` and `facts`
    (`--help`).

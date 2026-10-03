@@ -7,8 +7,9 @@ names its question, its evidence, and its stamp.
 
 ## `probe`
 
-Ask whether the `gap_kw` row is silent or unresolved on failure,
-boundary, assumption, or seam.
+Ask, for every `kw_criteria` row in the packet, whether the facts are
+silent or unresolved on failure, boundary, assumption, or seam. Report
+every such point, not one per row. Tag each candidate with its row `kw`.
 
 Evidence is this lens's `facts_snapshot` plus this lens's
 `lens_registry` Intent and boundary. Both come from
