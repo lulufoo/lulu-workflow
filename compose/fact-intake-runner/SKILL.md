@@ -1,19 +1,19 @@
 ---
 name: fact-intake-runner
 description: >-
-  Compose fact-intake orchestrator: doc → cut+disposition → confirm →
-  usable `_facts.json`.
+  Compose fact-intake orchestrator: intake document to classified
+  focus-slice facts.
 ---
 
 # fact-intake-runner
 
-Turn `$SOURCE_PATH` into a validated, disposition-classified focus-slice
-`_facts.json`.
+Turn `$SOURCE_PATH` into classified focus-slice facts. Done when Confirm
+apply exits 0.
 
-**Must:** bind Parent Inputs; dispatch L1 cut → `--require-derivation`
-validate → inline Confirm; return only when DONE.  
-**Must not:** Derive / Shape / G2 / G3 / `fact-store-runner`; edit `$SOURCE_PATH`;
-fetch registry/role in parent Load (L1 self-`context`).
+**Must:** bind Parent Inputs; dispatch L1; `$FACTS_CTL validate
+--require-derivation`; inline Confirm.  
+**Must not:** Derive / Shape / G2 / G3 / `fact-store-runner`; edit
+`$SOURCE_PATH`; fetch registry/role in parent Load.
 
 ## Parent-Provided Inputs
 
@@ -29,13 +29,12 @@ Parent binds `$SOURCE_PATH` and `$REQUIRE_SEED_ORIGIN`.
 
 ## Script Macros
 
+Contract in `--help`.
+
 | Macro | Command |
 |---|---|
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/facts/facts_control.py"` |
 | `$FACT_INTAKE_DISPOSITION_CTL` | `python3 "$SKILL_ROOT/compose/fact-intake-runner/scripts/fact_intake_disposition_control.py"` |
-
-`$FACTS_CTL`: `--help` · `validate` · `status` · `write`.  
-Disposition patch: `--help` · `disposition-patch-validate` · `disposition-patch-apply`.
 
 ## Execution
 
@@ -71,21 +70,16 @@ $FACTS_CTL validate \
 
 Exit 0 → Step 4.
 
-### Step 4 — Disposition Confirm (parent inline)
-
-Draft Confirm patch **next to** `_facts.json` (active slice; not revision root
-when a discussion pointer is set). Resolve path, then draft op-list:
+### Step 4 — Confirm
 
 ```bash
 $FACT_INTAKE_DISPOSITION_CTL disposition-patch-path \
   --revision-dir "$REVISION_DIR"
-# → .path (same directory as .facts_path)
 ```
 
-Chat: path + counts + accept / edit / reject — not full id dumps.
+Bind `.path` from stdout. Chat: path + counts + accept / edit / reject.
 
 ```bash
-# --patch-file optional; defaults to {active slice}/fact-intake-disposition-review.patch
 $FACT_INTAKE_DISPOSITION_CTL disposition-patch-validate \
   --revision-dir "$REVISION_DIR"
 # after user accept:
@@ -93,17 +87,14 @@ $FACT_INTAKE_DISPOSITION_CTL disposition-patch-apply \
   --revision-dir "$REVISION_DIR"
 ```
 
-Empty ops / no-change: user confirms explicitly. This wave: edit patch in parent
-(do not kick back to the L1; see framework O7).
+Empty ops: user confirms explicitly. This wave: edit the patch in parent.
 
 ### Step 5 — Return
-
-## Return Summary
 
 ```text
 Fact-intake complete.
   Source: <SOURCE_PATH>
-  Facts: <abs path to _facts.json>
+  Facts: <abs path from validate stdout>
   Disposition: done
   Disposition-confirm: done
   Status: ok|failed
