@@ -35,6 +35,8 @@ _PLAN_DOMAIN = (
     Path(__file__).resolve().parents[3] / "lulu-plan" / "templates" / "domain-instance.json"
 )
 _PLAN_LENSES = ["CTX", "GO", "SC", "AR", "I", "SK", "T", "VF"]
+_DERIVED_LENSES = ["SK", "T"]
+_ASKED_LENSES = [lens for lens in _PLAN_LENSES if lens not in _DERIVED_LENSES]
 
 
 def _bind_session(session_base: Path, profile_path: Path) -> None:
@@ -129,7 +131,7 @@ def _detect_json(out_dir: Path, raw_candidates, project_root: str):
             key = str(item["lens"]).strip().upper()
             by_lens.setdefault(key, []).append(dict(item))
     verdicts = []
-    for key in _PLAN_LENSES:
+    for key in _ASKED_LENSES:
         entry = lenses.get(key) or default_lens_entry()
         start = int(entry.get("frontier_kw") or 0)
         hits = by_lens.get(key, [])
@@ -358,7 +360,7 @@ def test_detect_context_emits_slim_snapshots(tmp_path: Path):
     assert "lenses" not in payload
     assert "opens" not in payload
     assert "frontiers" not in payload
-    assert payload["pending_lenses"] == _PLAN_LENSES
+    assert payload["pending_lenses"] == _ASKED_LENSES
     assert payload["guide"] == _plan_guide()
     assert set(payload["guide"]) == {"cognitive_frame", "intent_anchor"}
     assert "frontier_kw" not in json.dumps(payload)
@@ -465,7 +467,7 @@ def test_detect_context_fetches_registry_from_skill_without_slice_file(
     code, payload = _run(slice_dir, "detect-context", project_root=root)
     assert code == 0, payload
     assert "lens_registry" not in payload
-    assert payload["pending_lenses"] == _PLAN_LENSES
+    assert payload["pending_lenses"] == _ASKED_LENSES
     assert not (slice_dir / "section-registry.json").exists()
     assert not (slice_dir / "section-kw-criteria.md").exists()
 
@@ -504,12 +506,15 @@ def test_empty_detect_records_clean_but_switch_off_keeps_all_pending(tmp_path: P
     )
     assert code == 0, payload
     frontier = load_lens_frontier(lens_frontier_path(slice_dir))
-    assert all(entry.get("clean") for entry in frontier["lenses"].values())
+    for lens in _ASKED_LENSES:
+        assert frontier["lenses"][lens].get("clean")
+    for lens in _DERIVED_LENSES:
+        assert not frontier["lenses"][lens].get("clean")
     code, payload = _run(
         slice_dir, "detect-context", project_root=root, extra_env=off_env
     )
     assert code == 0, payload
-    assert payload["pending_lenses"] == _PLAN_LENSES
+    assert payload["pending_lenses"] == _ASKED_LENSES
     assert "clean" not in json.dumps(payload["pending_lenses"])
 
 

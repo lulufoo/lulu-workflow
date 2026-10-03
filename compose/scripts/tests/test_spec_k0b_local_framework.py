@@ -28,12 +28,13 @@ from section_registry_schema import (  # noqa: E402
 
 _PROFILE = _REPO /  "lulu-spec" / "compose-profile.json"
 
-def test_spec_k0b_section_registry_has_presence() -> None:
+def test_spec_k0b_section_registry_has_supply() -> None:
     data = product_spec_section_registry()
     assert validate_section_registry(data) == []
     normalized = normalize_section_registry(data)
     for key in normalized["section_order"]:
-        assert normalized["sections"][key]["presence"] == "required"
+        assert normalized["sections"][key]["supply"] == "ask"
+        assert "presence" not in normalized["sections"][key]
 
 
 def test_spec_k0b_profile_points_to_direct_templates() -> None:

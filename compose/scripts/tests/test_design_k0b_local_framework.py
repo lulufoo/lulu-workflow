@@ -28,7 +28,7 @@ from section_registry_schema import (  # noqa: E402
 
 _PROFILE = _REPO /  "lulu-design" / "compose-profile.json"
 
-def test_design_k0b_section_registry_has_presence() -> None:
+def test_design_k0b_section_registry_has_supply() -> None:
     from section_registry_schema import lens_key_sequence
 
     data = tech_design_section_registry()
@@ -37,12 +37,12 @@ def test_design_k0b_section_registry_has_presence() -> None:
     keys = lens_key_sequence(normalized)
     assert normalized.get("section_order") == list(data["sections"].keys())
     for key in keys:
-        presence = normalized["sections"][key]["presence"]
-        assert presence in {"required", "optional"}
-    # Lens V2 optional seams / risks / deps (CMP/OD removed)
-    assert normalized["sections"]["SEAM"]["presence"] == "optional"
-    assert normalized["sections"]["RISK"]["presence"] == "optional"
-    assert normalized["sections"]["DEP"]["presence"] == "optional"
+        supply = normalized["sections"][key]["supply"]
+        assert supply in {"ask", "none"}
+    # Lens V2 seams / risks / deps are not asked or derived (CMP/OD removed)
+    assert normalized["sections"]["SEAM"]["supply"] == "none"
+    assert normalized["sections"]["RISK"]["supply"] == "none"
+    assert normalized["sections"]["DEP"]["supply"] == "none"
     assert "CMP" not in keys
     assert "GOAL" in keys and "SCOPE" in keys and "DECISION" in keys
 

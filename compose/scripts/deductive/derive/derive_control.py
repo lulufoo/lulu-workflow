@@ -5,7 +5,7 @@ Subcommands:
     edge-scan  Edge-coverage holes + topo order + true gaps (deductive-runner)
     audit      Cascade-aware self-audit after derived facts are appended
     append     Append derived facts (contiguous ids) and write ``_facts.json``
-    classify   Classify zero-coverage required lenses (derivation vs true gap)
+    classify   Classify zero-coverage supplied lenses (derivation vs true gap)
 
 Scripts never invent derived work-item text — only mechanical shell.
 """
@@ -40,7 +40,7 @@ from derive_shell import (  # noqa: E402
     DeriveCycleError,
     append_derived_facts,
     check_derive_nonempty_self_audit,
-    classify_zero_required_lenses,
+    classify_zero_supplied_lenses,
     derivation_upstreams,
     derive_triggers,
     edge_hole_triggers,
@@ -50,6 +50,7 @@ from derive_shell import (  # noqa: E402
     upstream_fact_count,
 )
 from section_registry_schema import (  # noqa: E402
+    SUPPLY_DEFAULT,
     dependency_graph_subset,
     fetch_section_registry,
     lens_key_sequence,
@@ -98,16 +99,13 @@ def _graph_and_maps(
     )
     graph = normalize_dependency_graph(dependency_graph_subset(registry))
     section_order = lens_key_sequence(registry)
-    presence_map = {
+    supply_map = {
         str(k).upper(): str(
-            (registry.get("sections") or {}).get(k, {}).get("presence", "required")
+            (registry.get("sections") or {}).get(k, {}).get("supply", SUPPLY_DEFAULT)
         ).strip().lower()
         for k in section_order
     }
-    for key, val in list(presence_map.items()):
-        if val not in ("required", "optional"):
-            presence_map[key] = "required"
-    return graph, section_order, presence_map
+    return graph, section_order, supply_map
 
 
 def cmd_edge_scan(args: argparse.Namespace) -> int:
@@ -121,7 +119,7 @@ def cmd_edge_scan(args: argparse.Namespace) -> int:
     materials = pd_material_facts(facts)
     try:
         runtime = _runtime_profile(args)
-        graph, section_order, presence_map = _graph_and_maps(
+        graph, section_order, supply_map = _graph_and_maps(
             args.project_root.resolve(),
             runtime.profile_id,
             profile_path=runtime.profile_path,
@@ -129,10 +127,10 @@ def cmd_edge_scan(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001
         return _fail(f"section-registry unavailable: {exc}")
 
-    edge_holes = edge_hole_triggers(section_order, presence_map, materials, graph)
+    edge_holes = edge_hole_triggers(section_order, supply_map, materials, graph)
     triggered = list(edge_holes.keys())
-    # Also include required zero-coverage derivation lenses (subset of holes).
-    for lens in derive_triggers(section_order, presence_map, materials, graph):
+    # Also include supplied zero-coverage derivation lenses (subset of holes).
+    for lens in derive_triggers(section_order, supply_map, materials, graph):
         if lens not in edge_holes:
             triggered.append(lens)
             edge_holes[lens] = []
@@ -140,7 +138,7 @@ def cmd_edge_scan(args: argparse.Namespace) -> int:
         order = topo_order_triggered(triggered, graph) if triggered else []
     except DeriveCycleError as exc:
         return _fail(str(exc))
-    gaps = true_coverage_gaps(section_order, presence_map, materials, graph)
+    gaps = true_coverage_gaps(section_order, supply_map, materials, graph)
     upstreams = {
         lens: {
             "upstreams": derivation_upstreams(lens, graph),
@@ -197,7 +195,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
 
     try:
         runtime = _runtime_profile(args)
-        graph, _order, _presence = _graph_and_maps(
+        graph, _order, _supply = _graph_and_maps(
             args.project_root.resolve(),
             runtime.profile_id,
             profile_path=runtime.profile_path,
@@ -264,7 +262,7 @@ def cmd_classify(args: argparse.Namespace) -> int:
         return _fail(str(exc))
     try:
         runtime = _runtime_profile(args)
-        graph, section_order, presence_map = _graph_and_maps(
+        graph, section_order, supply_map = _graph_and_maps(
             args.project_root.resolve(),
             runtime.profile_id,
             profile_path=runtime.profile_path,
@@ -272,8 +270,8 @@ def cmd_classify(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001
         return _fail(f"section-registry unavailable: {exc}")
 
-    buckets = classify_zero_required_lenses(
-        section_order, presence_map, facts, graph,
+    buckets = classify_zero_supplied_lenses(
+        section_order, supply_map, facts, graph,
     )
     return _ok(
         {
@@ -322,7 +320,7 @@ def main() -> int:
 
     classify_p = sub.add_parser(
         "classify",
-        help="Classify zero-coverage required lenses (derivation vs true gap)",
+        help="Classify zero-coverage supplied lenses (derivation vs true gap)",
     )
     classify_p.add_argument("--revision-dir", type=Path, required=True)
     classify_p.add_argument("--project-root", type=Path, default=Path.cwd())

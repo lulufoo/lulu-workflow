@@ -3,7 +3,8 @@
 
 Step 3 = AI semantic step + this mechanical shell. Scripts never invent derived
 work-item text — they only:
-  * decide which required lenses trigger (zero-only + derivation edge);
+  * decide which supplied lenses (``supply`` not ``none``) trigger (zero-only +
+    derivation edge);
   * order triggered lenses topologically (upstream-first, cascade-visible);
   * allocate contiguous ``F-(k+1)..`` ids when appending derived facts;
   * run the non-empty self-audit when upstream facts existed (cascade-aware).
@@ -137,27 +138,34 @@ def edge_holes_for_lens(
     return uncovered
 
 
+def supplied_lenses(
+    section_order: list[str],
+    supply_map: dict[str, str],
+) -> list[str]:
+    """Lens keys whose ``supply`` is not ``none`` (``ask`` or ``derive``).
+
+    A lens missing from ``supply_map`` or carrying an unknown value counts as ``ask``.
+    """
+    normalized = {_upper(k): str(v).strip().lower() for k, v in (supply_map or {}).items()}
+    return [
+        _upper(lens)
+        for lens in section_order
+        if normalized.get(_upper(lens), "ask") != "none"
+    ]
+
+
 def edge_hole_triggers(
     section_order: list[str],
-    presence_map: dict[str, str],
+    supply_map: dict[str, str],
     facts: list[dict[str, Any]],
     graph: dict[str, Any],
 ) -> dict[str, list[str]]:
-    """Required lenses with derivation edges → list of uncovered upstream F-ids.
+    """Supplied lenses with derivation edges → list of uncovered upstream F-ids.
 
     Replaces zero-only as the mechanical floor for deductive-runner (rev.3).
     """
-    normalized_presence = {
-        _upper(k): str(v).strip().lower() for k, v in (presence_map or {}).items()
-    }
     out: dict[str, list[str]] = {}
-    for lens in section_order:
-        key = _upper(lens)
-        presence = normalized_presence.get(key, "required")
-        if presence not in ("required", "optional"):
-            presence = "required"
-        if presence != "required":
-            continue
+    for key in supplied_lenses(section_order, supply_map):
         if not has_derivation(key, graph):
             continue
         holes = edge_holes_for_lens(key, facts, graph)
@@ -168,85 +176,46 @@ def edge_hole_triggers(
 
 def derive_triggers(
     section_order: list[str],
-    presence_map: dict[str, str],
+    supply_map: dict[str, str],
     facts: list[dict[str, Any]],
     graph: dict[str, Any],
 ) -> list[str]:
-    """Lenses with required ∧ 0 facts ∧ has derivation (zero-only floor helper).
+    """Lenses with supplied ∧ 0 facts ∧ has derivation (zero-only floor helper).
 
     Used inside ``edge-scan`` alongside edge-hole detection.
     Partial coverage (facts > 0) never triggers — K1 §2.2 zero-only.
     """
-    coverage = lenses_present(facts)
-    normalized_presence = {
-        _upper(k): str(v).strip().lower() for k, v in (presence_map or {}).items()
-    }
-    triggered: list[str] = []
-    for lens in section_order:
-        key = _upper(lens)
-        presence = normalized_presence.get(key, "required")
-        if presence not in ("required", "optional"):
-            presence = "required"
-        if presence != "required":
-            continue
-        if coverage.get(key, 0) != 0:
-            continue
-        if not has_derivation(key, graph):
-            continue
-        triggered.append(key)
-    return triggered
+    return classify_zero_supplied_lenses(section_order, supply_map, facts, graph)[
+        "derivation"
+    ]
 
 
 def true_coverage_gaps(
     section_order: list[str],
-    presence_map: dict[str, str],
+    supply_map: dict[str, str],
     facts: list[dict[str, Any]],
     graph: dict[str, Any],
 ) -> list[str]:
-    """Required ∧ 0 facts ∧ **no** derivation edge — Step 3 must not invent."""
-    coverage = lenses_present(facts)
-    normalized_presence = {
-        _upper(k): str(v).strip().lower() for k, v in (presence_map or {}).items()
-    }
-    gaps: list[str] = []
-    for lens in section_order:
-        key = _upper(lens)
-        presence = normalized_presence.get(key, "required")
-        if presence not in ("required", "optional"):
-            presence = "required"
-        if presence != "required":
-            continue
-        if coverage.get(key, 0) != 0:
-            continue
-        if has_derivation(key, graph):
-            continue
-        gaps.append(key)
-    return gaps
+    """Supplied ∧ 0 facts ∧ **no** derivation edge — Step 3 must not invent."""
+    return classify_zero_supplied_lenses(section_order, supply_map, facts, graph)[
+        "true_gaps"
+    ]
 
 
-def classify_zero_required_lenses(
+def classify_zero_supplied_lenses(
     section_order: list[str],
-    presence_map: dict[str, str],
+    supply_map: dict[str, str],
     facts: list[dict[str, Any]],
     graph: dict[str, Any],
 ) -> dict[str, list[str]]:
-    """Split zero-coverage required lenses into derivation vs true-gap buckets.
+    """Split zero-coverage supplied lenses into derivation vs true-gap buckets.
 
     Used by Step 6 routing (re-run Step 2→3 vs Round) and to enrich C1 messages.
     """
     coverage = lenses_present(facts)
-    normalized_presence = {
-        _upper(k): str(v).strip().lower() for k, v in (presence_map or {}).items()
-    }
     derivation: list[str] = []
     true_gaps: list[str] = []
-    for lens in section_order:
-        key = _upper(lens)
-        presence = normalized_presence.get(key, "required")
-        if presence not in ("required", "optional"):
-            presence = "required"
-        if presence != "required":
-            continue
+    for key in supplied_lenses(section_order, supply_map):
         if coverage.get(key, 0) != 0:
             continue
         if has_derivation(key, graph):

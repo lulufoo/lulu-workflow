@@ -319,8 +319,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Read-only opens_snapshot, pending_lenses, and guide. "
             "pending_lenses = registry-ordered lens keys due for detection "
-            "this pass; lenses whose clean fingerprint still holds are "
-            "carried by control and omitted. guide is Domain "
+            "this pass; only supply ask lenses are listed, and lenses whose "
+            "clean fingerprint still holds are carried by control and "
+            "omitted. guide is Domain "
             "cognitive_frame + intent_anchor; fails if --project-root, "
             "gate-state, stage, or Domain is missing. Does not emit facts, "
             "KW, or lens registry."

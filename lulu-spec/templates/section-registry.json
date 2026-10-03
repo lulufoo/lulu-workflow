@@ -33,7 +33,7 @@
         "problem boundary",
         "other"
       ],
-      "presence": "required"
+      "supply": "ask"
     },
     "RN": {
       "heading": "Why Now",
@@ -57,7 +57,7 @@
         "delay cost",
         "other"
       ],
-      "presence": "required"
+      "supply": "ask"
     },
     "GO": {
       "heading": "Goal",
@@ -82,7 +82,7 @@
         "rejected directions",
         "other"
       ],
-      "presence": "required"
+      "supply": "ask"
     },
     "UR": {
       "heading": "Users",
@@ -106,7 +106,7 @@
         "out of service users",
         "other"
       ],
-      "presence": "required"
+      "supply": "ask"
     },
     "SN": {
       "heading": "Scenarios",
@@ -129,7 +129,7 @@
         "excluded scenarios",
         "other"
       ],
-      "presence": "required"
+      "supply": "ask"
     },
     "SC": {
       "heading": "Scope",
@@ -154,7 +154,7 @@
         "adjacent boundary",
         "other"
       ],
-      "presence": "required"
+      "supply": "ask"
     },
     "IO": {
       "heading": "I/O Surfaces",
@@ -178,7 +178,7 @@
         "surface to capability mapping",
         "other"
       ],
-      "presence": "required"
+      "supply": "ask"
     },
     "FL": {
       "heading": "Flow",
@@ -204,7 +204,7 @@
         "empty or failure visibility",
         "other"
       ],
-      "presence": "required"
+      "supply": "ask"
     },
     "NG": {
       "heading": "Non-Goals",
@@ -229,7 +229,7 @@
         "inclusion trigger",
         "other"
       ],
-      "presence": "required"
+      "supply": "ask"
     },
     "AC": {
       "heading": "Acceptance",
@@ -257,7 +257,7 @@
         "trace back",
         "other"
       ],
-      "presence": "required"
+      "supply": "ask"
     }
   }
 }

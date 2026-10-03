@@ -60,7 +60,7 @@ _FIXTURE_REGISTRY = {
     "document_preamble": "test",
     "section_order": ["I"],
     "sections": {
-        "I": {"heading": "Intent", "intent": "constraints", "presence": "required"}
+        "I": {"heading": "Intent", "intent": "constraints", "supply": "ask"}
     },
 }
 _FIXTURE_KW = (
@@ -148,7 +148,7 @@ def test_detect_projections_keep_only_needed_fields():
                     "heading": "Intent",
                     "intent": "constraints",
                     "intent_boundary": "not tasks",
-                    "presence": "required",
+                    "supply": "ask",
                     "aliases": ["invariants"],
                 },
                 "ST": {"heading": "Structure"},
@@ -348,8 +348,8 @@ _TWO_LENS_REGISTRY = {
     "document_preamble": "test",
     "section_order": ["I", "FL"],
     "sections": {
-        "I": {"heading": "Intent", "intent": "constraints", "presence": "required"},
-        "FL": {"heading": "Flow", "intent": "flow", "presence": "required"},
+        "I": {"heading": "Intent", "intent": "constraints", "supply": "ask"},
+        "FL": {"heading": "Flow", "intent": "flow", "supply": "ask"},
     },
 }
 
