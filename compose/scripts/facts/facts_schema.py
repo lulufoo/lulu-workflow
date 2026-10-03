@@ -309,9 +309,9 @@ def validate_facts(
                 )
             else:
                 errors.extend(_validate_origin(prefix, entry["origin"]))
-                if intake_structure and isinstance(entry["origin"], dict):
+                if isinstance(entry["origin"], dict):
                     otype = str(entry["origin"].get("type", "")).strip().lower()
-                    if otype == "discovered":
+                    if intake_structure and otype == "discovered":
                         errors.append(
                             f"{prefix}.origin.type=discovered forbidden "
                             "during fact-intake Cut/pre-Eval",
@@ -319,7 +319,7 @@ def validate_facts(
                     if require_seed_origin and otype != "seed":
                         errors.append(
                             f"{prefix}.origin.type must be 'seed' "
-                            f"(intake structure; got {otype!r})",
+                            f"(got {otype!r})",
                         )
         elif require_seed_origin:
             errors.append(f"{prefix}: missing origin (seed required)")

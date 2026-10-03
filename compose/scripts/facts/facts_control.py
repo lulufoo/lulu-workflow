@@ -170,8 +170,6 @@ def cmd_write(args: argparse.Namespace) -> int:
     require_seed_origin = bool(getattr(args, "require_seed_origin", False))
     if intake_structure and bool(getattr(args, "require_derivation", False)):
         return _fail("--intake-structure conflicts with --require-derivation")
-    if require_seed_origin and not intake_structure:
-        return _fail("--require-seed-origin requires --intake-structure")
     try:
         runtime = _runtime_profile(rev, args.project_root.resolve())
         allowed = _section_order(
@@ -373,7 +371,7 @@ def main() -> int:
     write_p.add_argument(
         "--require-seed-origin",
         action="store_true",
-        help="With --intake-structure: every fact origin.type must be seed",
+        help="Every fact origin.type must be seed",
     )
     write_p.set_defaults(func=cmd_write)
 
@@ -401,7 +399,7 @@ def main() -> int:
     validate_p.add_argument(
         "--require-seed-origin",
         action="store_true",
-        help="With --intake-structure: every fact origin.type must be seed",
+        help="Every fact origin.type must be seed",
     )
     validate_p.set_defaults(func=cmd_validate)
 
