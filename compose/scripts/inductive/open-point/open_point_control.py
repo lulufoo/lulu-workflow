@@ -336,7 +336,10 @@ def _build_parser() -> argparse.ArgumentParser:
             "Register 0..N opens. Detect must pass --detect-json "
             '{"verdicts": [{lens, gap_kw, candidates[]}, ...]} covering '
             "exactly the detect-context pending_lenses; gap_kw is null "
-            "exactly when candidates is empty. Empty --opens-json is legal "
+            "exactly when candidates is empty. A candidate may carry kw "
+            "(0..4, not below the lens frontier); when it does, gap_kw is "
+            "the coarsest kw, and kw is dropped when opens register. "
+            "Empty --opens-json is legal "
             "only with detect metadata. Measurements and the receipt derive "
             "from verdicts; carried lenses get gap_kw null. AI Detect means "
             "must be probe. Non-null gap_kw writes "

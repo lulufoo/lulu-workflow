@@ -33,9 +33,10 @@ Use each control's `--help` as the command and stdout contract.
 
 ## Routing
 
-Detect analyzes one human-started candidate batch. Process analyzes one active
-Open; the Parent Agent applies its human-selected disposition. Entry and `idle`
-never start Detect automatically.
+Detect analyzes one human-started candidate batch and reports every
+remaining unmet KW row of each pending lens in that pass. Process
+analyzes one active Open; the Parent Agent applies its human-selected
+disposition. Entry and `idle` never start Detect automatically.
 
 ### Detect
 
