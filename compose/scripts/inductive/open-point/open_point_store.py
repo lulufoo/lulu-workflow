@@ -355,18 +355,20 @@ def detect_opens_snapshot(opens: Any) -> list[dict[str, str]]:
     return out
 
 
-def registry_presence(snapshot: Any, lens: str) -> str:
+def registry_supply(snapshot: Any, lens: str) -> str:
+    from section_registry_schema import SUPPLY_DEFAULT, SUPPLY_VALUES  # noqa: WPS433
+
     if not isinstance(snapshot, dict):
-        return "required"
+        return SUPPLY_DEFAULT
     sections = snapshot.get("sections")
     if not isinstance(sections, dict):
-        return "required"
+        return SUPPLY_DEFAULT
     entry = sections.get(lens) or sections.get(str(lens).upper())
     if isinstance(entry, dict):
-        presence = str(entry.get("presence") or "required").strip().lower()
-        if presence in {"required", "optional"}:
-            return presence
-    return "required"
+        supply = str(entry.get("supply") or SUPPLY_DEFAULT).strip().lower()
+        if supply in SUPPLY_VALUES:
+            return supply
+    return SUPPLY_DEFAULT
 
 
 def payable_lenses(snapshot: Any, frontier: dict[str, Any]) -> list[str]:
@@ -375,7 +377,7 @@ def payable_lenses(snapshot: Any, frontier: dict[str, Any]) -> list[str]:
         entries = {}
     out: list[str] = []
     for lens in registry_lens_keys(snapshot):
-        if registry_presence(snapshot, lens) != "required":
+        if registry_supply(snapshot, lens) != "ask":
             continue
         entry = entries.get(lens) or {}
         if isinstance(entry, dict) and entry.get("skipped") is True:
@@ -412,13 +414,16 @@ def pending_lenses(
 ) -> list[str]:
     """Registry-ordered lens keys due for Detect.
 
-    With ``detect_skip_clean`` on, a lens whose ``clean`` fingerprint still
-    matches its current Detect payload is omitted.
+    Only ``supply: ask`` lenses are asked. With ``detect_skip_clean`` on, a lens
+    whose ``clean`` fingerprint still matches its current Detect payload is omitted.
     """
     frontier_lenses = frontier_snapshot(slice_dir).get("lenses") or {}
     skip = detect_skip_clean(slice_dir, project_root)
+    snapshot = lens_snapshot(slice_dir, project_root)
     out: list[str] = []
-    for lens in registry_lens_keys(lens_snapshot(slice_dir, project_root)):
+    for lens in registry_lens_keys(snapshot):
+        if registry_supply(snapshot, lens) != "ask":
+            continue
         entry = frontier_lenses.get(lens) or default_lens_entry()
         clean = entry.get("clean")
         if skip and clean and clean == detect_lens_digest(slice_dir, lens, project_root):

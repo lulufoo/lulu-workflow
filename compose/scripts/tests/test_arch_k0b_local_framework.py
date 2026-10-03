@@ -33,13 +33,13 @@ _DIMENSION_DEF = (
 _METHOD = _REPO /  "lulu-arch" / "eval" / "methods" / "arch-quality.md"
 _SOT = _REPO /  "lulu-arch" / "eval" / "sots" / "arch-quality.md"
 
-def test_arch_k0b_section_registry_presence_and_remap() -> None:
+def test_arch_k0b_section_registry_supply_and_remap() -> None:
     data = tech_arch_section_registry()
     assert validate_section_registry(data) == []
     normalized = normalize_section_registry(data)
     for key in normalized["section_order"]:
-        expected = "optional" if key == "OQ" else "required"
-        assert normalized["sections"][key]["presence"] == expected
+        expected = "none" if key == "OQ" else "ask"
+        assert normalized["sections"][key]["supply"] == expected
     assert normalized["sections"]["FD"]["relations"]["SH"] == "operationalize"
     assert "attach_to" not in json.dumps(normalized["sections"]["FD"]["relations"])
     assert normalized["sections"]["KD"]["relations"]["SH"] == "instantiate"

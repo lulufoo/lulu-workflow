@@ -183,59 +183,70 @@ TECH_DESIGN_INTENT = tech_design_section_registry()
 TECH_DESIGN_FORM = tech_design_section_form_registry()
 
 
-def test_presence_defaults_to_required_on_normalize():
-    payload = {
+def _supply_payload(sections: dict) -> dict:
+    return {
         "version": "1",
-        "section_order": ["GO", "NG"],
+        "section_order": list(sections),
         "document_preamble": "preamble\n",
-        "sections": {
-            "GO": {"heading": "Goal", "intent": "x"},
-            "NG": {"heading": "Non-Goals", "intent": "y", "presence": "optional"},
-        },
+        "sections": sections,
     }
-    normalized = normalize_section_registry(payload)
-    assert normalized["sections"]["GO"]["presence"] == "required"
-    assert normalized["sections"]["NG"]["presence"] == "optional"
 
 
-def test_presence_null_defaults_to_required():
-    payload = {
-        "version": "1",
-        "section_order": ["GO"],
-        "document_preamble": "preamble\n",
-        "sections": {"GO": {"heading": "Goal", "intent": "x", "presence": None}},
-    }
-    assert validate_section_registry(payload) == []
-    assert normalize_section_registry(payload)["sections"]["GO"]["presence"] == "required"
-
-
-def test_validate_rejects_invalid_presence_value():
-    payload = {
-        "version": "1",
-        "section_order": ["GO"],
-        "document_preamble": "preamble\n",
-        "sections": {"GO": {"heading": "Goal", "intent": "x", "presence": "sometimes"}},
-    }
-    errors = validate_section_registry(payload)
-    assert any("sections.GO.presence must be one of" in err for err in errors)
-
-
-def test_section_presence_map(monkeypatch):
-    import section_registry_schema as schema_mod  # noqa: E402
-
-    fake_registry = normalize_section_registry(
-        {
-            "version": "1",
-            "section_order": ["GO", "NG"],
-            "document_preamble": "preamble\n",
-            "sections": {
+def test_supply_defaults_to_ask_on_normalize():
+    normalized = normalize_section_registry(
+        _supply_payload(
+            {
                 "GO": {"heading": "Goal", "intent": "x"},
-                "NG": {"heading": "Non-Goals", "intent": "y", "presence": "optional"},
-            },
-        },
+                "NG": {"heading": "Non-Goals", "intent": "y", "supply": "none"},
+            }
+        )
     )
-    monkeypatch.setattr(schema_mod, "_active_registry", lambda project_root=None: fake_registry)
-    assert schema_mod.section_presence_map() == {"GO": "required", "NG": "optional"}
+    assert normalized["sections"]["GO"]["supply"] == "ask"
+    assert normalized["sections"]["NG"]["supply"] == "none"
+
+
+def test_supply_null_defaults_to_ask():
+    payload = _supply_payload({"GO": {"heading": "Goal", "intent": "x", "supply": None}})
+    assert validate_section_registry(payload) == []
+    assert normalize_section_registry(payload)["sections"]["GO"]["supply"] == "ask"
+
+
+def test_validate_rejects_invalid_supply_value():
+    payload = _supply_payload({"GO": {"heading": "Goal", "intent": "x", "supply": "sometimes"}})
+    errors = validate_section_registry(payload)
+    assert any("sections.GO.supply must be one of" in err for err in errors)
+
+
+def test_validate_derive_requires_derivation_edge():
+    sections = {
+        "GO": {"heading": "Goal", "intent": "x"},
+        "SK": {
+            "heading": "Skeleton",
+            "intent": "y",
+            "supply": "derive",
+            "upstream": ["GO"],
+            "relations": {"GO": "operationalize"},
+        },
+    }
+    errors = validate_section_registry(_supply_payload(sections))
+    assert any("sections.SK.supply derive requires" in err for err in errors)
+    sections["SK"]["relations"] = {"GO": "instantiate"}
+    assert validate_section_registry(_supply_payload(sections)) == []
+    sections["SK"].pop("relations")
+    assert any(
+        "sections.SK.supply derive requires" in err
+        for err in validate_section_registry(_supply_payload(sections))
+    )
+
+
+def test_presence_key_is_not_understood():
+    payload = _supply_payload(
+        {"GO": {"heading": "Goal", "intent": "x", "presence": "optional"}}
+    )
+    assert validate_section_registry(payload) == []
+    section = normalize_section_registry(payload)["sections"]["GO"]
+    assert section["supply"] == "ask"
+    assert "presence" not in section
 
 
 def test_cluster_preserved_on_normalize():
