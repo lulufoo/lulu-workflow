@@ -35,12 +35,12 @@ _PLANISH_GRAPH = {
     },
 }
 _ORDER = ["AR", "SK", "T", "GO", "ZZ"]
-_PRESENCE = {
-    "AR": "required",
-    "SK": "required",
-    "T": "required",
-    "GO": "optional",
-    "ZZ": "required",
+_SUPPLY = {
+    "AR": "ask",
+    "SK": "ask",
+    "T": "ask",
+    "GO": "none",
+    "ZZ": "ask",
 }
 
 
@@ -57,7 +57,7 @@ def _seed_facts(rev: Path, facts: list[dict]) -> None:
 
 def _patch_graph(monkeypatch) -> None:
     def stub_graph_and_maps(project_root, profile_id, **_kwargs):  # noqa: ARG001
-        return _PLANISH_GRAPH, _ORDER, _PRESENCE
+        return _PLANISH_GRAPH, _ORDER, _SUPPLY
 
     monkeypatch.setattr(mod, "_graph_and_maps", stub_graph_and_maps)
     monkeypatch.setattr(
@@ -173,7 +173,7 @@ def test_cli_append_and_audit_round_trip(tmp_path: Path, monkeypatch, capsys) ->
         return (
             cascade_graph,
             ["AR", "SK", "T"],
-            {"AR": "required", "SK": "required", "T": "required"},
+            {"AR": "ask", "SK": "ask", "T": "ask"},
         )
 
     monkeypatch.setattr(mod, "_graph_and_maps", stub_cascade)

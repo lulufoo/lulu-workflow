@@ -27,7 +27,7 @@
       "relations": {},
       "intent": "The design problem domain with three required elements: (1) trigger—why now; (2) verified current state—what exists; (3) impact—user- or system-level cost of that state. Lead with reviewable narrative; code or path facts support the story, they do not replace it.",
       "intent_boundary": "Solution selection, structure, interfaces, key decisions, verification, seams, risks, dependencies, and tasks belong to GOALAL, ST, DECISION, IF, SEAM, VERIFY, RISK, and DEP. Before→after success states belong to GOALAL. Enterprise architecture redesign is out of scope for this design.",
-      "presence": "required",
+      "supply": "ask",
       "facets": [
         "touch surfaces",
         "reference patterns",
@@ -50,7 +50,7 @@
       },
       "intent": "What must be true when the design is sufficient—observable success line relative to CTX. Prefer before→after contrast at the behavioral or structural level. Acceptance criteria may be referenced at the semantic level without tracing to tasks or commands. (Merged from legacy GOAL and review-slot R-GOAL.)",
       "intent_boundary": "Background problem narrative belongs to CTX. In/out delivery boundary belongs to SCOPEOPE. Checkable field/state/flow norms belong to I, IF, or ST (not a separate NORM lens). Verification steps belong to VERIFY. Module layout belongs to ST. Aspirational vision without a reviewable success condition does not belong here. Phases, checkboxes, SK/T, metric thresholds, and run commands do not belong here.",
-      "presence": "required"
+      "supply": "ask"
     },
     "SCOPE": {
       "heading": "Scope",
@@ -71,7 +71,7 @@
       },
       "intent": "This design's delivery boundary: in-scope surfaces and explicit out-of-scope / deferred items. When implementation areas are named, those touch surfaces must be identifiable in the system under design. (Merged from legacy Scope/Non-Goals lenses and review-slot R-SCOPE.)",
       "intent_boundary": "Success criteria belong to GOAL. Adopt/reject trade-off rationale belongs to DECISION. Checkable invariants belong to I. File-level task steps do not belong here. State machines and structural behavior detail belong to ST.",
-      "presence": "required",
+      "supply": "ask",
       "facets": [
         "in-scope surfaces",
         "out-of-scope / deferred",
@@ -101,7 +101,7 @@
       },
       "intent": "Locked design choices: what was selected, what was rejected, why, and under what conditions to reopen. Include confirmed premises and design-level choices such as reversibility and data semantics. State the core design insight before option comparison. Rationale must include design reasoning, not stakeholder authorization alone. (Merged from legacy DECISION and review-slot R-DECISION.)",
       "intent_boundary": "Structural layout and state paths belong to ST. Interface fields belong to IF. External technical dependency ledger belongs to DEP; this lens keeps adopt/reject and upgrade-selection rationale. Do not expand a decision into runtime field/state norms (I/IF/ST). Do not treat acceptance gates as decisions (VERIFY). Phase labels, owners, scheduling, and design-external process blockers do not belong here.",
-      "presence": "required",
+      "supply": "ask",
       "facets": [
         "reversibility",
         "data semantics",
@@ -124,7 +124,7 @@
       },
       "intent": "Checkable statements that must always be true in the intended running system. Include constraint-level user priors. Does not include implementation tactics or runbook steps.",
       "intent_boundary": "Option comparison belongs to DECISION. Field-level API contracts belong to IF. Structure-level placement and flows belong to ST. Cross-layer obligation assignment belongs to SEAM. Runbooks and operational step inventories do not belong here. Stress-and-failure robustness (concurrency, locking, consistency / last-write semantics) belongs here as checkable always-hold statements when in scope. R-NORM-style checkable rules that always hold map here; contract-shape norms map to IF; structure/flow norms map to ST.",
-      "presence": "required"
+      "supply": "ask"
     },
     "ST": {
       "heading": "Structure",
@@ -145,7 +145,7 @@
       },
       "intent": "Overall structural positioning of this design, including structure-level behavior and how the solution interacts with or calls external systems and other modules at the structural layer. Must be sufficient to support IF without re-deriving behavior. Coarse-grained responsibility-level external dependency ledgers belong to DEP, not ST.",
       "intent_boundary": "Field-level API contracts belong to IF. Chosen or rejected options belong to DECISION. Cross-layer who-owes-whom obligations belong to SEAM. Execution order, file edit lists, and task steps do not belong here. Coarse-grained external technical dependencies and change commitments belong to DEP. Structure/flow norms from the shared NORM write pattern belong here when the subject is structural.",
-      "presence": "required",
+      "supply": "ask",
       "facets": [
         "module boundaries",
         "responsibilities",
@@ -173,7 +173,7 @@
       },
       "intent": "Cross-module contracts for this design's current contract shape—verifiable at the semantic level. Cover both provided contracts (this design exposes) and consumed contracts (this design depends on) at the semantic level. When the design changes cross-boundary or user-visible outcomes, include end-state semantics for success, warning, and failure paths.",
       "intent_boundary": "Module diagrams and dependency direction belong to ST. Implementation steps and concrete file patches do not belong here. Protocol or technology selection belongs to DECISION; IF covers design choices within the chosen contract form (field structure, error classification, provided/consumed shape). Cross-version coexistence narratives are optional arc-leaf topics, not a Lens V2 key. Coarse-grained external technical dependencies belong to DEP. Contract-level success/error terminal semantics under failure belong here; concurrency / shared-state always-hold invariants belong to I; cross-layer obligations belong to SEAM; uncertainty and open bets belong to RISK.",
-      "presence": "required",
+      "supply": "ask",
       "facets": [
         "API contracts",
         "event contracts",
@@ -201,7 +201,7 @@
       },
       "intent": "Obligation ownership across this layer and adjacent layers/components: who provides, who consumes, and what each side must not demand. Both sides of the seam must be named. (From review-slot R-SEAM; no legacy Lens equivalent.)",
       "intent_boundary": "Internal state machines and field norms belong to I/IF/ST. Dependency versions and upgrade paths belong to DEP. Do not rewrite seams as a wishlist without assigned obligations.",
-      "presence": "optional",
+      "supply": "none",
       "facets": [
         "provider obligations",
         "consumer obligations",
@@ -228,7 +228,7 @@
       },
       "intent": "How to prove the design is satisfied: observation points, minimal acceptance, veto criteria, and the compile-vs-behavior boundary. When verification closes a design assumption, record the closure in DECISION or settled facts. (Merged from legacy VERIFY and review-slot R-VERIFY.)",
       "intent_boundary": "Run commands, test file paths, checkbox steps, and owner/schedule tables do not belong here. Success-state definition belongs to GOALALAL. Do not invent new norms here (I/IF/ST). Risk mitigation strategy belongs to RISK. Falsifiability is a design-level judgment—not test commands or runbook steps.",
-      "presence": "required",
+      "supply": "ask",
       "facets": [
         "acceptance mapping",
         "falsifiability",
@@ -253,7 +253,7 @@
       },
       "intent": "Known risks, fragile assumptions, accepted costs, and still-open questions. (From review-slot R-RISK; no legacy Lens equivalent. Absorbs design-level uncertainty formerly scattered near stability/operability narrative.)",
       "intent_boundary": "Do not rewrite already-locked norms as risk prose (I/IF/ST). Dependency ledgers belong to DEP. Verification mapping belongs to VERIFY.",
-      "presence": "optional",
+      "supply": "none",
       "facets": [
         "known risks",
         "fragile assumptions",
@@ -271,7 +271,7 @@
         "ST": "operationalize",
         "IF": "operationalize"
       },
-      "presence": "optional",
+      "supply": "none",
       "heading": "Technical Dependencies",
       "aliases": [
         "technical dependencies",

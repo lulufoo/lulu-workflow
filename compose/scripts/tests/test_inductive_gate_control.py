@@ -38,6 +38,7 @@ from open_point_store import (  # noqa: E402
     ensure_frontier,
     frontier_skip,
     lens_snapshot,
+    pending_lenses,
     load_bundle,
     registry_lens_keys,
 )
@@ -196,7 +197,7 @@ def _detect_meta(slice_dir: Path, raw_candidates, **overrides):
             key = str(item["lens"]).strip().upper()
             by_lens.setdefault(key, []).append(dict(item))
     verdicts = []
-    for lens in registry_lens_keys(lens_snapshot(slice_dir, root)):
+    for lens in pending_lenses(slice_dir, root):
         entry = frontier_lenses.get(lens) or default_lens_entry()
         start = int(entry.get("frontier_kw") or 0)
         hits = by_lens.get(lens, [])

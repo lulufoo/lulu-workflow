@@ -83,7 +83,7 @@ def test_context_without_intake_eval_gate(tmp_path: Path, monkeypatch: pytest.Mo
         "fetch_section_registry",
         lambda *_a, **_k: {
             "section_order": ["CTX"],
-            "sections": {"CTX": {"presence": "required"}},
+            "sections": {"CTX": {"supply": "ask"}},
         },
     )
     monkeypatch.setattr(mod, "load_compose_template", _fake_kw)
@@ -175,8 +175,8 @@ def test_lens_bundle_cli_stdout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         lambda *_a, **_k: {
             "section_order": ["CTX", "GO"],
             "sections": {
-                "CTX": {"presence": "required"},
-                "GO": {"presence": "required"},
+                "CTX": {"supply": "ask"},
+                "GO": {"supply": "ask"},
             },
         },
     )
@@ -221,7 +221,7 @@ def test_lens_bundle_fails_missing_kw_heading(tmp_path: Path, monkeypatch: pytes
         "fetch_section_registry",
         lambda *_a, **_k: {
             "section_order": ["CTX"],
-            "sections": {"CTX": {"presence": "required"}},
+            "sections": {"CTX": {"supply": "ask"}},
         },
     )
     monkeypatch.setattr(mod, "load_compose_template", _fake_kw)

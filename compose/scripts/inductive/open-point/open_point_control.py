@@ -55,6 +55,7 @@ from open_point_store import (  # noqa: E402
     detect_opens_snapshot,
     load_bundle,
     pending_lenses,
+    process_group,
     require_detect_ruler,
     reject_open,
     set_frontier,
@@ -78,6 +79,16 @@ def _parse_json(raw: str, label: str) -> Any:
     except json.JSONDecodeError as exc:
         _fail(f"invalid {label}: {exc}")
     raise AssertionError("unreachable")
+
+
+def _opens_from_json(raw: str) -> list[Any]:
+    envelope = _parse_json(raw, "--opens-json")
+    if not isinstance(envelope, dict):
+        raise ValueError('--opens-json must be a JSON object {"opens": [...]}')
+    opens = envelope.get("opens")
+    if not isinstance(opens, list):
+        raise ValueError("--opens-json.opens must be a JSON array")
+    return opens
 
 
 def _active_open(bundle: dict[str, Any]) -> dict[str, Any] | None:
@@ -188,6 +199,7 @@ def cmd_process_context(slice_dir: Path, args: argparse.Namespace) -> None:
         raise ValueError("no active open")
     payload: dict[str, Any] = {
         "open": current_open,
+        "group": process_group(bundle),
         "facts_path": str((slice_dir / FACTS_BASENAME).resolve()),
     }
     if args.project_root:
@@ -198,9 +210,7 @@ def cmd_process_context(slice_dir: Path, args: argparse.Namespace) -> None:
 
 
 def cmd_add_opens(slice_dir: Path, args: argparse.Namespace) -> None:
-    opens = _parse_json(args.opens_json, "--opens-json")
-    if not isinstance(opens, list):
-        raise ValueError("--opens-json must be a JSON array")
+    opens = _opens_from_json(args.opens_json)
     detect = None
     if args.detect_json:
         detect = _parse_json(args.detect_json, "--detect-json")
@@ -231,7 +241,8 @@ def cmd_reject_open(slice_dir: Path, args: argparse.Namespace) -> None:
 
 
 def cmd_skip_open(slice_dir: Path, args: argparse.Namespace) -> None:
-    _ok(skip_open(slice_dir, args.open_id))
+    ids = args.open_id
+    _ok(skip_open(slice_dir, ids[0] if len(ids) == 1 else ids))
 
 
 def cmd_attach_code_refs(slice_dir: Path, args: argparse.Namespace) -> None:
@@ -308,8 +319,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Read-only opens_snapshot, pending_lenses, and guide. "
             "pending_lenses = registry-ordered lens keys due for detection "
-            "this pass; lenses whose clean fingerprint still holds are "
-            "carried by control and omitted. guide is Domain "
+            "this pass; only supply ask lenses are listed, and lenses whose "
+            "clean fingerprint still holds are carried by control and "
+            "omitted. guide is Domain "
             "cognitive_frame + intent_anchor; fails if --project-root, "
             "gate-state, stage, or Domain is missing. Does not emit facts, "
             "KW, or lens registry."
@@ -327,16 +339,24 @@ def _build_parser() -> argparse.ArgumentParser:
     lens_ctx.add_argument("--lens", required=True)
     sub.add_parser(
         "process-context",
-        help="Active open + facts_path; project scope when --project-root",
+        help=(
+            "Active open, group (open items of the active batch sharing its "
+            "lens, active first) and facts_path; project scope when "
+            "--project-root"
+        ),
     )
 
     add = sub.add_parser(
         "add-opens",
         help=(
-            "Register 0..N opens. Detect must pass --detect-json "
+            "Register 0..N opens. --opens-json is "
+            '{"opens": [...]} . Detect must pass --detect-json '
             '{"verdicts": [{lens, gap_kw, candidates[]}, ...]} covering '
             "exactly the detect-context pending_lenses; gap_kw is null "
-            "exactly when candidates is empty. Empty --opens-json is legal "
+            "exactly when candidates is empty. A candidate may carry kw "
+            "(0..4, not below the lens frontier); when it does, gap_kw is "
+            "the coarsest kw, and kw is dropped when opens register. "
+            'Empty {"opens": []} is legal '
             "only with detect metadata. Measurements and the receipt derive "
             "from verdicts; carried lenses get gap_kw null. AI Detect means "
             "must be probe. Non-null gap_kw writes "
@@ -350,16 +370,26 @@ def _build_parser() -> argparse.ArgumentParser:
     update.add_argument("--open-id", required=True)
     update.add_argument("--patch-json", required=True)
 
-    defer = sub.add_parser("defer-open", help="Defer the active open")
+    defer = sub.add_parser(
+        "defer-open", help="Defer one open item of the active batch"
+    )
     defer.add_argument("--open-id", required=True)
     defer.add_argument("--note", required=True)
 
-    reject = sub.add_parser("reject-open", help="Reject the active open")
+    reject = sub.add_parser(
+        "reject-open", help="Reject one open item of the active batch"
+    )
     reject.add_argument("--open-id", required=True)
     reject.add_argument("--reason", required=True)
 
-    skip = sub.add_parser("skip-open", help="Move the active open to the batch tail")
-    skip.add_argument("--open-id", required=True)
+    skip = sub.add_parser(
+        "skip-open",
+        help=(
+            "Move the active open to the batch tail; repeat --open-id to "
+            "move a whole group, which keeps its relative order"
+        ),
+    )
+    skip.add_argument("--open-id", required=True, action="append")
 
     attach = sub.add_parser("attach-code-refs", help="Attach code refs to an open")
     attach.add_argument("--open-id", required=True)
