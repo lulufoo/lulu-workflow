@@ -85,8 +85,5 @@ Note: Primary home for implementation-recipe thickness (paired with thin AR).
 |----|------------------------------|
 | KW0 | Cannot be named |
 | KW1 | Can state "how to judge that Goal (before→after) is achieved" (hosts AC / layered behavioral criteria; Goal states Before→After only) |
-| KW2 | Can state "how to confirm Scope coverage has no omissions" |
-| KW3 | Can state "how to verify each Invariant holds or is violated" |
-| KW4 | Can state "acceptance commands/steps for completed Tasks; how to handle verification failure; which open assumptions must be closed before implementation (Must Close Before — explicit none if empty); and how to block when not closed" |
-
-Note: When AC rows exist, AC→Task mapping is required for VF completeness.
+| KW2 | Can state "which verification covers each Scope item and each Invariant" |
+| KW3 | Can state "how verification failure is handled, and which open assumptions must be closed before implementation" |
