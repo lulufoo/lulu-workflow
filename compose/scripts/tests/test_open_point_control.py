@@ -139,6 +139,10 @@ def _detect_json(out_dir: Path, raw_candidates, project_root: str):
     return json.dumps({"verdicts": verdicts})
 
 
+def _opens_json(opens: list) -> str:
+    return json.dumps({"opens": opens})
+
+
 def test_detect_context_refused_when_processing(tmp_path: Path):
     slice_dir, root = _slice_env(tmp_path)
     add_opens(slice_dir, opens=[_human_open()], project_root=root)
@@ -155,7 +159,7 @@ def test_add_opens_json_round_trip(tmp_path: Path):
         slice_dir,
         "add-opens",
         "--opens-json",
-        json.dumps(opens),
+        _opens_json(opens),
         project_root=root,
     )
     assert code == 0, payload
@@ -166,6 +170,16 @@ def test_add_opens_json_round_trip(tmp_path: Path):
         "second",
     ]
     assert [item["id"] for item in registered] == ["O-1", "O-2"]
+    code, payload = _run(
+        slice_dir,
+        "add-opens",
+        "--opens-json",
+        json.dumps(opens),
+        project_root=root,
+    )
+    assert code == 1
+    assert payload["ok"] is False
+    assert 'JSON object {"opens": [...]}' in payload["error"]
     code, ctx = _run(slice_dir, "resolve-context", project_root=root)
     assert code == 0, ctx
     assert ctx["state"]["phase"] == "processing"
@@ -287,7 +301,7 @@ def test_check_close_cleared_ignores_facts_mutation_after_zero_result(tmp_path: 
         slice_dir,
         "add-opens",
         "--opens-json",
-        "[]",
+        _opens_json([]),
         "--detect-json",
         _detect_json(slice_dir, [], root),
         project_root=root,
@@ -411,7 +425,7 @@ def test_add_opens_rejects_non_probe_detect_means(tmp_path: Path):
         slice_dir,
         "add-opens",
         "--opens-json",
-        json.dumps(raw),
+        _opens_json(raw),
         "--detect-json",
         json.dumps(detect),
         project_root=root,
@@ -427,7 +441,7 @@ def test_set_frontier_does_not_block_cleared(tmp_path: Path):
         slice_dir,
         "add-opens",
         "--opens-json",
-        "[]",
+        _opens_json([]),
         "--detect-json",
         _detect_json(slice_dir, [], root),
         project_root=root,
@@ -482,7 +496,7 @@ def test_empty_detect_records_clean_but_switch_off_keeps_all_pending(tmp_path: P
         slice_dir,
         "add-opens",
         "--opens-json",
-        "[]",
+        _opens_json([]),
         "--detect-json",
         _detect_json(slice_dir, [], root),
         project_root=root,
@@ -507,7 +521,7 @@ def test_switch_on_skips_clean_lenses_until_facts_change(tmp_path: Path):
         slice_dir,
         "add-opens",
         "--opens-json",
-        "[]",
+        _opens_json([]),
         "--detect-json",
         _detect_json(slice_dir, [], root),
         project_root=root,
@@ -535,7 +549,7 @@ def test_switch_on_add_opens_fills_carried_lenses_and_rejects_extra(tmp_path: Pa
         slice_dir,
         "add-opens",
         "--opens-json",
-        "[]",
+        _opens_json([]),
         "--detect-json",
         _detect_json(slice_dir, [], root),
         project_root=root,
@@ -547,7 +561,7 @@ def test_switch_on_add_opens_fills_carried_lenses_and_rejects_extra(tmp_path: Pa
         slice_dir,
         "add-opens",
         "--opens-json",
-        "[]",
+        _opens_json([]),
         "--detect-json",
         _detect_json(slice_dir, [], root),
         project_root=root,
@@ -569,7 +583,7 @@ def test_switch_on_add_opens_fills_carried_lenses_and_rejects_extra(tmp_path: Pa
         slice_dir,
         "add-opens",
         "--opens-json",
-        json.dumps(raw),
+        _opens_json(raw),
         "--detect-json",
         json.dumps(verdicts),
         project_root=root,
