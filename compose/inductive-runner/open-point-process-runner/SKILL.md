@@ -1,24 +1,26 @@
 ---
 name: open-point-process-runner
-description: Validates and analyzes one registered Open against current evidence.
+description: Validates and analyzes one registered Open group (one lens) against current evidence.
 ---
 
 # open-point-process-runner
 
 ## Goal
 
-Give decision support for one Open. Investigate until the Return is complete; do not over-search.
+Give decision support for each Open of one group. Investigate until the Return is complete; do not over-search.
 
 ## Preconditions
 
 - An Open is one unresolved question that matters to the current slice.
 - It belongs to one registry lens. Blocking says whether unresolved work
   prevents closure.
+- A group is the open Opens of one batch that share one lens.
 
 ## Inputs
 
-Require: facts path; one Open. A project evidence scope may also be supplied.
-Analyze only the input Open.
+Require: facts path; one `group` of Opens. A project evidence scope may
+also be supplied. Analyze only the Opens in the input group, each on its
+own merits.
 
 ## Cognition
 
@@ -37,21 +39,30 @@ another lens or to no lens of this slice.
 
 ## Analyze
 
-1. Decision support possible → `open`; else `blocked`. Stop if `blocked`.
-   Do not infer.
+For each Open in the group:
+
+1. Decision support possible → `open`; else `blocked`. Stop that Open if
+   `blocked`. Do not infer. `blocked` stops only that Open.
 2. If `open`: explain without assumed context. Options must differ in
    action, consequence, or trade-off. Reword, already-answered, and
    out-of-slice are options.
+3. If an answer to this Open would constrain or contradict another Open of
+   the group, say so in `issue` and name the other Open in `evidence`.
 
 ## Return
+
+One object `{"results": [...]}`: one entry per input Open, same order,
+each carrying its `open_id`. An entry is one of two shapes.
 
 - `blocked`: exception. Cases: missing input; missing evidence.
   `reason` is free text.
 - `open`: `issue`, `evidence`, 2–5 `options`, `lean`.
-- Use one of the two shapes below.
+
+Entry shapes:
 
 ```json
 {
+  "open_id": "O-1",
   "status": "blocked",
   "reason": "facts path is missing"
 }
@@ -59,6 +70,7 @@ another lens or to no lens of this slice.
 
 ```json
 {
+  "open_id": "O-2",
   "status": "open",
   "reason": "still unresolved",
   "issue": "Acceptance for this open is still unspecified.",
@@ -76,6 +88,7 @@ another lens or to no lens of this slice.
 
 - Read-only; do not write facts, Opens, Batches, or workflow state.
 - No user interaction, disposition, or queue movement.
+- An entry never depends on the order of the others, except through step 3.
 - Depend only on supplied inputs and the Cognition units.
 - Substantive input changes require a fresh invocation.
 - Failure has no side effects.
