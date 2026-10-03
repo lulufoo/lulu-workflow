@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Inductive runner outer gate spine control.
 
-Manages the G2->G3->G4 lock machine. After G4 closes, active_gate
+Manages the G2->G3 lock machine. After G3 closes, active_gate
 becomes complete. Provenance audit is delivery Eval, not a G5 gate.
 
 Subcommands:
@@ -12,11 +12,7 @@ Subcommands:
                         Fails if --project-root or gate-state.stage is
                         missing, or the Domain instance cannot be loaded.
     gate-close          Close a gate with payload / mode validation
-    gate-reopen         Reopen a gate; downstream gates reset to pending
-                        (also deletes the stale g4 report where applicable).
-                        G3 reopen requires --from-report --report-digest.
-    g4-check-report     Facade: subprocess to inductive_recompose_control check-recompose-report
-    g4-list-report      Facade: subprocess to inductive_recompose_control list-recompose-report
+    gate-reopen         Reopen G2; downstream gates reset to pending
     record-topic-landscape  Persist single-slot _topic-landscape.json (new run_id)
     record-g2-topic-exit    Persist _g2-topic-exit.json referencing a landscape run_id
 
@@ -25,8 +21,6 @@ Close per gate:
         + topic_exit in {cleared, hard_skip} matching _g2-topic-exit.json /
           pre_close _topic-landscape.json (archive-21)
     G3: --mode cleared|hard-skip --confirm; lock + open_point_store.check_close
-    G4: report-driven; --payload ignored; empty findings + three true predicates
-        + matching facts/opens digests
 """
 
 from __future__ import annotations
@@ -34,7 +28,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -49,7 +42,6 @@ if str(_SCRIPTS) not in sys.path:
 
 _COMPOSE_SCRIPTS = Path(__file__).resolve().parents[1]
 _OPEN_POINT = _HERE / "open-point"
-_RECOMPOSE = _HERE / "recompose"
 _SESSION = _COMPOSE_SCRIPTS / "schema" / "session"
 _KERNEL = _COMPOSE_SCRIPTS / "_kernel"
 _SCOPE = _COMPOSE_SCRIPTS / "schema" / "section" / "scope"
@@ -57,20 +49,13 @@ _SCHEMA_DIRS = (
     _HERE / "schema" / "gate",
     _HERE / "schema" / "topic",
     _HERE / "schema" / "open-point",
-    _HERE / "schema" / "recompose",
 )
 for _p in (_COMPOSE_SCRIPTS, _OPEN_POINT, _SESSION, _KERNEL, *_SCHEMA_DIRS, _SCOPE):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
 from active_context_schema import resolve_conversation_id  # noqa: E402
-from compose_state_lock import canonical_digest, compose_state_lock  # noqa: E402
-from recompose_report_schema import (  # noqa: E402
-    delete_report,
-    recompose_report_path,
-    load_report,
-    validate_finding_lens_sources,
-)
+from compose_state_lock import compose_state_lock  # noqa: E402
 from execution_state_schema import working_execution_dir  # noqa: E402
 from open_point_state_schema import (  # noqa: E402
     empty_open_point_state,
@@ -80,12 +65,8 @@ from open_point_state_schema import (  # noqa: E402
 from open_point_store import (  # noqa: E402
     OpenPointError,
     abandon_active_batch,
-    apply_targets,
     assert_slice_writable,
     check_close,
-    facts_digest,
-    facts_snapshot,
-    prepare_add_opens,
 )
 from opens_schema import load_opens, opens_path  # noqa: E402
 from platform_schema import detect_platform  # noqa: E402
@@ -133,26 +114,6 @@ def _gate_state_path(out_dir: Path) -> Path:
 
 def _dqi_path(out_dir: Path) -> Path:
     return out_dir / "inductive-dqi.json"
-
-
-def _g4_ctl(out_dir: Path) -> list[str]:
-    script = _RECOMPOSE / "inductive_recompose_control.py"
-    return [sys.executable, str(script), "--out-dir", str(out_dir)]
-
-
-def _forward_ctl(base_argv: list[str], *extra_args: str) -> None:
-    """Run a child control CLI and forward stdout/exit code unchanged."""
-    cmd = base_argv + list(extra_args)
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.stdout:
-        sys.stdout.write(result.stdout)
-        if not result.stdout.endswith("\n"):
-            sys.stdout.write("\n")
-    elif result.returncode != 0:
-        message = result.stderr.strip() or "subprocess failed"
-        print(json.dumps({"ok": False, "error": message}, indent=2, ensure_ascii=False))
-    if result.returncode != 0:
-        sys.exit(result.returncode)
 
 
 # ---------------------------------------------------------------------------
@@ -337,12 +298,6 @@ def cmd_gate_close(out_dir: Path, args: argparse.Namespace) -> None:
             except OpenPointError as exc:
                 _fail(str(exc))
             payload = _validate_g3_close(slice_dir, args)
-            updated = close_gate(state, gate, payload=payload)
-            save_gate_state(gate_path, updated)
-    elif gate == "G4":
-        slice_dir = working_execution_dir(out_dir)
-        with compose_state_lock(slice_dir):
-            payload = _validate_g4_close(slice_dir)
             updated = close_gate(state, gate, payload=payload)
             save_gate_state(gate_path, updated)
     else:
@@ -558,127 +513,11 @@ def _validate_g3_close(slice_dir: Path, args: argparse.Namespace) -> dict[str, A
     return {"mode": mode}
 
 
-def _validate_g4_close(slice_dir: Path) -> dict[str, Any]:
-    path = recompose_report_path(slice_dir)
-    if not path.exists():
-        _fail("g4 recompose report missing; dispatch recompose-runner first")
-    try:
-        report = load_report(path)
-    except (FileNotFoundError, ValueError) as exc:
-        _fail(str(exc))
-    current_facts = facts_digest(slice_dir)
-    current_opens = canonical_digest(load_opens(opens_path(slice_dir)))
-    if (
-        report.get("facts_digest") != current_facts
-        or report.get("opens_digest") != current_opens
-    ):
-        _fail("G4 gate-close rejected: stale report digest")
-    findings = report.get("findings") or []
-    if findings:
-        _fail(f"G4 gate-close rejected: {len(findings)} finding(s) remain")
-    for field in ("buildable", "reversible", "verifiable"):
-        if report.get(field) is not True:
-            _fail(f"G4 gate-close rejected: {field}=false")
-    return {
-        "findings": [],
-        "buildable": True,
-        "reversible": True,
-        "verifiable": True,
-        "facts_digest": current_facts,
-        "opens_digest": current_opens,
-    }
-
-
-def _reopen_g3_from_report(out_dir: Path, args: argparse.Namespace, state: dict[str, Any]) -> None:
-    digest = str(getattr(args, "report_digest", "") or "").strip()
-    if not digest:
-        _fail("gate-reopen --gate G3 --from-report requires --report-digest")
-    slice_dir = working_execution_dir(out_dir)
-    with compose_state_lock(slice_dir):
-        path = recompose_report_path(slice_dir)
-        if not path.exists():
-            _fail("g4 recompose report missing; cannot reopen G3 from report")
-        try:
-            report = load_report(path)
-        except (FileNotFoundError, ValueError) as exc:
-            _fail(str(exc))
-        if canonical_digest(report) != digest:
-            _fail("G3 reopen rejected: report-digest mismatch")
-        current_facts = facts_digest(slice_dir)
-        current_opens = canonical_digest(load_opens(opens_path(slice_dir)))
-        if (
-            report.get("facts_digest") != current_facts
-            or report.get("opens_digest") != current_opens
-        ):
-            _fail("G3 reopen rejected: stale report digest")
-        findings = report.get("findings") or []
-        if not findings:
-            _fail("G3 reopen rejected: report has no findings")
-        source_errors = validate_finding_lens_sources(
-            findings, facts_snapshot(slice_dir), load_opens(opens_path(slice_dir))
-        )
-        if source_errors:
-            _fail("; ".join(source_errors))
-        incoming = []
-        for item in findings:
-            if not isinstance(item, dict):
-                _fail("G3 reopen rejected: finding must be an object")
-            lens = str(item.get("lens", "")).strip()
-            if not lens:
-                _fail("G3 reopen rejected: finding.lens is required")
-            incoming.append(
-                {
-                    "question": item["question"],
-                    "basis": item["basis"],
-                    "blocking": item["blocking"],
-                    "lens": lens,
-                    "source": {"actor": "ai", "means": "audit"},
-                }
-            )
-        try:
-            prepared = prepare_add_opens(
-                slice_dir,
-                opens=incoming,
-                project_root=getattr(args, "project_root", "") or None,
-            )
-            updated = reopen_gate(state, "G3")
-            files = dict(prepared["files"])
-            files["inductive-gate-state.json"] = updated
-            files["g4-recompose-report.json"] = None
-            apply_targets(slice_dir, "g3-from-report", files)
-        except OpenPointError as exc:
-            _fail(str(exc))
-        except ValueError as exc:
-            _fail(str(exc))
-        added = {
-            "opens": prepared["opens"],
-            "state": prepared["state"],
-            "batch": prepared["batch"],
-            "receipt": prepared["receipt"],
-        }
-        deleted = not recompose_report_path(slice_dir).exists()
-    _ok({
-        "reopened": "G3",
-        "active_gate": updated["active_gate"],
-        "deleted_g4_report": deleted,
-        "opens": added.get("opens", []),
-        "note": (
-            "findings registered as opens; downstream gates reset to pending; "
-            "resolve the issue then call gate-close again"
-        ),
-    })
-
-
 def cmd_gate_reopen(out_dir: Path, args: argparse.Namespace) -> None:
-    """Reopen a previously closed gate.
-
-    G3 requires --from-report --report-digest and registers report findings.
-    G2 is a spine reopen that deletes the stale G4 report.
-    """
+    """Reopen G2. Downstream gates reset to pending."""
     gate: str = args.gate.upper()
-    sections_arg = (getattr(args, "sections", "") or "").strip()
-    if sections_arg:
-        _fail("--sections is rejected; G3 reopen is --from-report only")
+    if gate == "G3":
+        _fail("G3 is not reopened from the spine")
     if gate not in GATE_ORDER:
         _fail(f"invalid gate: {gate!r}; must be one of {GATE_ORDER}")
 
@@ -703,36 +542,17 @@ def cmd_gate_reopen(out_dir: Path, args: argparse.Namespace) -> None:
             f"gate {gate!r} is already active or reopened — nothing to reopen"
         )
 
-    if gate == "G3":
-        if not bool(getattr(args, "from_report", False)):
-            _fail("gate-reopen --gate G3 requires --from-report --report-digest")
-        _reopen_g3_from_report(out_dir, args, state)
-        return
-
     updated = reopen_gate(state, gate)
     save_gate_state(gate_path, updated)
-
-    deleted_g4_report = False
-    if gate == "G2":
-        deleted_g4_report = delete_report(working_execution_dir(out_dir))
 
     _ok({
         "reopened": gate,
         "active_gate": updated["active_gate"],
-        "deleted_g4_report": deleted_g4_report,
         "note": (
             "downstream gates reset to pending; "
             "resolve the issue then call gate-close again"
         ),
     })
-
-
-def cmd_g4_check_report(out_dir: Path, _args: argparse.Namespace) -> None:
-    _forward_ctl(_g4_ctl(out_dir), "check-recompose-report")
-
-
-def cmd_g4_list_report(out_dir: Path, _args: argparse.Namespace) -> None:
-    _forward_ctl(_g4_ctl(out_dir), "list-recompose-report")
 
 
 # ---------------------------------------------------------------------------
@@ -797,12 +617,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Close a gate with payload / mode validation",
         parents=[conv_id_parent],
     )
-    p.add_argument("--gate", required=True, metavar="G", help="G2 | G3 | G4")
+    p.add_argument("--gate", required=True, metavar="G", help="G2 | G3")
     p.add_argument(
         "--payload",
         default="{}",
         metavar="JSON",
-        help="G2 close payload (JSON object); ignored for G4",
+        help="G2 close payload (JSON object)",
     )
     p.add_argument(
         "--mode",
@@ -818,42 +638,14 @@ def _build_parser() -> argparse.ArgumentParser:
     # gate-reopen
     p = sub.add_parser(
         "gate-reopen",
-        help="Reopen a previously closed gate (G3 requires --from-report)",
+        help="Reopen G2; downstream gates reset to pending",
         parents=[conv_id_parent],
     )
     p.add_argument(
         "--gate",
         required=True,
         metavar="G",
-        help="G2 | G3 | G4 — gate to reopen; downstream gates reset to pending",
-    )
-    p.add_argument(
-        "--sections",
-        default="",
-        help="Rejected; G3 reopen is --from-report only",
-    )
-    p.add_argument(
-        "--from-report",
-        action="store_true",
-        dest="from_report",
-        help="G3 only: register findings from the current G4 report",
-    )
-    p.add_argument(
-        "--report-digest",
-        default="",
-        dest="report_digest",
-        help="G3 --from-report: canonical digest of the G4 report",
-    )
-
-    sub.add_parser(
-        "g4-check-report",
-        help="Validate g4-recompose-report (facade)",
-        parents=[conv_id_parent],
-    )
-    sub.add_parser(
-        "g4-list-report",
-        help="Read g4-recompose-report summary (facade)",
-        parents=[conv_id_parent],
+        help="G2 — gate to reopen; downstream gates reset to pending",
     )
 
     p = sub.add_parser(
@@ -917,8 +709,6 @@ def main() -> None:
         "resolve-context": cmd_resolve_context,
         "gate-close": cmd_gate_close,
         "gate-reopen": cmd_gate_reopen,
-        "g4-check-report": cmd_g4_check_report,
-        "g4-list-report": cmd_g4_list_report,
         "record-topic-landscape": cmd_record_topic_landscape,
         "record-g2-topic-exit": cmd_record_g2_topic_exit,
     }

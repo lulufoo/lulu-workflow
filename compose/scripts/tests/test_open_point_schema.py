@@ -8,7 +8,7 @@ from pathlib import Path
 
 _INDUCTIVE_DIR = Path(__file__).resolve().parent.parent / "inductive"
 sys.path.insert(0, str(_INDUCTIVE_DIR))
-for _name in ("gate", "topic", "open-point", "recompose"):
+for _name in ("gate", "topic", "open-point"):
     sys.path.insert(0, str(_INDUCTIVE_DIR / "schema" / _name))
 
 from compose_state_lock import canonical_digest  # noqa: E402

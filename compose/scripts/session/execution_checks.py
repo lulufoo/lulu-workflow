@@ -166,10 +166,10 @@ def inductive_gate_closed(execution_dir: Path) -> bool:
     except (OSError, json.JSONDecodeError):
         return False
     active = str(data.get("active_gate", "")).strip()
-    if active == "G5":
+    if active in {"G4", "G5"}:
         return False
-    g4_ok = str(data.get("gates", {}).get("G4", {}).get("status", "")).lower() == "closed"
-    return g4_ok and active == "complete"
+    g3_ok = str(data.get("gates", {}).get("G3", {}).get("status", "")).lower() == "closed"
+    return g3_ok and active == "complete"
 
 
 def deductive_gate_closed(revision_dir: Path) -> bool:

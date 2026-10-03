@@ -1,15 +1,15 @@
 ---
 name: inductive-runner
 description: >-
-  Coordinates pre-writing induction across topic convergence,
-  open-point resolution, and internal audit.
+  Coordinates pre-writing induction across topic convergence
+  and open-point resolution.
 ---
 
 # inductive-runner
 
 ## Goal
 
-Through the G2→G4 spine, induce intent step by step and converge it into settled facts. Topic dialogue converges the substance. Open questions dispose what is still unresolved and material. The audit requires those facts and Opens to hold together, and sends findings back to be disposed.
+Through the G2→G3 spine, induce intent step by step and converge it into settled facts. Topic dialogue converges the substance. Open questions dispose what is still unresolved and material.
 
 ## Dispatch Inputs
 
@@ -58,14 +58,13 @@ Route only from control stdout or `$CTX`; never route from a state-file path.
 |---|---|
 | `G2` | `gates/g2-topic-loop.md` |
 | `G3` | `gates/g3-open-point-loop.md` |
-| `G4` | `gates/g4-recompose.md` |
 | `complete` | Do not load another gate. |
 
 - A fresh `$CTX.active_gate` authorizes its entry.
-- After G3 closes, run `G4` immediately.
+- After G3 closes, `$CTX.active_gate` is `complete`.
 - Read `../../_subagent.md` before any sub-agent dispatch.
 
 ## Handoff
 
-After G4 closes and `$CTX.active_gate` is `complete`, report completion and
+After G3 closes and `$CTX.active_gate` is `complete`, report completion and
 return control to the parent Compose stage.

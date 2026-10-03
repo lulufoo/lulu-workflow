@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Schema and I/O for inductive-gate-state.json.
 
-Tracks the G2–G4 lock machine. After G4 closes, active_gate becomes
-complete. Retired active_gate=G1 or G5 is incompatible and is not
+Tracks the G2–G3 lock machine. After G3 closes, active_gate becomes
+complete. Retired active_gate=G1, G4, or G5 is incompatible and is not
 translated.
 
 Gate statuses: pending | active | closed | reopened
@@ -15,16 +15,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-GATE_ORDER: tuple[str, ...] = ("G2", "G3", "G4")
+GATE_ORDER: tuple[str, ...] = ("G2", "G3")
 COMPLETE_GATE = "complete"
 ROUTING_GATES: tuple[str, ...] = GATE_ORDER + (COMPLETE_GATE,)
-_RETIRED_GATES = frozenset({"G1", "G5"})
+_RETIRED_GATES = frozenset({"G1", "G4", "G5"})
 GATE_STATUSES = frozenset({"pending", "active", "closed", "reopened"})
 
 _GATE_LABELS: dict[str, str] = {
     "G2": "Topic Loop",
     "G3": "Open-point Loop",
-    "G4": "Internal Audit",
 }
 
 
@@ -169,7 +168,7 @@ def gate_index(gate: str) -> int:
 
 
 def routing_index(active: str) -> int:
-    """Index of the current routing position. complete sits after G4."""
+    """Index of the current routing position. complete sits after G3."""
     if active == COMPLETE_GATE:
         return len(GATE_ORDER)
     if active in GATE_ORDER:
@@ -206,7 +205,7 @@ def close_gate(
 
 
 def reopen_gate(state: dict[str, Any], gate: str) -> dict[str, Any]:
-    """Reopen a gate (e.g. G4 audit failure -> reopen G3).
+    """Reopen a gate.
 
     Sets target gate to 'reopened'; downstream gates reset to pending.
     """

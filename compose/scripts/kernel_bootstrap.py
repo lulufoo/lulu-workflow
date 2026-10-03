@@ -13,12 +13,12 @@ _NARRATIVE_ARC = _COMPOSE / "narrative-arc-runner" / "scripts"
 
 def inductive_schema_dirs(scripts: Path | None = None) -> tuple[Path, ...]:
     root = (scripts or _SCRIPTS) / "inductive" / "schema"
-    return (root / "gate", root / "topic", root / "open-point", root / "recompose")
+    return (root / "gate", root / "topic", root / "open-point")
 
 
 def inductive_control_dirs(scripts: Path | None = None) -> tuple[Path, ...]:
     root = (scripts or _SCRIPTS) / "inductive"
-    return (root / "open-point", root / "topic", root / "recompose")
+    return (root / "open-point", root / "topic")
 
 
 def deductive_leaf_dirs(scripts: Path | None = None) -> tuple[Path, ...]:

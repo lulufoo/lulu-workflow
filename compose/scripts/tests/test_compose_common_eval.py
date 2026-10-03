@@ -196,16 +196,16 @@ class TestScopeContinuity:
 
 
 class TestRetiredG5:
-    def test_g4_close_becomes_complete(self):
+    def test_g3_close_becomes_complete(self):
         state = init_gate_state(cycle_id="c1", stage="lulu-design")
-        for gate in ("G2", "G3", "G4"):
+        for gate in ("G2", "G3"):
             state = close_gate(state, gate)
         assert state["active_gate"] == "complete"
         assert validate_gate_state(state) == []
 
     def test_active_gate_g5_is_incompatible(self, tmp_path: Path):
         state = init_gate_state(cycle_id="c1", stage="lulu-design")
-        for gate in ("G2", "G3", "G4"):
+        for gate in ("G2", "G3"):
             state = close_gate(state, gate)
         state["active_gate"] = "G5"
         path = tmp_path / "inductive-gate-state.json"
