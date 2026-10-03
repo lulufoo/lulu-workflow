@@ -234,6 +234,27 @@ def test_verdicts_gap_and_candidates_move_together():
     assert any("candidates" in e for e in errs)
 
 
+def test_verdict_candidate_kw_must_match_gap_when_present():
+    ok = [_verdict("I", gap_kw=2, candidates=[{"question": "a", "kw": 3}, {"question": "b", "kw": 2}])]
+    assert validate_detect_verdicts(ok, registry_lenses=["I"]) == []
+    wrong = [_verdict("I", gap_kw=3, candidates=[{"question": "a", "kw": 3}, {"question": "b", "kw": 2}])]
+    errs = validate_detect_verdicts(wrong, registry_lenses=["I"])
+    assert any("coarsest candidate kw 2" in e for e in errs)
+    errs = validate_detect_verdicts(
+        [_verdict("I", gap_kw=1, candidates=[{"question": "a", "kw": 2}])],
+        registry_lenses=["I"],
+    )
+    assert any("coarsest candidate kw 2" in e for e in errs)
+
+
+def test_verdict_candidate_without_kw_passes_and_bad_kw_fails():
+    mixed = [_verdict("I", gap_kw=1, candidates=[{"question": "a"}, {"question": "b", "kw": 3}])]
+    assert validate_detect_verdicts(mixed, registry_lenses=["I"]) == []
+    bad = [_verdict("I", gap_kw=1, candidates=[{"question": "a", "kw": 9}])]
+    errs = validate_detect_verdicts(bad, registry_lenses=["I"])
+    assert any("kw must be an int" in e for e in errs)
+
+
 def test_parse_detect_verdicts_normalizes():
     parsed = parse_detect_verdicts(
         [

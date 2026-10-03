@@ -564,6 +564,36 @@ def test_detect_rejects_gap_below_frontier(tmp_path: Path):
         )
 
 
+def test_detect_multi_row_candidates_write_coarsest_gap_and_drop_kw(tmp_path: Path):
+    _write_registry_and_kw(tmp_path)
+    ensure_frontier(tmp_path)
+    coarse = _candidate(kw=1)
+    fine = _candidate(question="Which seam is unowned?", kw=2)
+    add_opens(
+        tmp_path,
+        opens=[coarse, fine],
+        detect={"verdicts": [{"lens": "I", "gap_kw": 1, "candidates": [coarse, fine]}]},
+    )
+    frontier = load_lens_frontier(lens_frontier_path(tmp_path))
+    assert frontier["lenses"]["I"]["frontier_kw"] == 1
+    receipt = load_bundle(tmp_path)["receipts"]["receipts"][0]
+    assert receipt["raw_candidate_count"] == 2
+    assert all("kw" not in item for item in load_bundle(tmp_path)["opens"])
+
+
+def test_detect_rejects_candidate_kw_below_frontier(tmp_path: Path):
+    _write_registry_and_kw(tmp_path)
+    ensure_frontier(tmp_path)
+    set_frontier(tmp_path, "I", 2)
+    stale = _candidate(kw=1)
+    with pytest.raises(ValueError, match="candidate kw 1"):
+        add_opens(
+            tmp_path,
+            opens=[stale],
+            detect={"verdicts": [{"lens": "I", "gap_kw": 2, "candidates": [stale]}]},
+        )
+
+
 def test_settle_does_not_reset_frontier_kw(tmp_path: Path):
     _write_registry_and_kw(tmp_path)
     ensure_frontier(tmp_path)

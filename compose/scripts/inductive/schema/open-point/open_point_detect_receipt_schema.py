@@ -106,6 +106,33 @@ def normalize_lens_measurements(raw: Any) -> list[dict[str, Any]]:
     return out
 
 
+def _candidate_kw_errors(where: str, gap: Any, candidates: list[Any]) -> list[str]:
+    """Soft check of optional ``candidates[].kw`` against the verdict ``gap_kw``.
+
+    Scripts cannot judge whether a row is truly silent, so a candidate without
+    ``kw`` passes. Tagged candidates may not contradict the coarsest-row rule.
+    """
+    errors: list[str] = []
+    tagged: list[int] = []
+    for index, entry in enumerate(candidates):
+        if "kw" not in entry:
+            continue
+        kw = entry["kw"]
+        if not _kw_int(kw):
+            errors.append(f"{where}.candidates[{index}].kw must be an int 0..4")
+        else:
+            tagged.append(kw)
+    if errors or not tagged or not _kw_int(gap):
+        return errors
+    coarsest = min(tagged)
+    all_tagged = len(tagged) == len(candidates)
+    if gap > coarsest or (all_tagged and gap != coarsest):
+        errors.append(
+            f"{where} gap_kw {gap} must be the coarsest candidate kw {coarsest}"
+        )
+    return errors
+
+
 def validate_detect_verdicts(raw: Any, *, registry_lenses: list[str]) -> list[str]:
     if not isinstance(raw, list) or not raw:
         return ["verdicts must be a non-empty array"]
@@ -138,6 +165,8 @@ def validate_detect_verdicts(raw: Any, *, registry_lenses: list[str]) -> list[st
             errors.append(
                 f"{where} gap_kw must be null exactly when candidates is empty"
             )
+        else:
+            errors.extend(_candidate_kw_errors(where, gap, candidates))
     required = {str(item).strip().upper() for item in registry_lenses if str(item).strip()}
     missing = sorted(required - seen)
     if missing:

@@ -63,7 +63,10 @@ candidates(lens) = Detect(lens; kw rows, facts)
 Rulers for judgment. Question type lives in `references/detect-means.md`.
 
 1. Completeness obligation is the `kw_criteria` rows in the lens packet.
-2. `gap_kw` names the coarsest `kw_criteria` row the facts cannot state.
+2. Probe every row in the packet, not only the coarsest silent one.
+   List every point the facts cannot state, each tagged with its row
+   in `kw`. A row yielding several points yields several candidates.
+3. `gap_kw` names the coarsest row among those candidates.
 
 ## Boundaries
 
@@ -84,6 +87,8 @@ Hand-back shape. `means` is stamped per `references/detect-means.md`.
 
 - One object: one verdict per `pending_lenses` key.
 - `gap_kw` is null exactly when `candidates` is empty.
+- `candidates[].kw` is the row the point belongs to; `gap_kw` equals
+  the smallest `kw`. `kw` is Detect metadata, not an Open field.
 
 ```json
 {
@@ -93,6 +98,7 @@ Hand-back shape. `means` is stamped per `references/detect-means.md`.
         "question": "What is the current rollback path?",
         "basis": "KW1 is silent on failure recovery",
         "blocking": true,
+        "kw": 1,
         "means": "probe"
       }
     ]},

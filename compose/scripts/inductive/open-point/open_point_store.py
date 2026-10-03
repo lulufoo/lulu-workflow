@@ -797,6 +797,12 @@ def prepare_add_opens(
                 raise ValueError(
                     f"lens {item['lens']} gap_kw {gap} < frontier {start}"
                 )
+            for entry in item["candidates"]:
+                if "kw" in entry and int(entry["kw"]) < start:
+                    raise ValueError(
+                        f"lens {item['lens']} candidate kw {entry['kw']} "
+                        f"< frontier {start}"
+                    )
         judged = {item["lens"]: item["gap_kw"] for item in verdicts}
         measurements = [{"lens": lens, "gap_kw": judged.get(lens)} for lens in allowed]
         raw_candidate_count = sum(len(item["candidates"]) for item in verdicts)
@@ -814,6 +820,7 @@ def prepare_add_opens(
                 means = str(source.get("means", "")).strip().lower()
             if means not in DETECT_MEANS:
                 raise ValueError("detect open source.means must be probe")
+        opens = [{k: v for k, v in raw.items() if k != "kw"} for raw in opens]
         registered = _mint_opens(
             bundle["opens"],
             opens,
