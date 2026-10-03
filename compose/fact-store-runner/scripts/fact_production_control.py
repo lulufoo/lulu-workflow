@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Permit-gated fact-production control (archive-13.0).
 
-All G2/G3 fact mutations use ``propose`` → ``ack`` → ``consume``. A proposal
-persists its exact normalized payload and digest before a human ACK; consume
-accepts only the acknowledged permit ID and its stable slice key. The control
-serializes facts/opens mutations, records an interrupted write as ``consuming``,
-and reconciles exact snapshots before any retry.
+Happy path: ``propose`` → ``consume``. A proposal persists its exact
+normalized payload and digest; consume accepts a ``proposed`` or
+``acknowledged`` permit ID and its stable slice key. ``ack`` remains for
+fault-path compatibility; the happy path does not call it.
 
-Subcommands: propose · ack · consume · revoke · reconcile
+The control serializes facts/opens mutations, records an interrupted write
+as ``consuming``, and reconciles exact snapshots before any retry.
+
+Subcommands: propose · ack · consume · revoke · reconcile · recover
 
 CLI: ``python3 fact_production_control.py --help``
 """
@@ -684,9 +686,14 @@ def cmd_consume(args: argparse.Namespace) -> int:
                     return _fail("permit slice-key mismatch")
                 if permit["state"] == "consuming":
                     state = _reconcile_permit(slice_dir, store, permit)
-                    return _fail(f"permit reconciliation completed as {state!r}; retry if acknowledged")
-                if permit["state"] != "acknowledged":
-                    return _fail(f"permit is not acknowledged: {permit['state']!r}")
+                    return _fail(
+                        f"permit reconciliation completed as {state!r}; "
+                        "retry if proposed or acknowledged"
+                    )
+                if permit["state"] not in {"proposed", "acknowledged"}:
+                    return _fail(
+                        f"permit is not consumable: {permit['state']!r}"
+                    )
                 precondition = permit["precondition"]
                 current_facts, current_facts_exists = _load_facts_optional(slice_dir)
                 if (
@@ -950,7 +957,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--human-ack", action="store_true")
     p.set_defaults(func=cmd_ack)
 
-    p = sub.add_parser("consume", help="Consume one acknowledged permit")
+    p = sub.add_parser("consume", help="Consume one proposed or acknowledged permit")
     p.add_argument("--revision-dir", required=True)
     p.add_argument("--permit-id", required=True)
     p.add_argument("--slice-key", required=True)

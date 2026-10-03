@@ -53,34 +53,19 @@ def _run(*args: str) -> tuple[int, dict, str]:
     return result.returncode, payload, result.stderr
 
 
-def _ack_and_consume(revision_dir: Path, proposal: dict) -> tuple[int, dict, str]:
-    permit_id = proposal["permit_id"]
-    slice_key = proposal["slice_key"]
-    code, _, err = _run(
-        "ack",
-        "--revision-dir",
-        str(revision_dir),
-        "--permit-id",
-        permit_id,
-        "--slice-key",
-        slice_key,
-        "--digest",
-        proposal["digest"],
-        "--human-ack",
-    )
-    assert code == 0, err
+def _consume(revision_dir: Path, proposal: dict) -> tuple[int, dict, str]:
     return _run(
         "consume",
         "--revision-dir",
         str(revision_dir),
         "--permit-id",
-        permit_id,
+        proposal["permit_id"],
         "--slice-key",
-        slice_key,
+        proposal["slice_key"],
     )
 
 
-def test_append_requires_digest_bound_ack_before_consume(tmp_path: Path):
+def test_append_consume_from_proposed_without_ack(tmp_path: Path):
     facts_json = json.dumps([{"text": "A settled fact", "lens": "I"}])
     code, proposal, err = _run(
         "propose",
@@ -95,6 +80,28 @@ def test_append_requires_digest_bound_ack_before_consume(tmp_path: Path):
     assert proposal["preview"]["facts_after"][0]["id"] == "F-1"
     assert not (tmp_path / "execution" / "_facts.json").exists()
 
+    code, payload, err = _consume(tmp_path, proposal)
+    assert code == 0, err
+    assert payload["fact_ids"] == ["F-1"]
+    assert "stale_signal" not in payload
+    assert "suggest_check" not in payload
+    assert (tmp_path / "execution" / "_facts.json").is_file()
+
+    code, _, _ = _consume(tmp_path, proposal)
+    assert code != 0
+
+
+def test_ack_rejects_digest_mismatch(tmp_path: Path):
+    code, proposal, err = _run(
+        "propose",
+        "--revision-dir",
+        str(tmp_path),
+        "--kind",
+        "append",
+        "--facts-json",
+        json.dumps([{"text": "A settled fact", "lens": "I"}]),
+    )
+    assert code == 0, err
     code, _, err = _run(
         "ack",
         "--revision-dir",
@@ -109,23 +116,6 @@ def test_append_requires_digest_bound_ack_before_consume(tmp_path: Path):
     )
     assert code != 0
     assert not (tmp_path / "execution" / "_facts.json").exists()
-
-    code, payload, err = _ack_and_consume(tmp_path, proposal)
-    assert code == 0, err
-    assert payload["fact_ids"] == ["F-1"]
-    assert "stale_signal" not in payload
-    assert "suggest_check" not in payload
-
-    code, _, _ = _run(
-        "consume",
-        "--revision-dir",
-        str(tmp_path),
-        "--permit-id",
-        proposal["permit_id"],
-        "--slice-key",
-        proposal["slice_key"],
-    )
-    assert code != 0
 
 
 def test_delete_preserves_surviving_stable_ids(tmp_path: Path):
@@ -152,7 +142,7 @@ def test_delete_preserves_surviving_stable_ids(tmp_path: Path):
     assert code == 0, err
     assert proposal["preview"]["deleted"]["id"] == "F-2"
 
-    code, payload, err = _ack_and_consume(tmp_path, proposal)
+    code, payload, err = _consume(tmp_path, proposal)
     assert code == 0, err
     assert payload["deleted"] == "F-2"
     facts = json.loads((tmp_path / "execution" / "_facts.json").read_text(encoding="utf-8"))
@@ -175,7 +165,7 @@ def test_consume_rejects_changed_facts_baseline(tmp_path: Path):
         encoding="utf-8",
     )
 
-    code, _, err = _ack_and_consume(tmp_path, proposal)
+    code, _, err = _consume(tmp_path, proposal)
     assert code != 0
     assert "baseline" in err.lower()
 
@@ -363,7 +353,7 @@ def test_settle_open_consumes_exact_open_precondition(tmp_path: Path):
     ):
         assert key in permit["precondition"]
 
-    code, payload, err = _ack_and_consume(tmp_path, proposal)
+    code, payload, err = _consume(tmp_path, proposal)
     assert code == 0, err
     assert payload["settled"] == "O-1"
     facts = _read_json(tmp_path / "execution" / "_facts.json")
@@ -387,7 +377,7 @@ def test_settle_open_two_open_batch_advances_active_open(tmp_path: Path):
     )
     code, proposal, err = _propose_settle(tmp_path, "O-1")
     assert code == 0, err
-    code, payload, err = _ack_and_consume(tmp_path, proposal)
+    code, payload, err = _consume(tmp_path, proposal)
     assert code == 0, err
     assert payload["settled"] == "O-1"
     opens = _read_json(tmp_path / "execution" / "inductive-opens.json")
@@ -435,7 +425,7 @@ def test_settle_open_group_lands_one_permit_for_several_opens(tmp_path: Path):
     )
     assert code == 0, err
     assert isinstance(proposal["preview"]["open_after"], list)
-    code, payload, err = _ack_and_consume(tmp_path, proposal)
+    code, payload, err = _consume(tmp_path, proposal)
     assert code == 0, err
     assert payload["settled"] == ["O-1", "O-3"]
     facts = _read_json(tmp_path / "execution" / "_facts.json")
@@ -509,8 +499,6 @@ def test_propose_settle_fails_when_open_is_not_active(tmp_path: Path):
 def test_consume_rejects_state_or_batches_digest_drift(tmp_path: Path):
     _seed_open_loop(tmp_path / "execution")
     code, proposal, err = _propose_settle(tmp_path)
-    assert code == 0, err
-    code, _, err = _ack(tmp_path, proposal)
     assert code == 0, err
 
     state_path = tmp_path / "execution" / "open-point-state.json"

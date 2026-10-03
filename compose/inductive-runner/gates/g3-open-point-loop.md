@@ -69,8 +69,8 @@ Call `$OPEN_POINT_CTL process-context`. When it names the active group:
    - **`open`** — present its analysis for disposition.
 3. Wait for one human reply that names an action for each `open` entry.
    Absent a per-Open override, one action covers the whole group:
-   - **Land** — run `fact-store-runner`'s public `settle_open` protocol
-     once for all Opens being landed.
+   - **Land** — declare `fact-store-runner` `settle_open` once for all
+     Opens being landed, with the Land ids and Process results.
    - **Ignore** — `$OPEN_POINT_CTL defer-open` per Open.
    - **Skip** — `$OPEN_POINT_CTL skip-open` for the Opens skipped.
    - **Reject** — `$OPEN_POINT_CTL reject-open` per Open.
