@@ -187,6 +187,23 @@ def test_process_context_omits_digests_and_scope_without_project_root(tmp_path: 
     assert "project_evidence_scope" not in payload
 
 
+def test_process_context_returns_group_and_skip_open_accepts_group(tmp_path: Path):
+    slice_dir, root = _slice_env(tmp_path)
+    add_opens(
+        slice_dir,
+        opens=[_human_open(), _human_open(question="second", blocking=False)],
+        project_root=root,
+    )
+    code, payload = _run(slice_dir, "process-context")
+    assert code == 0, payload
+    assert [item["id"] for item in payload["group"]["opens"]] == ["O-1", "O-2"]
+    assert payload["group"]["lens"] == payload["open"]["lens"]
+    code, payload = _run(slice_dir, "skip-open", "--open-id", "O-1", "--open-id", "O-2")
+    assert code == 0, payload
+    assert payload["state"]["active_open_id"] == "O-1"
+    assert payload["batch"]["open_ids"] == ["O-1", "O-2"]
+
+
 def test_process_context_includes_scope_when_project_root(tmp_path: Path):
     slice_dir, root = _slice_env(tmp_path)
     add_opens(slice_dir, opens=[_human_open()], project_root=root)

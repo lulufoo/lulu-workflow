@@ -55,6 +55,7 @@ from open_point_store import (  # noqa: E402
     detect_opens_snapshot,
     load_bundle,
     pending_lenses,
+    process_group,
     require_detect_ruler,
     reject_open,
     set_frontier,
@@ -188,6 +189,7 @@ def cmd_process_context(slice_dir: Path, args: argparse.Namespace) -> None:
         raise ValueError("no active open")
     payload: dict[str, Any] = {
         "open": current_open,
+        "group": process_group(bundle),
         "facts_path": str((slice_dir / FACTS_BASENAME).resolve()),
     }
     if args.project_root:
@@ -231,7 +233,8 @@ def cmd_reject_open(slice_dir: Path, args: argparse.Namespace) -> None:
 
 
 def cmd_skip_open(slice_dir: Path, args: argparse.Namespace) -> None:
-    _ok(skip_open(slice_dir, args.open_id))
+    ids = args.open_id
+    _ok(skip_open(slice_dir, ids[0] if len(ids) == 1 else ids))
 
 
 def cmd_attach_code_refs(slice_dir: Path, args: argparse.Namespace) -> None:
@@ -327,7 +330,11 @@ def _build_parser() -> argparse.ArgumentParser:
     lens_ctx.add_argument("--lens", required=True)
     sub.add_parser(
         "process-context",
-        help="Active open + facts_path; project scope when --project-root",
+        help=(
+            "Active open, group (open items of the active batch sharing its "
+            "lens, active first) and facts_path; project scope when "
+            "--project-root"
+        ),
     )
 
     add = sub.add_parser(
@@ -353,16 +360,26 @@ def _build_parser() -> argparse.ArgumentParser:
     update.add_argument("--open-id", required=True)
     update.add_argument("--patch-json", required=True)
 
-    defer = sub.add_parser("defer-open", help="Defer the active open")
+    defer = sub.add_parser(
+        "defer-open", help="Defer one open item of the active batch"
+    )
     defer.add_argument("--open-id", required=True)
     defer.add_argument("--note", required=True)
 
-    reject = sub.add_parser("reject-open", help="Reject the active open")
+    reject = sub.add_parser(
+        "reject-open", help="Reject one open item of the active batch"
+    )
     reject.add_argument("--open-id", required=True)
     reject.add_argument("--reason", required=True)
 
-    skip = sub.add_parser("skip-open", help="Move the active open to the batch tail")
-    skip.add_argument("--open-id", required=True)
+    skip = sub.add_parser(
+        "skip-open",
+        help=(
+            "Move the active open to the batch tail; repeat --open-id to "
+            "move a whole group, which keeps its relative order"
+        ),
+    )
+    skip.add_argument("--open-id", required=True, action="append")
 
     attach = sub.add_parser("attach-code-refs", help="Attach code refs to an open")
     attach.add_argument("--open-id", required=True)

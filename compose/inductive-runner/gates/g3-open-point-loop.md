@@ -23,7 +23,8 @@ Use each control's `--help` as the command and stdout contract.
    substitutes Land, Ignore, Skip, or Reject.
 2. Discussion remains available beside Detect and Process; it is not a
    third control state.
-3. Process at most one active Open. Never overlap Detect and Process
+3. Process one group at a time: the open Opens of the active batch that
+   share the active Open's lens. Never overlap Detect and Process
    dispatches.
 4. Route only from control stdout or `$OPEN_POINT_CTL resolve-context`.
    Do not read session data files.
@@ -35,7 +36,7 @@ Use each control's `--help` as the command and stdout contract.
 
 Detect analyzes one human-started candidate batch and reports every
 remaining unmet KW row of each pending lens in that pass. Process
-analyzes one active Open; the Parent Agent applies its human-selected
+analyzes one active Open group; the Parent Agent applies its human-selected
 disposition. Entry and `idle` never start Detect automatically.
 
 ### Detect
@@ -56,23 +57,27 @@ After an explicit human Detect request from `idle`:
 
 ### Process
 
-Call `$OPEN_POINT_CTL process-context`. When it names the active Open:
+Call `$OPEN_POINT_CTL process-context`. When it names the active group:
 
-1. Dispatch `../open-point-process-runner/SKILL.md` with the
-   `process-context` stdout only. Do not prescribe how the runner
-   investigates.
-2. Present the runner return. Route its `status`:
-   - **`blocked`** — present the reason; no disposition. Recover input
-     and re-dispatch; otherwise wait.
+1. Dispatch `../open-point-process-runner/SKILL.md` once for the whole
+   group with the `process-context` stdout only. Do not prescribe how the
+   runner investigates.
+2. Present the runner return for every Open of the group. Route each
+   entry's `status`:
+   - **`blocked`** — present the reason; that Open gets no disposition.
+     Recover input and re-dispatch; otherwise it waits.
    - **`open`** — present its analysis for disposition.
-3. For `open`, wait for one human action:
-   - **Land** — run `fact-store-runner`'s public `settle_open` protocol.
-   - **Ignore** — `$OPEN_POINT_CTL defer-open`.
-   - **Skip** — `$OPEN_POINT_CTL skip-open`.
-   - **Reject** — `$OPEN_POINT_CTL reject-open`.
-4. Apply only the named control for that action.
+3. Wait for one human reply that names an action for each `open` entry.
+   Absent a per-Open override, one action covers the whole group:
+   - **Land** — run `fact-store-runner`'s public `settle_open` protocol
+     once for all Opens being landed.
+   - **Ignore** — `$OPEN_POINT_CTL defer-open` per Open.
+   - **Skip** — `$OPEN_POINT_CTL skip-open` for the Opens skipped.
+   - **Reject** — `$OPEN_POINT_CTL reject-open` per Open.
+4. Apply only the named controls for those actions. Close Ignore and
+   Reject Opens before Land so the Land permit sees the final batch.
 5. Resolve `$OPEN_POINT_CTL process-context` or `resolve-context` before
-   selecting the next Open.
+   selecting the next group.
 6. Dialogue exposes another Open → `$OPEN_POINT_CTL add-opens`. Append
    to the active batch tail; create a batch when none is active.
 7. Re-dispatch when substantive inputs change.
@@ -102,7 +107,7 @@ the gate it names.
 | Owner | Owns |
 |---|---|
 | `../open-point-detect-runner/SKILL.md` | Full-lens batch analysis |
-| `../open-point-process-runner/SKILL.md` | Analysis of one active Open |
+| `../open-point-process-runner/SKILL.md` | Analysis of one active Open group |
 | `fact-store-runner` | Fact landing through its public protocol |
 | `$OPEN_POINT_CTL` | Open, batch, receipt, and loop transitions |
 | `$INDUCTIVE_GATE_CTL` | G3 closure |

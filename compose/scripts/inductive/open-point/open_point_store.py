@@ -957,6 +957,34 @@ def _require_active_open(bundle: dict[str, Any], open_id: str) -> dict[str, Any]
     return current
 
 
+def _require_open_in_active_batch(
+    bundle: dict[str, Any], open_id: str
+) -> dict[str, Any]:
+    current = _require_open(bundle, open_id)
+    batch = _require_active_batch(bundle)
+    if open_id not in batch["open_ids"] or current.get("status") != "open":
+        raise ValueError(f"open {open_id} is not an open item of the active batch")
+    return current
+
+
+def process_group(bundle: dict[str, Any]) -> dict[str, Any] | None:
+    """Open items of the active batch sharing the active Open's lens, active first."""
+    active_id = bundle["state"].get("active_open_id")
+    if not active_id:
+        return None
+    batch = _require_active_batch(bundle)
+    by_id = {item["id"]: item for item in bundle["opens"]}
+    active = by_id[active_id]
+    members = [
+        by_id[oid]
+        for oid in batch["open_ids"]
+        if oid != active_id
+        and by_id.get(oid, {}).get("status") == "open"
+        and by_id[oid].get("lens") == active.get("lens")
+    ]
+    return {"batch_id": batch["id"], "lens": active.get("lens"), "opens": [active, *members]}
+
+
 def _patch_open(
     opens: list[dict[str, Any]], open_id: str, **fields: Any
 ) -> list[dict[str, Any]]:
@@ -979,17 +1007,25 @@ def _patch_open(
 
 
 def _advance_after_close(
-    bundle: dict[str, Any], open_id: str, opens: list[dict[str, Any]]
+    bundle: dict[str, Any], closed_ids: list[str], opens: list[dict[str, Any]]
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Keep the active Open while it stays open; otherwise move to the next."""
     opens_by_id = {item["id"]: item for item in opens}
     batch = dict(_require_active_batch(bundle))
     open_ids = list(batch["open_ids"])
-    index = open_ids.index(open_id)
+    active = bundle["state"].get("active_open_id")
     next_id = None
-    for oid in open_ids[index + 1 :] + open_ids[:index]:
-        if opens_by_id.get(oid, {}).get("status") == "open":
-            next_id = oid
-            break
+    if (
+        active not in closed_ids
+        and opens_by_id.get(active, {}).get("status") == "open"
+    ):
+        next_id = active
+    else:
+        index = open_ids.index(active)
+        for oid in open_ids[index + 1 :] + open_ids[:index]:
+            if opens_by_id.get(oid, {}).get("status") == "open":
+                next_id = oid
+                break
     if next_id is None:
         batch["status"] = "completed"
         state = empty_open_point_state()
@@ -1030,9 +1066,9 @@ def update_open(slice_dir: Path, open_id: str, patch: dict[str, Any]) -> dict[st
 
 def defer_open(slice_dir: Path, open_id: str, note: str) -> dict[str, Any]:
     bundle = load_bundle(slice_dir)
-    _require_active_open(bundle, open_id)
+    _require_open_in_active_batch(bundle, open_id)
     opens = _patch_open(bundle["opens"], open_id, status="deferred", note=note)
-    state, batches = _advance_after_close(bundle, open_id, opens)
+    state, batches = _advance_after_close(bundle, [open_id], opens)
     _commit(
         slice_dir,
         "defer-open",
@@ -1047,9 +1083,9 @@ def defer_open(slice_dir: Path, open_id: str, note: str) -> dict[str, Any]:
 
 def reject_open(slice_dir: Path, open_id: str, reason: str) -> dict[str, Any]:
     bundle = load_bundle(slice_dir)
-    _require_active_open(bundle, open_id)
+    _require_open_in_active_batch(bundle, open_id)
     opens = _patch_open(bundle["opens"], open_id, status="rejected", reason=reason)
-    state, batches = _advance_after_close(bundle, open_id, opens)
+    state, batches = _advance_after_close(bundle, [open_id], opens)
     _commit(
         slice_dir,
         "reject-open",
@@ -1076,7 +1112,30 @@ def preview_settle(
         status="settled",
         resolved_by=list(resolved_by),
     )
-    state, batches = _advance_after_close(bundle, open_id, opens)
+    state, batches = _advance_after_close(bundle, [open_id], opens)
+    return {"opens": opens, "state": state, "batches": batches}
+
+
+def preview_settle_group(
+    slice_dir: Path, resolved_by: dict[str, list[str]]
+) -> dict[str, Any]:
+    """Settle several Opens of one lens in one active batch, without writing."""
+    bundle = load_bundle(slice_dir)
+    if bundle["state"].get("phase") != "processing":
+        raise ValueError("settle requires phase=processing")
+    if not resolved_by:
+        raise ValueError("settle group requires at least one open")
+    lenses = set()
+    for open_id in resolved_by:
+        lenses.add(_require_open_in_active_batch(bundle, open_id).get("lens"))
+    if len(lenses) > 1:
+        raise ValueError("settle group must share one lens")
+    opens = bundle["opens"]
+    for open_id, fact_ids in resolved_by.items():
+        opens = _patch_open(
+            opens, open_id, status="settled", resolved_by=list(fact_ids)
+        )
+    state, batches = _advance_after_close(bundle, list(resolved_by), opens)
     return {"opens": opens, "state": state, "batches": batches}
 
 
@@ -1114,16 +1173,21 @@ def settle_open(
     return preview
 
 
-def skip_open(slice_dir: Path, open_id: str) -> dict[str, Any]:
+def skip_open(slice_dir: Path, open_id: str | list[str]) -> dict[str, Any]:
     bundle = load_bundle(slice_dir)
-    current = _require_active_open(bundle, open_id)
-    if current.get("status") != "open":
-        raise ValueError("skip requires status=open")
+    if isinstance(open_id, str):
+        current = _require_active_open(bundle, open_id)
+        if current.get("status") != "open":
+            raise ValueError("skip requires status=open")
+        skipped = [open_id]
+    else:
+        skipped = list(dict.fromkeys(open_id))
+        for oid in skipped:
+            _require_open_in_active_batch(bundle, oid)
     opens_by_id = {item["id"]: item for item in bundle["opens"]}
     batch = dict(_require_active_batch(bundle))
-    open_ids = list(batch["open_ids"])
-    open_ids.remove(open_id)
-    open_ids.append(open_id)
+    open_ids = [oid for oid in batch["open_ids"] if oid not in skipped]
+    open_ids.extend(oid for oid in batch["open_ids"] if oid in skipped)
     batch["open_ids"] = open_ids
     next_id = next(
         (
