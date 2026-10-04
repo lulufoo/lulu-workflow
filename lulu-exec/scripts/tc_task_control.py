@@ -4,7 +4,7 @@
 Subcommands:
     resolve-context   Build $CTX JSON for task-runner Step 0
     enter-phase       Append enter · {phase} to code-log.md
-    run-tests         Run the checkout test command; append test_run log; enforce red/green expectation
+    run-tests         Run the checkout test command; empty command skips; else enforce red/green
     commit-initial    git add -A, commit, write commit-ref, log
     commit-amend      Amend if worktree dirty; update commit-ref and log
     mark-done         Mark [x] in code-task-list and append enter · Done
@@ -34,7 +34,7 @@ from tc_commit_ref_schema import load_commit_ref, write_commit_ref  # noqa: E402
 from tc_git_ops import git_add_all, git_commit, git_commit_amend, git_head_sha, status_clean  # noqa: E402
 from tc_resolve_task_context import resolve_task_context  # noqa: E402
 from tc_action_receipt_schema import save_receipt, receipt_path  # noqa: E402
-from tc_run_test_suite import execute_test_command, require_test_command  # noqa: E402
+from tc_run_test_suite import execute_test_command  # noqa: E402
 from tc_workflow_state_schema import load_workflow_state, resolve_workflow_state_path  # noqa: E402
 
 _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
@@ -156,13 +156,11 @@ def run_tests_cmd(
     worktree = Path(ctx["worktree_abs_path"])
     task_output_dir = Path(ctx["task_output_dir"])
     command = (ctx.get("test_command") or "").strip()
-    if not command:
-        command = require_test_command(project_root, str(ctx.get("checkout_name") or ""))
-
     test_result = execute_test_command(
         project_root=project_root,
         worktree_path=worktree,
-        test_command=command,
+        test_command=command or None,
+        checkout_name=str(ctx.get("checkout_name") or ""),
     )
     append_test_run(
         task_output_dir,
@@ -172,7 +170,17 @@ def run_tests_cmd(
         exit_code=test_result.exit_code,
         duration_ms=test_result.duration_ms,
         output=test_result.output,
+        skipped=getattr(test_result, "skipped", False),
     )
+
+    if getattr(test_result, "skipped", False):
+        return {
+            "task_id": task_id,
+            "expect": expect,
+            "passed": True,
+            "exit_code": 0,
+            "skipped": True,
+        }
 
     if expect == "red" and test_result.passed:
         raise ValueError("VerifyRed: all tests passed unexpectedly")

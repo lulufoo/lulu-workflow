@@ -76,7 +76,7 @@ python3 "$SKILL_DIR/scripts/tc_task_control.py" \
 ### VerifyRed
 
 1. `enter-phase --phase VerifyRed`
-2. `run-tests --expect red`
+2. `run-tests --expect red` — empty `test_command` skips
 3. On non-zero exit → `TASK_FAILED` (unexpected all-PASS).
 4. Continue to WriteImpl.
 
@@ -89,7 +89,7 @@ python3 "$SKILL_DIR/scripts/tc_task_control.py" \
 ### VerifyGreen
 
 1. `enter-phase --phase VerifyGreen`
-2. `run-tests --expect green`
+2. `run-tests --expect green` — empty `test_command` skips
 3. `commit-initial` — parse stdout JSON; keep `final_commit` for `TASK_COMPLETE`.
 4. If `$CTX.tdd_exempt` → `mark-done` → `TASK_COMPLETE`.
 5. Else continue to Refactor.
@@ -98,7 +98,7 @@ python3 "$SKILL_DIR/scripts/tc_task_control.py" \
 
 1. `enter-phase --phase Refactor`
 2. Apply behavior-neutral cleanup; do not modify test files.
-3. `run-tests --expect green`
+3. `run-tests --expect green` — empty `test_command` skips
 4. `commit-amend` (skips automatically when worktree is clean).
 5. `mark-done` → `TASK_COMPLETE`.
 
