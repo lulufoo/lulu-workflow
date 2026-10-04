@@ -35,9 +35,8 @@ Received as JSON via the invocation prompt `## Input` block:
 
 ```json
 {
-  "task_id":     "<task_id>",
-  "cycle_dir":   "<abs_path>/.cache/<platform>/lulu-workflow/<cycle_id>",
-  "project_root": "<abs_path>/to/project"
+  "task_id":   "<task_id>",
+  "cycle_dir": "<abs_path>/.cache/<platform>/lulu-workflow/<cycle_id>"
 }
 ```
 
