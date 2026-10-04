@@ -45,6 +45,7 @@ def append_test_run(
     exit_code: int,
     duration_ms: int,
     output: str,
+    skipped: bool = False,
 ) -> None:
     """Append test_run log entry (authoritative format from tc_run_test_suite)."""
     entry = format_test_log_entry(
@@ -55,6 +56,7 @@ def append_test_run(
         exit_code=exit_code,
         duration_ms=duration_ms,
         output=output,
+        skipped=skipped,
     )
     _append_entry(task_output_dir, entry)
 

@@ -30,7 +30,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from tc_workflow_common import EXEC_STAGE, load_stage_config
-from workflow_config_schema import resolve_stage_config_path
 
 
 @dataclass
@@ -40,6 +39,7 @@ class TestResult:
     duration_ms: int
     passed: bool
     output: str = ""
+    skipped: bool = False
 
 
 def lookup_test_command(stage_cfg: dict, checkout_name: str) -> str:
@@ -51,19 +51,6 @@ def lookup_test_command(stage_cfg: dict, checkout_name: str) -> str:
     if raw is None:
         return ""
     return str(raw).strip()
-
-
-def require_test_command(project_root: Path, checkout_name: str) -> str:
-    """Return the configured command or raise with the stage file path."""
-    command = lookup_test_command(load_stage_config(project_root, EXEC_STAGE), checkout_name)
-    if command:
-        return command
-    path = resolve_stage_config_path(project_root, EXEC_STAGE)
-    name = checkout_name.strip() or "(unknown)"
-    raise ValueError(
-        f"test command not configured for {name}. "
-        f"Set test_commands.{name} in {path.as_posix()}"
-    )
 
 
 def checkout_name_for_worktree(workspace: dict, worktree_path: Path) -> str:
@@ -91,8 +78,14 @@ def format_test_log_entry(
     exit_code: int,
     duration_ms: int,
     output: str,
+    skipped: bool = False,
 ) -> str:
-    status = "PASS" if passed else "FAIL"
+    if skipped:
+        status = "SKIP"
+    elif passed:
+        status = "PASS"
+    else:
+        status = "FAIL"
     cwd_str = str(cwd.resolve())
     if not cwd_str.endswith("/"):
         cwd_str += "/"
@@ -115,8 +108,24 @@ def execute_test_command(
     test_command: str | None = None,
     checkout_name: str = "",
 ) -> TestResult:
-    """Run one checkout's test command in worktree; return result without writing a log."""
-    command = (test_command or "").strip() or require_test_command(project_root, checkout_name)
+    """Run one checkout's test command in worktree; return result without writing a log.
+
+    Empty ``test_commands`` / command is a skip, not an error.
+    """
+    command = (test_command or "").strip()
+    if not command:
+        command = lookup_test_command(
+            load_stage_config(project_root, EXEC_STAGE), checkout_name
+        )
+    if not command:
+        return TestResult(
+            exit_code=0,
+            command="",
+            duration_ms=0,
+            passed=True,
+            output="",
+            skipped=True,
+        )
     cwd = worktree_path.resolve()
     start = time.monotonic()
     result = subprocess.run(
@@ -160,6 +169,7 @@ def run_test_suite(
         exit_code=test_result.exit_code,
         duration_ms=test_result.duration_ms,
         output=test_result.output,
+        skipped=test_result.skipped,
     )
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as handle:
@@ -197,9 +207,10 @@ def _cli() -> int:
         "command": test_result.command,
         "duration_ms": test_result.duration_ms,
         "passed": test_result.passed,
+        "skipped": test_result.skipped,
     }
     print(json.dumps(payload, indent=2, ensure_ascii=False))
-    return 0 if test_result.passed else 1
+    return 0 if test_result.skipped or test_result.passed else 1
 
 
 if __name__ == "__main__":

@@ -75,17 +75,27 @@ def test_run_test_suite_fail(tmp_path: Path, monkeypatch):
     assert "fail" in log_content
 
 
-def test_empty_test_command_raises(tmp_path: Path):
+def test_empty_test_command_skips(tmp_path: Path, monkeypatch):
     project_root = tmp_path / "project"
     project_root.mkdir()
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    log_path = tmp_path / "log.md"
     _write_config(project_root, "")
-    with pytest.raises(ValueError, match="test command not configured"):
-        run_test_suite(
-            project_root=project_root,
-            worktree_path=tmp_path / "wt",
-            log_path=tmp_path / "log.md",
-            checkout_name="project",
-        )
+
+    def _run(*_args, **_kwargs):
+        raise AssertionError("empty test command must not invoke subprocess")
+
+    monkeypatch.setattr("tc_run_test_suite.subprocess.run", _run)
+    result = run_test_suite(
+        project_root=project_root,
+        worktree_path=worktree,
+        log_path=log_path,
+        checkout_name="project",
+    )
+    assert result.skipped is True
+    assert result.passed is True
+    assert "SKIP" in log_path.read_text(encoding="utf-8")
 
 
 def test_cli_pass(tmp_path: Path):

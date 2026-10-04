@@ -217,6 +217,18 @@ class TestRunTests:
         with pytest.raises(ValueError, match="all tests passed unexpectedly"):
             run_tests_cmd(cycle_dir, "t1", project_root, "red")
 
+    def test_run_tests_empty_command_skips(self, tmp_path: Path):
+        cycle_dir, project_root, _, session_dir = _setup_cycle(tmp_path)
+        config_dir = project_root / ".cursor" / "lulu-workflow"
+        (config_dir / "workflow-config.json").write_text(
+            json.dumps({"lulu-exec": {"test_commands": {}}}),
+            encoding="utf-8",
+        )
+        result = run_tests_cmd(cycle_dir, "t1", project_root, "red")
+        assert result["skipped"] is True
+        log = (session_dir / "tasks" / "t1" / "code-log.md").read_text(encoding="utf-8")
+        assert "test_run · SKIP" in log
+
 
 class TestCommitInitial:
     def test_commit_initial(self, tmp_path: Path, monkeypatch):
