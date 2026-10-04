@@ -28,7 +28,6 @@ Claim the sole current chapter (no `--chapter`):
 ```bash
 $CHAPTER_WRITE_STATE begin \
   --revision-dir "$REVISION_DIR" \
-  --project-root "$PROJECT_ROOT" \
   --cycle-id "$CYCLE_ID"
 # → work ticket (stdout)
 ```

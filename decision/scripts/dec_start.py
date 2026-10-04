@@ -15,6 +15,7 @@ from invalidation_hook import invalidate_downstream  # noqa: E402
 from start_gate import check_gate  # noqa: E402
 from transition_table import load_stage_order  # noqa: E402
 from workflow_sessions import current_effective_delivered, get_sessions, parse_frontmatter  # noqa: E402
+from project_root import apply_project_root_arg  # noqa: E402
 
 from dec_archive import run as archive_decision_session
 from dec_domain_constraints_schema import resolve_stage
@@ -95,7 +96,9 @@ def parse_args() -> argparse.Namespace:
             "and initializes artifacts under this directory."
         ),
     )
-    return parser.parse_known_args()[0]
+    args = parser.parse_known_args()[0]
+    apply_project_root_arg(args)
+    return args
 
 
 def _load_domain_override_file(raw_path: str) -> dict[str, Any] | None:

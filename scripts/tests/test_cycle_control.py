@@ -18,9 +18,16 @@ _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
 _CYCLE_ID_RE = re.compile(r"^(feature|topic)-\d{14}-[0-9a-f]{8}$")
 
 
-def _run(*args: str, env=None):
+def _run(*args: str, env=None, cwd=None):
     cmd = [sys.executable, str(_CYCLE_CONTROL), *args]
-    return subprocess.run(cmd, capture_output=True, text=True, env=env or _ENV_COPILOT)
+    arglist = list(args)
+    if cwd is None and "--project-root" in arglist:
+        raw = arglist[arglist.index("--project-root") + 1]
+        if Path(raw).exists():
+            cwd = raw
+    return subprocess.run(
+        cmd, capture_output=True, text=True, env=env or _ENV_COPILOT, cwd=cwd
+    )
 
 
 class TestCycleControlStart:
@@ -52,12 +59,21 @@ class TestCycleControlStart:
         data = json.loads((self._cache_dir(tmp_path) / "cycles.json").read_text())
         assert data[fid] == {"name": "my-feature"}
 
-    def test_start_invalid_project_root(self):
+    def test_start_invalid_project_root(self, tmp_path):
         result = _run(
             "--project-root", "/nonexistent/path/xyz",
             "start", "--name", "test",
+            cwd=str(tmp_path),
         )
         assert result.returncode != 0
+        assert "must equal process cwd" in result.stderr
+
+    def test_start_omit_project_root_uses_cwd(self, tmp_path):
+        result = _run("start", "--name", "cwd-host", cwd=str(tmp_path))
+        assert result.returncode == 0, result.stderr
+        fid = result.stdout.strip().splitlines()[-1]
+        data = json.loads((self._cache_dir(tmp_path) / "cycles.json").read_text())
+        assert data[fid] == {"name": "cwd-host"}
 
 
 class TestCycleControlResolveConfigPath:
@@ -354,6 +370,7 @@ class TestCycleControlBindContext:
             capture_output=True,
             text=True,
             env=_ENV_BIND,
+            cwd=str(tmp_path),
         )
         assert resolve.returncode == 0, resolve.stderr
         payload = json.loads(resolve.stdout.strip())

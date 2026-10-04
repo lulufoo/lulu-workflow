@@ -32,6 +32,7 @@ _DECISION_SCRIPTS = _SCRIPTS.parents[1] / "decision" / "scripts"
 for _p in (_SCRIPTS, _SCHEMA, _WORKFLOW_SCRIPTS, _DECISION_SCRIPTS):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
+from project_root import apply_project_root_arg  # noqa: E402
 
 from approach_node_binding_schema import (  # noqa: E402
     build_node_binding,
@@ -570,7 +571,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     def _session_parser(name: str, help_text: str) -> None:
         command = sub.add_parser(name, help=help_text)
-        command.add_argument("--project-root", required=True, type=Path)
+        command.add_argument("--project-root", type=Path)
         command.add_argument("--cycle-id", required=True)
         command.add_argument("--constraints", required=True, type=Path)
 
@@ -582,7 +583,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Finish a consumed reopen permit after RS",
     )
     done.add_argument("--transaction-id", required=True)
-    done.add_argument("--project-root", required=True, type=Path)
+    done.add_argument("--project-root", type=Path)
     done.add_argument("--cycle-id", required=True)
     done.add_argument("--constraints", required=True, type=Path)
 
@@ -591,7 +592,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Recover a paused session binding",
     )
     recover.add_argument("--action", required=True, choices=sorted(_RECOVER_ACTIONS))
-    recover.add_argument("--project-root", required=True, type=Path)
+    recover.add_argument("--project-root", type=Path)
     recover.add_argument("--cycle-id", required=True)
     recover.add_argument("--constraints", required=True, type=Path)
 
@@ -603,13 +604,14 @@ def _build_parser() -> argparse.ArgumentParser:
         seal = sub.add_parser(cmd_name, help=help_text)
         seal.add_argument("--confirm", action="store_true")
         seal.add_argument("--cycle-id", required=True)
-        seal.add_argument("--project-root", required=True, type=Path)
+        seal.add_argument("--project-root", type=Path)
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    apply_project_root_arg(args)
     root = Path(args.approach_root).resolve()
     try:
         if args.command == "init-shell":

@@ -12,8 +12,7 @@ import pytest
 
 from compose_start_test_helpers import compose_start_args
 
-_SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
-_LDEV = _SRC / "lulu-workflow"
+_LDEV = Path(__file__).resolve().parents[2]
 _KERNEL_START = _LDEV / "compose" / "scripts" / "session" / "start.py"
 _COMPOSE_START_STAGES = frozenset({"lulu-plan", "lulu-spec", "lulu-arch", "lulu-blueprint"})
 _STAGES = ["decision", "lulu-spec", "lulu-plan", "lulu-tasks", "lulu-exec"]
@@ -22,7 +21,7 @@ _STAGES = ["decision", "lulu-spec", "lulu-plan", "lulu-tasks", "lulu-exec"]
 _CYCLE_REGISTRATION_STAGES = ["decision", "lulu-tasks", "lulu-exec"]
 
 # Use lulu-tasks's tt_workflow_common for unit tests of shared functions.
-_TWO_SCRIPTS = _SRC / "lulu-workflow" / "lulu-tasks" / "scripts"
+_TWO_SCRIPTS = _LDEV / "lulu-tasks" / "scripts"
 if str(_TWO_SCRIPTS) not in sys.path:
     sys.path.append(str(_TWO_SCRIPTS))
 
@@ -44,13 +43,13 @@ _TOPIC_CYCLE = [
 def _start_py(stage: str) -> Path:
     if stage in _COMPOSE_START_STAGES:
         return _KERNEL_START
-    return _SRC / "lulu-workflow" / stage / "scripts" / ({"lulu-exec": "tc_start.py", "decision": "dec_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
+    return _LDEV / stage / "scripts" / ({"lulu-exec": "tc_start.py", "decision": "dec_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
     if stage in _COMPOSE_START_STAGES:
         return _KERNEL_START.parent
-    return _SRC / "lulu-workflow" / stage / "scripts"
+    return _LDEV / stage / "scripts"
 
 
 def _cache_dir(tmp_path: Path) -> Path:
@@ -75,7 +74,7 @@ def _make_cycle_state(cache_dir: Path, cycle_id: str, stage: str) -> None:
 
 
 def _make_session(cache_dir: Path, cycle_id: str, stage: str, revision: str, state: str) -> None:
-    workflow_scripts = _SRC / "lulu-workflow" / "scripts"
+    workflow_scripts = _LDEV / "scripts"
     if str(workflow_scripts) not in sys.path:
         sys.path.insert(0, str(workflow_scripts))
     from workflow_sessions import STAGE_FLAT, stage_subdir  # noqa: E402
@@ -248,9 +247,6 @@ def _seed_work_order_handoff(cache_dir: Path, cycle_id: str, active_doc: int = 1
 
 
 
-_LDEV = _SRC / "lulu-workflow"
-
-
 def _seed_decision_config(tmp_path: Path) -> None:
     """Seed workflow-config + local decision-doc template for dec_start init-session."""
     cfg_dir = tmp_path / ".github" / "lulu-workflow"
@@ -408,7 +404,7 @@ class TestActiveContextContainerType:
         ] + extra
         result = subprocess.run(
             cmd, capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir(stage)),
+            cwd=str(tmp_path),
         )
         assert result.returncode == 0, result.stderr
         ctx = cd / "active-context.json"
@@ -433,7 +429,7 @@ class TestActiveContextContainerType:
         ] + extra
         result = subprocess.run(
             cmd, capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir(stage)),
+            cwd=str(tmp_path),
         )
         assert result.returncode == 0, result.stderr
         ctx = cd / "active-context.json"
@@ -460,7 +456,7 @@ class TestTopicIdSessionPath:
                 "--cycle-id", _TOPIC_ID,
             ],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("decision")),
+            cwd=str(tmp_path),
         )
         assert result.returncode == 0, result.stderr
         ss = cd / _TOPIC_ID / "decision" / "session-state.md"
@@ -477,7 +473,7 @@ class TestTopicIdSessionPath:
                 "--cycle-id", _TOPIC_ID,
             ] + compose_start_args("lulu-blueprint", tmp_path),
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("lulu-blueprint")),
+            cwd=str(tmp_path),
         )
         assert result.returncode == 0, result.stderr
         ss = cd / _TOPIC_ID / "lulu-blueprint" / "session-state.md"
@@ -502,7 +498,7 @@ class TestContainerRoutingErrors:
         ] + extra
         result = subprocess.run(
             cmd, capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir(stage)),
+            cwd=str(tmp_path),
         )
         assert result.returncode != 0, (
             f"{stage}: expected nonzero exit when cycle_id not in cycles.json"
@@ -520,7 +516,7 @@ class TestContainerRoutingErrors:
         ] + extra
         result = subprocess.run(
             cmd, capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir(stage)),
+            cwd=str(tmp_path),
         )
         assert result.returncode != 0, (
             f"{stage}: expected nonzero exit when cycles.json absent"
@@ -538,7 +534,7 @@ class TestContainerRoutingErrors:
         ] + extra
         result = subprocess.run(
             cmd, capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir(stage)),
+            cwd=str(tmp_path),
         )
         assert result.returncode != 0, (
             f"{stage}: expected nonzero exit when topic_id not in cycles.json"
@@ -553,7 +549,7 @@ class TestContainerRoutingErrors:
 class TestActiveContextBackwardCompat:
     def test_read_entry_without_cycle_type_defaults_to_feature(self, tmp_path):
         """read_all on old-style entries (no cycle_type) must normalize to 'feature'."""
-        _scripts = _SRC / "lulu-workflow" / "scripts"
+        _scripts = _LDEV / "scripts"
         if str(_scripts) not in sys.path:
             sys.path.insert(0, str(_scripts))
         from active_context_schema import read_all  # noqa: E402
@@ -587,6 +583,6 @@ class TestActiveContextBackwardCompat:
                 "--conversation-id", _CONV_ID,
             ],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("decision")),
+            cwd=str(tmp_path),
         )
         assert result.returncode == 0, result.stderr

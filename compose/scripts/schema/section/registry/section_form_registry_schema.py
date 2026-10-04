@@ -18,6 +18,16 @@ import json
 import sys
 from functools import lru_cache
 from pathlib import Path
+
+_here = Path(__file__).resolve().parent
+for _parent in [_here, *_here.parents]:
+    _scripts = _parent if (_parent / "project_root.py").is_file() else _parent / "scripts"
+    if (_scripts / "project_root.py").is_file():
+        if str(_scripts) not in sys.path:
+            sys.path.insert(0, str(_scripts))
+        break
+from project_root import apply_project_root_arg  # noqa: E402
+
 from typing import Any
 
 _SCHEMA_DIR = Path(__file__).resolve().parent
@@ -468,7 +478,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Print contract JSON for section when present",
     )
     args = parser.parse_args(argv)
-
+    apply_project_root_arg(args)
     if args.schema:
         print(json.dumps(get_schema(), indent=2, ensure_ascii=False))
         return 0

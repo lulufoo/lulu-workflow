@@ -39,7 +39,7 @@ Contract in `--help`.
 
 | Macro | Command |
 |---|---|
-| `$FACT_STORE_CTL` | `python3 "$SKILL_ROOT/compose/fact-store-runner/scripts/fact_production_control.py" --project-root "$PROJECT_ROOT"` |
+| `$FACT_STORE_CTL` | `python3 "$SKILL_ROOT/compose/fact-store-runner/scripts/fact_production_control.py"` |
 
 ## Group settle
 

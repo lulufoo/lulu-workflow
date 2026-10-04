@@ -173,6 +173,7 @@ class TestEntryProtocol:
             "run_eval",
             lambda *args, **kwargs: captured.setdefault("ran", True) or 0,
         )
+        monkeypatch.chdir(tmp_path)
         code = eval_entry.main(
             [
                 "--adapter-config-file",
@@ -225,6 +226,7 @@ class TestEntryProtocol:
             lambda config: ProbeOnlyAdapter(),
         )
         monkeypatch.setattr(eval_entry, "run_eval", fake_run_eval)
+        monkeypatch.chdir(tmp_path)
         code = eval_entry.main(
             [
                 "--adapter-config-file",
@@ -279,6 +281,7 @@ class TestEntryProtocol:
             "run_eval",
             lambda *args, **kwargs: captured.setdefault("ran", True) or 0,
         )
+        monkeypatch.chdir(tmp_path)
         code = eval_entry.main(
             [
                 "--adapter-config-file",
@@ -342,6 +345,7 @@ class TestEntryProtocol:
             "run_eval",
             lambda *args, **kwargs: captured.setdefault("ran", True) or 0,
         )
+        monkeypatch.chdir(tmp_path)
         code = eval_entry.main(
             [
                 "--adapter-config-file",
@@ -402,6 +406,7 @@ class TestEntryProtocol:
             "run_eval",
             lambda *args, **kwargs: captured.setdefault("ran", True) or 0,
         )
+        monkeypatch.chdir(tmp_path)
         code = eval_entry.main(
             [
                 "--adapter-config-file",
@@ -465,6 +470,7 @@ class TestEntryProtocol:
             "run_eval",
             lambda *args, **kwargs: captured.setdefault("ran", True) or 0,
         )
+        monkeypatch.chdir(tmp_path)
         code = eval_entry.main(
             [
                 "--adapter-config-file",
@@ -523,6 +529,7 @@ class TestEntryProtocol:
             lambda config: FullAdapter(),
         )
         monkeypatch.setattr(eval_entry, "run_eval", fake_run_eval)
+        monkeypatch.chdir(tmp_path)
         code = eval_entry.main(
             [
                 "--adapter-config-file",

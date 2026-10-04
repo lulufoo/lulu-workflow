@@ -40,6 +40,7 @@ from cycle_schema import (  # noqa: E402
 from init_ops import run_init_project  # noqa: E402
 from platform_schema import detect_platform  # noqa: E402
 from transition_table import allowed_stages  # noqa: E402
+from project_root import add_project_root_option, apply_project_root_arg  # noqa: E402
 from workflow_config_schema import (  # noqa: E402
     apply_workflow_config_from_url,
     resolve_workflow_config_path,
@@ -58,12 +59,7 @@ _CMD_TOPIC_DIGEST = "topic-digest"
 
 
 def _add_project_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--project-root",
-        type=Path,
-        required=True,
-        help="Project root directory.",
-    )
+    add_project_root_option(parser)
     parser.add_argument(
         "--platform",
         default=None,
@@ -338,7 +334,7 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     topic_digest.set_defaults(handler=cmd_topic_digest)
 
     args = parser.parse_args(argv)
-    args.project_root = args.project_root.resolve()
+    apply_project_root_arg(args)
 
     return args.handler(args)
 

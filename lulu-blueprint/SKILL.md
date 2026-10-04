@@ -24,7 +24,7 @@ Completion is delivery through the shared `compose` engine.
 <HARD-GATE>
 Do NOT proceed until you have read `../_runtime.md` and:
 
-- loaded `$PROJECT_ROOT`, `$SKILL_ROOT`, and `$PLATFORM` from `## Platform Context`
+- loaded `$SKILL_ROOT` and `$PLATFORM` from `## Platform Context`
 - established `$CYCLE_ID` and `$CYCLE_TYPE` via `## Session Foundation`
 - set `$SKILL_DIR` = `$SKILL_ROOT/lulu-blueprint`
 
@@ -43,4 +43,4 @@ Continue from its `## Entry`.
 
 | Macro | Command |
 |---|---|
-| `$BLUEPRINT_PREFLIGHT` | `python3 "$SKILL_DIR/scripts/start/product_blueprint_preflight.py" --project-root "$PROJECT_ROOT" --cycle-id "$CYCLE_ID"` |
+| `$BLUEPRINT_PREFLIGHT` | `python3 "$SKILL_DIR/scripts/start/product_blueprint_preflight.py" --cycle-id "$CYCLE_ID"` |

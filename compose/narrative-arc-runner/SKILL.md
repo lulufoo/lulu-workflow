@@ -22,7 +22,6 @@ or `formal|collab` target fork.
 
 ```text
 REVISION_DIR: <revision or inductive out dir>
-PROJECT_ROOT: <abs project root>
 CYCLE_ID: <cycle id>
 OUTPUT_PATH: <arc file relative to slice or absolute>
 ```

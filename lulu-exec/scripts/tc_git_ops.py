@@ -13,10 +13,20 @@ import subprocess
 import sys
 from pathlib import Path
 
+_here = Path(__file__).resolve().parent
+for _parent in [_here, *_here.parents]:
+    _scripts = _parent if (_parent / "project_root.py").is_file() else _parent / "scripts"
+    if (_scripts / "project_root.py").is_file():
+        if str(_scripts) not in sys.path:
+            sys.path.insert(0, str(_scripts))
+        break
+from project_root import apply_project_root_arg  # noqa: E402
 
-def normalize_repo_path(path: str) -> str:
+
+
+def normalize_repo_path(path: Path | str) -> str:
     """Return path with trailing slash removed."""
-    return path.rstrip("/")
+    return str(path).rstrip("/")
 
 
 def run_git(cwd: str, *args: str) -> subprocess.CompletedProcess[str]:
@@ -305,11 +315,11 @@ def _cli() -> int:
     val_session.add_argument("--session-dir", required=True, help="Absolute path to session dir")
 
     prep = sub.add_parser("prepare-worktrees", help="Run P1–P3 for a workspace.json")
-    prep.add_argument("--project-root", required=True, help="Absolute path to project root")
+    prep.add_argument("--project-root", help="Absolute path to project root")
     prep.add_argument("--workspace", required=True, help="Absolute path to workspace.json")
 
     args = parser.parse_args()
-
+    apply_project_root_arg(args)
     try:
         if args.command == "is-worktree":
             ok = is_worktree(args.path)

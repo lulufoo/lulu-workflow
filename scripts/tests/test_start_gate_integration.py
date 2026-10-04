@@ -382,7 +382,7 @@ def _run_start(
     ] + args
     return subprocess.run(
         cmd, capture_output=True, text=True, env=_ENV_COPILOT,
-        cwd=str(_scripts_dir(stage)),
+        cwd=str(tmp_path),
     )
 
 

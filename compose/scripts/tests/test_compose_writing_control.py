@@ -185,6 +185,7 @@ def revision_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     rev = tmp_path / "revision1"
     rev.mkdir()
     seed_revision_profile_pointer(rev, profile_id="lulu-design")
+    monkeypatch.chdir(tmp_path)
     return rev
 
 

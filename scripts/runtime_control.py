@@ -15,6 +15,7 @@ from pathlib import Path
 
 from active_context_schema import get_entry, resolve_conversation_id
 from platform_schema import PlatformDetectionError, detect_platform, resolve_platform_context
+from project_root import add_project_root_option, apply_project_root_arg
 
 _CMD_RESOLVE_PLATFORM_CONTEXT = "resolve-platform-context"
 _CMD_RESOLVE_SESSION_CONTEXT = "resolve-session-context"
@@ -79,12 +80,7 @@ def cmd_resolve_session_context(args: argparse.Namespace) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Runtime bootstrap control.")
-    parser.add_argument(
-        "--project-root",
-        type=Path,
-        required=True,
-        help="Project root directory.",
-    )
+    add_project_root_option(parser)
     sub = parser.add_subparsers(dest="command", required=True)
 
     resolve_platform = sub.add_parser(
@@ -105,6 +101,7 @@ def main() -> int:
     resolve_session.set_defaults(handler=cmd_resolve_session_context)
 
     args = parser.parse_args()
+    apply_project_root_arg(args)
     return args.handler(args)
 
 

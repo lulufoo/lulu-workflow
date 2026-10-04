@@ -25,6 +25,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from execution_state_schema import execution_dir  # noqa: E402
 from domain_instance_schema import (  # noqa: E402
     DOMAIN_SCHEME_KEY,
@@ -196,7 +198,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     def add_common(command: argparse.ArgumentParser) -> None:
         command.add_argument("--revision-dir", required=True)
-        command.add_argument("--project-root", required=True)
+        command.add_argument("--project-root")
         command.add_argument(
             "--conversation-id",
             default="",
@@ -214,6 +216,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    apply_project_root_arg(args)
     return int(args.func(args))
 
 

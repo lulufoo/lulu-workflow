@@ -28,6 +28,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from domain_instance_schema import (  # noqa: E402
     DOMAIN_SCHEME_KEY,
     load_and_validate_domain_instance,
@@ -266,7 +268,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     context = sub.add_parser("context", help="Print filtered session write context")
     context.add_argument("--revision-dir", required=True)
-    context.add_argument("--project-root", required=True)
+    context.add_argument("--project-root")
     cycle = context.add_mutually_exclusive_group(required=True)
     cycle.add_argument("--cycle-id", default="")
     cycle.add_argument("--cycle-type", default="")
@@ -276,6 +278,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    apply_project_root_arg(args)
     return int(args.func(args))
 
 

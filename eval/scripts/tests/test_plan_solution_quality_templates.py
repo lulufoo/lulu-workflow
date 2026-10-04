@@ -4,12 +4,14 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from remote_ref import read_ref  # noqa: E402
+from workflow_layout import project_root_for_refs, workflow_ref, workflow_root  # noqa: E402
 
 
-_REPO = Path(__file__).resolve().parents[4]
-_WORKFLOW = _REPO / "lulu-workflow"
+_REPO = project_root_for_refs()
+_WORKFLOW = workflow_root()
 _DIMENSION_DEF = _WORKFLOW / "lulu-plan" / "dimension-defs" / "solution-quality.json"
 _RUNNER_SKILL = _WORKFLOW / "eval" / "dimension-probe-runner" / "SKILL.md"
 _METHOD_REF = "lulu-workflow/lulu-plan/eval/methods/solution-quality.md"
@@ -36,8 +38,8 @@ def test_plan_solution_quality_uses_local_method_and_sot():
 
 
 def test_plan_local_templates_are_resolvable_from_project_root():
-    method = read_ref(_METHOD_REF, project_root=_REPO)
-    sot = read_ref(_SOT_REF, project_root=_REPO)
+    method = read_ref(workflow_ref(_METHOD_REF), project_root=_REPO)
+    sot = read_ref(workflow_ref(_SOT_REF), project_root=_REPO)
 
     assert "$READ_UNIT_VIEW" in method
     assert "eval_target_units" not in method

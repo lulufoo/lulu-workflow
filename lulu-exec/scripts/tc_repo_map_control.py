@@ -2,7 +2,7 @@
 """Repo checkout map control for lulu-exec Preparing.
 
 Subcommands:
-    list-candidates   List $PROJECT_ROOT (if git) and sibling git checkouts
+    list-candidates   List process cwd (if git) and sibling git checkouts
     put-map           Persist target_repo -> checkout binds for s{N}
 
 Stdin for put-map: JSON object of binds, or {"binds": {...}}. Empty when no task
@@ -15,6 +15,16 @@ import argparse
 import json
 import sys
 from pathlib import Path
+
+_here = Path(__file__).resolve().parent
+for _parent in [_here, *_here.parents]:
+    _scripts = _parent if (_parent / "project_root.py").is_file() else _parent / "scripts"
+    if (_scripts / "project_root.py").is_file():
+        if str(_scripts) not in sys.path:
+            sys.path.insert(0, str(_scripts))
+        break
+from project_root import apply_project_root_arg  # noqa: E402
+
 
 from tc_repo_map_schema import (
     load_repo_map,
@@ -114,12 +124,12 @@ def cmd_put_map(cycle_dir: Path, project_root: Path) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="lulu-exec repo map control")
     parser.add_argument("--cycle-dir", type=Path)
-    parser.add_argument("--project-root", type=Path, required=True)
+    parser.add_argument("--project-root", type=Path)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("list-candidates")
     sub.add_parser("put-map")
     args = parser.parse_args()
-
+    apply_project_root_arg(args)
     project_root = args.project_root.resolve()
     try:
         if args.command == "list-candidates":

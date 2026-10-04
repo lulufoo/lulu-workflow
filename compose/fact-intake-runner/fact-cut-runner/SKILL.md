@@ -17,7 +17,6 @@ Read `$SOURCE_PATH` once and write classified seed atoms. Done when
 
 ```text
 REVISION_DIR: <abs revision root>
-PROJECT_ROOT: <abs project root>
 CYCLE_ID: <cycle id>
 SOURCE_PATH: <abs intake SoT>
 REQUIRE_SEED_ORIGIN: <true|false; default false>
@@ -65,7 +64,7 @@ Contract in `--help`.
 ## Execution
 
 1. Bind Input.  
-2. `$FACT_CUT_BUILD context --revision-dir … --project-root … --cycle-id …`  
+2. `$FACT_CUT_BUILD context --revision-dir … --cycle-id …`  
 3. Whole-doc cut; tag each atom; repair don't-list false kills.  
 4. `$FACTS_CTL write`.  
 5. `$FACTS_CTL validate --require-derivation`.

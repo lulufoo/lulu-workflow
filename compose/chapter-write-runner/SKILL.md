@@ -13,7 +13,6 @@ compose document.
 
 ```text
 REVISION_DIR: <revision or inductive out dir>
-PROJECT_ROOT: <abs project root>
 CYCLE_ID: <cycle id>
 OUTPUT_DOC_PATH: <abs path to compose output doc>
 ARC_PATH: _narrative-arc.json

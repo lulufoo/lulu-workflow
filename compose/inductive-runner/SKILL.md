@@ -24,14 +24,13 @@ The parent Compose stage supplies:
 | `$NORM_CONSTRAINT_REFS` | JSON array of normative references |
 | `$INDUCTIVE_OUT_DIR` | Active slice output directory |
 
-Bind `$PROJECT_ROOT` to the current project root. Parent has already completed
-Fact Intake.
+Parent has already completed Fact Intake.
 
 ## Script Macros
 
 | Macro | Command |
 |---|---|
-| `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR" --project-root "$PROJECT_ROOT"` |
+| `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 
 Use the control's `--help` as the command and stdout contract.
 

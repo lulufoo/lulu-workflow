@@ -30,6 +30,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from execution_state_schema import execution_dir  # noqa: E402
 from facts_schema import facts_path, load_facts  # noqa: E402
 from section_registry_schema import fetch_section_registry, lens_key_sequence  # noqa: E402
@@ -320,6 +322,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    apply_project_root_arg(args)
     return int(args.func(args))
 
 

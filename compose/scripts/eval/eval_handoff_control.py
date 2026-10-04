@@ -25,6 +25,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from compose_session import workflow_state_path  # noqa: E402
 from eval_handoff_lease import (  # noqa: E402
     bind_execution,
@@ -228,6 +230,7 @@ def _cli(argv: list[str] | None = None) -> int:
     discard = sub.add_parser(_CMD_DISCARD)
     discard.add_argument("--lease-id", required=True)
     args = parser.parse_args(argv)
+    apply_project_root_arg(args)
     root = args.project_root.resolve()
     cycle_id = str(args.cycle_id).strip()
     try:

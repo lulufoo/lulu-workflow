@@ -20,7 +20,6 @@ apply exits 0.
 | Variable | Purpose |
 |---|---|
 | `$REVISION_DIR` | Absolute revision root |
-| `$PROJECT_ROOT` | Project root; default `$(pwd)` |
 | `$CYCLE_ID` | Active cycle id |
 | `$SOURCE_PATH` | Absolute intake SoT doc |
 | `$REQUIRE_SEED_ORIGIN` | Optional; `true` adds `--require-seed-origin` on write/validate |
@@ -40,7 +39,7 @@ Contract in `--help`.
 
 ### Step 1 — Load
 
-Bind Parent Inputs. Resolve `$PROJECT_ROOT` = `$(pwd)` when omitted.  
+Bind Parent Inputs.  
 **Done:** required Inputs bound → Step 2.
 
 ### Step 2 — Cut (L1 subagent)
@@ -52,7 +51,6 @@ Load {SKILL_ROOT}/compose/fact-intake-runner/fact-cut-runner/SKILL.md and follow
 
 ## Input
 REVISION_DIR: <$REVISION_DIR>
-PROJECT_ROOT: <$PROJECT_ROOT>
 CYCLE_ID: <$CYCLE_ID>
 SOURCE_PATH: <$SOURCE_PATH>
 REQUIRE_SEED_ORIGIN: <$REQUIRE_SEED_ORIGIN>
@@ -63,7 +61,6 @@ REQUIRE_SEED_ORIGIN: <$REQUIRE_SEED_ORIGIN>
 ```bash
 $FACTS_CTL validate \
   --revision-dir "$REVISION_DIR" \
-  --project-root "$(pwd)" \
   --require-derivation
 # when REQUIRE_SEED_ORIGIN=true, also pass --require-seed-origin
 ```

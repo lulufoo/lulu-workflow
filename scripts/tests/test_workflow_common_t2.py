@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-_SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
+_SRC = Path(__file__).resolve().parents[2]
 _STAGES = ["decision", "lulu-tasks", "lulu-exec"]
 # lulu-plan uses compose/scripts/_kernel/workflow_common.py (no STAGE / session_base_dir).
 _FID = "20260524143022-02cd7e6e"
@@ -27,7 +27,7 @@ _STAGE_WC = {
 
 
 def _workflow_common_path(stage: str) -> Path:
-    root = _SRC / "lulu-workflow"
+    root = _SRC
     return root / stage / "scripts" / _STAGE_WC[stage]
 
 
@@ -114,6 +114,6 @@ class TestCodeStageConstraints:
         assert callable(mod.code_hot_root)
 
     def test_code_hot_root_source_has_archive_only_comment(self):
-        path = _SRC / "lulu-workflow/lulu-exec/scripts/tc_workflow_common.py"
+        path = _SRC / "lulu-exec/scripts/tc_workflow_common.py"
         source = path.read_text(encoding="utf-8")
         assert "# archive-only" in source

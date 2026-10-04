@@ -10,9 +10,9 @@ Any CLI call: non-zero exit → stop and report stderr (unless noted below).
 
 | Macro | Command |
 |-------|---------|
-| `$RUNTIME_CONTROL` | `python3 "$SKILL_ROOT/scripts/runtime_control.py" --project-root "$(pwd)" <subcommand> [args...]` |
-| `$CYCLE_CONTROL` | `python3 "$SKILL_ROOT/scripts/cycle_control.py" --project-root "$(pwd)" --platform $PLATFORM <subcommand> [args...]` |
-| `$FETCH_TEMPLATE` | `python3 "$SKILL_ROOT/scripts/fetch_template.py" --section <section> --key <key> --project-root "$(pwd)" --platform $PLATFORM` |
+| `$RUNTIME_CONTROL` | `python3 "$SKILL_ROOT/scripts/runtime_control.py" <subcommand> [args...]` |
+| `$CYCLE_CONTROL` | `python3 "$SKILL_ROOT/scripts/cycle_control.py" --platform $PLATFORM <subcommand> [args...]` |
+| `$FETCH_TEMPLATE` | `python3 "$SKILL_ROOT/scripts/fetch_template.py" --section <section> --key <key> --platform $PLATFORM` |
 
 Subcommands and stdout: `runtime_control.py` / `cycle_control.py` / `fetch_template.py` module docstring or `--help`.
 
@@ -23,7 +23,6 @@ Run `$RUNTIME_CONTROL resolve-platform-context`, map stdout JSON:
 | Variable | JSON field |
 |---|---|
 | `$PLATFORM` | `platform` |
-| `$PROJECT_ROOT` | `project_root` |
 | `$SKILL_ROOT` | `skill_root` |
 | `$WORKFLOW_DIR` | `workflow_dir` |
 | `$CACHE_DIR` | `cache_dir` |

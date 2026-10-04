@@ -15,7 +15,7 @@ probe-only or full-remediation path returns its result.
 
 | Macro | Command |
 |-------|---------|
-| `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_entry.py" --adapter-config-file "$EVAL_ADAPTER_CONFIG" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
+| `$EVAL_CONTROL` | `python3 "$SKILL_ROOT/eval/scripts/eval_entry.py" --adapter-config-file "$EVAL_ADAPTER_CONFIG" --cycle-id "$CYCLE_ID"` |
 
 Pin `$EVAL_ADAPTER_CONFIG` and `$CYCLE_ID` before `$EVAL_CONTROL`.
 

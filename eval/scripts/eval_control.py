@@ -37,6 +37,16 @@ import os
 import sys
 from contextvars import ContextVar
 from pathlib import Path
+
+_here = Path(__file__).resolve().parent
+for _parent in [_here, *_here.parents]:
+    _scripts = _parent if (_parent / "project_root.py").is_file() else _parent / "scripts"
+    if (_scripts / "project_root.py").is_file():
+        if str(_scripts) not in sys.path:
+            sys.path.insert(0, str(_scripts))
+        break
+from project_root import apply_project_root_arg  # noqa: E402
+
 from typing import Any
 
 _EVAL_LIB = Path(__file__).resolve().parent
@@ -596,7 +606,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    return build_parser().parse_args(argv)
+    args = build_parser().parse_args(argv)
+    apply_project_root_arg(args)
+    return args
 
 
 def run_eval(

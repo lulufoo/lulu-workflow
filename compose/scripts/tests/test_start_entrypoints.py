@@ -66,7 +66,8 @@ def test_static_profile_holders_bind_compose_inputs() -> None:
         assert 'python3 "$SKILL_ROOT/compose/scripts/session/start.py"' not in text
         assert "## Entry" in text
         assert preflight in text
-        assert '--project-root "$PROJECT_ROOT"' in text
+        assert "--project-root" not in text
+        assert "$PROJECT_ROOT" not in text
         assert "$(pwd)" not in text
         assert "Resume" not in text
 
@@ -93,7 +94,8 @@ def test_plan_skill_hands_stage_inputs_to_session_bootstrap() -> None:
         assert heading in text
     assert "$PLAN_PREFLIGHT" in text
     assert "tech_plan_preflight.py" in text
-    assert '--project-root "$PROJECT_ROOT"' in text
+    assert "--project-root" not in text
+    assert "$PROJECT_ROOT" not in text
     assert '$(pwd)' not in text
     assert "$START_COMPOSE" not in text
     assert "## Entry" in text

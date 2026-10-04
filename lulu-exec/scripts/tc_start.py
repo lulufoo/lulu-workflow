@@ -12,6 +12,7 @@ from invalidation_hook import invalidate_downstream  # noqa: E402
 from start_gate import check_gate, get_topic_doc  # noqa: E402
 from transition_table import load_stage_order  # noqa: E402
 from workflow_sessions import current_effective_delivered, get_sessions  # noqa: E402
+from project_root import apply_project_root_arg  # noqa: E402
 
 from tc_archive import run as run_archive
 from tc_session_state_schema import (
@@ -183,7 +184,9 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Cursor/Copilot conversation ID for active-context indexing.",
     )
-    return parser.parse_known_args()[0]
+    args = parser.parse_known_args()[0]
+    apply_project_root_arg(args)
+    return args
 
 
 def main() -> int:

@@ -57,7 +57,8 @@ def test_real_design_profile_has_eval_block() -> None:
     assert config["adapter_options"]["delegate"]["class"] == "TechDesignEvalContributor"
 
 
-def test_main_emits_adapter_config_file(tmp_path: Path) -> None:
+def test_main_emits_adapter_config_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
     seed_profile_pointer_for_tests(tmp_path, "compose-full-round", "lulu-design")
     output = tmp_path / "adapter.json"
     result = compose_eval_control.main(

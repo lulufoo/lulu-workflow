@@ -13,8 +13,8 @@ confirmation. Complete when the user confirms the decision is correct to deliver
 
 | Macro | Command |
 |-------|---------|
-| `$DEC_EVAL` | `python3 "$DECISION_SKILL_DIR/scripts/dec_eval_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$SESSION_INTEGRITY` | `python3 "$DECISION_SKILL_DIR/scripts/dec_session_integrity.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
+| `$DEC_EVAL` | `python3 "$DECISION_SKILL_DIR/scripts/dec_eval_control.py" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
+| `$SESSION_INTEGRITY` | `python3 "$DECISION_SKILL_DIR/scripts/dec_session_integrity.py" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
 
 Subcommand contracts: module docstring / `--help`. `$SUBAGENT_*`: `_subagent.md`.
 

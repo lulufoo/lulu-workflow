@@ -9,8 +9,8 @@ Single delivery path for callers.
 
 ## Phase 0 — Context and init-doc
 
-1. `$CHAPTER_WRITE_BUILD context --revision-dir … --project-root …
-   --cycle-id …` → capture `role`, `domain`, `document_preamble`.
+1. `$CHAPTER_WRITE_BUILD context --revision-dir … --cycle-id …`
+   → capture `role`, `domain`, `document_preamble`.
 2. `$COMPOSE_DOC_CONTROL init-doc --path "$OUTPUT_DOC_PATH" --preamble …`
    (or `--preamble-file`).
 

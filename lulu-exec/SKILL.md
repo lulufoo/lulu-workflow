@@ -71,7 +71,6 @@ Task phases live in the runner for `$CTX.kind`. Do not run the TDD chain for `ac
 
 ```bash
 python3 "$SKILL_DIR/scripts/tc_start.py" \
-  --project-root "$(pwd)" \
   --cycle-id "<cycle_id>"
 ```
 
@@ -104,7 +103,6 @@ Run:
 ```bash
 python3 "$SKILL_DIR/scripts/tc_session_control.py" \
   --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
-  --project-root "$(pwd)" \
   deliver
 ```
 

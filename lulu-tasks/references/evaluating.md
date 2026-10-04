@@ -6,7 +6,7 @@ Probe every dimension in one round, then Eval remediates task chapters in place;
 
 | Macro | Command |
 |-------|---------|
-| `$TT_EVAL` | `python3 "$SKILL_DIR/scripts/tt_eval_control.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
+| `$TT_EVAL` | `python3 "$SKILL_DIR/scripts/tt_eval_control.py" --cycle-id "$CYCLE_ID"` |
 | `$TT_APPLY` | `$TT_FLOW apply-eval-disposition --disposition-json '<route JSON>'` |
 
 ## Rules

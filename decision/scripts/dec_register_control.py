@@ -17,6 +17,16 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+_here = Path(__file__).resolve().parent
+for _parent in [_here, *_here.parents]:
+    _scripts = _parent if (_parent / "project_root.py").is_file() else _parent / "scripts"
+    if (_scripts / "project_root.py").is_file():
+        if str(_scripts) not in sys.path:
+            sys.path.insert(0, str(_scripts))
+        break
+from project_root import apply_project_root_arg  # noqa: E402
+
 from typing import Any
 
 from dec_decision_doc_schema import (
@@ -617,7 +627,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     sub.add_parser("sync-registers-to-doc", help="Render registers into decision-doc.")
     sub.add_parser("resolve-context", help="Return register context JSON.")
 
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    apply_project_root_arg(args)
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:

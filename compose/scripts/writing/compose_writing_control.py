@@ -24,6 +24,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from chapter_artifact_paths import chapter_body_path  # noqa: E402
 from chapter_doc_schema import chapter_anchor_present, chapter_body_by_id  # noqa: E402
 from chapter_artifact_gates import check_chapter_write_artifacts  # noqa: E402
@@ -324,6 +326,7 @@ def main() -> int:
     validate_parser.set_defaults(func=cmd_validate)
 
     args = parser.parse_args()
+    apply_project_root_arg(args)
     return args.func(args)
 
 

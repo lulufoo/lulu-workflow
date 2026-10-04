@@ -101,6 +101,7 @@ def _run(
         capture_output=True,
         text=True,
         env=env,
+        cwd=project_root,
     )
     try:
         payload = json.loads(res.stdout)
@@ -188,7 +189,7 @@ def test_add_opens_json_round_trip(tmp_path: Path):
     assert ctx["state"]["active_open_id"] == "O-1"
 
 
-def test_process_context_omits_digests_and_scope_without_project_root(tmp_path: Path):
+def test_process_context_omits_digests_and_facts(tmp_path: Path):
     slice_dir, root = _slice_env(tmp_path)
     add_opens(slice_dir, opens=[_human_open()], project_root=root)
     code, payload = _run(slice_dir, "process-context")
@@ -200,7 +201,6 @@ def test_process_context_omits_digests_and_scope_without_project_root(tmp_path: 
     assert "facts_digest" not in payload
     assert "open_digest" not in payload
     assert "batch_digest" not in payload
-    assert "project_evidence_scope" not in payload
 
 
 def test_process_context_returns_group_and_skip_open_accepts_group(tmp_path: Path):
@@ -320,12 +320,12 @@ def test_check_close_cleared_ignores_facts_mutation_after_zero_result(tmp_path: 
     assert payload["ok"] is True
 
 
-def test_detect_context_fails_without_project_root(tmp_path: Path):
+def test_detect_context_fails_without_frontier_when_flag_omitted(tmp_path: Path):
     slice_dir, _root = _slice_env(tmp_path)
     code, payload = _run(slice_dir, "detect-context")
     assert code == 1
     assert payload["ok"] is False
-    assert "SKILL" in payload["error"]
+    assert "SKILL" in payload["error"] or "frontier" in payload["error"]
 
 
 def test_detect_context_fails_without_frontier_and_does_not_write(tmp_path: Path):

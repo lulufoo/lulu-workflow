@@ -7,6 +7,7 @@ from pathlib import Path
 _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
+from project_root import apply_project_root_arg  # noqa: E402
 
 from archive_common import TECH_CODE_CONFIG as CODE_CONFIG, run_archive  # noqa: E402
 
@@ -34,7 +35,9 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print restore/archive actions without modifying disk.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    apply_project_root_arg(args)
+    return args
 
 
 def main() -> int:
