@@ -62,7 +62,7 @@ def test_lulu_code_executing_defers_to_reference():
     assert "task-runner/SKILL.md" in body
     assert '"task_id"' in body
     assert '"cycle_dir"' in body
-    assert '"project_root"' in body
+    assert '"project_root"' not in body
 
 
 def test_lulu_code_preparing_defers_to_reference():

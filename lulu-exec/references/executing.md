@@ -32,8 +32,7 @@ Run `$TC_POINTER`. Follow `next_action`:
    ```
    {
      "task_id": "{task_id}",
-     "cycle_dir": "{absolute $CACHE_DIR/$CYCLE_ID}",
-     "project_root": "{absolute project root}"
+     "cycle_dir": "{absolute $CACHE_DIR/$CYCLE_ID}"
    }
    ```
 3. `TASK_FAILED` → Blocking policy.
