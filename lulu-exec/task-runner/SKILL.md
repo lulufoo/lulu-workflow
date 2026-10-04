@@ -46,7 +46,6 @@ Received as JSON via the invocation prompt `## Input` block:
 ```bash
 python3 "$SKILL_DIR/scripts/tc_task_control.py" \
   --cycle-dir "<cycle_dir>" \
-  --project-root "<project_root>" \
   resolve-context --task-id <task_id>
 ```
 
@@ -63,7 +62,6 @@ Use this command template for mechanical steps:
 ```bash
 python3 "$SKILL_DIR/scripts/tc_task_control.py" \
   --cycle-dir "<cycle_dir>" \
-  --project-root "<project_root>" \
   <subcommand> --task-id <task_id> [args]
 ```
 

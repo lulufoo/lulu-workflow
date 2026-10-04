@@ -6,9 +6,9 @@ Bind each work-order `target_repo` to a listed checkout, persist the map, then p
 
 | Macro | Command |
 |-------|---------|
-| `$TC_LIST_REPOS` | `python3 "$SKILL_DIR/scripts/tc_repo_map_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" --project-root "$(pwd)" list-candidates` |
-| `$TC_PUT_REPOS` | `python3 "$SKILL_DIR/scripts/tc_repo_map_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" --project-root "$(pwd)" put-map` |
-| `$TC_PREPARE` | `python3 "$SKILL_DIR/scripts/tc_prepare.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" --project-root "$(pwd)"` |
+| `$TC_LIST_REPOS` | `python3 "$SKILL_DIR/scripts/tc_repo_map_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" list-candidates` |
+| `$TC_PUT_REPOS` | `python3 "$SKILL_DIR/scripts/tc_repo_map_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID" put-map` |
+| `$TC_PREPARE` | `python3 "$SKILL_DIR/scripts/tc_prepare.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID"` |
 
 Subcommand contracts: module docstring / `--help`.
 

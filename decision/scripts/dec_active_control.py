@@ -15,6 +15,16 @@ import argparse
 import json
 import sys
 from pathlib import Path
+
+_here = Path(__file__).resolve().parent
+for _parent in [_here, *_here.parents]:
+    _scripts = _parent if (_parent / "project_root.py").is_file() else _parent / "scripts"
+    if (_scripts / "project_root.py").is_file():
+        if str(_scripts) not in sys.path:
+            sys.path.insert(0, str(_scripts))
+        break
+from project_root import apply_project_root_arg  # noqa: E402
+
 from typing import Any
 
 from dec_active_session_schema import (
@@ -133,7 +143,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("get-active", help="Print current Active Session path.")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    apply_project_root_arg(args)
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:

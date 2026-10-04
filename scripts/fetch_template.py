@@ -11,6 +11,8 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+
+from project_root import apply_project_root_arg  # noqa: E402
 from typing import Callable, Optional
 from urllib.parse import urlparse
 
@@ -397,7 +399,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         help="Bypass cache and re-fetch from GitHub",
     )
     args = parser.parse_args(argv)
-
+    apply_project_root_arg(args)
     try:
         content = fetch_template(
             section=args.section,

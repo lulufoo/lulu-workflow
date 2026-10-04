@@ -10,12 +10,12 @@ Outer macros (`$SESSION_INFO`) remain as defined in the compose SKILL.
 
 | Macro | Command |
 |-------|---------|
-| `$EXECUTION` | `python3 "$SKILL_ROOT/compose/scripts/session/execution_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>` |
-| `$COMPOSE_EVAL_ADAPTER` | `python3 "$SKILL_ROOT/compose/scripts/eval/compose_eval_control.py" --cycle-id "$CYCLE_ID" --project-root "$(pwd)"` |
+| `$EXECUTION` | `python3 "$SKILL_ROOT/compose/scripts/session/execution_control.py" --cycle-id "$CYCLE_ID" <subcommand>` |
+| `$COMPOSE_EVAL_ADAPTER` | `python3 "$SKILL_ROOT/compose/scripts/eval/compose_eval_control.py" --cycle-id "$CYCLE_ID"` |
 | `$COMPOSE_DOC_CONTROL` | `python3 "$SKILL_ROOT/compose/scripts/writing/compose_doc_control.py" <subcommand> [args...]` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
 | `$CHAPTER_WRITE_STATE` | `python3 "$SKILL_ROOT/compose/scripts/writing/chapter_write_state_control.py"` |
-| `$WRITING_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/writing/compose_writing_control.py" validate --revision-dir "$REVISION_DIR" --compose-doc <path> --project-root "$(pwd)"` |
+| `$WRITING_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/writing/compose_writing_control.py" validate --revision-dir "$REVISION_DIR" --compose-doc <path>` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/facts/facts_control.py"` |
 
 Subcommands and stdout: script module docstrings or `--help`.

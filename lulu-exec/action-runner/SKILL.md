@@ -26,9 +26,9 @@ Do NOT proceed until you have read `../../_runtime.md`
 
 | Macro | Command |
 |-------|---------|
-| `$TC_CTX` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" --project-root "<project_root>" resolve-context --task-id <task_id>` |
-| `$TC_RECEIPT` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" --project-root "<project_root>" record-receipt --task-id <task_id>` — stdin: JSON list of `{"criterion", "evidence", "met"}` |
-| `$TC_DONE` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" --project-root "<project_root>" mark-done --task-id <task_id>` |
+| `$TC_CTX` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" resolve-context --task-id <task_id>` |
+| `$TC_RECEIPT` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" record-receipt --task-id <task_id>` — stdin: JSON list of `{"criterion", "evidence", "met"}` |
+| `$TC_DONE` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" mark-done --task-id <task_id>` |
 
 ## Steps
 

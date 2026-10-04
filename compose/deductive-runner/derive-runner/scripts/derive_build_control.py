@@ -24,6 +24,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from execution_state_schema import execution_dir  # noqa: E402
 from facts_schema import (  # noqa: E402
     facts_path,
@@ -187,7 +189,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Fetch Derive context",
     )
     context.add_argument("--revision-dir", required=True)
-    context.add_argument("--project-root", required=True)
+    context.add_argument("--project-root")
     context.add_argument("--cycle-id", default="")
     context.set_defaults(func=cmd_context)
 
@@ -197,11 +199,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     bundle.add_argument("--lens", required=True)
     bundle.add_argument("--revision-dir", required=True)
-    bundle.add_argument("--project-root", required=True)
+    bundle.add_argument("--project-root")
     bundle.add_argument("--cycle-id", default="")
     bundle.set_defaults(func=cmd_lens_bundle)
 
     args = parser.parse_args(argv)
+    apply_project_root_arg(args)
     return int(args.func(args))
 
 

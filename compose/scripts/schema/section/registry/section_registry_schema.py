@@ -9,6 +9,16 @@ import re
 import sys
 from functools import lru_cache
 from pathlib import Path
+
+_here = Path(__file__).resolve().parent
+for _parent in [_here, *_here.parents]:
+    _scripts = _parent if (_parent / "project_root.py").is_file() else _parent / "scripts"
+    if (_scripts / "project_root.py").is_file():
+        if str(_scripts) not in sys.path:
+            sys.path.insert(0, str(_scripts))
+        break
+from project_root import apply_project_root_arg  # noqa: E402
+
 from typing import Any
 
 _SCRIPTS = Path(__file__).resolve().parents[3]
@@ -603,7 +613,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--schema", action="store_true", help="Print loaded registry JSON")
     args = parser.parse_args(argv)
-
+    apply_project_root_arg(args)
     project_root = args.project_root.resolve()
 
     try:

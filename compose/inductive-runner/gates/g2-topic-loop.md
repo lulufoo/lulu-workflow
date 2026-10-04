@@ -6,7 +6,7 @@
 
 | Macro | Command |
 |---|---|
-| `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR" --project-root "$PROJECT_ROOT"` |
+| `$INDUCTIVE_GATE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/inductive_gate_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 | `$TOPIC_CURRENT_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/topic/topic_current_control.py" --revision-dir "$INDUCTIVE_OUT_DIR"` |
 
 Use each control's `--help` as the command and stdout contract.

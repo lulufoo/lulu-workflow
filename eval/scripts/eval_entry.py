@@ -29,7 +29,7 @@ from eval_adapter_config import (  # noqa: E402
 )
 
 _DEFER_HANDOFF_COMMANDS = frozenset({"init-round", "begin-eval-round"})
-from eval_control import build_parser, run_eval  # noqa: E402
+from eval_control import apply_project_root_arg, build_parser, run_eval  # noqa: E402
 
 
 def parse_entry_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -46,7 +46,9 @@ def parse_entry_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Inline JSON adapter config object",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    apply_project_root_arg(args)
+    return args
 
 
 def _load_config(args: argparse.Namespace):

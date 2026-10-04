@@ -343,7 +343,8 @@ class TestFetchTemplate:
 
 
 class TestMainCli:
-    def test_cli_success_prints_stdout(self, tmp_path, capsys):
+    def test_cli_success_prints_stdout(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.chdir(tmp_path)
         cfg_path = tmp_path / ".cursor/lulu-workflow/workflow-config.json"
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(json.dumps({
@@ -373,7 +374,8 @@ class TestMainCli:
         assert code == 0
         assert capsys.readouterr().out == "# cli\n"
 
-    def test_cli_failure_returns_exit_1(self, tmp_path, capsys):
+    def test_cli_failure_returns_exit_1(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.chdir(tmp_path)
         code = main([
             "--section", "lulu-plan",
             "--key", "tpt_url",

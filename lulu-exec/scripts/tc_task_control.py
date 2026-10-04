@@ -43,6 +43,7 @@ if str(_SCRIPTS) not in sys.path:
 from active_context_schema import resolve_conversation_id  # noqa: E402
 from cycle_log_schema import append_cycle_log  # noqa: E402
 from platform_schema import detect_platform  # noqa: E402
+from project_root import apply_project_root_arg  # noqa: E402
 
 from tc_workflow_common import EXEC_STAGE  # noqa: E402
 
@@ -349,7 +350,7 @@ def _cli() -> int:
 
     parser = argparse.ArgumentParser(description="lulu-exec task control plane", parents=[conv_id_parent])
     parser.add_argument("--cycle-dir", required=True, help="Absolute path to cycle cache directory")
-    parser.add_argument("--project-root", required=True, help="Absolute path to project root")
+    parser.add_argument("--project-root", help="Absolute path to project root")
     sub = parser.add_subparsers(dest="command", required=True)
 
     resolve = sub.add_parser("resolve-context", help="Build $CTX JSON for task-runner", parents=[conv_id_parent])
@@ -380,6 +381,7 @@ def _cli() -> int:
     receipt.add_argument("--task-id", required=True)
 
     args = parser.parse_args()
+    apply_project_root_arg(args)
     cycle_dir = Path(args.cycle_dir).resolve()
     project_root = Path(args.project_root).resolve()
 

@@ -31,6 +31,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from chapter_artifact_paths import chapter_body_path  # noqa: E402
 from chapter_artifact_gates import check_chapter_write_artifacts  # noqa: E402
 from chapter_write_state_schema import (  # noqa: E402
@@ -602,7 +604,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Claim current chapter work ticket (no --chapter)",
     )
     add_rev(p_begin)
-    p_begin.add_argument("--project-root", required=True)
+    p_begin.add_argument("--project-root")
     p_begin.add_argument(
         "--cycle-id",
         default="",
@@ -633,6 +635,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    apply_project_root_arg(args)
     return int(args.func(args))
 
 

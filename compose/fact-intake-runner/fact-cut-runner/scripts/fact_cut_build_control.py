@@ -23,6 +23,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from compose_template_loader import (  # noqa: E402
     ComposeTemplateLoadError,
     load_compose_template,
@@ -122,10 +124,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Fetch cut+disposition context (facts path, lenses, consume_policy)",
     )
     context.add_argument("--revision-dir", required=True)
-    context.add_argument("--project-root", required=True)
+    context.add_argument("--project-root")
     context.add_argument("--cycle-id", default="")
     context.set_defaults(func=cmd_context)
     args = parser.parse_args(argv)
+    apply_project_root_arg(args)
     return int(args.func(args))
 
 

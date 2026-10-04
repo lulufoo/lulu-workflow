@@ -60,7 +60,7 @@ the AI shows leftovers and the user confirms once; scripts move state.
 | `$CODE_GROUNDING` | Boolean from `enter-deductive` stdout |
 
 Bind `$SOURCE_PATH` from `$ATOMIZE_SOURCE_PATH` when only the alias is set.
-`$PROJECT_ROOT` = `$(pwd)`. Parent has already completed Fact Intake.
+Parent has already completed Fact Intake.
 
 ## Script Macros
 
@@ -68,7 +68,7 @@ Bind `$SOURCE_PATH` from `$ATOMIZE_SOURCE_PATH` when only the alias is set.
 |-------|---------|
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/facts/facts_control.py"` |
 | `$DERIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/derive/derive_control.py"` |
-| `$DEDUCTIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/deductive_control.py" --revision-dir "$DEDUCTIVE_OUT_DIR" --project-root "$(pwd)"` |
+| `$DEDUCTIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/deductive_control.py" --revision-dir "$DEDUCTIVE_OUT_DIR"` |
 
 `$FACTS_CTL` / `$DERIVE_CTL` / `$DEDUCTIVE_CTL`: see each `--help`. Scripts never
 invent derived work-item text.
@@ -97,7 +97,6 @@ Load {SKILL_ROOT}/compose/deductive-runner/derive-runner/SKILL.md and follow it.
 
 ## Input
 REVISION_DIR: <$DEDUCTIVE_OUT_DIR>
-PROJECT_ROOT: <$PROJECT_ROOT>
 CYCLE_ID: <$CYCLE_ID>
 ```
 
@@ -125,7 +124,7 @@ Zero counts still show the heading.
 ### Step 4 — Complete
 
 ```bash
-$FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR" --project-root "$(pwd)"
+$FACTS_CTL validate --revision-dir "$DEDUCTIVE_OUT_DIR"
 $DEDUCTIVE_CTL gate-check
 ```
 

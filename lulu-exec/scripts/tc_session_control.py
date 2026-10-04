@@ -25,6 +25,7 @@ if str(_SCRIPTS) not in sys.path:
 from tc_closing_checklist_schema import write_passed  # noqa: E402
 from tc_confirm_task_ready import ExitContractError, confirm_task_ready, task_kind  # noqa: E402
 from tc_commit_ref_schema import validate_session_commit_refs  # noqa: E402
+from project_root import apply_project_root_arg  # noqa: E402
 from tc_code_task_list import (  # noqa: E402
     all_done,
     assert_task_done,
@@ -394,6 +395,7 @@ def _cli() -> int:
     sub.add_parser("deliver", help="Transition Closing -> Delivered")
 
     args = parser.parse_args()
+    apply_project_root_arg(args)
     cycle_dir = Path(args.cycle_dir).resolve()
 
     try:
@@ -406,8 +408,6 @@ def _cli() -> int:
         elif args.command == "advance-pointer":
             payload = advance_pointer(cycle_dir, args.completed_task)
         elif args.command == "deliver":
-            if not args.project_root:
-                parser.error("deliver requires --project-root")
             payload = deliver(cycle_dir, Path(args.project_root).resolve())
         else:
             parser.error(f"unknown command: {args.command}")

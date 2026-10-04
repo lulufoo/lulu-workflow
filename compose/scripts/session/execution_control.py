@@ -31,6 +31,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 import execution_checks as checks  # noqa: E402
 import execution_dispatch as dispatch  # noqa: E402
 from execution_context import ExecutionContext, failure, require_working, success  # noqa: E402
@@ -119,6 +121,7 @@ def _cli() -> int:
         if command in CONFIRM_COMMANDS:
             sub_parser.add_argument("--confirm", action="store_true")
     args = parser.parse_args()
+    apply_project_root_arg(args)
     root, cycle_id = args.project_root.resolve(), args.cycle_id.strip()
     try:
         profile_id = resolve_profile_id(project_root=root, cycle_id=cycle_id)

@@ -13,6 +13,7 @@ _DECISION_SCRIPTS = Path(__file__).resolve().parents[2] / "decision" / "scripts"
 for _path in (_SCRIPTS, _DECISION_SCRIPTS):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
+from project_root import apply_project_root_arg  # noqa: E402
 
 from cycle_delivered_refs import delivered_refs_file_path, record_delivered_ref
 from dec_decision_package_schema import build_decision_package, save_decision_package
@@ -81,6 +82,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cycle-id", required=True)
     parser.add_argument("--project-root", default=".")
     args = parser.parse_args(argv)
+    apply_project_root_arg(args)
     cycle_id = args.cycle_id.strip()
     try:
         path = deliver(

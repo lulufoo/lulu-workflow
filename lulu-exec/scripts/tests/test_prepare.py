@@ -258,6 +258,7 @@ def test_validate_cli(tmp_path: Path):
 
 
 def test_main_default_path_stdout(monkeypatch, tmp_path: Path, capsys):
+    monkeypatch.chdir(tmp_path)
     cycle_dir, _ = _setup_full_preparing_session(tmp_path)
     prepare_called = []
 
@@ -373,6 +374,7 @@ def test_ensure_workspace_recreates_missing_field(tmp_path: Path, monkeypatch):
 
 
 def test_main_preserves_executing_current_task(tmp_path: Path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
     cycle_dir, _ = _setup_full_preparing_session(tmp_path)
     session_dir = cycle_dir / "lulu-exec" / "s1"
 
@@ -449,6 +451,7 @@ def test_write_workspace_records_checkout(tmp_path: Path):
 
 
 def test_main_requires_repo_map(tmp_path: Path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
     cycle_dir, _ = _setup_full_preparing_session(tmp_path)
     (cycle_dir / "lulu-exec" / "s1" / "repo-map.json").unlink()
     monkeypatch.setattr(

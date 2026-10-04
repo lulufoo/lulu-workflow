@@ -28,8 +28,8 @@ Machine constraints SSOT: `$SKILL_DIR/constraints-$CYCLE_TYPE.json` (resolve `$C
 
 | Macro | Command |
 |-------|---------|
-| `$RESOLVE_CONTEXT` | `python3 "$SKILL_DIR/scripts/resolve_context.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
-| `$BET_DELIVER` | `python3 "$SKILL_DIR/scripts/decision_package_control.py" --holder-root "$CACHE_DIR/<cycle_id>/lulu-bet" --cycle-id "<cycle_id>" --project-root "$(pwd)"` |
+| `$RESOLVE_CONTEXT` | `python3 "$SKILL_DIR/scripts/resolve_context.py" --cycle-id "<cycle_id>" --constraints "$SKILL_DIR/constraints-$CYCLE_TYPE.json"` |
+| `$BET_DELIVER` | `python3 "$SKILL_DIR/scripts/decision_package_control.py" --holder-root "$CACHE_DIR/<cycle_id>/lulu-bet" --cycle-id "<cycle_id>"` |
 
 Subcommand contract: module docstring / `--help`.
 

@@ -18,13 +18,13 @@ Entry points. Contract in `--help`.
 
 | Macro | Command |
 |---|---|
-| `$OPEN_POINT_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/open-point/open_point_control.py" --out-dir "$INDUCTIVE_OUT_DIR" --project-root "$PROJECT_ROOT"` |
+| `$OPEN_POINT_CTL` | `python3 "$SKILL_ROOT/compose/scripts/inductive/open-point/open_point_control.py" --out-dir "$INDUCTIVE_OUT_DIR"` |
 
 ## Inputs
 
 Parent invoke arguments only.
 
-- `--out-dir` and `--project-root` are required.
+- `--out-dir` is required. Host root is process cwd.
 
 ## Detection context
 

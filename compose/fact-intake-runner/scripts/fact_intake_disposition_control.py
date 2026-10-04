@@ -18,6 +18,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from deductive_disposition_patch import (  # noqa: E402
     apply_disposition_patch,
     disposition_counts,
@@ -247,6 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--project-root", type=Path, default=Path.cwd())
         p.set_defaults(func=func)
     args = parser.parse_args(argv)
+    apply_project_root_arg(args)
     return int(args.func(args))
 
 

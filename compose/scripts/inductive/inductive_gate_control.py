@@ -53,6 +53,7 @@ _SCHEMA_DIRS = (
 for _p in (_COMPOSE_SCRIPTS, _OPEN_POINT, _SESSION, _KERNEL, *_SCHEMA_DIRS, _SCOPE):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
+from project_root import apply_project_root_arg  # noqa: E402
 
 from active_context_schema import resolve_conversation_id  # noqa: E402
 from compose_state_lock import compose_state_lock  # noqa: E402
@@ -701,6 +702,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
+    apply_project_root_arg(args)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 

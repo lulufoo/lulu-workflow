@@ -18,6 +18,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from holder_preflight_support import (  # noqa: E402
     emit_ok,
     preflight_dir,
@@ -33,9 +35,10 @@ _CACHE_SUBDIR = "lulu-blueprint"
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="lulu-blueprint compose preflight")
-    parser.add_argument("--project-root", required=True)
+    parser.add_argument("--project-root")
     parser.add_argument("--cycle-id", required=True)
     args = parser.parse_args(argv)
+    apply_project_root_arg(args)
     root = Path(args.project_root).expanduser().resolve()
     cycle_id = args.cycle_id.strip()
     try:

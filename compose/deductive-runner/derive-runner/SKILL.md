@@ -21,7 +21,6 @@ Floor / Ceiling / Cascade means: `references/derive-semantic-work.md`.
 
 ```text
 REVISION_DIR: <abs revision / focus-L; parent binds $DEDUCTIVE_OUT_DIR>
-PROJECT_ROOT: <abs project root>
 CYCLE_ID: <cycle id>
 ```
 
@@ -52,7 +51,7 @@ derived(lens) = Project( material facts on upstream edges → lens )
 |-------|---------|
 | `$DERIVE_BUILD` | `python3 "$SKILL_ROOT/compose/deductive-runner/derive-runner/scripts/derive_build_control.py"` |
 | `$DERIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/derive/derive_control.py"` |
-| `$DEDUCTIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/deductive_control.py" --revision-dir "$REVISION_DIR" --project-root "$(pwd)"` |
+| `$DEDUCTIVE_CTL` | `python3 "$SKILL_ROOT/compose/scripts/deductive/deductive_control.py" --revision-dir "$REVISION_DIR"` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/facts/facts_control.py"` |
 
 `--help` for each. Scripts never invent derived work-item text.

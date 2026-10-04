@@ -15,7 +15,7 @@ def test_engine_defines_generic_execution() -> None:
     engine_text = _ENGINE_SKILL.read_text(encoding="utf-8")
     assert (
         'python3 "$SKILL_ROOT/compose/scripts/session/execution_control.py" '
-        '--cycle-id "$CYCLE_ID" --project-root "$(pwd)" <subcommand>'
+        '--cycle-id "$CYCLE_ID" <subcommand>'
     ) in inner_text
     assert "$EXECUTION" not in engine_text
     assert "$L_STEP" not in engine_text

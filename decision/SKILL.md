@@ -39,14 +39,14 @@ Do NOT proceed until the holder has provided:
 
 | Macro | Command |
 |-------|---------|
-| `$DEC_START` | `python3 "$DECISION_SKILL_DIR/scripts/dec_start.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--conversation-id "<conversation_id>"] [--domain-constraints-file "<path>"] [--session-dir "<session_dir>"]` |
-| `$DEC_REOPEN` | `python3 "$DECISION_SKILL_DIR/scripts/dec_reopen.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--permit "<permit_path>"]` |
-| `$GATE_CONTROL` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
+| `$DEC_START` | `python3 "$DECISION_SKILL_DIR/scripts/dec_start.py" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--conversation-id "<conversation_id>"] [--domain-constraints-file "<path>"] [--session-dir "<session_dir>"]` |
+| `$DEC_REOPEN` | `python3 "$DECISION_SKILL_DIR/scripts/dec_reopen.py" --cycle-id "<cycle_id>" --constraints "<constraints_path>" [--permit "<permit_path>"]` |
+| `$GATE_CONTROL` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
 | `$GET_PAYLOAD` | `$GATE_CONTROL get-payload` |
-| `$REGISTER_CONTROL` | `python3 "$DECISION_SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
-| `$REGISTER_COMMIT` | `python3 "$DECISION_SKILL_DIR/scripts/dec_register_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" register-commit --operations '<json array>'` |
-| `$RS_COMMIT` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" rs-commit --gate "<G>" --operations '<json array>'` |
-| `$BATCH_RECLOSE` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --project-root "$(pwd)" --cycle-id "<cycle_id>" --constraints "<constraints_path>" batch-reclose --payloads '<json object>'` |
+| `$REGISTER_CONTROL` | `python3 "$DECISION_SKILL_DIR/scripts/dec_register_control.py" --cycle-id "<cycle_id>" --constraints "<constraints_path>"` |
+| `$REGISTER_COMMIT` | `python3 "$DECISION_SKILL_DIR/scripts/dec_register_control.py" --cycle-id "<cycle_id>" --constraints "<constraints_path>" register-commit --operations '<json array>'` |
+| `$RS_COMMIT` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --cycle-id "<cycle_id>" --constraints "<constraints_path>" rs-commit --gate "<G>" --operations '<json array>'` |
+| `$BATCH_RECLOSE` | `python3 "$DECISION_SKILL_DIR/scripts/dec_gate_control.py" --cycle-id "<cycle_id>" --constraints "<constraints_path>" batch-reclose --payloads '<json object>'` |
 
 Subcommand contracts: module docstrings / `--help`. Loaded runners inherit these
 macros; runner-only macros stay local.

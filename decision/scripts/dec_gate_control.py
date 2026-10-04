@@ -38,6 +38,7 @@ from typing import Any
 _SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
+from project_root import apply_project_root_arg  # noqa: E402
 
 
 from dec_decision_doc_schema import GATE_CLOSE_PREREQ  # noqa: E402
@@ -2206,7 +2207,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     sub.add_parser("migrate-session", help="Migrate legacy session to gate-state architecture.")
 
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    apply_project_root_arg(args)
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:

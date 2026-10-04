@@ -21,6 +21,8 @@ if str(_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
+
+from project_root import apply_project_root_arg  # noqa: E402
 from workflow_paths import WORKFLOW_SCRIPTS  # noqa: E402
 
 sys.path.insert(0, str(WORKFLOW_SCRIPTS))
@@ -269,6 +271,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--conversation-id", default="")
     parser.add_argument("--confirm", action="store_true")
     args = parser.parse_args(argv)
+    apply_project_root_arg(args)
     return _emit(
         finalize_holder(
             cycle_id=args.cycle_id.strip(),

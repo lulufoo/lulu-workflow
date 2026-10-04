@@ -39,10 +39,9 @@ def test_writing_step5_dispatches_chapter_write_runner():
     assert "section-form-registry" not in step5
 
 
-def test_write_runner_input_five_fields():
+def test_write_runner_input_four_fields():
     for field in (
         "REVISION_DIR:",
-        "PROJECT_ROOT:",
         "CYCLE_ID:",
         "OUTPUT_DOC_PATH:",
         "ARC_PATH:",

@@ -6,14 +6,16 @@ from pathlib import Path
 
 import pytest
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from review_io import parse_review_file  # noqa: E402
 from review_schema import validate_review_file  # noqa: E402
 from remote_ref import read_ref  # noqa: E402
+from workflow_layout import project_root_for_refs, workflow_ref, workflow_root  # noqa: E402
 
 
-_REPO = Path(__file__).resolve().parents[4]
-_WORKFLOW = _REPO / "lulu-workflow"
+_REPO = project_root_for_refs()
+_WORKFLOW = workflow_root()
 _FIXTURE_DIR = Path(__file__).parent / "fixtures" / "stage_quality"
 
 _STAGES = (
@@ -57,8 +59,8 @@ def test_stage_quality_uses_resolvable_local_method_and_sot(stage):
     }
     assert dimension["sots"] == [{"ref": stage["sot"]}]
 
-    method = read_ref(stage["method"], project_root=_REPO)
-    sot = read_ref(stage["sot"], project_root=_REPO)
+    method = read_ref(workflow_ref(stage["method"]), project_root=_REPO)
+    sot = read_ref(workflow_ref(stage["sot"]), project_root=_REPO)
     assert "$READ_UNIT_VIEW" in method
     assert "eval_target_units" not in method
     assert "units from containers strictly before the current chapter" in method
@@ -81,7 +83,7 @@ def test_stage_quality_behavior_fixtures_match_their_expected_register_violation
 
     for case in expected:
         content = (_FIXTURE_DIR / case["fixture"]).read_text(encoding="utf-8")
-        sot = read_ref(stage_by_id[case["stage"]]["sot"], project_root=_REPO)
+        sot = read_ref(workflow_ref(stage_by_id[case["stage"]]["sot"]), project_root=_REPO)
 
         assert f"### {case['expected_sot_rule']} " in sot
         assert "<!-- chapter:" in content

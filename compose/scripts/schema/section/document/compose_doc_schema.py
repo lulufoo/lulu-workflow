@@ -25,6 +25,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from chapter_doc_schema import parse_chapter_bodies  # noqa: E402
 from session_state_schema import load_active_doc
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID
@@ -170,7 +172,7 @@ def _cli() -> int:
         help="Compose profile / stage name (default: lulu-plan)",
     )
     args = parser.parse_args()
-
+    apply_project_root_arg(args)
     if args.schema:
         print(json.dumps(get_schema(), indent=2, ensure_ascii=False))
         return 0

@@ -20,9 +20,16 @@ _ENV_CLEAN = {
 }
 
 
-def _run(*args: str, env=None):
+def _run(*args: str, env=None, cwd=None):
     cmd = [sys.executable, str(_RUNTIME_CONTROL), *args]
-    return subprocess.run(cmd, capture_output=True, text=True, env=env or _ENV_CLEAN)
+    arglist = list(args)
+    if cwd is None and "--project-root" in arglist:
+        raw = arglist[arglist.index("--project-root") + 1]
+        if Path(raw).exists():
+            cwd = raw
+    return subprocess.run(
+        cmd, capture_output=True, text=True, env=env or _ENV_CLEAN, cwd=cwd
+    )
 
 
 class TestResolvePlatformContext:
@@ -38,7 +45,8 @@ class TestResolvePlatformContext:
         assert payload["project_root"] == str(tmp_path.resolve())
         assert payload["workflow_dir"] == ".agents/config/lulu-workflow"
         assert payload["cache_dir"] == ".cache/cursor/lulu-workflow"
-        assert Path(payload["skill_root"]).name == "lulu-workflow"
+        skill_root = Path(payload["skill_root"])
+        assert (skill_root / "scripts" / "runtime_control.py").is_file()
 
     def test_copilot_agent_signal(self, tmp_path: Path):
         env = {**_ENV_CLEAN, "COPILOT_AGENT": "1"}
@@ -139,3 +147,23 @@ class TestResolveSessionContext:
         payload = json.loads(result.stdout.strip())
         assert payload["conversation_id"] == "cli-conv"
         assert payload["cycle_id"] == cycle_id
+
+
+class TestProjectRootCwd:
+    def test_omit_uses_cwd(self, tmp_path: Path):
+        result = _run("resolve-platform-context", cwd=str(tmp_path))
+        assert result.returncode == 0, result.stderr
+        payload = json.loads(result.stdout.strip())
+        assert payload["project_root"] == str(tmp_path.resolve())
+
+    def test_mismatch_exits_nonzero(self, tmp_path: Path):
+        other = tmp_path / "other"
+        other.mkdir()
+        result = _run(
+            "--project-root",
+            str(other),
+            "resolve-platform-context",
+            cwd=str(tmp_path),
+        )
+        assert result.returncode != 0
+        assert "must equal process cwd" in result.stderr

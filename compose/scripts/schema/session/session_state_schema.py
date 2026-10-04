@@ -17,6 +17,16 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+_here = Path(__file__).resolve().parent
+for _parent in [_here, *_here.parents]:
+    _scripts = _parent if (_parent / "project_root.py").is_file() else _parent / "scripts"
+    if (_scripts / "project_root.py").is_file():
+        if str(_scripts) not in sys.path:
+            sys.path.insert(0, str(_scripts))
+        break
+from project_root import apply_project_root_arg  # noqa: E402
+
 from typing import Any
 
 _SCRIPTS = Path(__file__).resolve().parents[2]
@@ -263,6 +273,7 @@ def _cli() -> int:
     )
     parser.add_argument("--path", type=Path, help="Path to session-state.md")
     args = parser.parse_args()
+    apply_project_root_arg(args)
     profile_id = args.profile.strip() or DEFAULT_COMPOSE_PROFILE_ID
 
     if args.schema:

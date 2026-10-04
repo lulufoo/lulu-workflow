@@ -35,6 +35,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from deductive_gate import evaluate_deductive_gate  # noqa: E402
 from deductive_pending_schema import (  # noqa: E402
     PENDING_KINDS,
@@ -576,6 +578,7 @@ def main() -> int:
     p_pa.set_defaults(func=cmd_disposition_patch_apply)
 
     args = parser.parse_args()
+    apply_project_root_arg(args)
     if args.command == "disposition-patch-apply":
         from execution_state_schema import execution_dir
 

@@ -28,8 +28,8 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 | Macro | Command |
 |-------|---------|
-| `$TT_START` | `python3 "$SKILL_DIR/scripts/tt_start.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
-| `$TT_FLOW` | `python3 "$SKILL_DIR/scripts/tt_workflow_control.py" --project-root "$(pwd)" --cycle-id "$CYCLE_ID"` |
+| `$TT_START` | `python3 "$SKILL_DIR/scripts/tt_start.py" --cycle-id "$CYCLE_ID"` |
+| `$TT_FLOW` | `python3 "$SKILL_DIR/scripts/tt_workflow_control.py" --cycle-id "$CYCLE_ID"` |
 | `$TT_CTX` | `$TT_FLOW resolve-context` |
 
 Subcommand contracts: module docstring / `--help`.

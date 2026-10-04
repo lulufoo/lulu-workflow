@@ -15,6 +15,16 @@ import argparse
 import sys
 from pathlib import Path
 
+_here = Path(__file__).resolve().parent
+for _parent in [_here, *_here.parents]:
+    _scripts = _parent if (_parent / "project_root.py").is_file() else _parent / "scripts"
+    if (_scripts / "project_root.py").is_file():
+        if str(_scripts) not in sys.path:
+            sys.path.insert(0, str(_scripts))
+        break
+from project_root import apply_project_root_arg  # noqa: E402
+
+
 from dec_domain_constraints_schema import resolve_stage
 from dec_gate_control import cmd_reopen
 
@@ -35,7 +45,9 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Holder reopen permit path (required when reopen_authorization=holder_required).",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    apply_project_root_arg(args)
+    return args
 
 
 def main() -> int:

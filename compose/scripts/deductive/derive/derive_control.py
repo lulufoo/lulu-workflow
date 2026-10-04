@@ -26,6 +26,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from execution_state_schema import execution_dir  # noqa: E402
 from facts_schema import (  # noqa: E402
     facts_path,
@@ -327,6 +329,7 @@ def main() -> int:
     classify_p.set_defaults(func=cmd_classify)
 
     args = parser.parse_args()
+    apply_project_root_arg(args)
     if args.command == "append":
         with compose_state_lock(execution_dir(args.revision_dir.resolve())):
             return args.func(args)

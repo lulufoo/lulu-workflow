@@ -23,6 +23,8 @@ if str(_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
+
+from project_root import apply_project_root_arg  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, load_profile, resolve_profile_id  # noqa: E402
 
 from compose_session import (  # noqa: E402
@@ -463,6 +465,7 @@ def _cli() -> int:
     )
 
     args = parser.parse_args()
+    apply_project_root_arg(args)
     project_root = args.project_root.resolve()
     cycle_id = args.cycle_id.strip()
     try:

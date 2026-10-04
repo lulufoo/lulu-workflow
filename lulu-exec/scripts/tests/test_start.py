@@ -156,7 +156,7 @@ def test_cli_generates_full_code_task_list_for_complex_task_ids(tmp_path):
         capture_output=True,
         text=True,
         env=_ENV_COPILOT,
-        cwd=str(_SCRIPTS),
+        cwd=str(tmp_path),
     )
 
     assert result.returncode == 0, result.stderr
@@ -217,7 +217,7 @@ def test_cli_errors_when_work_order_task_list_missing(tmp_path):
         capture_output=True,
         text=True,
         env=_ENV_COPILOT,
-        cwd=str(_SCRIPTS),
+        cwd=str(tmp_path),
     )
 
     assert result.returncode != 0
@@ -245,7 +245,7 @@ def test_cli_creates_new_round_when_active_preparing(tmp_path):
         capture_output=True,
         text=True,
         env=_ENV_COPILOT,
-        cwd=str(_SCRIPTS),
+        cwd=str(tmp_path),
     )
     assert first.returncode == 0, first.stderr
 
@@ -272,7 +272,7 @@ def test_cli_creates_new_round_when_active_preparing(tmp_path):
         capture_output=True,
         text=True,
         env=_ENV_COPILOT,
-        cwd=str(_SCRIPTS),
+        cwd=str(tmp_path),
     )
     assert second.returncode == 0, second.stderr
     assert "superseding s1 in Preparing" in second.stderr

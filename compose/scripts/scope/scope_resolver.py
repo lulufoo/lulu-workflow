@@ -23,6 +23,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from domain_instance_schema import load_and_validate_domain_instance  # noqa: E402
 from schema_common import VALID_CYCLE_TYPES, validate_all_plan_scope_instances  # noqa: E402
 from role_instance_schema import load_and_validate_role_instance  # noqa: E402
@@ -186,7 +188,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
 
     args = parser.parse_args(argv)
-
+    apply_project_root_arg(args)
     project_root = Path(args.project_root).resolve()
     cycle_id = getattr(args, "cycle_id", None)
     if cycle_id:

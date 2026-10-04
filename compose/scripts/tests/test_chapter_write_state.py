@@ -98,7 +98,7 @@ def _begin(rev: Path) -> int:
             "--revision-dir",
             str(rev),
             "--project-root",
-            str(_REPO),
+            str(Path.cwd()),
         ]
     )
 
@@ -277,7 +277,7 @@ def test_begin_rejects_chapter_arg(tmp_path: Path, capsys: pytest.CaptureFixture
             "--revision-dir",
             str(rev),
             "--project-root",
-            str(_REPO),
+            str(Path.cwd()),
             "--chapter",
             "A01-I",
         ],

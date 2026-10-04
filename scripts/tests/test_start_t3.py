@@ -12,8 +12,7 @@ import pytest
 
 from compose_start_test_helpers import compose_start_args
 
-_SRC = Path(__file__).resolve().parents[3]  # lulu-dev-skills/
-_LDEV = _SRC / "lulu-workflow"
+_LDEV = Path(__file__).resolve().parents[2]
 _STAGES = ["decision", "lulu-blueprint", "lulu-arch", "lulu-plan", "lulu-tasks", "lulu-exec"]
 # compose start.py never integrated run_archive; other stages defer via comment.
 _STAGES_WITH_DEFERRED_ARCHIVE = [
@@ -50,13 +49,13 @@ def _diag_holder_args(stage: str = "lulu-bet") -> list[str]:
 def _start_py(stage: str) -> Path:
     if stage in ("lulu-plan", "lulu-arch", "lulu-blueprint"):
         return _KERNEL_START
-    return _SRC / "lulu-workflow" / stage / "scripts" / ({"lulu-exec": "tc_start.py", "decision": "dec_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
+    return _LDEV / stage / "scripts" / ({"lulu-exec": "tc_start.py", "decision": "dec_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
     if stage in ("lulu-plan", "lulu-arch", "lulu-blueprint"):
         return _KERNEL_START.parent
-    return _SRC / "lulu-workflow" / stage / "scripts"
+    return _LDEV / stage / "scripts"
 
 
 def _cache_dir(tmp_path: Path) -> Path:
@@ -105,7 +104,7 @@ def _make_cycle_state(cache_dir: Path, cycle_id: str, stage: str) -> None:
 
 
 def _make_session(cache_dir: Path, cycle_id: str, stage: str, revision: str) -> None:
-    scripts_root = _SRC / "lulu-workflow" / "scripts"
+    scripts_root = _LDEV / "scripts"
     if str(scripts_root) not in sys.path:
         sys.path.insert(0, str(scripts_root))
     from workflow_sessions import STAGE_FLAT, stage_subdir  # noqa: E402
@@ -348,7 +347,7 @@ class TestArgparseBehavior:
             cmd.extend(extra)
         return subprocess.run(
             cmd, capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir(stage)),
+            cwd=str(tmp_path),
         )
 
     def test_cycle_id_missing_decision_exits_nonzero(self):
@@ -384,7 +383,7 @@ class TestArgparseBehavior:
              "--cycle-id", _TOPIC_ID,
              *compose_start_args("lulu-blueprint", tmp_path)],
             capture_output=True, text=True, env=env,
-            cwd=str(_scripts_dir("lulu-blueprint")),
+            cwd=str(tmp_path),
         )
         assert result.returncode == 0, result.stderr
         assert "conversation_id" in result.stderr
@@ -404,7 +403,7 @@ class TestSessionPath:
              "--project-root", str(tmp_path),
              "--cycle-id", _FID],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("decision")),
+            cwd=str(tmp_path),
         )
 
     def _run_product_arch(self, tmp_path):
@@ -415,7 +414,7 @@ class TestSessionPath:
              "--cycle-id", _TOPIC_ID,
              *compose_start_args("lulu-blueprint", tmp_path)],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("lulu-blueprint")),
+            cwd=str(tmp_path),
         )
 
     def _run_tech(self, tmp_path):
@@ -426,7 +425,7 @@ class TestSessionPath:
              "--cycle-id", _FID,
              *compose_start_args("lulu-plan", tmp_path)],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("lulu-plan")),
+            cwd=str(tmp_path),
         )
 
     def _run_work_order(self, tmp_path):
@@ -436,7 +435,7 @@ class TestSessionPath:
              "--project-root", str(tmp_path),
              "--cycle-id", _FID],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("lulu-tasks")),
+            cwd=str(tmp_path),
         )
 
     def _run_code(self, tmp_path):
@@ -447,7 +446,7 @@ class TestSessionPath:
              "--project-root", str(tmp_path),
              "--cycle-id", _FID],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("lulu-exec")),
+            cwd=str(tmp_path),
         )
 
     def test_decision_exits_zero(self, tmp_path):
@@ -467,7 +466,7 @@ class TestSessionPath:
              "--cycle-id", _FID,
              "--constraints", str(_LDEV / stage / "constraints-feature.json")],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("decision")),
+            cwd=str(tmp_path),
         )
 
     def test_product_diagnostic_stage_exits_zero(self, tmp_path):
@@ -495,7 +494,7 @@ class TestSessionPath:
              "--constraints", str(_LDEV / "lulu-bet" / "constraints-feature.json"),
              "--conversation-id", _CONV_ID],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("decision")),
+            cwd=str(tmp_path),
         )
         assert result.returncode == 0, result.stderr
         ctx = _cache_dir(tmp_path) / "active-context.json"
@@ -516,7 +515,7 @@ class TestSessionPath:
              *compose_start_args("lulu-plan", tmp_path),
              "--conversation-id", _CONV_ID],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("lulu-plan")),
+            cwd=str(tmp_path),
         )
         assert result.returncode == 0, result.stderr
         ctx = _cache_dir(tmp_path) / "active-context.json"
@@ -551,7 +550,7 @@ class TestSessionPath:
              "--project-root", str(tmp_path),
              "--cycle-id", _FID],
             capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(_scripts_dir("lulu-tasks")),
+            cwd=str(tmp_path),
         )
         assert result.returncode == 0, result.stderr
         payload = json.loads(result.stdout.strip().splitlines()[-1])

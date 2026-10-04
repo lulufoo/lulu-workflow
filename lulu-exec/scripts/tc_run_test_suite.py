@@ -29,6 +29,16 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+_here = Path(__file__).resolve().parent
+for _parent in [_here, *_here.parents]:
+    _scripts = _parent if (_parent / "project_root.py").is_file() else _parent / "scripts"
+    if (_scripts / "project_root.py").is_file():
+        if str(_scripts) not in sys.path:
+            sys.path.insert(0, str(_scripts))
+        break
+from project_root import apply_project_root_arg  # noqa: E402
+
+
 from tc_workflow_common import EXEC_STAGE, load_stage_config
 
 
@@ -181,7 +191,7 @@ def run_test_suite(
 
 def _cli() -> int:
     parser = argparse.ArgumentParser(description="Run Closing full test suite")
-    parser.add_argument("--project-root", required=True, help="Absolute path to project root")
+    parser.add_argument("--project-root", help="Absolute path to project root")
     parser.add_argument("--worktree", required=True, help="Absolute path to primary worktree")
     parser.add_argument("--log-path", required=True, help="Absolute path to closing-test-log.md")
     parser.add_argument(
@@ -190,7 +200,7 @@ def _cli() -> int:
         help="Checkout directory name used as the test_commands key.",
     )
     args = parser.parse_args()
-
+    apply_project_root_arg(args)
     try:
         test_result = run_test_suite(
             project_root=Path(args.project_root).resolve(),

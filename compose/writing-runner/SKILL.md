@@ -27,13 +27,11 @@ Fact production belongs to Inductive|Deductive (`inductive-runner` or
 | `$CYCLE_ID` | Active cycle id |
 | `$CODE_GROUNDING` | Boolean from `enter-writing` stdout |
 
-Self-resolved: `$PROJECT_ROOT` = `$(pwd)`
-
 ## Script Macros
 
 | Macro | Command |
 |-------|---------|
-| `$WRITING_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/writing/compose_writing_control.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH" --project-root "$(pwd)"` |
+| `$WRITING_COMPOSE_VALIDATE` | `python3 "$SKILL_ROOT/compose/scripts/writing/compose_writing_control.py" validate --revision-dir "$REVISION_DIR" --compose-doc "$OUTPUT_DOC_PATH"` |
 | `$FACTS_CTL` | `python3 "$SKILL_ROOT/compose/scripts/facts/facts_control.py"` |
 | `$NARRATIVE_ARC_CTL` | `python3 "$SKILL_ROOT/compose/narrative-arc-runner/scripts/narrative_arc_control.py"` |
 
@@ -46,9 +44,8 @@ Self-resolved: `$PROJECT_ROOT` = `$(pwd)`
 ### Step 1 — Load
 
 1. Bind Parent Inputs (`$REVISION_DIR`, `$OUTPUT_DOC_PATH`, `$CYCLE_ID`, `$SCOPE_REF_PATH` path hold, `$CODE_GROUNDING`).
-2. Resolve `$PROJECT_ROOT` = `$(pwd)`.
 
-**Done:** Parent required Inputs bound; `$PROJECT_ROOT` resolved; `$CODE_GROUNDING` boolean set. Proceed to Step 2.
+**Done:** Parent required Inputs bound; `$CODE_GROUNDING` boolean set. Proceed to Step 2.
 
 ### Step 2 — Validate facts
 
@@ -57,7 +54,7 @@ Producer already wrote `_facts.json`. Only validate:
 ```bash
 $FACTS_CTL validate \
   --revision-dir "$REVISION_DIR" \
-  --project-root "$(pwd)"
+ 
 ```
 
 Missing / invalid `_facts.json` → Blocking (return to producer; never re-atomize from scope).
@@ -76,7 +73,6 @@ Load {SKILL_ROOT}/compose/narrative-arc-runner/SKILL.md and follow its Run.
 
 ## Input
 REVISION_DIR: <$REVISION_DIR>
-PROJECT_ROOT: <abs project root = $(pwd)>
 CYCLE_ID: <$CYCLE_ID>
 OUTPUT_PATH: _narrative-arc.json
 ```
@@ -86,7 +82,6 @@ OUTPUT_PATH: _narrative-arc.json
 ```bash
 $NARRATIVE_ARC_CTL validate \
   --revision-dir "$REVISION_DIR" \
-  --project-root "$(pwd)" \
   --output-path "_narrative-arc.json" \
   --require-write-ready
 ```
@@ -106,7 +101,6 @@ references/write-protocol.md then contracts/delivery.md
 
 ## Input
 REVISION_DIR: <$REVISION_DIR>
-PROJECT_ROOT: <abs project root = $(pwd)>
 CYCLE_ID: <$CYCLE_ID>
 OUTPUT_DOC_PATH: <$OUTPUT_DOC_PATH>
 ARC_PATH: _narrative-arc.json

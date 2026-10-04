@@ -70,6 +70,6 @@ Run every item. Any hit: reorganize, split again, then check again. Do not persi
 
 After Check is clear, write the `write_ready` candidate to `OUTPUT_PATH`.
 
-1. `$NARRATIVE_ARC_CTL write --revision-dir … --project-root … --file <candidate> --output-path "$OUTPUT_PATH" --require-write-ready`
+1. `$NARRATIVE_ARC_CTL write --revision-dir … --file <candidate> --output-path "$OUTPUT_PATH" --require-write-ready`
 2. After success, delete the temporary candidate files.
 

@@ -24,6 +24,8 @@ if str(_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
+
+from project_root import apply_project_root_arg  # noqa: E402
 from workflow_paths import WORKFLOW_SCRIPTS  # noqa: E402
 
 sys.path.insert(0, str(WORKFLOW_SCRIPTS))
@@ -226,7 +228,9 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Optional conversation id recorded on cycle active-context.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    apply_project_root_arg(args)
+    return args
 
 
 def run_start(args: argparse.Namespace) -> dict[str, Any]:

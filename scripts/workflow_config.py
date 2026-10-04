@@ -12,6 +12,8 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+
+from project_root import apply_project_root_arg  # noqa: E402
 from typing import Optional
 
 from fetch_template import FetchTemplateError  # noqa: E402
@@ -30,7 +32,6 @@ def _add_project_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--project-root",
         type=Path,
-        required=True,
         help="Project root directory.",
     )
     parser.add_argument(
@@ -98,7 +99,8 @@ def _cli(argv: Optional[list[str]] = None) -> int:
     resolve_stage.add_argument("--stage", required=True, help="Workflow stage name.")
 
     args = parser.parse_args(argv)
-    args.project_root = args.project_root.resolve()
+    apply_project_root_arg(args)
+    apply_project_root_arg(args)
 
     if args.command == _CMD_CONFIGURE:
         return _cmd_configure(args)

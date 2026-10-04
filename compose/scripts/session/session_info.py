@@ -23,6 +23,8 @@ if str(_SCRIPTS) not in sys.path:
 import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
+
+from project_root import apply_project_root_arg  # noqa: E402
 from workflow_paths import DEFAULT_COMPOSE_PROFILE_ID, WORKFLOW_SCRIPTS, load_profile, resolve_profile_id  # noqa: E402
 
 sys.path.insert(0, str(WORKFLOW_SCRIPTS))
@@ -248,7 +250,7 @@ def _cli() -> int:
         help="Info slice to return (default: delivery-preview)",
     )
     args = parser.parse_args()
-
+    apply_project_root_arg(args)
     try:
         profile_id = resolve_profile_id(
             project_root=args.project_root.resolve(),

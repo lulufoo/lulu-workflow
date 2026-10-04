@@ -46,9 +46,12 @@ def test_deliver_commits_decision_package(tmp_path: Path) -> None:
     )
 
 
-def test_deliver_cli_returns_next_steps(tmp_path: Path, capsys) -> None:
+def test_deliver_cli_returns_next_steps(
+    tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from decision_package_control import main
 
+    monkeypatch.chdir(tmp_path)
     root = tmp_path / ".cache/cursor/lulu-workflow/feature-bet/lulu-bet"
     root.mkdir(parents=True)
     (root / "decision-doc.md").write_text("# Decision\n\nSettled.\n", encoding="utf-8")

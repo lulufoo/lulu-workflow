@@ -78,7 +78,6 @@ def format_fact_intake_dispatch(
         [
             f"REVISION_DIR:         {revision_dir.as_posix()}",
             f"EXECUTION_DIR:        {execution_dir(revision_dir).as_posix()}",
-            f"PROJECT_ROOT:         {project_root.as_posix()}",
             f"CYCLE_ID:             {cycle_id}",
             f"SOURCE_PATH:          {source}",
             f"REQUIRE_SEED_ORIGIN:  {str(inductive).lower()}",

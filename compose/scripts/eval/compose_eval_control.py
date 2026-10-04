@@ -21,6 +21,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from compose_eval_envelope import build_compose_eval_envelope  # noqa: E402
 from workflow_paths import (  # noqa: E402
     load_profile,
@@ -81,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Adapter-config JSON path (default: .cache/compose-eval-adapter/<cycle>.json)",
     )
     args = parser.parse_args(argv)
-
+    apply_project_root_arg(args)
     project_root = args.project_root.resolve()
     try:
         path = write_adapter_config(

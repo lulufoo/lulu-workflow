@@ -179,6 +179,7 @@ def test_entry_loads_config_before_handoff(monkeypatch, tmp_path: Path) -> None:
         lambda config: fake_adapter,
     )
     monkeypatch.setattr(eval_entry, "run_eval", fake_run_eval)
+    monkeypatch.chdir(tmp_path)
 
     code = eval_entry.main(
         [
@@ -321,7 +322,11 @@ def test_loads_real_design_decorator_envelope() -> None:
     assert callable(adapter._contributor.contribute)
 
 
-def test_entry_requires_adapter_config(tmp_path: Path) -> None:
+def test_entry_requires_adapter_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
     code = eval_entry.main(
         [
             "--cycle-id",

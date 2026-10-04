@@ -33,6 +33,8 @@ import kernel_bootstrap  # noqa: E402
 
 kernel_bootstrap.ensure_kernel_paths()
 
+from project_root import apply_project_root_arg  # noqa: E402
+
 from execution_state_schema import (  # noqa: E402
     PRODUCER_STATES,
     execution_dir,
@@ -415,6 +417,7 @@ def main() -> int:
     strip_p.set_defaults(func=cmd_strip_derived)
 
     args = parser.parse_args()
+    apply_project_root_arg(args)
     if args.command in {"write", "strip-derived"}:
         with compose_state_lock(_slice_dir(args.revision_dir)):
             return args.func(args)

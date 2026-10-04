@@ -308,11 +308,26 @@ def test_resolve_context_includes_guide_d1_d2(tmp_path: Path) -> None:
     assert set(guide) == {"cognitive_frame", "intent_anchor"}
 
 
-def test_resolve_context_fails_without_project_root(tmp_path: Path) -> None:
+def test_resolve_context_rejects_project_root_not_cwd(tmp_path: Path) -> None:
     _seed_session(tmp_path)
-    code, result = _run_gate(tmp_path, "--project-root", "", "resolve-context")
-    assert code != 0
-    assert "project-root" in str(result.get("error", "")).lower()
+    other = tmp_path / "other-host"
+    other.mkdir()
+    res = subprocess.run(
+        [
+            sys.executable,
+            str(_GATE_CTL),
+            "--out-dir",
+            str(tmp_path),
+            "--project-root",
+            str(other),
+            "resolve-context",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(tmp_path),
+    )
+    assert res.returncode != 0
+    assert "must equal process cwd" in res.stderr
 
 
 def test_resolve_context_fails_when_stage_empty(tmp_path: Path) -> None:

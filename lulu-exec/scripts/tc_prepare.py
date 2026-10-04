@@ -29,6 +29,16 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+_here = Path(__file__).resolve().parent
+for _parent in [_here, *_here.parents]:
+    _scripts = _parent if (_parent / "project_root.py").is_file() else _parent / "scripts"
+    if (_scripts / "project_root.py").is_file():
+        if str(_scripts) not in sys.path:
+            sys.path.insert(0, str(_scripts))
+        break
+from project_root import apply_project_root_arg  # noqa: E402
+
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from tc_code_task_list import first_pending, parse_tasks  # noqa: E402
 from tc_git_ops import prepare_worktrees, validate_worktrees  # noqa: E402
@@ -391,13 +401,15 @@ def validate_preparing_to_executing(cycle_dir: Path) -> dict:
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Prepare lulu-exec session workspace.")
     p.add_argument("--cycle-dir", required=True, help="Absolute path to cycle cache directory.")
-    p.add_argument("--project-root", required=True, help="Absolute path to project root.")
+    p.add_argument("--project-root", help="Absolute path to project root.")
     p.add_argument(
         "--validate",
         action="store_true",
         help="Validate worktrees and transition Preparing -> Executing.",
     )
-    return p.parse_known_args()[0]
+    args = p.parse_known_args()[0]
+    apply_project_root_arg(args)
+    return args
 
 
 def _enrich_payload(payload: dict, cycle_dir: Path, slug: str, branch: str) -> dict:
