@@ -19,10 +19,6 @@ Do NOT proceed until you have read `../_runtime.md` and loaded:
 - Feature identification from `## Session Foundation`
 </HARD-GATE>
 
-<HARD-GATE>
-Do NOT proceed until you have read `../_subagent.md`
-</HARD-GATE>
-
 ## Script Macros
 
 | Macro | Command |
