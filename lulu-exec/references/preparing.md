@@ -18,5 +18,6 @@ Subcommand contracts: module docstring / `--help`.
 2. Bind every task `target_repo` to one candidate `path`. If a name has no candidate, ask. Tasks without `target_repo` need no bind.
 3. Run `$TC_PUT_REPOS` with binds on stdin (`{}` when no task has a `target_repo`).
 4. Run `$TC_PREPARE`. Non-zero → Blocking policy.
+5. Return to the entry router.
 
 `$TC_PREPARE` owns worktree get-or-create and Preparing → Executing.
