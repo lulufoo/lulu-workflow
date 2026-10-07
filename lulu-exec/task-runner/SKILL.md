@@ -25,7 +25,7 @@ Do NOT proceed until you have read `../../_runtime.md`
 
 | Macro | Command |
 |-------|---------|
-| `$TC_CTX` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" resolve-context --task-id <task_id>` |
+| `$TC_TASK_CTX` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" resolve-context --task-id <task_id>` |
 | `$TC_PHASE` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" enter-phase --task-id <task_id> --phase <phase>` |
 | `$TC_TESTS` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" run-tests --task-id <task_id> --expect <expect>` |
 | `$TC_COMMIT_INIT` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" commit-initial --task-id <task_id>` |
@@ -36,11 +36,11 @@ Subcommand contracts: module docstring / `--help`.
 
 ## Steps
 
-1. Run `$TC_CTX`. Pin `$CTX`. cwd is `$CTX.worktree_abs_path`.
-2. **WriteTests.** `$TC_PHASE` `WriteTests`. Read `$CTX.work_order_task_path`. Write tests only.
+1. Run `$TC_TASK_CTX`. Pin `$TASK_CTX`. cwd is `$TASK_CTX.worktree_abs_path`.
+2. **WriteTests.** `$TC_PHASE` `WriteTests`. Read `$TASK_CTX.work_order_task_path`. Write tests only.
 3. **VerifyRed.** `$TC_PHASE` `VerifyRed`. `$TC_TESTS` `--expect red`.
 4. **WriteImpl.** `$TC_PHASE` `WriteImpl`. Minimal implementation. Do not modify test files.
-5. **VerifyGreen.** `$TC_PHASE` `VerifyGreen`. `$TC_TESTS` `--expect green`. `$TC_COMMIT_INIT`. Keep `final_commit`. If `$CTX.tdd_exempt`, `$TC_DONE` → `TASK_COMPLETE <task_id> sha=<final_commit>`.
+5. **VerifyGreen.** `$TC_PHASE` `VerifyGreen`. `$TC_TESTS` `--expect green`. `$TC_COMMIT_INIT`. Keep `final_commit`. If `$TASK_CTX.tdd_exempt`, `$TC_DONE` → `TASK_COMPLETE <task_id> sha=<final_commit>`.
 6. **Refactor.** `$TC_PHASE` `Refactor`. Behavior-neutral cleanup. Do not modify test files. `$TC_TESTS` `--expect green`. `$TC_COMMIT_AMEND`. `$TC_DONE`.
 7. Output `TASK_COMPLETE <task_id> sha=<final_commit>` from `$TC_COMMIT_INIT` or `$TC_COMMIT_AMEND`.
 

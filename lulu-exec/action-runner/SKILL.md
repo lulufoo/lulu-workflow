@@ -26,22 +26,22 @@ Do NOT proceed until you have read `../../_runtime.md`
 
 | Macro | Command |
 |-------|---------|
-| `$TC_CTX` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" resolve-context --task-id <task_id>` |
+| `$TC_TASK_CTX` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" resolve-context --task-id <task_id>` |
 | `$TC_RECEIPT` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" record-receipt --task-id <task_id>` — stdin: JSON list of `{"criterion", "evidence", "met"}` |
 | `$TC_DONE` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" mark-done --task-id <task_id>` |
 
 ## Steps
 
-1. Run `$TC_CTX`. Pin `$CTX`. cwd is `$CTX.worktree_abs_path`.
-2. Read `$CTX.work_order_task_path`. Reach `$CTX.goal` by whatever means fit, inside `$CTX.effects`:
+1. Run `$TC_TASK_CTX`. Pin `$TASK_CTX`. cwd is `$TASK_CTX.worktree_abs_path`.
+2. Read `$TASK_CTX.work_order_task_path`. Reach `$TASK_CTX.goal` by whatever means fit, inside `$TASK_CTX.effects`:
    - `read_only`: write to no system.
    - `mutates: <systems>`: write only to the named systems.
 3. Stay idempotent:
    - Inspect the current state first. Act only on what is missing.
    - Treat work as already done only when the target system shows it (an id, a link, an existing record), not when an earlier run is remembered.
    - If the goal cannot be reached without repeating an effect, stop with `TASK_FAILED`.
-4. For each entry of `$CTX.acceptance`, collect evidence a reader can check: an id, link, command output, or count. A criterion without evidence is unmet → `TASK_FAILED`.
-5. Run `$TC_RECEIPT` with one result per acceptance entry. `criterion` is copied from `$CTX.acceptance`; `met` is `true`.
+4. For each entry of `$TASK_CTX.acceptance`, collect evidence a reader can check: an id, link, command output, or count. A criterion without evidence is unmet → `TASK_FAILED`.
+5. Run `$TC_RECEIPT` with one result per acceptance entry. `criterion` is copied from `$TASK_CTX.acceptance`; `met` is `true`.
 6. Run `$TC_DONE`.
 7. Output `TASK_COMPLETE <task_id>`.
 
