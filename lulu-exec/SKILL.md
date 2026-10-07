@@ -1,120 +1,53 @@
 ---
 name: lulu-exec
 description: >-
-  Use when: execute a delivered work order, task exec, coding TDD, action task,
-  lulu-exec workflow, lulu-workflow lulu-exec, git worktree delivery.
+  Execute a delivered work order to a committed worktree delivery or an evidenced action receipt.
 disable-model-invocation: true
 ---
 
 # code-workflow
 
-## Overview
+Execute a delivered work order by task `kind`. Done when `$TC_CTX` reports `unit` `delivered`.
 
-Execute work-order tasks by `kind`. One task per sub-agent. `coding` runs in an isolated git worktree with TDD and a commit contract. `action` reaches a stated goal and records a receipt with evidence for every acceptance criterion; it runs in the project root unless the task names a worktree. Then a closing gate before delivery.
-
-## Blocking policy
-
-If the workflow cannot advance: **stop** (no retry, skip, or workaround), **report** the reason (stderr, exit code, or `TASK_FAILED`), and **wait** for user direction before continuing.
-
-## Prerequisites
+A non-zero `$MACRO` is Blocking: stop, report, wait.
 
 <HARD-GATE>
 Do NOT proceed until you have read `../_runtime.md` and loaded:
 
 - `$SKILL_ROOT`, `$WORKFLOW_DIR`, `$PLATFORM`, `$CACHE_DIR` from `## Platform Context`
-- `$SKILL_DIR` = `$SKILL_ROOT/lulu-exec` (before Session Foundation)
-- Feature identification logic from `## Session Foundation`
+- `$SKILL_DIR` = `$SKILL_ROOT/lulu-exec`
+- Feature identification from `## Session Foundation`
 </HARD-GATE>
 
 <HARD-GATE>
-Do NOT proceed until you have read `../_subagent.md` 
+Do NOT proceed until you have read `../_subagent.md`
 </HARD-GATE>
 
-## Commands
+## Script Macros
 
-### `/lulu-exec [<cycle_id>]` — Entry point
+| Macro | Command |
+|-------|---------|
+| `$TC_START` | `python3 "$SKILL_DIR/scripts/tc_start.py" --cycle-id "$CYCLE_ID"` |
+| `$TC_FLOW` | `python3 "$SKILL_DIR/scripts/tc_session_control.py" --cycle-dir "$CACHE_DIR/$CYCLE_ID"` |
+| `$TC_CTX` | `$TC_FLOW resolve-context` |
 
-Derive `$CYCLE_ID` via `_runtime.md` § Session Foundation, or use the explicit `<cycle_id>` argument if provided.
+Subcommand contracts: module docstring / `--help`.
 
-<HARD-GATE>
-`$CYCLE_ID` must be resolved before proceeding. If it cannot be resolved → stop and ask the user to provide it.
-</HARD-GATE>
+## Start
 
-Run entry recovery probe, branch on stdout JSON:
+1. Identify the active cycle through `_runtime.md` § Session Foundation. Do not run `$TC_START` until `$CYCLE_ID` is confirmed.
+2. Run `$TC_CTX` and pin the JSON as `$CTX`.
+3. If `$CTX.unit` is `starting`, run `$TC_START`, then `$TC_CTX` again.
+4. If `$CYCLE_TYPE` is `topic` and `$CTX.unit` is `executing` or `closing`, announce `$CTX.current_state` / `$CTX.current_task` and ask to resume. **No** → `$TC_START`, then `$TC_CTX`. Feature containers auto-resume.
 
-```bash
-python3 "$SKILL_DIR/scripts/tc_session_control.py" \
-  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
-  check-recovery
-```
+## Router
 
-- `recoverable: false` → ## Starting
-- `recoverable: true`:
-  - **Feature container** (`$CYCLE_TYPE == feature`): Announce `current_state`, `active_session`, and `current_task` (Executing only); auto-resume into ## `{resume_section}` — do not ask Yes/No.
-  - **Topic container** (`$CYCLE_TYPE == topic`): Show the same fields; ask to resume. **Yes** → ## `{resume_section}` · **No** → ## Starting.
+Load the unit named by `$CTX.unit`:
 
-> lulu-exec is on the feature stage line only (`transition-table.json`); topic exception documents fallback if `/lulu-exec` is invoked on a topic cycle.
+- `preparing` → `$SKILL_DIR/references/preparing.md`
+- `executing` → `$SKILL_DIR/references/executing.md`
+- `closing` → `$SKILL_DIR/references/closing.md`
+- `delivered` → stop
+- `starting` → ## Start
 
----
-
-## State machine
-
-Session states: `Starting` → `Preparing` → `Executing` → `Closing` → `Delivered`
-
-Task phases live in the runner for `$CTX.kind`. Do not run the TDD chain for `action`.
-
----
-
-## Starting
-
-**Step 1: Run `start.py`**
-
-```bash
-python3 "$SKILL_DIR/scripts/tc_start.py" \
-  --cycle-id "<cycle_id>"
-```
-
-> On non-zero exit: Apply § Blocking policy.
-
-**Exit:** `start.py` succeeds → proceed to § Preparing.
-
----
-
-## Preparing
-
-Load `references/preparing.md`.
-
----
-
-## Executing
-
-Load `references/executing.md`.
-
----
-
-## Closing
-
-**Feature container** (`$CYCLE_TYPE == feature`): Auto-complete delivery — run `deliver` without user confirmation.
-
-**Topic container** (`$CYCLE_TYPE == topic`): Wait for explicit user confirmation before running `deliver`.
-
-Run:
-
-```bash
-python3 "$SKILL_DIR/scripts/tc_session_control.py" \
-  --cycle-dir "$CACHE_DIR/$CYCLE_ID" \
-  deliver
-```
-
-> Precondition: `current_state` must be Closing (enforced by script).
-> On non-zero exit: Apply § Blocking policy.
-
-**Exit:** deliver succeeds → § Delivered.
-
----
-
-## Delivered
-
-Session complete; stop.
-
----
+When a unit returns, run `$TC_CTX` again and load the unit it names.
