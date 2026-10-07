@@ -16,6 +16,8 @@ Do NOT proceed until you have read `../../_subagent.md`
 
 ## Task loop
 
+Inside this loop, route only from `$TC_POINTER`. After return, the entry router runs `$TC_CTX`.
+
 1. Run `$TC_POINTER`. Pin `current_task`, `kind`, and `subagent`.
 2. Dispatch `$SUBAGENT_TOOL` with `$SUBAGENT_AWAIT_SYNC`. Pass `subagent` as `model` when set.
    - `kind: coding` → `task-runner/SKILL.md`
