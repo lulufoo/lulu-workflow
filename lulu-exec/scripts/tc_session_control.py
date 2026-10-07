@@ -4,6 +4,7 @@
 Subcommands:
     check-recovery       Read-only entry probe for Executing/Closing recovery
     get-pointer          Read workflow-state and return PointerResponse JSON
+    resolve-context      Map session state to unit JSON for the SKILL router
     confirm-task-ready   Validate task-runner exit contract after dispatch
     advance-pointer      Advance after a completed task
     deliver              Transition Closing -> Delivered
@@ -44,6 +45,24 @@ from tc_workflow_state_schema import (  # noqa: E402
 from tc_workspace_schema import load_workspace  # noqa: E402
 from tc_workflow_common import EXEC_STAGE, exec_stage_dir, load_stage_config  # noqa: E402
 from workflow_config_schema import lookup_subagent  # noqa: E402
+
+_UNIT = {
+    "Starting": "starting",
+    "Preparing": "preparing",
+    "Executing": "executing",
+    "Closing": "closing",
+    "Delivered": "delivered",
+}
+
+_START_REASONS = {
+    "no_session",
+    "missing_workflow_state",
+    "historical",
+    "empty_current_task",
+    "missing_task_list",
+    "unknown_current_task",
+    "pointer_unrecoverable",
+}
 
 
 def _session_dir(cycle_dir: Path) -> Path:
@@ -257,6 +276,31 @@ def check_recovery(cycle_dir: Path) -> dict[str, Any]:
     }
 
 
+def resolve_context(cycle_dir: Path) -> dict[str, Any]:
+    """Map check-recovery / current_state to a SKILL router unit. No new states."""
+    recovery = check_recovery(cycle_dir)
+    reason = str(recovery.get("reason") or "")
+    if reason in _START_REASONS:
+        return {
+            "unit": "starting",
+            "current_state": str(recovery.get("current_state") or ""),
+            "current_task": "",
+            "reason": reason,
+        }
+
+    ws_path = resolve_workflow_state_path(cycle_dir)
+    state = load_workflow_state(ws_path)
+    current_state = state["current_state"]
+    unit = _UNIT.get(current_state)
+    if unit is None:
+        raise ValueError(f"unsupported current_state: {current_state}")
+    return {
+        "unit": unit,
+        "current_state": current_state,
+        "current_task": state.get("current_task", ""),
+    }
+
+
 def confirm_task_ready_cmd(cycle_dir: Path, task_id: str) -> dict[str, Any]:
     session_dir = _session_dir(cycle_dir)
     ws_path = session_dir / "workflow-state.md"
@@ -388,6 +432,7 @@ def _cli() -> int:
 
     sub.add_parser("check-recovery", help="Read-only entry recovery probe")
     sub.add_parser("get-pointer", help="Read session pointer")
+    sub.add_parser("resolve-context", help="Map session state to SKILL router unit")
     confirm = sub.add_parser("confirm-task-ready", help="Validate task exit contract")
     confirm.add_argument("--task-id", required=True, help="Task id just completed (e.g. t1)")
     advance = sub.add_parser("advance-pointer", help="Advance after completed task")
@@ -403,6 +448,8 @@ def _cli() -> int:
             payload = check_recovery(cycle_dir)
         elif args.command == "get-pointer":
             payload = get_pointer(cycle_dir)
+        elif args.command == "resolve-context":
+            payload = resolve_context(cycle_dir)
         elif args.command == "confirm-task-ready":
             payload = confirm_task_ready_cmd(cycle_dir, args.task_id)
         elif args.command == "advance-pointer":
