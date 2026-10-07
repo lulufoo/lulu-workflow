@@ -20,6 +20,7 @@ from tc_session_control import (  # noqa: E402
     confirm_task_ready_cmd,
     deliver,
     get_pointer,
+    resolve_context,
 )
 from tc_workflow_state_schema import (  # noqa: E402
     init_preparing,
@@ -301,6 +302,45 @@ class TestDeliver:
         from tc_workflow_state_schema import load_workflow_state  # noqa: E402
 
         assert load_workflow_state(ws_path)["current_state"] == "Closing"
+
+
+class TestResolveContext:
+    def test_no_session_starts(self, tmp_path: Path):
+        result = resolve_context(tmp_path / "cycle-id")
+        assert result["unit"] == "starting"
+        assert result["reason"] == "no_session"
+
+    def test_starting(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path)
+        ws_path = cycle_dir / "lulu-exec" / "s1" / "workflow-state.md"
+        init_starting(ws_path, mode="work-order", task_list_ref=str(ws_path.parent / "code-task-list.md"))
+        assert resolve_context(cycle_dir)["unit"] == "starting"
+
+    def test_preparing(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path)
+        assert resolve_context(cycle_dir)["unit"] == "preparing"
+
+    def test_executing(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        _write_task_list(cycle_dir / "lulu-exec" / "s1", [("t1", " ")])
+        result = resolve_context(cycle_dir)
+        assert result["unit"] == "executing"
+        assert result["current_task"] == "t1"
+
+    def test_closing(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Closing")
+        assert resolve_context(cycle_dir)["unit"] == "closing"
+
+    def test_delivered(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Delivered")
+        assert resolve_context(cycle_dir)["unit"] == "delivered"
+
+    def test_pointer_drift_starts(self, tmp_path: Path):
+        cycle_dir = _setup_session(tmp_path, state="Executing", current_task="t1")
+        _write_task_list(cycle_dir / "lulu-exec" / "s1", [("t1", "x")])
+        result = resolve_context(cycle_dir)
+        assert result["unit"] == "starting"
+        assert result["reason"] == "pointer_unrecoverable"
 
 
 class TestCheckRecovery:
