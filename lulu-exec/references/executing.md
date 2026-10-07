@@ -2,6 +2,10 @@
 
 Dispatch each work-order task by `kind`. `$TC_FLOW` is already defined. Completion is `$MACRO` stdout.
 
+<HARD-GATE>
+Do NOT proceed until you have read `../../_subagent.md`
+</HARD-GATE>
+
 ## Script Macros
 
 | Macro | Command |
