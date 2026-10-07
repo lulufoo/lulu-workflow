@@ -6,7 +6,7 @@ Subcommands:
     enter-phase       Append enter · {phase} to code-log.md
     run-tests         Run the checkout test command; empty command skips; else enforce red/green
     commit-initial    git add -A, commit, write commit-ref, log
-    commit-amend      Amend if worktree dirty; update commit-ref and log
+    commit-amend      git add -A, amend if worktree dirty; update commit-ref and log
     mark-done         Mark [x] in code-task-list and append enter · Done
     record-receipt    Write action-receipt.json for an action task (results JSON on stdin)
 
@@ -261,6 +261,7 @@ def commit_amend_cmd(
         }
 
     data = load_commit_ref(ref_path)
+    git_add_all(worktree)
     final_commit = git_commit_amend(worktree)
     message = data["commit_message"]
     recorded_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -367,7 +368,7 @@ def _cli() -> int:
     commit_init = sub.add_parser("commit-initial", help="Stage, commit, write commit-ref", parents=[conv_id_parent])
     commit_init.add_argument("--task-id", required=True)
 
-    commit_amd = sub.add_parser("commit-amend", help="Amend commit if worktree dirty", parents=[conv_id_parent])
+    commit_amd = sub.add_parser("commit-amend", help="Stage, amend if worktree dirty", parents=[conv_id_parent])
     commit_amd.add_argument("--task-id", required=True)
 
     done = sub.add_parser("mark-done", help="Mark task done in list and log Done phase", parents=[conv_id_parent])

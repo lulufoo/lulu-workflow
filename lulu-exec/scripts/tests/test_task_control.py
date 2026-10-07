@@ -13,6 +13,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tc_confirm_task_ready import confirm_task_ready  # noqa: E402
+from tc_git_ops import git_head_sha, status_clean  # noqa: E402
 from tc_task_control import (  # noqa: E402
     commit_amend_cmd,
     commit_initial_cmd,
@@ -99,6 +100,22 @@ def _setup_cycle(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
         {"current_state": "Executing", "current_task": "t1", "current_phase": ""},
     )
     return cycle_dir, project_root, worktree, session_dir
+
+
+def _init_git_repo(worktree: Path) -> None:
+    subprocess.run(["git", "init"], cwd=worktree, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "t@test"],
+        cwd=worktree,
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "t"],
+        cwd=worktree,
+        capture_output=True,
+        check=True,
+    )
 
 
 class TestResolveContext:
@@ -263,6 +280,47 @@ class TestCommitAmend:
         monkeypatch.setattr("tc_task_control.status_clean", lambda _p: True)
         result = commit_amend_cmd(cycle_dir, "t1", project_root)
         assert result["skipped"] is True
+
+    def test_commit_amend_stages_unstaged_into_head(self, tmp_path: Path):
+        cycle_dir, project_root, worktree, session_dir = _setup_cycle(tmp_path)
+        _init_git_repo(worktree)
+        (worktree / "file.txt").write_text("initial\n", encoding="utf-8")
+        subprocess.run(["git", "add", "-A"], cwd=worktree, capture_output=True, check=True)
+        subprocess.run(
+            ["git", "commit", "-m", "feat(code): t1 First task"],
+            cwd=worktree,
+            capture_output=True,
+            check=True,
+        )
+        initial_sha = git_head_sha(str(worktree))
+        task_dir = session_dir / "tasks" / "t1"
+        task_dir.mkdir(parents=True)
+        (task_dir / "commit-ref.md").write_text(
+            "task_id: t1\n"
+            "branch: wt/feat-test\n"
+            f"initial_commit: {initial_sha}\n"
+            f"final_commit: {initial_sha}\n"
+            'commit_message: "feat(code): t1 First task"\n'
+            "amended: false\n"
+            "recorded_at: 2024-01-01T00:00:00Z\n",
+            encoding="utf-8",
+        )
+        (worktree / "file.txt").write_text("refactored\n", encoding="utf-8")
+
+        result = commit_amend_cmd(cycle_dir, "t1", project_root)
+
+        assert result["skipped"] is False
+        assert result["amended"] is True
+        shown = subprocess.run(
+            ["git", "show", "HEAD:file.txt"],
+            cwd=worktree,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert shown.stdout == "refactored\n"
+        assert status_clean(str(worktree)) is True
+        assert result["final_commit"] != initial_sha
 
 
 class TestMarkDone:
