@@ -1,25 +1,17 @@
 ---
 name: code-task-runner
 description: >-
-  Single-task TDD executor for lulu-workflow /code sessions.
-  Invoked by the parent code/SKILL.md orchestrator per task.
-  Input: dispatch coordinates; bootstraps $CTX via task_control resolve-context.
-  Output: TASK_COMPLETE or TASK_FAILED.
-  Use when: dispatched by code/SKILL.md Executing loop for a single task.
-meta-skill-version: 1.0.0
+  Single-task TDD executor. Output: TASK_COMPLETE or TASK_FAILED.
+disable-model-invocation: true
 ---
 
 # code-task-runner
 
-Sub-agent executing a single TDD task within a lulu-workflow /code session.
-Mechanical side effects (log, tests, commit, checkbox) are driven by `task_control.py`.
-Agent owns creative work: WriteTests, WriteImpl, Refactor.
+Run one coding task through TDD. Done when `$TC_DONE` succeeds and the parent receives `TASK_COMPLETE` with `final_commit`.
 
 ## Blocking policy
 
-If the workflow cannot advance: **stop** (no retry, skip, or workaround), **report** the reason (`TASK_FAILED`), and **wait** for user direction before continuing.
-
-Any `task_control.py` non-zero exit or phase exception → `TASK_FAILED` + optional `error-log.md`. Do not continue the phase loop.
+If the workflow cannot advance: **stop**, report `TASK_FAILED`, and wait. Any `$MACRO` non-zero exit → `TASK_FAILED`. Do not continue the phase loop.
 
 ## Prerequisites
 
@@ -27,95 +19,29 @@ Any `task_control.py` non-zero exit or phase exception → `TASK_FAILED` + optio
 Do NOT proceed until you have read `../../_runtime.md`
 </HARD-GATE>
 
-- `$SKILL_DIR` = `$SKILL_ROOT/lulu-exec` (from `## Platform Context` in `_runtime.md`)
+`$SKILL_DIR` = `$SKILL_ROOT/lulu-exec`
 
-## Dispatch input
+## Script Macros
 
-Received as JSON via the invocation prompt `## Input` block:
+| Macro | Command |
+|-------|---------|
+| `$TC_CTX` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" resolve-context --task-id <task_id>` |
+| `$TC_PHASE` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" enter-phase --task-id <task_id> --phase <phase>` |
+| `$TC_TESTS` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" run-tests --task-id <task_id> --expect <expect>` |
+| `$TC_COMMIT_INIT` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" commit-initial --task-id <task_id>` |
+| `$TC_COMMIT_AMEND` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" commit-amend --task-id <task_id>` |
+| `$TC_DONE` | `python3 "$SKILL_DIR/scripts/tc_task_control.py" --cycle-dir "<cycle_dir>" mark-done --task-id <task_id>` |
 
-```json
-{
-  "task_id":   "<task_id>",
-  "cycle_dir": "<abs_path>/.cache/<platform>/lulu-workflow/<cycle_id>"
-}
-```
+Subcommand contracts: module docstring / `--help`.
 
-## Step 0: Resolve context
+## Steps
 
-```bash
-python3 "$SKILL_DIR/scripts/tc_task_control.py" \
-  --cycle-dir "<cycle_dir>" \
-  resolve-context --task-id <task_id>
-```
+1. Run `$TC_CTX`. Pin `$CTX`. cwd is `$CTX.worktree_abs_path`.
+2. **WriteTests.** `$TC_PHASE` `WriteTests`. Read `$CTX.work_order_task_path`. Write tests only.
+3. **VerifyRed.** `$TC_PHASE` `VerifyRed`. `$TC_TESTS` `--expect red`.
+4. **WriteImpl.** `$TC_PHASE` `WriteImpl`. Minimal implementation. Do not modify test files.
+5. **VerifyGreen.** `$TC_PHASE` `VerifyGreen`. `$TC_TESTS` `--expect green`. `$TC_COMMIT_INIT`. Keep `final_commit`. If `$CTX.tdd_exempt`, `$TC_DONE` → `TASK_COMPLETE <task_id> sha=<final_commit>`.
+6. **Refactor.** `$TC_PHASE` `Refactor`. Behavior-neutral cleanup. Do not modify test files. `$TC_TESTS` `--expect green`. `$TC_COMMIT_AMEND`. `$TC_DONE`.
+7. Output `TASK_COMPLETE <task_id> sha=<final_commit>` from `$TC_COMMIT_INIT` or `$TC_COMMIT_AMEND`.
 
-Parse stdout JSON as `$CTX`. Required fields include:
-`work_order_task_path`, `task_output_dir`, `code_task_list_path`, `worktree_abs_path`,
-`branch`, `tdd_exempt`, `commit_message_template`, `test_command`.
-
-All code edits and test runs: cwd = `$CTX.worktree_abs_path`.
-
-## Phase loop
-
-Use this command template for mechanical steps:
-
-```bash
-python3 "$SKILL_DIR/scripts/tc_task_control.py" \
-  --cycle-dir "<cycle_dir>" \
-  <subcommand> --task-id <task_id> [args]
-```
-
-### WriteTests
-
-1. `enter-phase --phase WriteTests`
-2. Read `$CTX.work_order_task_path`; write test files only (no implementation).
-3. Continue to VerifyRed.
-
-### VerifyRed
-
-1. `enter-phase --phase VerifyRed`
-2. `run-tests --expect red` — empty `test_command` skips
-3. On non-zero exit → `TASK_FAILED` (unexpected all-PASS).
-4. Continue to WriteImpl.
-
-### WriteImpl
-
-1. `enter-phase --phase WriteImpl`
-2. Write minimal implementation; do not modify test files.
-3. Continue to VerifyGreen.
-
-### VerifyGreen
-
-1. `enter-phase --phase VerifyGreen`
-2. `run-tests --expect green` — empty `test_command` skips
-3. `commit-initial` — parse stdout JSON; keep `final_commit` for `TASK_COMPLETE`.
-4. If `$CTX.tdd_exempt` → `mark-done` → `TASK_COMPLETE`.
-5. Else continue to Refactor.
-
-### Refactor
-
-1. `enter-phase --phase Refactor`
-2. Apply behavior-neutral cleanup; do not modify test files.
-3. `run-tests --expect green` — empty `test_command` skips
-4. `commit-amend` (skips automatically when worktree is clean).
-5. `mark-done` → `TASK_COMPLETE`.
-
-## Exit contract
-
-On success, output to parent:
-
-```
-TASK_COMPLETE <task_id> sha=<final_commit>
-```
-
-Use `final_commit` from `commit-initial` or `commit-amend` stdout JSON.
-
-On failure:
-
-1. Write `$CTX.task_output_dir/error-log.md` with error details.
-2. Output:
-
-```
-TASK_FAILED <task_id> reason=<brief description>
-```
-
-Do not manually write `commit-ref.md`, `code-log.md` entries, or flip `[x]` — `task_control.py` owns those artifacts.
+Do not write session artifacts by hand.
