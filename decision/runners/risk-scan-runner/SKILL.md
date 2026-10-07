@@ -7,7 +7,7 @@ meta-skill-version: 1.0.0
 # risk-scan-runner
 
 Classify risks. Incremental mode confirms and persists hits as `RK#`. Full mode
-returns a draft to the caller (R persists after pack confirm).
+returns a draft to the caller (R persists).
 
 Does not change `active_gate`. Full mode does not persist.
 
