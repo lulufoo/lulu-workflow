@@ -20,19 +20,9 @@ Routes project-level work into a stage skill. Done when `init` has reported, or 
 
 ## Stage lines
 
-Both lines start at `lulu-brainstorm`. `$CYCLE_TYPE` is `topic` or `feature`.
+`$CYCLE_TYPE` is `topic` or `feature`, and each has its own stage dependencies in `config/transition-table.json`, under the `topic` and `feature` keys.
 
-Stage dependencies are defined in `config/transition-table.json`: read its `topic` key for a topic cycle and its `feature` key for a feature cycle. Each entry maps a `from` stage to the `to` stages it allows (`null` is the entry), and the table prevails over this section if they differ.
-
-| Line | Purpose | Shape |
-|------|---------|-------|
-| **topic** | Settle product and technical decisions | `lulu-brainstorm` forks to `lulu-bet` and `lulu-approach`; the two do not join |
-| **feature** | Carry a feature through to code | `lulu-brainstorm` forks to `lulu-bet` → `lulu-spec` and `lulu-approach` → `lulu-design`; both join `lulu-plan` → `lulu-tasks` → `lulu-exec` |
-
-1. `lulu-bet` and `lulu-approach` appear on both lines.
-2. On `topic`, `lulu-bet` and `lulu-approach` are independent: either may run first, and neither reads the other's output. `lulu-approach` delivers the Ticket dependency graph.
-3. On `feature`, the product track and the technical track sit side by side and join at `lulu-plan`.
-4. On `feature`, `lulu-approach` may also go straight to `lulu-tasks` when no plan is needed.
+Read the key for the current `$CYCLE_TYPE`: each entry maps a `from` stage to the `to` stages it allows, and a `null` `from` lists the stages a cycle can start at.
 
 ## Routing
 
