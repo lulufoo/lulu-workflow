@@ -502,7 +502,10 @@ def test_holder_topic_constraints_include_goal() -> None:
     for stage in ("lulu-approach", "lulu-bet"):
         path = _WORKFLOW_ROOT / stage / "constraints-topic.json"
         loaded = load_constraints_config(path)
-        assert set(loaded["domain"]["dimension_profile"]) == set(ALL_X_DIMENSIONS)
+        expected = set(ALL_X_DIMENSIONS)
+        if stage == "lulu-approach":
+            expected.add("ticket_dependency_graph")
+        assert set(loaded["domain"]["dimension_profile"]) == expected
         for entry in loaded["domain"]["dimension_profile"].values():
             assert entry["goal"]
             assert entry["completion"]

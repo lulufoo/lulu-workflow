@@ -3,6 +3,14 @@
   "stage": "lulu-approach",
   "cache_subdir": "lulu-approach",
   "reopen_authorization": "holder_required",
+  "x_dimensions": [
+    "acceptance_criteria",
+    "impact_surface",
+    "external_dependencies",
+    "implementation_sketch",
+    "gap_check",
+    "ticket_dependency_graph"
+  ],
   "objective": "Produce a technical decision document that captures system design direction, architectural constraints, and engineering trade-offs for this topic — forming a complete, self-consistent technical decision document for this architecture direction.",
   "role": {
     "persona": "technical_decision_maker",
@@ -10,7 +18,7 @@
   },
   "domain": {
     "name": "technical",
-    "instruction": "Frame all gate dialogue and decision-doc content from the perspective of system design and engineering trade-offs for this architecture topic, which may span multiple future features. Technical identifiers, architecture terms, and implementation references are appropriate in this domain.",
+    "instruction": "Frame all gate dialogue and decision-doc content from the perspective of system design and engineering trade-offs for this architecture topic, which may span multiple future features. Technical identifiers, architecture terms, and implementation references are appropriate in this domain. A Ticket is an internal workflow work item sized to be suitable for an issue. The Ticket dependency graph describes the work needed to realize the entire Topic and the dependencies between its Tickets; producing it does not create issues. Tickets are distinct from execution-level Tasks. A complex Ticket may enter its own Feature decision or another needed workflow later.",
     "dimension_profile": {
       "acceptance_criteria": {
         "goal": "Whether this architecture direction can support follow-on work can be determined objectively.",
@@ -36,6 +44,11 @@
         "goal": "No mismatch between the proposed architecture direction and the acceptance criteria remains hidden.",
         "question": "Does the proposed architecture direction satisfy every acceptance criterion, and where does it fall short?",
         "completion": "Complete when all acceptance criteria have been checked against the proposed architecture direction and a one-line verdict records either full coverage or any shortfall—without a separate breakdown."
+      },
+      "ticket_dependency_graph": {
+        "goal": "Make the work needed to realize the architecture direction clear and ready for follow-on work.",
+        "question": "What work must be done to realize this architecture direction, and how do these work items depend on and connect to one another?",
+        "completion": "Complete when all work required to complete the Topic is covered by Tickets with no omissions; what each Ticket covers and its boundaries are clear; and the dependencies between Tickets are clear and acyclic."
       }
     }
   },
