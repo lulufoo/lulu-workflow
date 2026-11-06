@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -329,3 +331,59 @@ def test_run_archive_integration_matches_session_base_dir(project_root: Path) ->
     assert not expected_hot.exists()
     cold = cold_session_dir(project_root, other, "lulu-bet", platform=_PLATFORM)
     assert cold.is_dir()
+
+
+def test_keep_topic_bet_while_awaiting_delivery(project_root: Path) -> None:
+    cycle_id = "topic-awaiting-delivery"
+    _write_active_context(project_root, {
+        "conv-bet": {"cycle_id": cycle_id, "stage": "lulu-bet", "cycle_type": "topic"},
+    })
+    hot = _setup_session(project_root, cycle_id, "lulu-bet", "lulu-bet", current_state="Completed")
+
+    ok, _ = archive_other_delivered_sessions(project_root, "conv-other", platform=_PLATFORM)
+    assert ok
+    assert hot.is_dir()
+    assert not cold_session_dir(project_root, "conv-bet", "lulu-bet", platform=_PLATFORM).exists()
+
+
+@pytest.mark.parametrize("with_bet", [True, False], ids=["delivered-bet", "pure-tech"])
+def test_topic_approach_starts_in_another_conversation(project_root: Path, with_bet: bool) -> None:
+    cycle_id = "topic-cross-conversation"
+    cache = project_root / _CACHE_ROOT
+    cycle = cache / cycle_id
+    cycle.mkdir(parents=True)
+    (cache / "cycles.json").write_text(json.dumps({cycle_id: {"name": "topic"}}))
+    if with_bet:
+        holder = _setup_session(project_root, cycle_id, "lulu-bet", "lulu-bet", current_state="Completed")
+        document = holder / "decision-doc.md"
+        document.write_text("# Product decision\n")
+        package = holder / "decision-package.json"
+        package.write_text(json.dumps({"version": 2, "status": "package_ready", "main": {"decision_doc_path": document.name}}))
+        (cycle / "delivered-refs.json").write_text(json.dumps({"version": 1, "entries": {"lulu-bet": {"artifact": "decision-package", "path": str(package)}}}))
+        (cycle / "cycle-state.json").write_text(json.dumps({"current_stage": "lulu-bet"}))
+        _write_active_context(project_root, {
+            "conv-bet": {"cycle_id": cycle_id, "stage": "lulu-bet", "cycle_type": "topic"},
+        })
+
+    workflow = Path(__file__).resolve().parents[3]
+    constraints = workflow / "lulu-approach" / "constraints-topic.json"
+    env = {**os.environ, "LULU_PLATFORM": "cursor"}
+    material = [sys.executable, str(workflow / "lulu-approach/scripts/resolve_context_docs.py"),
+                "--project-root", str(project_root), "--cycle-id", cycle_id, "--constraints", str(constraints)]
+    before = subprocess.run(material, cwd=project_root, env=env, capture_output=True, text=True)
+    assert before.returncode == 0, before.stderr
+    assert json.loads(before.stdout)["files"] == ([str(document)] if with_bet else [])
+
+    started = subprocess.run(
+        [sys.executable, str(workflow / "decision/scripts/dec_start.py"), "--project-root", str(project_root),
+         "--cycle-id", cycle_id, "--constraints", str(constraints), "--conversation-id", "conv-approach"],
+        cwd=project_root, env=env, capture_output=True, text=True,
+    )
+    assert started.returncode == 0, started.stdout + started.stderr
+    assert (cycle / "lulu-approach" / "gate-state.json").is_file()
+    after = subprocess.run(material, cwd=project_root, env=env, capture_output=True, text=True)
+    assert after.returncode == 0, after.stderr
+    assert json.loads(after.stdout)["files"] == ([str(document)] if with_bet else [])
+    if with_bet:
+        assert package.is_file()
+        assert document.is_file()
