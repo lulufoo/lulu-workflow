@@ -25,9 +25,7 @@ _KERNEL_CORE = _SKILL_ROOT / "compose" / "scripts" / "_kernel"
 _KERNEL_SCHEMA_SESSION = _SKILL_ROOT / "compose" / "scripts" / "schema" / "session"
 _KERNEL_SCRIPTS = _SKILL_ROOT / "compose" / "scripts"
 
-COMPOSE_STAGES = frozenset(
-    {"lulu-arch", "lulu-blueprint", "lulu-design", "lulu-plan", "lulu-spec"}
-)
+COMPOSE_STAGES = frozenset({"lulu-design", "lulu-plan", "lulu-spec"})
 
 
 @contextmanager

@@ -131,7 +131,6 @@ class TestShouldInjectConversationId:
             "python3 ~/.cursor/skills/lulu-workflow/decision/scripts/dec_start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-workflow/scripts/runtime_control.py --project-root /tmp resolve-session-context",
             "python3 ~/.cursor/skills/lulu-workflow/scripts/cycle_control.py --project-root /tmp bind-context --cycle-id fid1 --skill-dir /tmp/lulu-plan",
-            "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/start.py --profile lulu-blueprint --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/start.py --profile lulu-spec --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/start.py --profile lulu-plan --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/start.py --profile lulu-design --cycle-id fid1",

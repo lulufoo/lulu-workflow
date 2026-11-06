@@ -16,8 +16,6 @@ for _rel in (
     "lulu-plan/scripts/start",
     "lulu-design/scripts/start",
     "lulu-spec/scripts/start",
-    "lulu-arch/scripts/start",
-    "lulu-blueprint/scripts/start",
     "decision/scripts",
 ):
     _p = _WORKFLOW_ROOT / _rel
@@ -26,9 +24,7 @@ for _rel in (
 
 import bootstrap  # noqa: F401
 from delivered_refs_schema import DeliveredRef  # noqa: E402
-from product_blueprint_start_adapter import ProductBlueprintStartAdapter  # noqa: E402
 from product_spec_start_adapter import ProductSpecStartAdapter  # noqa: E402
-from tech_arch_start_adapter import TechArchStartAdapter  # noqa: E402
 from tech_design_start_adapter import TechDesignStartAdapter  # noqa: E402
 from tech_plan_start_adapter import TechPlanStartAdapter  # noqa: E402
 
@@ -226,44 +222,6 @@ def test_delivered_ref_ignores_legacy_decision_doc_path_key() -> None:
     assert ref.artifact == "decision-package"
     assert "decision_doc_path" not in ref.to_dict()
     assert not hasattr(ref, "decision_doc_path")
-
-
-def test_tech_arch_projects_approach_decision_package(tmp_path: Path):
-    adapter = TechArchStartAdapter()
-    decision = _write_approach_decision_package(tmp_path / "approach")
-    revision = tmp_path / "arch" / "revision1"
-    revision.mkdir(parents=True)
-    refs = adapter.resolve_scope_refs(
-        delivered_refs=[
-            DeliveredRef(
-                type="lulu-approach",
-                path=str(decision),
-                artifact="decision-package",
-            ),
-        ],
-        revision_dir=revision,
-    )
-    assert refs[0].artifact == "scope-package"
-    assert Path(refs[0].path) == revision / "scope-package.json"
-
-
-def test_product_blueprint_projects_bet_decision_package(tmp_path: Path):
-    adapter = ProductBlueprintStartAdapter()
-    decision = _write_bet_decision_package(tmp_path / "bet")
-    revision = tmp_path / "blueprint" / "revision1"
-    revision.mkdir(parents=True)
-    refs = adapter.resolve_scope_refs(
-        delivered_refs=[
-            DeliveredRef(
-                type="lulu-bet",
-                path=str(decision),
-                artifact="decision-package",
-            ),
-        ],
-        revision_dir=revision,
-    )
-    assert refs[0].artifact == "scope-package"
-    assert Path(refs[0].path) == revision / "scope-package.json"
 
 
 def test_tech_plan_approach_fallback_projects_decision_package(tmp_path: Path):

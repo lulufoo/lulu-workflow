@@ -119,10 +119,7 @@ FEATURE_STAGES = [
     "lulu-approach", "lulu-plan",
     "lulu-tasks", "lulu-exec",
 ]
-TOPIC_STAGES = [
-    "lulu-bet", "lulu-blueprint",
-    "lulu-approach", "lulu-arch",
-]
+TOPIC_STAGES = ["lulu-bet", "lulu-approach"]
 
 
 # ---------------------------------------------------------------------------
@@ -206,14 +203,6 @@ class TestInvalidateDownstream:
     def test_topic_reopen_product_diagnostic_invalidates_downstream(self):
         from_sp = _make_state(self.cache_dir, "topic-1", "lulu-bet", "r1", "Drafting")
         _make_state(self.cache_dir, "topic-1", "lulu-approach", "r1", "Delivered")
-        _write_compose_session_v2(self.cache_dir, "topic-1", "lulu-blueprint")
-        blueprint_ws = _write_compose_workflow(
-            self.cache_dir, "topic-1", "lulu-blueprint", current_state="Delivered"
-        )
-        _write_compose_session_v2(self.cache_dir, "topic-1", "lulu-arch")
-        arch_ws = _write_compose_workflow(
-            self.cache_dir, "topic-1", "lulu-arch", current_state="Delivered"
-        )
 
         invalidate_downstream("topic-1", "lulu-bet", "topic", self.cache_dir)
 
@@ -221,8 +210,6 @@ class TestInvalidateDownstream:
         assert parse_frontmatter(from_sp.read_text())["current_state"] == "Drafting"
         approach = self.cache_dir / "topic-1" / stage_subdir("lulu-approach") / "session-state.md"
         assert parse_frontmatter(approach.read_text())["current_state"] == "Invalidated"
-        assert parse_frontmatter(blueprint_ws.read_text())["current_state"] == "Invalidated"
-        assert parse_frontmatter(arch_ws.read_text())["current_state"] == "Invalidated"
 
     def test_compose_v1_session_skipped_with_warning(self):
         _write_compose_session_v2(self.cache_dir, "feat-1", "lulu-plan", version=1)
@@ -313,10 +300,4 @@ class TestInvalidateDownstream:
         assert "Invalidated" not in content
 
     def test_compose_stages_constant(self):
-        assert COMPOSE_STAGES == {
-            "lulu-arch",
-            "lulu-blueprint",
-            "lulu-design",
-            "lulu-plan",
-            "lulu-spec",
-        }
+        assert COMPOSE_STAGES == {"lulu-design", "lulu-plan", "lulu-spec"}

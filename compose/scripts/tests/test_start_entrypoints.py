@@ -44,8 +44,6 @@ def test_engine_registers_start_only_in_macro_table() -> None:
 
 def test_static_profile_holders_bind_compose_inputs() -> None:
     for stage, preflight in (
-        ("lulu-arch", "tech_arch_preflight.py"),
-        ("lulu-blueprint", "product_blueprint_preflight.py"),
         ("lulu-design", "tech_design_preflight.py"),
         ("lulu-spec", "product_spec_preflight.py"),
     ):

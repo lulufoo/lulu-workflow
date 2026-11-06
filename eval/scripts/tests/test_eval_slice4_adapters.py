@@ -40,8 +40,6 @@ _HUMAN_FIRST_DEFS = (
 _FULL_REMEDIATION_PROFILES = (
     _WORKFLOW_ROOT / "lulu-plan" / "compose-profile.json",
     _WORKFLOW_ROOT / "lulu-design" / "compose-profile.json",
-    _WORKFLOW_ROOT / "lulu-arch" / "compose-profile.json",
-    _WORKFLOW_ROOT / "lulu-blueprint" / "compose-profile.json",
     _WORKFLOW_ROOT / "lulu-spec" / "compose-profile.json",
 )
 _DECISION_PROFILE = _WORKFLOW_ROOT / "decision" / "eval" / "eval-profile.json"
@@ -103,9 +101,9 @@ class TestDimensionDefinitions:
 
 
 class TestAdapterProfiles:
-    def test_six_families_declare_eval_capability(self) -> None:
+    def test_four_families_declare_eval_capability(self) -> None:
         profiles = [*_FULL_REMEDIATION_PROFILES, _DECISION_PROFILE]
-        assert len(profiles) == 6
+        assert len(profiles) == 4
         for path in profiles:
             assert _eval_block(path)["eval_capability"] in {
                 "full-remediation",

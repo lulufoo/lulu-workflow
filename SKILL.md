@@ -3,9 +3,9 @@ name: lulu-workflow
 description: >-
   Top-level development workflow framework. Use when mentioning lulu-workflow,
   开发工作流, dev workflow, product doc workflow, 产品文档流程, lulu-brainstorm, or any sub-stage
-  (lulu-bet, lulu-approach, lulu-spec, lulu-blueprint, lulu-arch, lulu-design, lulu-plan, lulu-tasks, lulu-exec).
+  (lulu-bet, lulu-approach, lulu-spec, lulu-design, lulu-plan, lulu-tasks, lulu-exec).
 disable-model-invocation: true
-argument-hint: "[lulu-brainstorm | pd=lulu-bet | td=lulu-approach | ps=lulu-spec | pa=lulu-blueprint | ta=lulu-arch | ds=lulu-design | t=lulu-plan | w=lulu-tasks | c=lulu-exec]"
+argument-hint: "[lulu-brainstorm | pd=lulu-bet | td=lulu-approach | ps=lulu-spec | ds=lulu-design | t=lulu-plan | w=lulu-tasks | c=lulu-exec]"
 ---
 
 # lulu-workflow
@@ -39,10 +39,8 @@ Load one sub-SKILL after `$CYCLE_ID` is confirmed.
 |---|---|---|
 | `lulu-brainstorm` | Divergence before a problem is defined | Read [lulu-brainstorm/SKILL.md](./lulu-brainstorm/SKILL.md) |
 | `lulu-bet` / `pd` | Product decision | Read [lulu-bet/SKILL.md](./lulu-bet/SKILL.md) |
-| `lulu-blueprint` / `pa` | Product arch (topic) | Read [lulu-blueprint/SKILL.md](./lulu-blueprint/SKILL.md) |
 | `lulu-spec` / `ps` | Product spec (feature) | Read [lulu-spec/SKILL.md](./lulu-spec/SKILL.md) |
 | `lulu-approach` / `td` | Tech decision | Read [lulu-approach/SKILL.md](./lulu-approach/SKILL.md) |
-| `lulu-arch` / `ta` | Tech arch (topic) | Read [lulu-arch/SKILL.md](./lulu-arch/SKILL.md) |
 | `lulu-design` / `ds` | Tech design | Read [lulu-design/SKILL.md](./lulu-design/SKILL.md) |
 | `lulu-plan` / `t` | Tech plan | Read [lulu-plan/SKILL.md](./lulu-plan/SKILL.md) |
 | `lulu-tasks` / `w` | Tech work order | Read [lulu-tasks/SKILL.md](./lulu-tasks/SKILL.md) |

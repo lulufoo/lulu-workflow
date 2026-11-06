@@ -13,11 +13,9 @@ import pytest
 from compose_start_test_helpers import compose_start_args
 
 _LDEV = Path(__file__).resolve().parents[2]
-_STAGES = ["decision", "lulu-blueprint", "lulu-arch", "lulu-plan", "lulu-tasks", "lulu-exec"]
+_STAGES = ["decision", "lulu-plan", "lulu-tasks", "lulu-exec"]
 # compose start.py never integrated run_archive; other stages defer via comment.
-_STAGES_WITH_DEFERRED_ARCHIVE = [
-    s for s in _STAGES if s not in ("lulu-plan", "lulu-arch", "lulu-blueprint")
-]
+_STAGES_WITH_DEFERRED_ARCHIVE = [s for s in _STAGES if s != "lulu-plan"]
 _FID = "20260524143022-02cd7e6e"
 _CONV_ID = "test-conversation-aaa"
 _ENV_COPILOT = {**os.environ, "LULU_PLATFORM": "copilot"}
@@ -25,9 +23,7 @@ _FEATURE_CYCLE = [
     "lulu-bet", "lulu-spec", "lulu-approach",
     "lulu-plan", "lulu-tasks", "lulu-exec",
 ]
-_TOPIC_CYCLE = [
-    "lulu-bet", "lulu-blueprint", "lulu-approach", "lulu-arch",
-]
+_TOPIC_CYCLE = ["lulu-bet", "lulu-approach"]
 _TOPIC_ID = "topic-20260524143022-aabbccdd"
 _KERNEL_START = _LDEV / "compose" / "scripts" / "session" / "start.py"
 
@@ -47,13 +43,13 @@ def _diag_holder_args(stage: str = "lulu-bet") -> list[str]:
 
 
 def _start_py(stage: str) -> Path:
-    if stage in ("lulu-plan", "lulu-arch", "lulu-blueprint"):
+    if stage == "lulu-plan":
         return _KERNEL_START
     return _LDEV / stage / "scripts" / ({"lulu-exec": "tc_start.py", "decision": "dec_start.py", "lulu-tasks": "tt_start.py"}.get(stage, "start.py"))
 
 
 def _scripts_dir(stage: str) -> Path:
-    if stage in ("lulu-plan", "lulu-arch", "lulu-blueprint"):
+    if stage == "lulu-plan":
         return _KERNEL_START.parent
     return _LDEV / stage / "scripts"
 
@@ -200,40 +196,6 @@ def _seed_tech_plan_delivered_refs(
         )
 
 
-def _seed_lulu_bet_delivered_refs(
-    cache_dir: Path,
-    cycle_id: str,
-    project_root: Path,
-) -> None:
-    del project_root
-    diag_dir = cache_dir / cycle_id / "lulu-bet"
-    diag_dir.mkdir(parents=True, exist_ok=True)
-    decision_doc = diag_dir / "decision-doc.md"
-    if not decision_doc.is_file():
-        decision_doc.write_text("# Decision\n", encoding="utf-8")
-    decision = diag_dir / "decision-package.json"
-    if not decision.is_file():
-        decision.write_text(
-            json.dumps(
-                {
-                    "version": 1,
-                    "status": "package_ready",
-                    "main": {"decision_doc_path": "decision-doc.md"},
-                    "slices": [],
-                }
-            ),
-            encoding="utf-8",
-        )
-    _upsert_delivered_ref_entry(
-        cache_dir,
-        cycle_id,
-        delivered_type="lulu-bet",
-        path=decision,
-        profile_id="lulu-bet",
-        artifact="decision-package",
-    )
-
-
 def _seed_gate_for_stage(tmp_path: Path, to_stage: str, *, cycle_id: str = _FID) -> None:
     cycle_order = _TOPIC_CYCLE if cycle_id.startswith("topic-") else _FEATURE_CYCLE
     if to_stage not in cycle_order:
@@ -248,8 +210,6 @@ def _seed_gate_for_stage(tmp_path: Path, to_stage: str, *, cycle_id: str = _FID)
         _make_cycle_state(cd, cycle_id, prior[-1])
     if to_stage in ("lulu-plan", "lulu-tasks"):
         _seed_tech_plan_delivered_refs(cd, cycle_id, tmp_path)
-    if to_stage == "lulu-blueprint":
-        _seed_lulu_bet_delivered_refs(cd, cycle_id, tmp_path)
 
 
 def _seed_decision_config(tmp_path: Path) -> None:
@@ -406,17 +366,6 @@ class TestSessionPath:
             cwd=str(tmp_path),
         )
 
-    def _run_product_arch(self, tmp_path):
-        _seed_gate_for_stage(tmp_path, "lulu-blueprint", cycle_id=_TOPIC_ID)
-        return subprocess.run(
-            [sys.executable, str(_start_py("lulu-blueprint")),
-             "--project-root", str(tmp_path),
-             "--cycle-id", _TOPIC_ID,
-             *compose_start_args("lulu-blueprint", tmp_path)],
-            capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(tmp_path),
-        )
-
     def _run_tech(self, tmp_path):
         _seed_gate_for_stage(tmp_path, "lulu-plan")
         return subprocess.run(
@@ -522,12 +471,6 @@ class TestSessionPath:
         data = json.loads(ctx.read_text(encoding="utf-8"))
         assert _CONV_ID in data
         assert data[_CONV_ID]["stage"] == "lulu-plan"
-
-    def test_removed_product_arch_cannot_create_topic_session(self, tmp_path):
-        result = self._run_product_arch(tmp_path)
-        ss = _cache_dir(tmp_path) / _TOPIC_ID / "lulu-blueprint" / "session-state.md"
-        assert result.returncode != 0
-        assert not ss.exists()
 
     def test_tech_session_file_at_feature_first_path(self, tmp_path):
         self._run_tech(tmp_path)

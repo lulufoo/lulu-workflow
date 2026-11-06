@@ -27,11 +27,6 @@ def check_gate(
     """Validate gate for to_stage using transition-table.json rules."""
     transitions = load_transitions(cycle_type)
     all_stages = known_stages(cycle_type)
-    if cycle_type == "topic" and to_stage in {"lulu-blueprint", "lulu-arch"}:
-        return (False, agent_stop_message(
-            f"Stage {to_stage} is not part of the Topic flow",
-            forbidden="start.py", workarounds="alternate cycle, rollback, flags, etc.",
-        ))
     if to_stage not in all_stages:
         return (True, "OK")
 

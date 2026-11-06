@@ -15,7 +15,7 @@ _DIMENSION_DEF_FILES = {
 
 _TOPIC_EVAL_BLOCKED = (
     "topic cycles do not evaluate in lulu-plan; "
-    "use lulu-arch stage for topic Evaluating."
+    "feature cycle only."
 )
 
 

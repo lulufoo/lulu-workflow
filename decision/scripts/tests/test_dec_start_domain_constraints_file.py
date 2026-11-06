@@ -83,7 +83,7 @@ def test_domain_constraints_file_merged_into_session(project_root: Path) -> None
         json.dumps({
             "context": {
                 "docs": {
-                    "product_blueprint": "/cache/topic-line/lulu-blueprint/revision1/lulu-blueprint-doc.md",
+                    "product_spec": "/cache/topic-line/lulu-spec/revision1/lulu-spec-doc.md",
                 },
             },
         }),
@@ -94,7 +94,7 @@ def test_domain_constraints_file_merged_into_session(project_root: Path) -> None
     assert result.returncode == 0, result.stderr
     start_payload = json.loads(result.stdout)
     assert start_payload["ok"] is True
-    assert "product_blueprint" in start_payload["context_docs"]
+    assert "product_spec" in start_payload["context_docs"]
 
     dc_path = project_root / domain_constraints_path(
         cycle_id, "lulu-bet",
@@ -102,7 +102,7 @@ def test_domain_constraints_file_merged_into_session(project_root: Path) -> None
         constraints_path=_WORKFLOW_ROOT / "lulu-bet" / "constraints-feature.json",
     )
     constraints = load_domain_constraints(dc_path)
-    assert constraints["context"]["docs"]["product_blueprint"].endswith("lulu-blueprint-doc.md")
+    assert constraints["context"]["docs"]["product_spec"].endswith("lulu-spec-doc.md")
 
 
 def test_domain_constraints_file_missing_path_errors(project_root: Path) -> None:

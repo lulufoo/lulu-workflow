@@ -29,10 +29,10 @@ def _write_profile(stage_dir: Path, data: dict) -> None:
 
 def test_active_compose_stage_ids_skips_placeholder(tmp_path: Path) -> None:
     _write_profile(
-        tmp_path / "lulu-arch",
+        tmp_path / "lulu-draft",
         {
-            "profile_id": "lulu-arch",
-            "stage_name": "lulu-arch",
+            "profile_id": "lulu-draft",
+            "stage_name": "lulu-draft",
             "status": "placeholder_phase2",
         },
     )

@@ -48,7 +48,7 @@ def test_digest_changes_when_profile_changes() -> None:
 
 def test_real_profiles_build_envelopes() -> None:
     workflow_root = Path(__file__).resolve().parents[3]
-    for stage in ("lulu-plan", "lulu-design", "lulu-arch", "lulu-blueprint", "lulu-spec"):
+    for stage in ("lulu-plan", "lulu-design", "lulu-spec"):
         profile = json.loads(
             (workflow_root / stage / "compose-profile.json").read_text(encoding="utf-8")
         )

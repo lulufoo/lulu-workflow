@@ -93,7 +93,7 @@ class TestBuildTopicDigest:
         import cycle_schema
         from cycle_schema import build_topic_digest
 
-        monkeypatch.setattr(cycle_schema, "topic_doc_stage_for", lambda stage: "lulu-arch")
+        monkeypatch.setattr(cycle_schema, "topic_doc_stage_for", lambda stage: "lulu-bet")
 
         cache = _cache_dir(tmp_path)
         topic_ok = "topic-20260101000000-aabbccdd"
@@ -103,34 +103,34 @@ class TestBuildTopicDigest:
             cache,
             {
                 topic_ok: {"name": "auth-topic"},
-                topic_miss: {"name": "no-arch-yet"},
+                topic_miss: {"name": "no-decision-yet"},
                 feature_id: {"name": "some-feature"},
             },
         )
-        body = "# Auth Arch\n\n" + ("x" * 50)
-        _write_delivered_ref(cache, topic_ok, "lulu-arch", body)
+        body = "# Auth Decision\n\n" + ("x" * 50)
+        _write_delivered_ref(cache, topic_ok, "lulu-bet", body)
 
         payload = build_topic_digest(cache, "lulu-approach")
         assert payload["applicable"] is True
-        assert payload["ref_stage"] == "lulu-arch"
+        assert payload["ref_stage"] == "lulu-bet"
         assert len(payload["topics"]) == 1
         item = payload["topics"][0]
         assert item["topic_id"] == topic_ok
         assert item["name"] == "auth-topic"
-        assert item["ref_stage"] == "lulu-arch"
-        assert "Auth Arch" in item["excerpt"]
+        assert item["ref_stage"] == "lulu-bet"
+        assert "Auth Decision" in item["excerpt"]
         assert Path(item["doc_path"]).is_file()
 
     def test_excerpt_truncated(self, tmp_path, monkeypatch):
         import cycle_schema
         from cycle_schema import _EXCERPT_MAX_CHARS, build_topic_digest
 
-        monkeypatch.setattr(cycle_schema, "topic_doc_stage_for", lambda stage: "lulu-arch")
+        monkeypatch.setattr(cycle_schema, "topic_doc_stage_for", lambda stage: "lulu-bet")
 
         cache = _cache_dir(tmp_path)
         topic_id = "topic-20260101000000-aabbccdd"
         _write_cycles(cache, {topic_id: {"name": "long-doc"}})
-        _write_delivered_ref(cache, topic_id, "lulu-arch", "A" * (_EXCERPT_MAX_CHARS + 200))
+        _write_delivered_ref(cache, topic_id, "lulu-bet", "A" * (_EXCERPT_MAX_CHARS + 200))
 
         payload = build_topic_digest(cache, "lulu-approach")
         assert len(payload["topics"][0]["excerpt"]) <= _EXCERPT_MAX_CHARS

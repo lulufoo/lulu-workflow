@@ -30,8 +30,6 @@ def test_topic_starts_and_transitions_without_compose_stages(tmp_path: Path):
     assert next_steps_for_stage("lulu-bet", "topic") == ["lulu-approach"]
     assert next_steps_for_stage("lulu-approach", "topic") == []
     assert check_gate("topic-pure", "lulu-approach", "topic", tmp_path)[0]
-    assert not check_gate("topic-pure", "lulu-blueprint", "topic", tmp_path)[0]
-    assert not check_gate("topic-pure", "lulu-arch", "topic", tmp_path)[0]
 
 
 def test_topic_bet_requires_delivery_and_supplies_approach_context(tmp_path: Path):

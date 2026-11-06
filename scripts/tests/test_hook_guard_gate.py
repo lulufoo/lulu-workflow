@@ -17,9 +17,7 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 
-_COMPOSE_STAGES = frozenset(
-    {"lulu-arch", "lulu-blueprint", "lulu-design", "lulu-plan", "lulu-spec"}
-)
+_COMPOSE_STAGES = frozenset({"lulu-design", "lulu-plan", "lulu-spec"})
 
 
 def _seed_approach_decision_package(cache_dir: Path, cycle_id: str) -> None:
@@ -315,15 +313,6 @@ class TestCheckGate:
         ok, msg = check_gate("feat-a", "decision", "feature", tmp_path)
         assert ok is True
 
-    def test_topic_removed_blueprint_is_rejected(self, tmp_path):
-        """A delivered Bet cannot enter the removed Blueprint stage."""
-        from start_gate import check_gate
-        _make_cycle_state(tmp_path, "topic-a", "lulu-bet")
-        _make_workflow_state(tmp_path, "topic-a", "lulu-bet", "r1", "Delivered")
-        ok, msg = check_gate("topic-a", "lulu-blueprint", "topic", tmp_path)
-        assert ok is False
-        assert "not part of the Topic flow" in msg
-
     def test_stale_cycle_state_treated_as_null(self, tmp_path):
         """cycle-state.json with a stage not in the cycle → treated as NULL."""
         from start_gate import check_gate
@@ -558,7 +547,6 @@ class TestCrossContainerIsolation:
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
         _make_workflow_state(tmp_path, "topic-a", "lulu-bet", "r1", "Delivered")
-        _make_workflow_state(tmp_path, "topic-a", "lulu-blueprint", "r1", "Delivered")
         _make_workflow_state(tmp_path, "feat-a", "lulu-spec", "r1", "Delivered")
         _make_workflow_state(tmp_path, "feat-a", "lulu-approach", "r1", "Delivered")
 
@@ -569,8 +557,8 @@ class TestCrossContainerIsolation:
         assert all(s.state == "Delivered" for s in feat_spec)
         assert all(s.state == "Delivered" for s in feat_diag)
 
-    def test_topic_reopen_product_diagnostic_invalidates_all_later(self, tmp_path):
-        """Topic re-open Bet invalidates Approach without touching historical artifacts."""
+    def test_topic_reopen_bet_invalidates_approach_and_keeps_historical_stages(self, tmp_path):
+        """Reopening Bet invalidates Approach; session data left by removed stages stays untouched."""
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
         _make_workflow_state(tmp_path, "topic-a", "lulu-blueprint", "r1", "Delivered")
@@ -583,33 +571,6 @@ class TestCrossContainerIsolation:
         assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "lulu-approach", tmp_path))
         assert all(s.state == "Delivered" for s in get_sessions("topic-a", "lulu-arch", tmp_path))
 
-    def test_topic_reopen_product_arch_invalidates_tech(self, tmp_path):
-        """Historical stages are not part of the new Topic route."""
-        from invalidation_hook import invalidate_downstream
-        from workflow_sessions import get_sessions
-        _make_workflow_state(tmp_path, "topic-a", "lulu-blueprint", "r1", "Delivered")
-        _make_workflow_state(tmp_path, "topic-a", "lulu-approach", "r1", "Delivered")
-        _make_workflow_state(tmp_path, "topic-a", "lulu-arch", "r1", "Delivered")
-
-        invalidate_downstream("topic-a", "lulu-blueprint", "topic", tmp_path)
-
-        product_arch = get_sessions("topic-a", "lulu-blueprint", tmp_path)
-        assert all(s.state == "Delivered" for s in product_arch)
-        assert all(s.state == "Delivered" for s in get_sessions("topic-a", "lulu-approach", tmp_path))
-        assert all(s.state == "Delivered" for s in get_sessions("topic-a", "lulu-arch", tmp_path))
-
-    def test_topic_reopen_tech_diagnostic_invalidates_tech_arch(self, tmp_path):
-        """Reopening the terminal Approach does not touch historical Arch."""
-        from invalidation_hook import invalidate_downstream
-        from workflow_sessions import get_sessions
-        _make_workflow_state(tmp_path, "topic-a", "lulu-approach", "r1", "Delivered")
-        _make_workflow_state(tmp_path, "topic-a", "lulu-arch", "r1", "Delivered")
-
-        invalidate_downstream("topic-a", "lulu-approach", "topic", tmp_path)
-
-        tech_diag = get_sessions("topic-a", "lulu-approach", tmp_path)
-        assert all(s.state == "Delivered" for s in tech_diag)
-        assert all(s.state == "Delivered" for s in get_sessions("topic-a", "lulu-arch", tmp_path))
 
 
 # ---------------------------------------------------------------------------
