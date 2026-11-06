@@ -20,16 +20,17 @@ Routes project-level work into a stage skill. Done when `init` has reported, or 
 
 ## Stage lines
 
-Both lines start at `lulu-brainstorm`. The product track and the architecture track sit side by side. `$CYCLE_TYPE` is `topic` or `feature`.
+Both lines start at `lulu-brainstorm`. `$CYCLE_TYPE` is `topic` or `feature`.
 
 | Line | Purpose | Shape |
 |------|---------|-------|
-| **topic** | Shape product and architecture | `lulu-brainstorm` forks to `lulu-bet` → `lulu-blueprint` and `lulu-approach` → `lulu-arch` |
+| **topic** | Settle product and technical decisions | `lulu-brainstorm` → `lulu-bet` → `lulu-approach` |
 | **feature** | Carry a feature through to code | `lulu-brainstorm` forks to `lulu-bet` → `lulu-spec` and `lulu-approach` → `lulu-design`; both join `lulu-plan` → `lulu-tasks` → `lulu-exec` |
 
 1. `lulu-bet` and `lulu-approach` appear on both lines.
-2. On `feature`, the two tracks join at `lulu-plan`.
-3. On `feature`, `lulu-approach` may also go straight to `lulu-tasks` when no plan is needed.
+2. On `topic`, `lulu-approach` ends the line and delivers the Ticket dependency graph.
+3. On `feature`, the product track and the technical track sit side by side and join at `lulu-plan`.
+4. On `feature`, `lulu-approach` may also go straight to `lulu-tasks` when no plan is needed.
 
 ## Routing
 
