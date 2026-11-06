@@ -23,8 +23,6 @@ _ACTIVE_DEFINITIONS = (
     "compose/eval/dimension-defs/scope-continuity.json",
     "compose/eval/dimension-defs/norm-conformance.json",
     "lulu-spec/dimension-defs/product-doc-quality.json",
-    "lulu-arch/dimension-defs/arch-quality.json",
-    "lulu-blueprint/dimension-defs/blueprint-quality.json",
     "decision/eval/dimension-defs/decision-consistency.json",
 )
 

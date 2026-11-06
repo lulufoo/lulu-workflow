@@ -33,8 +33,10 @@ def known_stages(cycle_type: str) -> frozenset[str]:
 
 
 def allowed_stages(cycle_type: str) -> frozenset[str]:
-    """Stages valid for active-context, including legacy entries."""
-    return known_stages(cycle_type) | LEGACY_STAGES
+    """Stages valid for active-context: every stage the table names, plus legacy entries."""
+    transitions = load_transitions(cycle_type)
+    named = {k for k in transitions if k is not None}.union(*transitions.values())
+    return frozenset(named) | LEGACY_STAGES
 
 
 def load_stage_order(cycle_type: str) -> List[str]:

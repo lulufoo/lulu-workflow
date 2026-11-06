@@ -14,7 +14,7 @@ from compose_start_test_helpers import compose_start_args
 
 _LDEV = Path(__file__).resolve().parents[2]
 _KERNEL_START = _LDEV / "compose" / "scripts" / "session" / "start.py"
-_COMPOSE_START_STAGES = frozenset({"lulu-plan", "lulu-spec", "lulu-arch", "lulu-blueprint"})
+_COMPOSE_START_STAGES = frozenset({"lulu-plan", "lulu-spec"})
 _STAGES = ["decision", "lulu-spec", "lulu-plan", "lulu-tasks", "lulu-exec"]
 # compose start only checks the gate; cycle registration in cycles.json is the holder's
 # preflight responsibility, so unregistered-cycle rejection is asserted on these stages only.
@@ -33,11 +33,9 @@ _FEATURE_CYCLE = [
     "lulu-bet", "lulu-spec", "lulu-approach",
     "lulu-plan", "lulu-tasks", "lulu-exec",
 ]
-# Topic cycles end at lulu-arch; lulu-tasks and lulu-exec are feature-only.
-_TOPIC_CONTAINER_STAGES = ["decision", "lulu-blueprint", "lulu-arch"]
-_TOPIC_CYCLE = [
-    "lulu-bet", "lulu-blueprint", "lulu-approach", "lulu-arch",
-]
+# Topic cycles end at lulu-approach; lulu-tasks and lulu-exec are feature-only.
+_TOPIC_CONTAINER_STAGES = ["decision"]
+_TOPIC_CYCLE = ["lulu-bet", "lulu-approach"]
 
 
 def _start_py(stage: str) -> Path:
@@ -220,10 +218,6 @@ def _seed_gate_for_stage(cache_dir: Path, cycle_id: str, to_stage: str, project_
         _seed_product_spec_delivered_refs(cache_dir, cycle_id, project_root)
     if to_stage == "lulu-plan":
         _seed_tech_plan_delivered_refs(cache_dir, cycle_id, project_root)
-    if to_stage == "lulu-arch":
-        _seed_tech_plan_delivered_refs(cache_dir, cycle_id, project_root)
-    if to_stage == "lulu-blueprint":
-        _seed_product_spec_delivered_refs(cache_dir, cycle_id, project_root)
 
 
 def _seed_work_order_handoff(cache_dir: Path, cycle_id: str, active_doc: int = 1) -> None:
@@ -284,7 +278,7 @@ def _stage_extra_args(stage: str, tmp_path: Path) -> list:
     """Return required extra CLI args for each stage."""
     if stage == "decision":
         return _diag_holder_args("lulu-bet")
-    if stage in ("lulu-spec", "lulu-blueprint", "lulu-arch", "lulu-plan"):
+    if stage in ("lulu-spec", "lulu-plan"):
         return compose_start_args(stage, tmp_path)
     elif stage == "lulu-tasks":
         cd = _cache_dir(tmp_path)
@@ -461,24 +455,6 @@ class TestTopicIdSessionPath:
         assert result.returncode == 0, result.stderr
         ss = cd / _TOPIC_ID / "decision" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
-
-    def test_product_arch_topic_session_uses_topic_dir(self, tmp_path):
-        cd = _cache_dir(tmp_path)
-        _make_cycles_json(cd, _TOPIC_ID)
-        _seed_gate_for_stage(cd, _TOPIC_ID, "lulu-blueprint", tmp_path)
-        result = subprocess.run(
-            [
-                sys.executable, str(_start_py("lulu-blueprint")),
-                "--project-root", str(tmp_path),
-                "--cycle-id", _TOPIC_ID,
-            ] + compose_start_args("lulu-blueprint", tmp_path),
-            capture_output=True, text=True, env=_ENV_COPILOT,
-            cwd=str(tmp_path),
-        )
-        assert result.returncode == 0, result.stderr
-        ss = cd / _TOPIC_ID / "lulu-blueprint" / "session-state.md"
-        assert ss.exists(), f"Expected session-state.md at {ss}"
-
 
 # ---------------------------------------------------------------------------
 # Error cases

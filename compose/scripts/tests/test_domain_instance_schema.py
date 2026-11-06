@@ -13,7 +13,7 @@ from domain_instance_schema import (  # noqa: E402
     normalize_expression_conventions,
     validate_domain_instance,
 )
-from framework_template_sources import tech_arch_topic_domain_instance  # noqa: E402
+from framework_template_sources import tech_plan_feature_domain_instance  # noqa: E402
 from scope_resolver import resolve_domain_markdown  # noqa: E402
 
 
@@ -112,12 +112,12 @@ class TestExpressionConventionsNormalize:
 
 
 class TestLoadAndResolve:
-    def test_arch_framework_object_loads_as_string(self, tmp_path: Path):
+    def test_plan_framework_object_loads_as_string(self, tmp_path: Path):
         path = tmp_path / "domain.json"
-        payload = tech_arch_topic_domain_instance()
+        payload = tech_plan_feature_domain_instance()
         assert isinstance(payload["expression_conventions"], dict)
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        loaded = load_and_validate_domain_instance("topic", path=path)
+        loaded = load_and_validate_domain_instance("feature", path=path)
         ec = loaded["expression_conventions"]
         assert isinstance(ec, str)
         assert ec.startswith("register: ")
@@ -129,11 +129,11 @@ class TestLoadAndResolve:
     def test_resolve_domain_markdown_field_is_string(self, tmp_path: Path):
         path = tmp_path / "domain.json"
         path.write_text(
-            json.dumps(tech_arch_topic_domain_instance(), ensure_ascii=False, indent=2),
+            json.dumps(tech_plan_feature_domain_instance(), ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
         md = resolve_domain_markdown(
-            cycle_type="topic",
+            cycle_type="feature",
             domain_instance_path=path,
         )
         start = md.index("```json") + len("```json")

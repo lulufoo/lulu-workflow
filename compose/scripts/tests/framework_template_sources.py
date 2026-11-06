@@ -71,28 +71,3 @@ def product_spec_feature_role_instance() -> dict[str, Any]:
 def product_spec_feature_domain_instance() -> dict[str, Any]:
     return _skill_builtin_template("lulu-spec", "domain-instance.json")
 
-
-def tech_arch_section_registry() -> dict[str, Any]:
-    return _skill_builtin_section_registry("lulu-arch")
-
-
-def tech_arch_topic_role_instance() -> dict[str, Any]:
-    return _skill_builtin_template("lulu-arch", "role-instance.json")
-
-
-def tech_arch_topic_domain_instance() -> dict[str, Any]:
-    return _skill_builtin_template("lulu-arch", "domain-instance.json")
-
-
-def product_blueprint_section_registry() -> dict[str, Any]:
-    return _skill_builtin_section_registry("lulu-blueprint")
-
-
-def product_blueprint_topic_role_instance() -> dict[str, Any]:
-    return _skill_builtin_template("lulu-blueprint", "role-instance.json")
-
-
-def product_blueprint_topic_domain_instance() -> dict[str, Any]:
-    return _skill_builtin_template("lulu-blueprint", "domain-instance.json")
-
-

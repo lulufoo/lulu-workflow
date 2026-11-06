@@ -587,11 +587,6 @@ def _validate_gl_close_payload(
         if not isinstance(row, dict):
             raise ValueError(f"exchanges[{index}] must be an object")
         lens = str(row.get("lens", "")).strip()
-        if lens not in ALL_X_DIMENSIONS:
-            raise ValueError(
-                f"exchanges[{index}].lens must be one of {list(ALL_X_DIMENSIONS)}, "
-                f"got {lens!r}"
-            )
         if lens not in required:
             raise ValueError(
                 f"exchanges[{index}].lens {lens!r} is not in active x_dimensions "
@@ -854,6 +849,22 @@ def _validate_gate_close_payload(gate: str, payload: dict[str, Any], *, constrai
             _validate_x_external_dependencies(payload.get("external_dependencies"))
         if not dims:
             raise ValueError("at least one X dimension must be active")
+        custom_dims = dims - frozenset(ALL_X_DIMENSIONS)
+        if custom_dims:
+            results = payload.get("dimension_results")
+            if not isinstance(results, dict):
+                raise ValueError("dimension_results must be an object")
+            for dim in sorted(custom_dims):
+                value = results.get(dim)
+                if not isinstance(value, str) or not value.strip():
+                    raise ValueError(f"dimension_results[{dim!r}] must be a non-empty string")
+        if "dimension_results" in payload:
+            results = payload["dimension_results"]
+            if not isinstance(results, dict):
+                raise ValueError("dimension_results must be an object")
+            unexpected = set(results) - custom_dims
+            if unexpected:
+                raise ValueError(f"dimension_results contains inactive or built-in dimensions: {sorted(unexpected)}")
         return
     if gate == "R":
         exit_path = str(payload.get("exit", "")).strip()

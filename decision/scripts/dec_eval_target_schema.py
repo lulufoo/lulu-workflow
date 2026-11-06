@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from dec_decision_doc_schema import SECTION_HEADINGS, SECTION_ORDER
-from dec_domain_constraints_schema import is_section_active
+from dec_domain_constraints_schema import ALL_X_DIMENSIONS, active_x_dimensions, is_section_active
 from dec_gate_payload_schema import gate_payloads_for_session
 from dec_io import atomic_write_text
 from dec_register_schema import effective_constraint_text, load_registers, risk_display_rows
@@ -137,6 +137,7 @@ def _section_body(
     *,
     payloads: dict[str, dict[str, Any]],
     registers: dict[str, Any],
+    constraints: dict[str, Any],
 ) -> str:
     if section_key == "user_prior":
         return _render_prior_table(list(registers.get("prior") or []))
@@ -175,17 +176,30 @@ def _section_body(
             }
         )
     if section_key == "execution_analysis":
-        return _render_kv_block(
-            {
-                "acceptance_criteria": payload.get("acceptance_criteria", ""),
-                "gap": payload.get("gap", "None"),
-                "impact_surface": payload.get("impact_surface") or [],
-                "external_dependencies": payload.get("external_dependencies") or [],
-                "key_changes": payload.get("key_changes", ""),
-                "critical_constraints": payload.get("critical_constraints", ""),
-                "reversibility": payload.get("reversibility", ""),
-            }
-        )
+        dimensions = active_x_dimensions(constraints)
+        results = payload.get("dimension_results")
+        if not isinstance(results, dict):
+            results = {}
+        custom_results = {
+            dim: results[dim]
+            for dim in sorted(dimensions - set(ALL_X_DIMENSIONS))
+            if dim in results
+        }
+        fields: dict[str, Any] = {"x_dimensions": sorted(dimensions)}
+        if "acceptance_criteria" in dimensions:
+            fields["acceptance_criteria"] = payload.get("acceptance_criteria", "")
+        if "gap_check" in dimensions:
+            fields["gap"] = payload.get("gap", "None")
+        for dim in ("impact_surface", "external_dependencies"):
+            if dim in dimensions:
+                fields[dim] = payload.get(dim) or []
+        if "implementation_sketch" in dimensions:
+            for key in ("key_changes", "critical_constraints", "reversibility"):
+                fields[key] = payload.get(key, "")
+        body = _render_kv_block(fields)
+        for dim, result in custom_results.items():
+            body += f"\n\n### dimension_results: {dim}\n\n{result}"
+        return body
     raise ValueError(f"unsupported section_key: {section_key!r}")
 
 
@@ -240,7 +254,9 @@ def render_eval_target(
     for section_key in expected_sections(constraints):
         heading = SECTION_HEADINGS[section_key]
         source = _SECTION_SOURCE[section_key]
-        body = _section_body(section_key, payloads=payloads, registers=registers)
+        body = _section_body(
+            section_key, payloads=payloads, registers=registers, constraints=constraints
+        )
         parts.extend(
             [
                 f"<!-- chapter:{section_key} -->",

@@ -106,6 +106,6 @@ class TestCorpusCompose:
         assert corpus["dimensions"][0]["review"]["seq"] == 1
 
     def test_is_composed_corpus_ref_matches_generic_pattern(self):
-        assert is_composed_corpus_ref("lulu-arch-composed@1")
-        assert not is_composed_corpus_ref("lulu-arch-composed")
+        assert is_composed_corpus_ref("lulu-plan-composed@1")
+        assert not is_composed_corpus_ref("lulu-plan-composed")
         assert not is_composed_corpus_ref("static-corpus@1")

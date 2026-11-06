@@ -35,7 +35,7 @@ class DeliveredRef:
     ``artifact`` marks delivery shape (archive-1.0 P0.7): e.g.
     ``decision-package`` / ``scope-package`` / compose ``*-package.json``.
     ``kind`` is required on norm-channel refs (archive-1.0 P3 D2): e.g.
-    ``parent_decision`` / ``split_artifact`` / ``topic_arch`` / ``other``.
+    ``parent_decision`` / ``split_artifact`` / ``other``.
 
     Legacy cycle keys such as ``decision_fact_path`` are ignored on read and
     never re-emitted — compose consumers use ``path`` + ``artifact`` only.

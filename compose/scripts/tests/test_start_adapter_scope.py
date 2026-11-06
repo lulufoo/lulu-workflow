@@ -16,8 +16,6 @@ for _rel in (
     "lulu-plan/scripts/start",
     "lulu-design/scripts/start",
     "lulu-spec/scripts/start",
-    "lulu-arch/scripts/start",
-    "lulu-blueprint/scripts/start",
     "decision/scripts",
 ):
     _p = _WORKFLOW_ROOT / _rel
@@ -26,9 +24,7 @@ for _rel in (
 
 import bootstrap  # noqa: F401
 from delivered_refs_schema import DeliveredRef  # noqa: E402
-from product_blueprint_start_adapter import ProductBlueprintStartAdapter  # noqa: E402
 from product_spec_start_adapter import ProductSpecStartAdapter  # noqa: E402
-from tech_arch_start_adapter import TechArchStartAdapter  # noqa: E402
 from tech_design_start_adapter import TechDesignStartAdapter  # noqa: E402
 from tech_plan_start_adapter import TechPlanStartAdapter  # noqa: E402
 
@@ -228,44 +224,6 @@ def test_delivered_ref_ignores_legacy_decision_doc_path_key() -> None:
     assert not hasattr(ref, "decision_doc_path")
 
 
-def test_tech_arch_projects_approach_decision_package(tmp_path: Path):
-    adapter = TechArchStartAdapter()
-    decision = _write_approach_decision_package(tmp_path / "approach")
-    revision = tmp_path / "arch" / "revision1"
-    revision.mkdir(parents=True)
-    refs = adapter.resolve_scope_refs(
-        delivered_refs=[
-            DeliveredRef(
-                type="lulu-approach",
-                path=str(decision),
-                artifact="decision-package",
-            ),
-        ],
-        revision_dir=revision,
-    )
-    assert refs[0].artifact == "scope-package"
-    assert Path(refs[0].path) == revision / "scope-package.json"
-
-
-def test_product_blueprint_projects_bet_decision_package(tmp_path: Path):
-    adapter = ProductBlueprintStartAdapter()
-    decision = _write_bet_decision_package(tmp_path / "bet")
-    revision = tmp_path / "blueprint" / "revision1"
-    revision.mkdir(parents=True)
-    refs = adapter.resolve_scope_refs(
-        delivered_refs=[
-            DeliveredRef(
-                type="lulu-bet",
-                path=str(decision),
-                artifact="decision-package",
-            ),
-        ],
-        revision_dir=revision,
-    )
-    assert refs[0].artifact == "scope-package"
-    assert Path(refs[0].path) == revision / "scope-package.json"
-
-
 def test_tech_plan_approach_fallback_projects_decision_package(tmp_path: Path):
     adapter = TechPlanStartAdapter()
     decision_package = _write_approach_decision_package(tmp_path / "approach")
@@ -371,3 +329,27 @@ def test_product_spec_infer_run_mode():
 def test_tech_design_norm_constraint_empty():
     adapter = TechDesignStartAdapter()
     assert adapter.resolve_norm_constraint_refs(cycle_id="feat-x") == []
+
+
+def test_feature_adapters_do_not_load_old_topic_norms(tmp_path: Path):
+    from workflow_common import CACHE_DIR
+
+    cache = tmp_path / CACHE_DIR
+    topic = "topic-20260101000000-aabbccdd"
+    feature = "feature-20260101000001-aabbccdd"
+    cache.mkdir(parents=True)
+    (cache / "cycles.json").write_text(json.dumps({feature: {"topic_id": topic}, topic: {}}))
+    topic_dir = cache / topic
+    topic_dir.mkdir()
+    blueprint = topic_dir / "old-blueprint.md"
+    arch = topic_dir / "old-arch.md"
+    blueprint.write_text("# Historical Blueprint")
+    arch.write_text("# Historical Arch")
+    (topic_dir / "delivered-refs.json").write_text(json.dumps({"entries": {
+        "lulu-blueprint": {"path": str(blueprint)},
+        "lulu-arch": {"path": str(arch)},
+    }}))
+
+    for adapter in (ProductSpecStartAdapter(), TechDesignStartAdapter()):
+        assert adapter.resolve_norm_constraint_refs(cycle_id=feature, project_root=tmp_path) == []
+    assert blueprint.is_file() and arch.is_file()

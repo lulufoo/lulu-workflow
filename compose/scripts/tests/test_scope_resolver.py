@@ -102,15 +102,6 @@ class TestResolveRole:
         assert "technical_expert" in payload
         assert '"role_prompt"' in payload
 
-    def test_topic_with_lulu_arch_succeeds(self):
-        md = resolve_role_markdown(cycle_id="topic-demo", profile_id="lulu-arch")
-        assert "## Scope Constraints" in md
-        assert "cycle_type: topic" in md
-        assert "### Role Instance" in md
-        assert "system architect" in md.lower()
-        payload = md.split("### Role Instance")[1]
-        assert "system_architect" in payload
-
     def test_topic_with_feature_profile_mismatches(self):
         with pytest.raises(ScopeResolverError, match="cycle_type mismatch"):
             resolve_role_markdown(cycle_id="topic-demo", profile_id="lulu-plan")
@@ -143,13 +134,6 @@ class TestResolveDomain:
         assert "cycle_type: feature" in md
         assert "tech_plan_feature" in md
         assert "Technical execution planning" in md
-
-    def test_topic_with_lulu_arch_succeeds(self):
-        md = resolve_domain_markdown(cycle_id="topic-demo", profile_id="lulu-arch")
-        assert "## Scope Constraints" in md
-        assert "### Domain Instance" in md
-        assert "cycle_type: topic" in md
-        assert "tech_arch_topic" in md
 
     def test_topic_with_feature_profile_mismatches(self):
         with pytest.raises(ScopeResolverError, match="cycle_type mismatch"):

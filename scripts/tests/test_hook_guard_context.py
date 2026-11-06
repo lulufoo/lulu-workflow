@@ -98,12 +98,12 @@ class TestReadActiveStage:
             "cursor",
             "conv-b",
             _FID_B,
-            "lulu-blueprint",
+            "lulu-approach",
             cycle_type="topic",
         )
 
         assert hook_entry._read_active_stage("cursor", "conv-a") == "lulu-plan"
-        assert hook_entry._read_active_stage("cursor", "conv-b") == "lulu-blueprint"
+        assert hook_entry._read_active_stage("cursor", "conv-b") == "lulu-approach"
 
     def test_empty_conversation_id_returns_none(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
@@ -131,7 +131,6 @@ class TestShouldInjectConversationId:
             "python3 ~/.cursor/skills/lulu-workflow/decision/scripts/dec_start.py --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-workflow/scripts/runtime_control.py --project-root /tmp resolve-session-context",
             "python3 ~/.cursor/skills/lulu-workflow/scripts/cycle_control.py --project-root /tmp bind-context --cycle-id fid1 --skill-dir /tmp/lulu-plan",
-            "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/start.py --profile lulu-blueprint --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/start.py --profile lulu-spec --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/start.py --profile lulu-plan --cycle-id fid1",
             "python3 ~/.cursor/skills/lulu-workflow/compose/scripts/session/start.py --profile lulu-design --cycle-id fid1",

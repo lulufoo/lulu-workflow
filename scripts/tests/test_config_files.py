@@ -22,7 +22,7 @@ def test_transition_table_version():
 
 def test_transition_table_topic_count():
     data = load("transition-table.json")
-    assert len(data["topic"]) == 6
+    assert len(data["topic"]) == 1
 
 
 def test_transition_table_feature_count():
@@ -30,11 +30,9 @@ def test_transition_table_feature_count():
     assert len(data["feature"]) == 8
 
 
-def test_transition_table_topic_last_entry():
+def test_transition_table_topic_declares_entries_only():
     data = load("transition-table.json")
-    last = data["topic"][-1]
-    assert last["from"] == "lulu-arch"
-    assert last["to"] == []
+    assert data["topic"] == [{"from": None, "to": ["lulu-bet", "lulu-approach"]}]
 
 
 def test_transition_table_has_topic_doc_stage():
@@ -42,19 +40,9 @@ def test_transition_table_has_topic_doc_stage():
     assert "topic_doc_stage" in data
 
 
-def test_topic_doc_stage_has_four_keys():
+def test_no_feature_stages_reference_old_topic_docs():
     data = load("transition-table.json")
-    assert set(data["topic_doc_stage"].keys()) == {
-        "lulu-bet",
-        "lulu-spec",
-        "lulu-approach",
-        "lulu-design",
-    }
-
-
-def test_topic_doc_stage_key_count():
-    data = load("transition-table.json")
-    assert len(data["topic_doc_stage"]) == 4
+    assert data["topic_doc_stage"] == {}
 
 
 def test_transition_table_null_entries_feature():

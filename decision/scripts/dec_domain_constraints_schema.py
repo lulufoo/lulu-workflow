@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,7 @@ ALL_X_DIMENSIONS: tuple[str, ...] = (
 
 _PROFILE_FIELDS: tuple[str, ...] = ("question", "completion", "goal")
 _LEGACY_COMPLETION_FIELD = "depth"
+_DIMENSION_ID = re.compile(r"^[a-z][a-z0-9_]*$")
 
 _KERNEL_COMPLETION = (
     "Complete when the answer is restatable, names the required facts, "
@@ -109,32 +111,27 @@ def _normalize_role(data: dict[str, Any]) -> dict[str, str] | None:
     return None
 
 
-def _coerce_profile_entry(value: dict[str, Any]) -> dict[str, str]:
+def _coerce_profile_entry(value: dict[str, Any]) -> dict[str, Any]:
     """Canonical ``{question, completion, goal}``; ``depth`` aliases ``completion``."""
-    entry: dict[str, str] = {}
+    entry: dict[str, Any] = {}
     for field in _PROFILE_FIELDS:
-        text = str(value.get(field, "")).strip()
-        if text:
-            entry[field] = text
+        if field in value:
+            raw = value[field]
+            entry[field] = raw.strip() if isinstance(raw, str) else raw
     if "completion" not in entry:
-        legacy = str(value.get(_LEGACY_COMPLETION_FIELD, "")).strip()
-        if legacy:
-            entry["completion"] = legacy
+        legacy = value.get(_LEGACY_COMPLETION_FIELD)
+        if legacy is not None:
+            entry["completion"] = legacy.strip() if isinstance(legacy, str) else legacy
     return entry
 
 
-def _normalize_dimension_profile(raw: Any) -> dict[str, dict[str, str]]:
+def _normalize_dimension_profile(raw: Any) -> Any:
     """Canonical per-dimension ``{question, completion, goal}`` map."""
-    profile: dict[str, dict[str, str]] = {}
     if not isinstance(raw, dict):
-        return profile
+        return raw
+    profile: dict[str, Any] = {}
     for key, value in raw.items():
-        dim = str(key)
-        if dim not in ALL_X_DIMENSIONS or not isinstance(value, dict):
-            continue
-        entry = _coerce_profile_entry(value)
-        if entry:
-            profile[dim] = entry
+        profile[key] = _coerce_profile_entry(value) if isinstance(value, dict) else value
     return profile
 
 
@@ -144,15 +141,16 @@ def _normalize_domain(data: dict[str, Any]) -> dict[str, Any] | None:
         return None
     name = str(raw.get("name", "")).strip()
     instruction = str(raw.get("instruction", "")).strip()
-    profile = _normalize_dimension_profile(raw.get("dimension_profile"))
-    if not name and not instruction and not profile:
+    has_profile = "dimension_profile" in raw
+    profile = _normalize_dimension_profile(raw.get("dimension_profile")) if has_profile else None
+    if not name and not instruction and not has_profile:
         return None
     result: dict[str, Any] = {}
     if name:
         result["name"] = name
     if instruction:
         result["instruction"] = instruction
-    if profile:
+    if has_profile:
         result["dimension_profile"] = profile
     return result or None
 
@@ -215,11 +213,7 @@ def normalize_domain_constraints(data: dict[str, Any]) -> dict[str, Any]:
     omitted = omitted_raw if isinstance(omitted_raw, list) else []
     omitted_clean = [str(item) for item in omitted if str(item) in ALL_SECTION_KEYS]
 
-    x_raw = data.get("x_dimensions")
-    x_dims = x_raw if isinstance(x_raw, list) else list(ALL_X_DIMENSIONS)
-    x_clean = [str(item) for item in x_dims if str(item) in ALL_X_DIMENSIONS]
-    if not x_clean:
-        x_clean = list(ALL_X_DIMENSIONS)
+    x_dims = data.get("x_dimensions", list(ALL_X_DIMENSIONS))
 
     stage = str(data.get("stage", "")).strip()
     cache_subdir = str(data.get("cache_subdir", "")).strip()
@@ -231,7 +225,7 @@ def normalize_domain_constraints(data: dict[str, Any]) -> dict[str, Any]:
         "stage": stage,
         "cache_subdir": cache_subdir,
         "omitted_sections": omitted_clean,
-        "x_dimensions": x_clean,
+        "x_dimensions": x_dims,
     }
     objective = str(data.get("objective", "")).strip()
     if objective:
@@ -247,7 +241,7 @@ def normalize_domain_constraints(data: dict[str, Any]) -> dict[str, Any]:
     if role:
         normalized["role"] = role
     domain = _normalize_domain(data)
-    if domain is None or not domain.get("dimension_profile"):
+    if domain is None or "dimension_profile" not in domain:
         filled = dict(domain) if isinstance(domain, dict) else {}
         filled["dimension_profile"] = {
             dim: dict(entry) for dim, entry in DEFAULT_DIMENSION_PROFILE.items()
@@ -275,9 +269,20 @@ def validate_domain_constraints(data: dict[str, Any]) -> list[str]:
     for key in data.get("omitted_sections", []):
         if key not in ALL_SECTION_KEYS:
             errors.append(f"invalid omitted section: {key!r}")
-    for dim in data.get("x_dimensions", []):
-        if dim not in ALL_X_DIMENSIONS:
+    x_dimensions = data.get("x_dimensions")
+    if not isinstance(x_dimensions, list) or not x_dimensions:
+        errors.append("x_dimensions must be a non-empty list")
+        x_dimensions = []
+    seen_dimensions: set[str] = set()
+    for dim in x_dimensions:
+        if not isinstance(dim, str) or not _DIMENSION_ID.fullmatch(dim):
             errors.append(f"invalid x dimension: {dim!r}")
+        elif dim in seen_dimensions:
+            errors.append(f"duplicate x dimension: {dim!r}")
+        else:
+            seen_dimensions.add(dim)
+    if seen_dimensions.difference(ALL_X_DIMENSIONS) and "execution_analysis" in data.get("omitted_sections", []):
+        errors.append("execution_analysis cannot be omitted when custom x dimensions are active")
     role = data.get("role")
     if role is not None:
         if not isinstance(role, dict):
@@ -317,13 +322,14 @@ def validate_domain_constraints(data: dict[str, Any]) -> list[str]:
                     errors.append("domain.dimension_profile must be an object")
                 else:
                     for key, value in profile.items():
-                        if key not in ALL_X_DIMENSIONS:
+                        if not isinstance(key, str) or not _DIMENSION_ID.fullmatch(key):
                             errors.append(f"invalid dimension_profile key: {key!r}")
                         elif not isinstance(value, dict):
                             errors.append(f"dimension_profile[{key!r}] must be an object")
                         else:
                             for field in _PROFILE_FIELDS:
-                                if not str(value.get(field, "")).strip():
+                                field_value = value.get(field)
+                                if not isinstance(field_value, str) or not field_value.strip():
                                     errors.append(
                                         f"dimension_profile[{key!r}].{field} must be non-empty"
                                     )
@@ -339,8 +345,10 @@ def validate_domain_constraints(data: dict[str, Any]) -> list[str]:
             if not str(domain.get("instruction", "")).strip():
                 errors.append("domain.instruction is required for holder stages")
     profile = domain_dimension_profile(data)
-    for dim in data.get("x_dimensions", []):
-        entry = profile.get(str(dim))
+    for dim in x_dimensions:
+        if not isinstance(dim, str):
+            continue
+        entry = profile.get(dim)
         if not isinstance(entry, dict):
             errors.append(
                 f"dimension_profile[{dim!r}] is required for active x_dimensions"
@@ -442,7 +450,7 @@ def omitted_sections(constraints: dict[str, Any]) -> frozenset[str]:
 
 
 def active_x_dimensions(constraints: dict[str, Any]) -> frozenset[str]:
-    return frozenset(constraints.get("x_dimensions") or ALL_X_DIMENSIONS)
+    return frozenset(constraints.get("x_dimensions", ALL_X_DIMENSIONS))
 
 
 def is_section_active(constraints: dict[str, Any], section_key: str) -> bool:

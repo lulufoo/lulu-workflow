@@ -23,15 +23,12 @@ from delivered_refs_schema import (  # noqa: E402
 )
 from resolved_refs_schema import primary_scope_from_workflow  # noqa: E402
 from start_scope_helpers import first_ref  # noqa: E402
-from workflow_common import CACHE_DIR  # noqa: E402
 
 _WORKFLOW_SCRIPTS = _WORKFLOW_ROOT / "scripts"
 if str(_WORKFLOW_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_WORKFLOW_SCRIPTS))
-from start_gate import get_topic_ref  # noqa: E402
 
 from scope_package_projection import (  # noqa: E402
-    make_norm_ref,
     reject_non_scope_package,
     write_scope_package_from_source,
 )
@@ -176,19 +173,8 @@ class TechDesignStartAdapter:
         project_root: Path | None = None,
         delivered_refs: list[DeliveredRef] | None = None,
     ) -> list[DeliveredRef]:
-        del delivered_refs
-        refs: list[DeliveredRef] = []
-        if project_root is not None:
-            topic = get_topic_ref(cycle_id, "lulu-design", project_root / CACHE_DIR)
-            if topic is not None:
-                refs.append(
-                    make_norm_ref(
-                        delivered_type=str(topic["type"]),
-                        path=str(topic["path"]),
-                        kind="topic_arch",
-                    )
-                )
-        return refs
+        del cycle_id, project_root, delivered_refs
+        return []
 
     def delivered_ref_for_init(
         self,

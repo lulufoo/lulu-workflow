@@ -8,6 +8,8 @@ When a stage delivers:
 
 > Any transition not listed in `transition-table.json` is **prohibited**.
 > The same rules are machine-enforced at stage entry via `check_gate` (`scripts/start_gate.py`).
+>
+> On `topic`, the table lists only the `null` entry, so `lulu-bet` and `lulu-approach` are independent entries. Either may start at any time, in either order, and neither reads the other's output. When one delivers, announce completion; the other stays available to start.
 
 ## Stage Rollback
 

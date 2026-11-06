@@ -3,9 +3,9 @@ name: lulu-workflow
 description: >-
   Top-level development workflow framework. Use when mentioning lulu-workflow,
   开发工作流, dev workflow, product doc workflow, 产品文档流程, lulu-brainstorm, or any sub-stage
-  (lulu-bet, lulu-approach, lulu-spec, lulu-blueprint, lulu-arch, lulu-design, lulu-plan, lulu-tasks, lulu-exec).
+  (lulu-bet, lulu-approach, lulu-spec, lulu-design, lulu-plan, lulu-tasks, lulu-exec).
 disable-model-invocation: true
-argument-hint: "[lulu-brainstorm | pd=lulu-bet | td=lulu-approach | ps=lulu-spec | pa=lulu-blueprint | ta=lulu-arch | ds=lulu-design | t=lulu-plan | w=lulu-tasks | c=lulu-exec]"
+argument-hint: "[lulu-brainstorm | pd=lulu-bet | td=lulu-approach | ps=lulu-spec | ds=lulu-design | t=lulu-plan | w=lulu-tasks | c=lulu-exec]"
 ---
 
 # lulu-workflow
@@ -20,16 +20,9 @@ Routes project-level work into a stage skill. Done when `init` has reported, or 
 
 ## Stage lines
 
-Both lines start at `lulu-brainstorm`. The product track and the architecture track sit side by side. `$CYCLE_TYPE` is `topic` or `feature`.
+`$CYCLE_TYPE` is `topic` or `feature`, and each has its own stage dependencies in `config/transition-table.json`, under the `topic` and `feature` keys.
 
-| Line | Purpose | Shape |
-|------|---------|-------|
-| **topic** | Shape product and architecture | `lulu-brainstorm` forks to `lulu-bet` → `lulu-blueprint` and `lulu-approach` → `lulu-arch` |
-| **feature** | Carry a feature through to code | `lulu-brainstorm` forks to `lulu-bet` → `lulu-spec` and `lulu-approach` → `lulu-design`; both join `lulu-plan` → `lulu-tasks` → `lulu-exec` |
-
-1. `lulu-bet` and `lulu-approach` appear on both lines.
-2. On `feature`, the two tracks join at `lulu-plan`.
-3. On `feature`, `lulu-approach` may also go straight to `lulu-tasks` when no plan is needed.
+Read the key for the current `$CYCLE_TYPE`: each entry maps a `from` stage to the `to` stages it allows, and a `null` `from` lists the stages a cycle can start at.
 
 ## Routing
 
@@ -39,10 +32,8 @@ Load one sub-SKILL after `$CYCLE_ID` is confirmed.
 |---|---|---|
 | `lulu-brainstorm` | Divergence before a problem is defined | Read [lulu-brainstorm/SKILL.md](./lulu-brainstorm/SKILL.md) |
 | `lulu-bet` / `pd` | Product decision | Read [lulu-bet/SKILL.md](./lulu-bet/SKILL.md) |
-| `lulu-blueprint` / `pa` | Product arch (topic) | Read [lulu-blueprint/SKILL.md](./lulu-blueprint/SKILL.md) |
 | `lulu-spec` / `ps` | Product spec (feature) | Read [lulu-spec/SKILL.md](./lulu-spec/SKILL.md) |
 | `lulu-approach` / `td` | Tech decision | Read [lulu-approach/SKILL.md](./lulu-approach/SKILL.md) |
-| `lulu-arch` / `ta` | Tech arch (topic) | Read [lulu-arch/SKILL.md](./lulu-arch/SKILL.md) |
 | `lulu-design` / `ds` | Tech design | Read [lulu-design/SKILL.md](./lulu-design/SKILL.md) |
 | `lulu-plan` / `t` | Tech plan | Read [lulu-plan/SKILL.md](./lulu-plan/SKILL.md) |
 | `lulu-tasks` / `w` | Tech work order | Read [lulu-tasks/SKILL.md](./lulu-tasks/SKILL.md) |

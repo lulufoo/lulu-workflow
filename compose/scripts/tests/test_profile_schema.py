@@ -52,14 +52,14 @@ def test_validate_all_passes_current_profiles() -> None:
 
 
 def test_placeholder_skips_full_contract(tmp_path: Path) -> None:
-    stage_dir = tmp_path / "lulu-arch"
+    stage_dir = tmp_path / "tech-foo"
     stage_dir.mkdir()
     path = stage_dir / "compose-profile.json"
     path.write_text(
         json.dumps(
             {
-                "profile_id": "lulu-arch",
-                "stage_name": "lulu-arch",
+                "profile_id": "tech-foo",
+                "stage_name": "tech-foo",
                 "status": "placeholder_phase2",
             },
         ),

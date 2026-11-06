@@ -17,9 +17,7 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 
-_COMPOSE_STAGES = frozenset(
-    {"lulu-arch", "lulu-blueprint", "lulu-design", "lulu-plan", "lulu-spec"}
-)
+_COMPOSE_STAGES = frozenset({"lulu-design", "lulu-plan", "lulu-spec"})
 
 
 def _seed_approach_decision_package(cache_dir: Path, cycle_id: str) -> None:
@@ -315,14 +313,6 @@ class TestCheckGate:
         ok, msg = check_gate("feat-a", "decision", "feature", tmp_path)
         assert ok is True
 
-    def test_topic_cycle_valid_advance(self, tmp_path):
-        """Topic cycle: current=lulu-bet (Delivered) → lulu-blueprint allowed."""
-        from start_gate import check_gate
-        _make_cycle_state(tmp_path, "topic-a", "lulu-bet")
-        _make_workflow_state(tmp_path, "topic-a", "lulu-bet", "r1", "Delivered")
-        ok, msg = check_gate("topic-a", "lulu-blueprint", "topic", tmp_path)
-        assert ok is True
-
     def test_stale_cycle_state_treated_as_null(self, tmp_path):
         """cycle-state.json with a stage not in the cycle → treated as NULL."""
         from start_gate import check_gate
@@ -557,7 +547,6 @@ class TestCrossContainerIsolation:
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
         _make_workflow_state(tmp_path, "topic-a", "lulu-bet", "r1", "Delivered")
-        _make_workflow_state(tmp_path, "topic-a", "lulu-blueprint", "r1", "Delivered")
         _make_workflow_state(tmp_path, "feat-a", "lulu-spec", "r1", "Delivered")
         _make_workflow_state(tmp_path, "feat-a", "lulu-approach", "r1", "Delivered")
 
@@ -568,8 +557,8 @@ class TestCrossContainerIsolation:
         assert all(s.state == "Delivered" for s in feat_spec)
         assert all(s.state == "Delivered" for s in feat_diag)
 
-    def test_topic_reopen_product_diagnostic_invalidates_all_later(self, tmp_path):
-        """Topic re-open lulu-bet → lulu-blueprint, lulu-approach, lulu-arch Invalidated."""
+    def test_topic_reopen_bet_leaves_approach_and_historical_stages(self, tmp_path):
+        """Reopening Bet does not touch Approach, nor session data left by removed stages."""
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
         _make_workflow_state(tmp_path, "topic-a", "lulu-blueprint", "r1", "Delivered")
@@ -578,37 +567,10 @@ class TestCrossContainerIsolation:
 
         invalidate_downstream("topic-a", "lulu-bet", "topic", tmp_path)
 
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "lulu-blueprint", tmp_path))
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "lulu-approach", tmp_path))
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "lulu-arch", tmp_path))
+        assert all(s.state == "Delivered" for s in get_sessions("topic-a", "lulu-blueprint", tmp_path))
+        assert all(s.state == "Delivered" for s in get_sessions("topic-a", "lulu-approach", tmp_path))
+        assert all(s.state == "Delivered" for s in get_sessions("topic-a", "lulu-arch", tmp_path))
 
-    def test_topic_reopen_product_arch_invalidates_tech(self, tmp_path):
-        """Topic re-open lulu-blueprint → lulu-approach, lulu-arch Invalidated; lulu-blueprint unchanged."""
-        from invalidation_hook import invalidate_downstream
-        from workflow_sessions import get_sessions
-        _make_workflow_state(tmp_path, "topic-a", "lulu-blueprint", "r1", "Delivered")
-        _make_workflow_state(tmp_path, "topic-a", "lulu-approach", "r1", "Delivered")
-        _make_workflow_state(tmp_path, "topic-a", "lulu-arch", "r1", "Delivered")
-
-        invalidate_downstream("topic-a", "lulu-blueprint", "topic", tmp_path)
-
-        product_arch = get_sessions("topic-a", "lulu-blueprint", tmp_path)
-        assert all(s.state == "Delivered" for s in product_arch)
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "lulu-approach", tmp_path))
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "lulu-arch", tmp_path))
-
-    def test_topic_reopen_tech_diagnostic_invalidates_tech_arch(self, tmp_path):
-        """Topic re-open lulu-approach → lulu-arch Invalidated."""
-        from invalidation_hook import invalidate_downstream
-        from workflow_sessions import get_sessions
-        _make_workflow_state(tmp_path, "topic-a", "lulu-approach", "r1", "Delivered")
-        _make_workflow_state(tmp_path, "topic-a", "lulu-arch", "r1", "Delivered")
-
-        invalidate_downstream("topic-a", "lulu-approach", "topic", tmp_path)
-
-        tech_diag = get_sessions("topic-a", "lulu-approach", tmp_path)
-        assert all(s.state == "Delivered" for s in tech_diag)
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "lulu-arch", tmp_path))
 
 
 # ---------------------------------------------------------------------------
@@ -652,8 +614,8 @@ class TestTopicRefExtended:
         refs_path.write_text(json.dumps(data), encoding="utf-8")
         return doc_path
 
-    def test_tech_design_maps_to_tech_arch_stage(self, tmp_path):
-        """feature.lulu-design: topic_doc_stage maps to lulu-arch → get_topic_doc returns path."""
+    def test_tech_design_does_not_load_old_topic_arch(self, tmp_path):
+        """A historical Topic Arch stays on disk but is not returned to Feature Design."""
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
@@ -663,7 +625,8 @@ class TestTopicRefExtended:
 
         result = get_topic_doc("feat-a", "lulu-design", tmp_path)
 
-        assert result == doc_path
+        assert result is None
+        assert doc_path.is_file()
 
     def test_tech_plan_unmapped_returns_none(self, tmp_path):
         """feature.lulu-plan: not in topic_doc_stage → returns None."""
@@ -690,8 +653,8 @@ class TestTopicRefExtended:
 
         assert result is None
 
-    def test_product_spec_maps_to_product_arch(self, tmp_path):
-        """feature.lulu-spec: topic_doc_stage maps to lulu-blueprint → returns delivered path."""
+    def test_product_spec_does_not_load_old_topic_blueprint(self, tmp_path):
+        """A historical Blueprint stays on disk but is not returned to Feature Spec."""
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
@@ -701,7 +664,8 @@ class TestTopicRefExtended:
 
         result = get_topic_doc("feat-a", "lulu-spec", tmp_path)
 
-        assert result == doc_path
+        assert result is None
+        assert doc_path.is_file()
 
     def test_valid_topic_no_delivered_session_returns_none_extended(self, tmp_path):
         """topic_id valid + no delivered-refs entry for ref stage → returns None."""
@@ -736,8 +700,8 @@ class TestTopicRefExtended:
         with pytest.raises(ValueError):
             get_topic_doc("feat-a", "lulu-plan", tmp_path)
 
-    def test_get_topic_ref_returns_type_and_path(self, tmp_path):
-        """get_topic_ref returns {type, path} — type is the topic's ref stage name."""
+    def test_get_topic_ref_does_not_return_old_arch(self, tmp_path):
+        """Existing Topic refs do not cause Feature to load an old Arch."""
         from start_gate import get_topic_ref
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
@@ -747,7 +711,8 @@ class TestTopicRefExtended:
 
         result = get_topic_ref("feat-a", "lulu-design", tmp_path)
 
-        assert result == {"type": "lulu-arch", "path": str(doc_path.resolve())}
+        assert result is None
+        assert doc_path.is_file()
 
     def test_get_topic_ref_deleted_doc_file_returns_none(self, tmp_path):
         """delivered-refs entry exists but its file was removed → returns None (no stale path)."""

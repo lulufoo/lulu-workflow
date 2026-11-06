@@ -8,10 +8,7 @@ import pytest
 
 import bootstrap  # noqa: F401
 from bootstrap import refresh_compose_import_paths  # noqa: E402
-from test_template_data import (  # noqa: WPS433
-    seed_tech_arch_test_caches,
-    seed_tech_plan_test_caches,
-)
+from test_template_data import seed_tech_plan_test_caches  # noqa: WPS433
 
 
 def pytest_configure(config) -> None:
@@ -32,10 +29,9 @@ def _compose_import_paths():
 
 @pytest.fixture(scope="session")
 def project_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Session project root with plan + arch template caches (pytest temp dir)."""
+    """Session project root with plan template caches (pytest temp dir)."""
     root = tmp_path_factory.mktemp("project")
     seed_tech_plan_test_caches(root)
-    seed_tech_arch_test_caches(root)
     return root
 
 

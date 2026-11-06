@@ -476,14 +476,14 @@ def test_merge_domain_constraints_context_replaces_whole_block() -> None:
     override = {
         "context": {
             "docs": {
-                "tech_arch": "/cache/topic-line/lulu-arch/revision1/arch-doc.md",
+                "product_spec": "/cache/topic-line/lulu-spec/revision1/product-spec.md",
             },
         },
     }
     merged = merge_domain_constraints(base, override)
     assert merged["context"] == {
         "docs": {
-            "tech_arch": "/cache/topic-line/lulu-arch/revision1/arch-doc.md",
+            "product_spec": "/cache/topic-line/lulu-spec/revision1/product-spec.md",
         },
     }
 
@@ -502,7 +502,10 @@ def test_holder_topic_constraints_include_goal() -> None:
     for stage in ("lulu-approach", "lulu-bet"):
         path = _WORKFLOW_ROOT / stage / "constraints-topic.json"
         loaded = load_constraints_config(path)
-        assert set(loaded["domain"]["dimension_profile"]) == set(ALL_X_DIMENSIONS)
+        expected = set(ALL_X_DIMENSIONS)
+        if stage == "lulu-approach":
+            expected.add("ticket_dependency_graph")
+        assert set(loaded["domain"]["dimension_profile"]) == expected
         for entry in loaded["domain"]["dimension_profile"].values():
             assert entry["goal"]
             assert entry["completion"]

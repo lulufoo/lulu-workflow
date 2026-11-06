@@ -40,24 +40,6 @@ _DROP_ORPHAN_CONFIG_KEYS = frozenset(
     }
 )
 _LEGACY_COMPOSE_FRAMEWORK_KEYS = {
-    "lulu-arch": frozenset(
-        {
-            "tat_section_registry_url",
-            "tat_section_form_registry_url",
-            "tat_section_kw_criteria_url",
-            "tat_topic_role_instance_url",
-            "tat_topic_domain_instance_url",
-        }
-    ),
-    "lulu-blueprint": frozenset(
-        {
-            "pbt_section_registry_url",
-            "pbt_section_form_registry_url",
-            "pbt_section_kw_criteria_url",
-            "pbt_topic_role_instance_url",
-            "pbt_topic_domain_instance_url",
-        }
-    ),
     "lulu-design": frozenset(
         {
             "tdt_section_registry_url",

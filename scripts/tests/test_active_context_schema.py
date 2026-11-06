@@ -140,7 +140,7 @@ class TestWriteEntry:
             "cursor",
             "conv-b",
             "other-fid",
-            "lulu-blueprint",
+            "lulu-approach",
             cycle_type="topic",
         )
         data = read_all(tmp_path, "cursor")

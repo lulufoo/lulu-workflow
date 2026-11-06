@@ -186,7 +186,7 @@ class TestResolveInternalPathGuard:
     def test_expands_platform_in_defaults(self, tmp_path: Path):
         from hook_config_schema import resolve_internal_path_guard
 
-        resolved = resolve_internal_path_guard(tmp_path, "lulu-blueprint", platform="cursor")
+        resolved = resolve_internal_path_guard(tmp_path, "lulu-spec", platform="cursor")
         assert resolved["enable"] is True
         assert resolved["readDirs"] == ["."]
         assert resolved["writeDirs"] == [".cache/cursor/lulu-workflow"]
@@ -212,9 +212,9 @@ class TestResolveInternalPathGuard:
 
         target, _ = ensure_hook_config(tmp_path, platform="cursor")
         payload = json.loads(target.read_text(encoding="utf-8"))
-        payload["internalPathGuard"]["stages"]["lulu-blueprint"] = {"enable": False}
+        payload["internalPathGuard"]["stages"]["lulu-spec"] = {"enable": False}
         target.write_text(json.dumps(payload), encoding="utf-8")
-        resolved = resolve_internal_path_guard(tmp_path, "lulu-blueprint", platform="cursor")
+        resolved = resolve_internal_path_guard(tmp_path, "lulu-spec", platform="cursor")
         assert resolved["enable"] is False
 
 

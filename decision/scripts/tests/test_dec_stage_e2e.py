@@ -149,8 +149,8 @@ def test_init_session_never_resolves_context_itself(
 @pytest.mark.parametrize(
     ("stage", "doc_key", "topic_stage"),
     [
-        ("lulu-bet", "product_blueprint", "lulu-blueprint"),
-        ("lulu-approach", "tech_arch", "lulu-arch"),
+        ("lulu-bet", "product_spec", "lulu-spec"),
+        ("lulu-approach", "product_spec", "lulu-spec"),
     ],
 )
 def test_resolve_context_surfaces_preresolved_domain_override(
@@ -195,8 +195,8 @@ def test_resolve_context_surfaces_preresolved_domain_override(
 @pytest.mark.parametrize(
     ("stage", "doc_key", "topic_stage"),
     [
-        ("lulu-bet", "product_blueprint", "lulu-blueprint"),
-        ("lulu-approach", "tech_arch", "lulu-arch"),
+        ("lulu-bet", "product_spec", "lulu-spec"),
+        ("lulu-approach", "product_spec", "lulu-spec"),
     ],
 )
 def test_domain_override_context_frozen_after_init(

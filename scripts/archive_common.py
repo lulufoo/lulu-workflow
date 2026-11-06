@@ -47,22 +47,6 @@ PRODUCT_SPEC_CONFIG = StageArchiveConfig(
     terminal_states=frozenset({"Delivered"}),
 )
 
-PRODUCT_ARCH_CONFIG = StageArchiveConfig(
-    stage="lulu-blueprint",
-    hot_subdir="lulu-blueprint",
-    session_counter_field="active_doc",
-    doc_dir_fmt="revision{}",
-    terminal_states=frozenset({"Delivered"}),
-)
-
-TECH_ARCH_CONFIG = StageArchiveConfig(
-    stage="lulu-arch",
-    hot_subdir="lulu-arch",
-    session_counter_field="active_doc",
-    doc_dir_fmt="revision{}",
-    terminal_states=frozenset({"Delivered"}),
-)
-
 TECH_PLAN_CONFIG = StageArchiveConfig(
     stage="lulu-plan",
     hot_subdir="lulu-plan",
@@ -99,8 +83,6 @@ TECH_CODE_CONFIG = StageArchiveConfig(
 
 ALL_STAGE_CONFIGS = (
     PRODUCT_SPEC_CONFIG,
-    PRODUCT_ARCH_CONFIG,
-    TECH_ARCH_CONFIG,
     TECH_PLAN_CONFIG,
     TECH_WORK_ORDER_CONFIG,
     DECISION_CONFIG,
