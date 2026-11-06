@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from context_loading import build_context_loading
 from start_gate import check_gate
 from transition_table import known_stages, next_steps_for_stage
@@ -135,6 +137,19 @@ def test_pure_tech_topic_can_reenter_approach(tmp_path: Path):
     bet.mkdir()
     (bet / "session-state.md").write_text("---\ncurrent_state: Invalidated\n---\n")
     assert check_gate(cycle, "lulu-approach", "topic", tmp_path)[0]
+
+
+@pytest.mark.parametrize("package_version", [2, 1], ids=["valid-package", "invalid-package"])
+def test_approach_reentry_blocks_when_bet_state_is_missing(tmp_path: Path, package_version: int):
+    cycle = "topic-missing-bet-state"
+    doc, refs = _bet(tmp_path, cycle)
+    (doc.parent / "session-state.md").unlink()
+    package = doc.parent / "decision-package.json"
+    data = json.loads(package.read_text())
+    data["version"] = package_version
+    package.write_text(json.dumps(data))
+    (tmp_path / cycle / "cycle-state.json").write_text(json.dumps({"current_stage": "lulu-approach"}))
+    assert not check_gate(cycle, "lulu-approach", "topic", tmp_path)[0]
 
 
 def test_starting_new_topic_bet_revokes_previous_delivery(tmp_path: Path):

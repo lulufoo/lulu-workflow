@@ -10,6 +10,7 @@ from cycle_schema import read_stage as read_cycle_state
 from transition_table import known_stages, load_transitions
 from workflow_sessions import (
     current_effective_delivered, delivered_bet_decision_doc, get_sessions,
+    has_bet_delivery_ref,
 )
 from workflow_stop import agent_stop_message
 
@@ -57,9 +58,12 @@ def check_gate(
     if (
         cycle_type == "topic"
         and to_stage == current_stage == "lulu-approach"
-        and any(
-            session.state != "Invalidated"
-            for session in get_sessions(cycle_id, "lulu-bet", cache_dir)
+        and (
+            any(
+                session.state != "Invalidated"
+                for session in get_sessions(cycle_id, "lulu-bet", cache_dir)
+            )
+            or has_bet_delivery_ref(cycle_id, cache_dir)
         )
         and (
             not current_effective_delivered(cycle_id, "lulu-bet", cache_dir)

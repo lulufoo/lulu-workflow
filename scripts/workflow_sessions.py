@@ -155,6 +155,15 @@ def _approach_stage_delivered(cycle_id: str, cache_dir: Path) -> bool:
     return path.endswith("decision-package.json") or "/decision-package.json" in path
 
 
+def has_bet_delivery_ref(cycle_id: str, cache_dir: Path) -> bool:
+    """True when a Bet delivery was recorded, even if its session state is gone."""
+    try:
+        refs = json.loads((cache_dir / cycle_id / "delivered-refs.json").read_text(encoding="utf-8"))
+        return "lulu-bet" in refs["entries"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
 def delivered_bet_decision_doc(cycle_id: str, cache_dir: Path) -> Optional[Path]:
     """Resolve a delivered Bet package to its decision doc without trusting stale files."""
     refs_path = cache_dir / cycle_id / "delivered-refs.json"
