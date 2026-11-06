@@ -22,6 +22,8 @@ Routes project-level work into a stage skill. Done when `init` has reported, or 
 
 Both lines start at `lulu-brainstorm`. `$CYCLE_TYPE` is `topic` or `feature`.
 
+Stage dependencies are defined in `config/transition-table.json`: read its `topic` key for a topic cycle and its `feature` key for a feature cycle. Each entry maps a `from` stage to the `to` stages it allows (`null` is the entry), and the table prevails over this section if they differ.
+
 | Line | Purpose | Shape |
 |------|---------|-------|
 | **topic** | Settle product and technical decisions | `lulu-brainstorm` forks to `lulu-bet` and `lulu-approach`; the two do not join |
