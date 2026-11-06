@@ -22,19 +22,20 @@ An agent asked to "build the feature" jumps straight to code. Lulu Workflow slow
 
 ## How it works
 
-- A **cycle** is one run of the workflow, and it is one of two types. A **topic** cycle settles product and technical decisions and ends with a ticket dependency graph for the work they imply. A **feature** cycle carries one feature through to code, and can optionally be linked to a topic.
+- A **cycle** is one run of the workflow, and it is one of two types. A **topic** cycle settles product and technical decisions, and delivers a ticket dependency graph for the work they imply. A **feature** cycle carries one feature through to code, and can optionally be linked to a topic.
 - A **stage** is one named step in a cycle, with one job.
 - A **delivered artifact** is what a stage hands to the next one. A stage is done when it has delivered, and the next stage starts from that artifact.
 
 ## The two lines
 
-Both lines start at `lulu-brainstorm` and pass through a product decision (`lulu-bet`) and a technical decision (`lulu-approach`). The topic line runs them in sequence and stops there. The feature line runs them as two tracks and carries on to code.
+Both lines start at `lulu-brainstorm` and pass through a product decision (`lulu-bet`) and a technical decision (`lulu-approach`) on two tracks. The topic line stops there. The feature line carries on to code.
 
 ### Topic line
 
-<img src="docs/readme/topic-line.svg" alt="Topic line: lulu-brainstorm leads to lulu-bet, then lulu-approach, which delivers a ticket dependency graph" width="504" />
+<img src="docs/readme/topic-line.svg" alt="Topic line: lulu-brainstorm splits into lulu-bet and lulu-approach on two tracks with no order between them; lulu-approach delivers a ticket dependency graph" width="504" />
 
-- `lulu-approach` follows `lulu-bet` and ends the line. It delivers a ticket dependency graph for the work the topic implies. A ticket is a workflow work item sized for an issue. Producing the graph creates no issues.
+- The product and technical tracks have no order between them, and neither reads the other's output.
+- `lulu-approach` delivers a ticket dependency graph for the work the topic implies. A ticket is a workflow work item sized for an issue. Producing the graph creates no issues.
 
 ### Feature line
 
