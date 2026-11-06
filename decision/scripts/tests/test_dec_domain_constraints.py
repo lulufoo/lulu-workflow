@@ -476,14 +476,14 @@ def test_merge_domain_constraints_context_replaces_whole_block() -> None:
     override = {
         "context": {
             "docs": {
-                "product_decision": "/cache/topic-line/lulu-bet/revision1/decision-doc.md",
+                "product_spec": "/cache/topic-line/lulu-spec/revision1/product-spec.md",
             },
         },
     }
     merged = merge_domain_constraints(base, override)
     assert merged["context"] == {
         "docs": {
-            "product_decision": "/cache/topic-line/lulu-bet/revision1/decision-doc.md",
+            "product_spec": "/cache/topic-line/lulu-spec/revision1/product-spec.md",
         },
     }
 

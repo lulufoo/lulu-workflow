@@ -22,7 +22,7 @@ def test_transition_table_version():
 
 def test_transition_table_topic_count():
     data = load("transition-table.json")
-    assert len(data["topic"]) == 4
+    assert len(data["topic"]) == 1
 
 
 def test_transition_table_feature_count():
@@ -30,11 +30,9 @@ def test_transition_table_feature_count():
     assert len(data["feature"]) == 8
 
 
-def test_transition_table_topic_last_entry():
+def test_transition_table_topic_declares_entries_only():
     data = load("transition-table.json")
-    last = data["topic"][-1]
-    assert last["from"] == "lulu-approach"
-    assert last["to"] == []
+    assert data["topic"] == [{"from": None, "to": ["lulu-bet", "lulu-approach"]}]
 
 
 def test_transition_table_has_topic_doc_stage():

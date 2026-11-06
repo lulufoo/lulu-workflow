@@ -150,7 +150,7 @@ def test_init_session_never_resolves_context_itself(
     ("stage", "doc_key", "topic_stage"),
     [
         ("lulu-bet", "product_spec", "lulu-spec"),
-        ("lulu-approach", "product_decision", "lulu-bet"),
+        ("lulu-approach", "product_spec", "lulu-spec"),
     ],
 )
 def test_resolve_context_surfaces_preresolved_domain_override(
@@ -196,7 +196,7 @@ def test_resolve_context_surfaces_preresolved_domain_override(
     ("stage", "doc_key", "topic_stage"),
     [
         ("lulu-bet", "product_spec", "lulu-spec"),
-        ("lulu-approach", "product_decision", "lulu-bet"),
+        ("lulu-approach", "product_spec", "lulu-spec"),
     ],
 )
 def test_domain_override_context_frozen_after_init(

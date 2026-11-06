@@ -90,7 +90,7 @@ def test_resolve_material_files_empty_when_missing(tmp_path):
     assert resolve_material_files(tmp_path, "feature-a", _TEMPLATE_FEATURE, "constraint") == []
 
 
-def test_topic_context_includes_delivered_bet_decision(tmp_path):
+def test_topic_context_ignores_delivered_bet_decision(tmp_path):
     cache_dir = tmp_path / platform_cache_dir(detect_platform())
     root = cache_dir / "topic-a" / "lulu-bet"
     root.mkdir(parents=True)
@@ -100,8 +100,7 @@ def test_topic_context_includes_delivered_bet_decision(tmp_path):
     package = root / "decision-package.json"
     package.write_text(json.dumps({"version": 2, "status": "package_ready", "main": {"decision_doc_path": upstream.name}}))
     (root.parent / "delivered-refs.json").write_text(json.dumps({"entries": {"lulu-bet": {"artifact": "decision-package", "path": str(package)}}}))
-    files = resolve_material_files(tmp_path, "topic-a", _TEMPLATE_TOPIC, "context")
-    assert files == [upstream.resolve().as_posix()]
+    assert resolve_material_files(tmp_path, "topic-a", _TEMPLATE_TOPIC, "context") == []
 
 
 def test_cli_context_docs_stdout_json(tmp_path):

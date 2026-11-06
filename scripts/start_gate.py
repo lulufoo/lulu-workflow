@@ -8,10 +8,7 @@ from typing import Optional, Tuple, TypedDict
 
 from cycle_schema import read_stage as read_cycle_state
 from transition_table import known_stages, load_transitions
-from workflow_sessions import (
-    current_effective_delivered, delivered_bet_decision_doc, get_sessions,
-    has_bet_delivery_ref,
-)
+from workflow_sessions import current_effective_delivered
 from workflow_stop import agent_stop_message
 
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
@@ -50,33 +47,8 @@ def check_gate(
             ),
         )
 
-    if (
-        cycle_type == "topic"
-        and to_stage == current_stage == "lulu-approach"
-        and (
-            any(
-                session.state != "Invalidated"
-                for session in get_sessions(cycle_id, "lulu-bet", cache_dir)
-            )
-            or has_bet_delivery_ref(cycle_id, cache_dir)
-        )
-        and (
-            not current_effective_delivered(cycle_id, "lulu-bet", cache_dir)
-            or delivered_bet_decision_doc(cycle_id, cache_dir) is None
-        )
-    ):
-        return (False, agent_stop_message(
-            "lulu-bet is not Delivered", forbidden="start.py",
-            workarounds="alternate cycle, rollback, flags, etc.",
-        ))
-
     if is_advance and current_stage is not None:
-        delivered = current_effective_delivered(cycle_id, current_stage, cache_dir)
-        if cycle_type == "topic" and current_stage == "lulu-bet":
-            delivered = delivered and (
-                delivered_bet_decision_doc(cycle_id, cache_dir) is not None
-            )
-        if not delivered:
+        if not current_effective_delivered(cycle_id, current_stage, cache_dir):
             return (
                 False,
                 agent_stop_message(

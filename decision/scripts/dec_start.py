@@ -133,21 +133,6 @@ def main() -> int:
         print(f"错误：{e}")
         return 1
 
-    try:
-        domain_override = _load_domain_override_file(args.domain_constraints_file.strip())
-    except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
-        print(f"错误：--domain-constraints-file {e}", file=sys.stderr)
-        return 1
-
-    if cycle_type == "topic" and stage == "lulu-bet":
-        override = parse_session_dir_arg(args.session_dir, project_root)
-        candidate = override or project_root / session_base_dir(
-            cycle_id, stage, project_root=project_root, constraints_path=constraints_path
-        )
-        if (candidate / "gate-state.json").exists():
-            print("错误：已有 Bet 会话；请使用 $DEC_REOPEN。", file=sys.stderr)
-            return 1
-
     if conversation_id:
         # archive: deferred when --conversation-id omitted; enabled below when provided
         archive_rc = archive_decision_session(
@@ -160,41 +145,10 @@ def main() -> int:
     # archive: deferred  if archive_rc != 0:
     # archive: deferred      return archive_rc
 
-    # Validate the Topic Bet route before retiring any previously delivered data.
-    if cycle_type == "topic" and stage == "lulu-bet":
-        ok, reason = check_gate(cycle_id, stage, cycle_type, cache_dir)
-        if not ok:
-            print(f"Gate blocked: {reason}", file=sys.stderr)
-            return 1
-
     # Step 2: re-open detection
     if current_effective_delivered(cycle_id, stage, cache_dir):
-        if cycle_type == "topic" and stage == "lulu-bet":
-            from cycle_delivered_refs import remove_delivered_ref
-            from invalidation_hook import (
-                _ensure_compose_paths, invalidate_downstream_under_cycle_lock,
-                topic_bet_retirement_rollback,
-            )
-
-            _ensure_compose_paths()
-            from revision_lock import cycle_lock
-
-            with cycle_lock(cache_dir / cycle_id, exclusive=True):
-                ok, reason = check_gate(cycle_id, stage, cycle_type, cache_dir)
-                if not ok:
-                    print(f"Gate blocked: {reason}", file=sys.stderr)
-                    return 1
-                with topic_bet_retirement_rollback(cycle_id, cache_dir):
-                    remove_delivered_ref(cycle_id, project_root, stage)
-                    invalidate_downstream_under_cycle_lock(
-                        cycle_id, stage, cycle_type, cache_dir, project_root=project_root
-                    )
-                    _mark_historical(cycle_id, stage, cache_dir)
-        else:
-            _mark_historical(cycle_id, stage, cache_dir)
-            invalidate_downstream(
-                cycle_id, stage, cycle_type, cache_dir, project_root=project_root
-            )
+        _mark_historical(cycle_id, stage, cache_dir)
+        invalidate_downstream(cycle_id, stage, cycle_type, cache_dir)
 
     # Step 3: back-fill detection
     latest_stage = _find_latest_delivered_stage(cycle_id, cycle_type, cache_dir)
@@ -205,15 +159,19 @@ def main() -> int:
             _stages = []
         if stage in _stages and latest_stage in _stages:
             if _stages.index(stage) < _stages.index(latest_stage):
-                invalidate_downstream(
-                    cycle_id, stage, cycle_type, cache_dir, project_root=project_root
-                )
+                invalidate_downstream(cycle_id, stage, cycle_type, cache_dir)
 
     # Step 4: check_gate
     ok, reason = check_gate(cycle_id, stage, cycle_type, cache_dir)
     if not ok:
         print(f"Gate blocked: {reason}", file=sys.stderr)
         sys.exit(1)
+
+    try:
+        domain_override = _load_domain_override_file(args.domain_constraints_file.strip())
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+        print(f"错误：--domain-constraints-file {e}", file=sys.stderr)
+        return 1
 
     session_dir_override = parse_session_dir_arg(args.session_dir, project_root)
     if session_dir_override is not None:

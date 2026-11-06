@@ -557,8 +557,8 @@ class TestCrossContainerIsolation:
         assert all(s.state == "Delivered" for s in feat_spec)
         assert all(s.state == "Delivered" for s in feat_diag)
 
-    def test_topic_reopen_bet_invalidates_approach_and_keeps_historical_stages(self, tmp_path):
-        """Reopening Bet invalidates Approach; session data left by removed stages stays untouched."""
+    def test_topic_reopen_bet_leaves_approach_and_historical_stages(self, tmp_path):
+        """Reopening Bet does not touch Approach, nor session data left by removed stages."""
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
         _make_workflow_state(tmp_path, "topic-a", "lulu-blueprint", "r1", "Delivered")
@@ -568,7 +568,7 @@ class TestCrossContainerIsolation:
         invalidate_downstream("topic-a", "lulu-bet", "topic", tmp_path)
 
         assert all(s.state == "Delivered" for s in get_sessions("topic-a", "lulu-blueprint", tmp_path))
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "lulu-approach", tmp_path))
+        assert all(s.state == "Delivered" for s in get_sessions("topic-a", "lulu-approach", tmp_path))
         assert all(s.state == "Delivered" for s in get_sessions("topic-a", "lulu-arch", tmp_path))
 
 

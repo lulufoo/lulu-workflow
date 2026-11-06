@@ -2,10 +2,10 @@
 """Resolve lulu-approach's context.docs before handing off to decision.
 
 ``context.docs`` is auto-derived from ``(cycle_id, stage)`` by the shared
-kernel resolver (``scripts/context_loading.py``), then stripped of Context /
-Context material keys (``product_spec`` / ``product_decision`` — loaded via
-``resolve_context_docs`` / ``resolve_constraint_docs`` instead). The session
-directory is the approach root.
+kernel resolver (``scripts/context_loading.py``), then stripped of the Context
+material key (``product_spec`` — loaded via ``resolve_context_docs`` /
+``resolve_constraint_docs`` instead). The session directory is the approach
+root.
 
 Writes ``{"context": {"docs": {...}}}`` to a file and prints that file's path
 to stdout for ``$DEC_START`` (``--domain-constraints-file``).

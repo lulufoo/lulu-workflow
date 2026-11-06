@@ -15,10 +15,10 @@ class TestNextStepsForStage:
 
         assert next_steps_for_stage("lulu-bet", "feature") == ["lulu-spec"]
 
-    def test_product_diagnostic_topic(self):
+    def test_product_diagnostic_topic_has_no_next_step(self):
         from transition_table import next_steps_for_stage
 
-        assert next_steps_for_stage("lulu-bet", "topic") == ["lulu-approach"]
+        assert next_steps_for_stage("lulu-bet", "topic") == []
 
     def test_tech_diagnostic_feature(self):
         from transition_table import next_steps_for_stage
@@ -37,9 +37,9 @@ class TestNextStepsForStage:
 
 class TestKnownStages:
     def test_topic_excludes_execution_stages(self):
-        from transition_table import known_stages
+        from transition_table import allowed_stages
 
-        stages = known_stages("topic")
+        stages = allowed_stages("topic")
         assert "lulu-blueprint" not in stages
         assert "lulu-arch" not in stages
         assert "lulu-tasks" not in stages
@@ -71,3 +71,16 @@ class TestKnownStages:
             transitions = load_transitions(cycle_type)
             expected = {k for k in transitions if k is not None}
             assert known_stages(cycle_type) == frozenset(expected)
+
+    def test_allowed_stages_cover_every_named_stage(self):
+        from transition_table import allowed_stages, load_transitions
+
+        for cycle_type in ("topic", "feature"):
+            transitions = load_transitions(cycle_type)
+            named = {k for k in transitions if k is not None}.union(*transitions.values())
+            assert allowed_stages(cycle_type) == frozenset(named) | {"decision"}
+
+    def test_feature_allowed_stages_are_its_known_stages(self):
+        from transition_table import allowed_stages, known_stages
+
+        assert allowed_stages("feature") == known_stages("feature") | {"decision"}

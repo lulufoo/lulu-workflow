@@ -2,10 +2,7 @@
   "version": 2,
   "topic_doc_stage": {},
   "topic": [
-    { "from": null, "to": ["lulu-bet"], "note": "recommended for full-feature work" },
-    { "from": null, "to": ["lulu-approach"], "note": "for pure tech work" },
-    { "from": "lulu-bet", "to": ["lulu-approach"] },
-    { "from": "lulu-approach", "to": [], "note": "Topic 决策完成；可依据 Ticket 依赖图开展后续工作" }
+    { "from": null, "to": ["lulu-bet", "lulu-approach"] }
   ],
   "feature": [
     { "from": null, "to": ["lulu-bet", "lulu-approach"] },

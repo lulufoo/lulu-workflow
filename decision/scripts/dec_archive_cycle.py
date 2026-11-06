@@ -292,13 +292,6 @@ def archive_other_delivered_sessions(
             messages.append(msg)
             continue
 
-        # Topic Approach consumes the Bet's delivered package and document from
-        # this holder. A Completed session may also be awaiting stage delivery.
-        # Moving either would break the handoff or interrupt delivery.
-        if stage == "lulu-bet" and entry.get("cycle_type") == "topic":
-            messages.append(f"keep: {conv_id} — Topic Bet is a handoff source")
-            continue
-
         if cold_dir.exists():
             msg = f"skip: {conv_id} — 冷区已存在 {cold_dir.as_posix()}"
             print(f"警告：{msg}")
