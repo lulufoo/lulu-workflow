@@ -1986,7 +1986,33 @@ def cmd_reopen(
                 active_session_dir=paths["session_dir"],
                 permit_path=Path(permit_path),
             )
-        prior = set_session_frozen(paths["session_dir"])
+        if stage == "lulu-bet" and detect_cycle_type(cycle_id) == "topic":
+            from cycle_delivered_refs import remove_delivered_ref
+            from invalidation_hook import (
+                _ensure_compose_paths, invalidate_downstream_under_cycle_lock,
+                topic_bet_retirement_rollback,
+            )
+
+            _ensure_compose_paths()
+            from revision_lock import cycle_lock
+
+            cache_dir = project_root / CACHE_DIR
+            with cycle_lock(cache_dir / cycle_id, exclusive=True):
+                previous_state = read_current_state(
+                    session_state_file(paths["session_dir"])
+                )
+                if previous_state not in {"Completed", "InProgress"}:
+                    raise ValueError(f"cannot reopen session in state {previous_state!r}")
+                with topic_bet_retirement_rollback(
+                    cycle_id, cache_dir, session_state_file(paths["session_dir"])
+                ):
+                    remove_delivered_ref(cycle_id, project_root, stage)
+                    invalidate_downstream_under_cycle_lock(
+                        cycle_id, stage, "topic", cache_dir, project_root=project_root
+                    )
+                    prior = set_session_frozen(paths["session_dir"])
+        else:
+            prior = set_session_frozen(paths["session_dir"])
         if pending_consume is not None:
             permit_payload = _mark_permit_consumed(*pending_consume)
     except (FileNotFoundError, ValueError, json.JSONDecodeError, OSError) as exc:

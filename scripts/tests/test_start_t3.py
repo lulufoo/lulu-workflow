@@ -375,13 +375,13 @@ class TestArgparseBehavior:
         assert result.returncode == 0, result.stderr
 
     def test_start_without_conv_id_no_context_write(self, tmp_path):
-        _seed_gate_for_stage(tmp_path, "lulu-blueprint", cycle_id=_TOPIC_ID)
+        _seed_gate_for_stage(tmp_path, "lulu-plan", cycle_id=_FID)
         env = {k: v for k, v in _ENV_COPILOT.items() if k != "LULU_CONVERSATION_ID"}
         result = subprocess.run(
-            [sys.executable, str(_start_py("lulu-blueprint")),
+            [sys.executable, str(_start_py("lulu-plan")),
              "--project-root", str(tmp_path),
-             "--cycle-id", _TOPIC_ID,
-             *compose_start_args("lulu-blueprint", tmp_path)],
+             "--cycle-id", _FID,
+             *compose_start_args("lulu-plan", tmp_path)],
             capture_output=True, text=True, env=env,
             cwd=str(tmp_path),
         )
@@ -523,10 +523,11 @@ class TestSessionPath:
         assert _CONV_ID in data
         assert data[_CONV_ID]["stage"] == "lulu-plan"
 
-    def test_product_arch_session_file_at_topic_path(self, tmp_path):
-        self._run_product_arch(tmp_path)
+    def test_removed_product_arch_cannot_create_topic_session(self, tmp_path):
+        result = self._run_product_arch(tmp_path)
         ss = _cache_dir(tmp_path) / _TOPIC_ID / "lulu-blueprint" / "session-state.md"
-        assert ss.exists(), f"Expected session-state.md at {ss}"
+        assert result.returncode != 0
+        assert not ss.exists()
 
     def test_tech_session_file_at_feature_first_path(self, tmp_path):
         self._run_tech(tmp_path)

@@ -34,7 +34,7 @@ _FEATURE_CYCLE = [
     "lulu-plan", "lulu-tasks", "lulu-exec",
 ]
 # Topic cycles end at lulu-arch; lulu-tasks and lulu-exec are feature-only.
-_TOPIC_CONTAINER_STAGES = ["decision", "lulu-blueprint", "lulu-arch"]
+_TOPIC_CONTAINER_STAGES = ["decision"]
 _TOPIC_CYCLE = [
     "lulu-bet", "lulu-blueprint", "lulu-approach", "lulu-arch",
 ]
@@ -462,7 +462,7 @@ class TestTopicIdSessionPath:
         ss = cd / _TOPIC_ID / "decision" / "session-state.md"
         assert ss.exists(), f"Expected session-state.md at {ss}"
 
-    def test_product_arch_topic_session_uses_topic_dir(self, tmp_path):
+    def test_removed_product_arch_topic_start_is_rejected(self, tmp_path):
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _TOPIC_ID)
         _seed_gate_for_stage(cd, _TOPIC_ID, "lulu-blueprint", tmp_path)
@@ -475,9 +475,8 @@ class TestTopicIdSessionPath:
             capture_output=True, text=True, env=_ENV_COPILOT,
             cwd=str(tmp_path),
         )
-        assert result.returncode == 0, result.stderr
-        ss = cd / _TOPIC_ID / "lulu-blueprint" / "session-state.md"
-        assert ss.exists(), f"Expected session-state.md at {ss}"
+        assert result.returncode != 0
+        assert "not part of the Topic flow" in result.stdout + result.stderr
 
 
 # ---------------------------------------------------------------------------

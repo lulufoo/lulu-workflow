@@ -89,9 +89,16 @@ def test_resolve_material_files_empty_when_missing(tmp_path):
     assert resolve_material_files(tmp_path, "feature-a", _TEMPLATE_FEATURE, "constraint") == []
 
 
-def test_topic_context_includes_product_blueprint(tmp_path):
+def test_topic_context_includes_delivered_bet_decision(tmp_path):
     cache_dir = tmp_path / platform_cache_dir(detect_platform())
-    upstream = _make_upstream_doc(cache_dir, "topic-a", "lulu-blueprint", "product-doc.md")
+    root = cache_dir / "topic-a" / "lulu-bet"
+    root.mkdir(parents=True)
+    upstream = root / "decision-doc.md"
+    upstream.write_text("# Bet")
+    (root / "session-state.md").write_text("---\ncurrent_state: Completed\n---\n")
+    package = root / "decision-package.json"
+    package.write_text(json.dumps({"version": 2, "status": "package_ready", "main": {"decision_doc_path": upstream.name}}))
+    (root.parent / "delivered-refs.json").write_text(json.dumps({"entries": {"lulu-bet": {"artifact": "decision-package", "path": str(package)}}}))
     files = resolve_material_files(tmp_path, "topic-a", _TEMPLATE_TOPIC, "context")
     assert files == [upstream.resolve().as_posix()]
 

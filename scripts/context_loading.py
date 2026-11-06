@@ -26,7 +26,11 @@ from typing import Any
 
 from cycle_schema import cycle_type_from_id
 from start_gate import get_topic_ref
-from workflow_sessions import parse_frontmatter
+from workflow_sessions import (
+    current_effective_delivered,
+    delivered_bet_decision_doc,
+    parse_frontmatter,
+)
 
 _SKILL_ROOT = Path(__file__).resolve().parents[1]
 _CONFIG_DIR = _SKILL_ROOT / "config"
@@ -130,6 +134,14 @@ def build_context_loading(
 
     pred_stage = _predecessor_stage(cycle_type, stage)
     if pred_stage is not None:
+        if (
+            cycle_type == "topic"
+            and pred_stage == "lulu-bet"
+            and current_effective_delivered(cycle_id, pred_stage, cache_dir)
+        ):
+            bet_doc = delivered_bet_decision_doc(cycle_id, cache_dir)
+            if bet_doc is not None:
+                docs["product_decision"] = bet_doc.as_posix()
         doc_filename = _upstream_doc_filename(pred_stage)
         doc_key = _doc_key_for_stage(pred_stage)
         if doc_filename is not None and doc_key is not None:

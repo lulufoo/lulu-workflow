@@ -101,12 +101,10 @@ def test_lulu_approach_feature_cycle_omits_undelivered_upstream(tmp_path):
     assert "product_spec" not in result["docs"]
 
 
-def test_lulu_approach_topic_cycle_blueprint_only(tmp_path):
-    doc = _make_upstream_doc(tmp_path, "topic-a", "lulu-blueprint", "product-doc.md")
+def test_lulu_approach_topic_cycle_does_not_load_old_blueprint(tmp_path):
+    _make_upstream_doc(tmp_path, "topic-a", "lulu-blueprint", "product-doc.md")
     result = build_context_loading("topic-a", "lulu-approach", cache_dir=tmp_path)
-    assert result["docs"] == {
-        "product_blueprint": doc.resolve().as_posix(),
-    }
+    assert result["docs"] == {}
 
 
 def test_predecessor_stage_returns_none_for_entry_point():

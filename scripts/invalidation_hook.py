@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import sys
 import warnings
+from contextlib import contextmanager
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -27,6 +28,25 @@ _KERNEL_SCRIPTS = _SKILL_ROOT / "compose" / "scripts"
 COMPOSE_STAGES = frozenset(
     {"lulu-arch", "lulu-blueprint", "lulu-design", "lulu-plan", "lulu-spec"}
 )
+
+
+@contextmanager
+def topic_bet_retirement_rollback(cycle_id: str, cache_dir: Path, *extra_paths: Path):
+    """Restore delivery references and session states if retirement fails."""
+    paths = {cache_dir / cycle_id / "delivered-refs.json", *extra_paths}
+    for stage in ("lulu-bet", "lulu-approach"):
+        paths.update(s.state_path for s in get_sessions(cycle_id, stage, cache_dir) if s.state_path)
+    snapshots = {path: path.read_bytes() if path.is_file() else None for path in paths}
+    try:
+        yield
+    except BaseException:
+        for path, original in snapshots.items():
+            if original is None:
+                path.unlink(missing_ok=True)
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(original)
+        raise
 
 
 def _ensure_compose_paths() -> None:
@@ -134,6 +154,8 @@ def invalidate_downstream_under_cycle_lock(
         if stage in COMPOSE_STAGES:
             _invalidate_compose_active(cycle_id, stage, cache_dir, root)
             continue
+        if cycle_type == "topic" and stage == "lulu-approach":
+            remove_delivered_ref(cycle_id, root, stage)
         for session in get_sessions(cycle_id, stage, cache_dir):
             if session.state == "Invalidated":
                 continue

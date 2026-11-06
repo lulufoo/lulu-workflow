@@ -87,14 +87,12 @@ def test_feature_template_omits_missing_docs(tmp_path):
     assert payload["context"]["docs"] == {}
 
 
-def test_topic_template_resolves_blueprint_only(tmp_path):
+def test_topic_template_does_not_bind_context_materials(tmp_path):
     cache_dir = tmp_path / platform_cache_dir(detect_platform())
-    upstream_doc = _make_upstream_doc(cache_dir, "topic-a", "lulu-blueprint", "product-doc.md")
+    _make_upstream_doc(cache_dir, "topic-a", "lulu-blueprint", "product-doc.md")
 
     payload = resolve(tmp_path, "topic-a", _TEMPLATE_TOPIC)
-    assert payload["context"]["docs"] == {
-        "product_blueprint": upstream_doc.resolve().as_posix(),
-    }
+    assert payload["context"]["docs"] == {}
 
 
 def test_non_approach_root_session_is_rejected(tmp_path):

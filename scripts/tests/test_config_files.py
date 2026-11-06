@@ -22,7 +22,7 @@ def test_transition_table_version():
 
 def test_transition_table_topic_count():
     data = load("transition-table.json")
-    assert len(data["topic"]) == 6
+    assert len(data["topic"]) == 4
 
 
 def test_transition_table_feature_count():
@@ -33,7 +33,7 @@ def test_transition_table_feature_count():
 def test_transition_table_topic_last_entry():
     data = load("transition-table.json")
     last = data["topic"][-1]
-    assert last["from"] == "lulu-arch"
+    assert last["from"] == "lulu-approach"
     assert last["to"] == []
 
 

@@ -4,11 +4,17 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
 from stage_identity import resolve_stage_cache_dir
+
+_DECISION_SCRIPTS = Path(__file__).resolve().parents[1] / "decision" / "scripts"
+if str(_DECISION_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_DECISION_SCRIPTS))
+from dec_decision_package_schema import load_decision_package
 
 _VALID_STATES = frozenset(
     {"Drafting", "Working", "Evaluating", "TDABlocked", "Delivered", "Invalidated"}
@@ -147,6 +153,32 @@ def _approach_stage_delivered(cycle_id: str, cache_dir: Path) -> bool:
     if artifact == "decision-package":
         return True
     return path.endswith("decision-package.json") or "/decision-package.json" in path
+
+
+def delivered_bet_decision_doc(cycle_id: str, cache_dir: Path) -> Optional[Path]:
+    """Resolve a delivered Bet package to its decision doc without trusting stale files."""
+    refs_path = cache_dir / cycle_id / "delivered-refs.json"
+    try:
+        refs = json.loads(refs_path.read_text(encoding="utf-8"))
+        entry = refs["entries"]["lulu-bet"]
+        if entry.get("artifact") != "decision-package":
+            return None
+        package_path = Path(entry["path"]).resolve()
+        holder_root = (cache_dir / cycle_id / "lulu-bet").resolve()
+        if (
+            package_path.name != "decision-package.json"
+            or not package_path.is_relative_to(holder_root)
+        ):
+            return None
+        package = load_decision_package(package_path)
+        doc_path = Path(package["main"]["decision_doc_path"])
+        if doc_path.is_absolute() or ".." in doc_path.parts:
+            return None
+        root = package_path.parent.resolve()
+        doc = (root / doc_path).resolve()
+        return doc if doc.is_relative_to(root) and doc.is_file() else None
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None
 
 
 def current_effective_delivered(cycle_id: str, stage: str, cache_dir: Path) -> bool:

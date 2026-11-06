@@ -315,13 +315,14 @@ class TestCheckGate:
         ok, msg = check_gate("feat-a", "decision", "feature", tmp_path)
         assert ok is True
 
-    def test_topic_cycle_valid_advance(self, tmp_path):
-        """Topic cycle: current=lulu-bet (Delivered) → lulu-blueprint allowed."""
+    def test_topic_removed_blueprint_is_rejected(self, tmp_path):
+        """A delivered Bet cannot enter the removed Blueprint stage."""
         from start_gate import check_gate
         _make_cycle_state(tmp_path, "topic-a", "lulu-bet")
         _make_workflow_state(tmp_path, "topic-a", "lulu-bet", "r1", "Delivered")
         ok, msg = check_gate("topic-a", "lulu-blueprint", "topic", tmp_path)
-        assert ok is True
+        assert ok is False
+        assert "not part of the Topic flow" in msg
 
     def test_stale_cycle_state_treated_as_null(self, tmp_path):
         """cycle-state.json with a stage not in the cycle → treated as NULL."""
@@ -569,7 +570,7 @@ class TestCrossContainerIsolation:
         assert all(s.state == "Delivered" for s in feat_diag)
 
     def test_topic_reopen_product_diagnostic_invalidates_all_later(self, tmp_path):
-        """Topic re-open lulu-bet → lulu-blueprint, lulu-approach, lulu-arch Invalidated."""
+        """Topic re-open Bet invalidates Approach without touching historical artifacts."""
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
         _make_workflow_state(tmp_path, "topic-a", "lulu-blueprint", "r1", "Delivered")
@@ -578,12 +579,12 @@ class TestCrossContainerIsolation:
 
         invalidate_downstream("topic-a", "lulu-bet", "topic", tmp_path)
 
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "lulu-blueprint", tmp_path))
+        assert all(s.state == "Delivered" for s in get_sessions("topic-a", "lulu-blueprint", tmp_path))
         assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "lulu-approach", tmp_path))
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "lulu-arch", tmp_path))
+        assert all(s.state == "Delivered" for s in get_sessions("topic-a", "lulu-arch", tmp_path))
 
     def test_topic_reopen_product_arch_invalidates_tech(self, tmp_path):
-        """Topic re-open lulu-blueprint → lulu-approach, lulu-arch Invalidated; lulu-blueprint unchanged."""
+        """Historical stages are not part of the new Topic route."""
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
         _make_workflow_state(tmp_path, "topic-a", "lulu-blueprint", "r1", "Delivered")
@@ -594,11 +595,11 @@ class TestCrossContainerIsolation:
 
         product_arch = get_sessions("topic-a", "lulu-blueprint", tmp_path)
         assert all(s.state == "Delivered" for s in product_arch)
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "lulu-approach", tmp_path))
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "lulu-arch", tmp_path))
+        assert all(s.state == "Delivered" for s in get_sessions("topic-a", "lulu-approach", tmp_path))
+        assert all(s.state == "Delivered" for s in get_sessions("topic-a", "lulu-arch", tmp_path))
 
     def test_topic_reopen_tech_diagnostic_invalidates_tech_arch(self, tmp_path):
-        """Topic re-open lulu-approach → lulu-arch Invalidated."""
+        """Reopening the terminal Approach does not touch historical Arch."""
         from invalidation_hook import invalidate_downstream
         from workflow_sessions import get_sessions
         _make_workflow_state(tmp_path, "topic-a", "lulu-approach", "r1", "Delivered")
@@ -608,7 +609,7 @@ class TestCrossContainerIsolation:
 
         tech_diag = get_sessions("topic-a", "lulu-approach", tmp_path)
         assert all(s.state == "Delivered" for s in tech_diag)
-        assert all(s.state == "Invalidated" for s in get_sessions("topic-a", "lulu-arch", tmp_path))
+        assert all(s.state == "Delivered" for s in get_sessions("topic-a", "lulu-arch", tmp_path))
 
 
 # ---------------------------------------------------------------------------

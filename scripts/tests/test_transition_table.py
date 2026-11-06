@@ -18,7 +18,7 @@ class TestNextStepsForStage:
     def test_product_diagnostic_topic(self):
         from transition_table import next_steps_for_stage
 
-        assert next_steps_for_stage("lulu-bet", "topic") == ["lulu-blueprint"]
+        assert next_steps_for_stage("lulu-bet", "topic") == ["lulu-approach"]
 
     def test_tech_diagnostic_feature(self):
         from transition_table import next_steps_for_stage
@@ -32,7 +32,7 @@ class TestNextStepsForStage:
     def test_terminal_stage(self):
         from transition_table import next_steps_for_stage
 
-        assert next_steps_for_stage("lulu-arch", "topic") == []
+        assert next_steps_for_stage("lulu-approach", "topic") == []
 
 
 class TestKnownStages:
@@ -40,8 +40,8 @@ class TestKnownStages:
         from transition_table import known_stages
 
         stages = known_stages("topic")
-        assert "lulu-blueprint" in stages
-        assert "lulu-arch" in stages
+        assert "lulu-blueprint" not in stages
+        assert "lulu-arch" not in stages
         assert "lulu-tasks" not in stages
         assert "lulu-exec" not in stages
         assert "lulu-design" not in stages

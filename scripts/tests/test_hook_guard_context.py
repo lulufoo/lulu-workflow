@@ -98,12 +98,12 @@ class TestReadActiveStage:
             "cursor",
             "conv-b",
             _FID_B,
-            "lulu-blueprint",
+            "lulu-approach",
             cycle_type="topic",
         )
 
         assert hook_entry._read_active_stage("cursor", "conv-a") == "lulu-plan"
-        assert hook_entry._read_active_stage("cursor", "conv-b") == "lulu-blueprint"
+        assert hook_entry._read_active_stage("cursor", "conv-b") == "lulu-approach"
 
     def test_empty_conversation_id_returns_none(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
