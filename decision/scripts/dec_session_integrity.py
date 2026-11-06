@@ -216,6 +216,11 @@ def _apply_payload_to_doc(
             critical_constraints=str(payload.get("critical_constraints", "")),
             reversibility=str(payload.get("reversibility", "")),
             x_dimensions=active_x_dimensions(constraints),
+            dimension_results=(
+                payload.get("dimension_results")
+                if isinstance(payload.get("dimension_results"), dict)
+                else {}
+            ),
         )
         return replace_section(doc, "execution_analysis", body, constraints=constraints)
     return doc

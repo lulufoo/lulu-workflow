@@ -62,7 +62,9 @@ For each active dimension:
 
 Submit only fields for active dimensions. Product domain: write user /
 workflow / team mapping in `responsibility` and `stack`; write the
-user-facing promise in `contract`.
+user-facing promise in `contract`. For each active dimension beyond the five
+built-in dimensions below, put its completed answer as a non-empty Markdown
+string in `dimension_results`, keyed by its configured dimension name.
 
 ```json
 {
@@ -89,7 +91,8 @@ user-facing promise in `contract`.
   ],
   "key_changes": "...",
   "critical_constraints": "...",
-  "reversibility": "easy | partial | hard — why"
+  "reversibility": "easy | partial | hard — why",
+  "dimension_results": {"custom_dimension": "..."}
 }
 ```
 

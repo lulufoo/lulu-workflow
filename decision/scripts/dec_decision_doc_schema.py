@@ -261,8 +261,9 @@ def render_execution_analysis_body(
     critical_constraints: str,
     reversibility: str,
     x_dimensions: frozenset[str] | None = None,
+    dimension_results: dict[str, str] | None = None,
 ) -> str:
-    dims = x_dimensions or frozenset(ALL_X_DIMENSIONS)
+    dims = frozenset(ALL_X_DIMENSIONS) if x_dimensions is None else x_dimensions
     lines: list[str] = []
 
     if "acceptance_criteria" in dims or "gap_check" in dims:
@@ -342,6 +343,12 @@ def render_execution_analysis_body(
                 f"**Critical constraints:** {critical_constraints.strip()}",
                 f"**Reversibility:** {reversibility.strip()}",
             ]
+        )
+
+    for index, dim in enumerate(sorted(dims - set(ALL_X_DIMENSIONS)), start=5):
+        result = (dimension_results or {}).get(dim, "")
+        lines.extend(
+            ["", f"### 7.{index} {dim.replace('_', ' ').title()}", "", result.strip()]
         )
 
     if not lines:

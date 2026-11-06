@@ -27,6 +27,7 @@ E `user_choice` (and chosen direction) must describe the **same path** as D `dec
 ### Rule
 
 Major phases / landing steps in D must have corresponding acceptance coverage in X.
+Apply this check when `acceptance_criteria` is in X `x_dimensions`.
 
 ---
 
@@ -40,3 +41,11 @@ Major phases / landing steps in D must have corresponding acceptance coverage in
 ### Rule
 
 X `gap` must not contradict assumption or `RK#` `risk_state` / `release_terms` conclusions.
+Apply this check when `gap_check` is in X `x_dimensions`.
+
+---
+
+## Check 4 — Custom X dimensions (`realign_gate=X`)
+
+Each X `dimension_results` answer must agree with the settled direction and
+the other execution analysis results.
