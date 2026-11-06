@@ -38,9 +38,9 @@ _ORDER = ["AR", "SK", "T", "GO", "ZZ"]
 _SUPPLY = {
     "AR": "ask",
     "SK": "ask",
-    "T": "ask",
+    "T": "derive",
     "GO": "none",
-    "ZZ": "ask",
+    "ZZ": "derive",
 }
 
 
@@ -259,3 +259,23 @@ def test_cli_classify(tmp_path: Path, monkeypatch, capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
     assert payload["derivation"] == ["T"]
     assert payload["true_gaps"] == ["ZZ"]
+
+
+def test_cli_classify_excludes_unrelated_ask_lens(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    _patch_graph(monkeypatch)
+    monkeypatch.setattr(
+        mod,
+        "_graph_and_maps",
+        lambda *args, **kwargs: (_PLANISH_GRAPH, _ORDER, {**_SUPPLY, "ZZ": "ask"}),
+    )
+    rev = tmp_path / "revision1"
+    _seed_facts(rev, [{"id": "F-1", "text": "sk", "lens": "SK"}])
+
+    assert mod.cmd_classify(
+        argparse.Namespace(revision_dir=rev, project_root=tmp_path)
+    ) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["derivation"] == ["T"]
+    assert payload["true_gaps"] == []
