@@ -3,7 +3,7 @@
 
 ``context.docs`` is auto-derived from ``(cycle_id, stage)`` by the shared
 kernel resolver (``scripts/context_loading.py``), then stripped of Context /
-Constraint material keys (``product_spec`` / ``tech_arch`` — loaded via
+Context material keys (``product_spec`` / ``product_decision`` — loaded via
 ``resolve_context_docs`` / ``resolve_constraint_docs`` instead). The session
 directory is the approach root.
 

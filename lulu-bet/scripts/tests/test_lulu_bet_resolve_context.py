@@ -56,7 +56,7 @@ def _write_topic_delivered_ref(cache_dir: Path, topic_id: str, stage: str) -> Pa
     return doc
 
 
-def test_feature_template_resolves_product_blueprint(tmp_path):
+def test_feature_template_does_not_resolve_product_blueprint(tmp_path):
     cache_dir = tmp_path / platform_cache_dir(detect_platform())
     topic_id = "topic-20260101000000-aabbccdd"
     _write_cycles_json(cache_dir, "feature-a", {"name": "x", "topic_id": topic_id})
@@ -64,9 +64,8 @@ def test_feature_template_resolves_product_blueprint(tmp_path):
     topic_doc = _write_topic_delivered_ref(cache_dir, topic_id, "lulu-blueprint")
 
     payload = resolve(tmp_path, "feature-a", _TEMPLATE_FEATURE)
-    assert payload["context"]["docs"] == {
-        "product_blueprint": str(topic_doc.resolve()),
-    }
+    assert payload["context"]["docs"] == {}
+    assert topic_doc.is_file()
 
 
 def test_feature_template_empty_docs_without_topic_id(tmp_path):

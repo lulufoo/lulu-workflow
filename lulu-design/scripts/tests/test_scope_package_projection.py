@@ -101,6 +101,12 @@ class TestNormKinds:
         with pytest.raises(ScopePackageProjectionError, match="norm kind"):
             make_norm_ref(delivered_type="lulu-approach", path=str(p), kind="bogus")
 
+    def test_make_norm_ref_rejects_removed_topic_arch_kind(self, tmp_path: Path):
+        p = tmp_path / "x.md"
+        p.write_text("x\n", encoding="utf-8")
+        with pytest.raises(ScopePackageProjectionError, match="norm kind"):
+            make_norm_ref(delivered_type="lulu-approach", path=str(p), kind="topic_arch")
+
 
 class TestAdapterProjection:
     def test_adapter_writes_scope_package(self, tmp_path: Path):

@@ -653,8 +653,8 @@ class TestTopicRefExtended:
         refs_path.write_text(json.dumps(data), encoding="utf-8")
         return doc_path
 
-    def test_tech_design_maps_to_tech_arch_stage(self, tmp_path):
-        """feature.lulu-design: topic_doc_stage maps to lulu-arch → get_topic_doc returns path."""
+    def test_tech_design_does_not_load_old_topic_arch(self, tmp_path):
+        """A historical Topic Arch stays on disk but is not returned to Feature Design."""
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
@@ -664,7 +664,8 @@ class TestTopicRefExtended:
 
         result = get_topic_doc("feat-a", "lulu-design", tmp_path)
 
-        assert result == doc_path
+        assert result is None
+        assert doc_path.is_file()
 
     def test_tech_plan_unmapped_returns_none(self, tmp_path):
         """feature.lulu-plan: not in topic_doc_stage → returns None."""
@@ -691,8 +692,8 @@ class TestTopicRefExtended:
 
         assert result is None
 
-    def test_product_spec_maps_to_product_arch(self, tmp_path):
-        """feature.lulu-spec: topic_doc_stage maps to lulu-blueprint → returns delivered path."""
+    def test_product_spec_does_not_load_old_topic_blueprint(self, tmp_path):
+        """A historical Blueprint stays on disk but is not returned to Feature Spec."""
         from start_gate import get_topic_doc
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
@@ -702,7 +703,8 @@ class TestTopicRefExtended:
 
         result = get_topic_doc("feat-a", "lulu-spec", tmp_path)
 
-        assert result == doc_path
+        assert result is None
+        assert doc_path.is_file()
 
     def test_valid_topic_no_delivered_session_returns_none_extended(self, tmp_path):
         """topic_id valid + no delivered-refs entry for ref stage → returns None."""
@@ -737,8 +739,8 @@ class TestTopicRefExtended:
         with pytest.raises(ValueError):
             get_topic_doc("feat-a", "lulu-plan", tmp_path)
 
-    def test_get_topic_ref_returns_type_and_path(self, tmp_path):
-        """get_topic_ref returns {type, path} — type is the topic's ref stage name."""
+    def test_get_topic_ref_does_not_return_old_arch(self, tmp_path):
+        """Existing Topic refs do not cause Feature to load an old Arch."""
         from start_gate import get_topic_ref
         topic_id = "topic-20260101000000-aabbccdd"
         self._write_features_json(tmp_path, "feat-a",
@@ -748,7 +750,8 @@ class TestTopicRefExtended:
 
         result = get_topic_ref("feat-a", "lulu-design", tmp_path)
 
-        assert result == {"type": "lulu-arch", "path": str(doc_path.resolve())}
+        assert result is None
+        assert doc_path.is_file()
 
     def test_get_topic_ref_deleted_doc_file_returns_none(self, tmp_path):
         """delivered-refs entry exists but its file was removed → returns None (no stale path)."""

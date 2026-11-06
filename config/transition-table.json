@@ -1,11 +1,6 @@
 {
   "version": 2,
-  "topic_doc_stage": {
-    "lulu-bet": "lulu-blueprint",
-    "lulu-spec": "lulu-blueprint",
-    "lulu-approach": "lulu-arch",
-    "lulu-design": "lulu-arch"
-  },
+  "topic_doc_stage": {},
   "topic": [
     { "from": null, "to": ["lulu-bet"], "note": "recommended for full-feature work" },
     { "from": null, "to": ["lulu-approach"], "note": "for pure tech work" },

@@ -29,7 +29,7 @@ from scope_package_schema import (  # noqa: E402
     save_scope_package,
 )
 
-NORM_KINDS = frozenset({"topic_arch", "other"})
+NORM_KINDS = frozenset({"other"})
 
 
 class ScopePackageProjectionError(ValueError):

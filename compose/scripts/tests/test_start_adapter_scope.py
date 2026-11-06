@@ -371,3 +371,27 @@ def test_product_spec_infer_run_mode():
 def test_tech_design_norm_constraint_empty():
     adapter = TechDesignStartAdapter()
     assert adapter.resolve_norm_constraint_refs(cycle_id="feat-x") == []
+
+
+def test_feature_adapters_do_not_load_old_topic_norms(tmp_path: Path):
+    from workflow_common import CACHE_DIR
+
+    cache = tmp_path / CACHE_DIR
+    topic = "topic-20260101000000-aabbccdd"
+    feature = "feature-20260101000001-aabbccdd"
+    cache.mkdir(parents=True)
+    (cache / "cycles.json").write_text(json.dumps({feature: {"topic_id": topic}, topic: {}}))
+    topic_dir = cache / topic
+    topic_dir.mkdir()
+    blueprint = topic_dir / "old-blueprint.md"
+    arch = topic_dir / "old-arch.md"
+    blueprint.write_text("# Historical Blueprint")
+    arch.write_text("# Historical Arch")
+    (topic_dir / "delivered-refs.json").write_text(json.dumps({"entries": {
+        "lulu-blueprint": {"path": str(blueprint)},
+        "lulu-arch": {"path": str(arch)},
+    }}))
+
+    for adapter in (ProductSpecStartAdapter(), TechDesignStartAdapter()):
+        assert adapter.resolve_norm_constraint_refs(cycle_id=feature, project_root=tmp_path) == []
+    assert blueprint.is_file() and arch.is_file()

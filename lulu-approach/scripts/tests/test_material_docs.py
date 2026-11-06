@@ -81,7 +81,8 @@ def test_resolve_context_and_constraint_files(tmp_path):
     ctx = resolve_material_files(tmp_path, "feature-a", _TEMPLATE_FEATURE, "context")
     cons = resolve_material_files(tmp_path, "feature-a", _TEMPLATE_FEATURE, "constraint")
     assert ctx == [upstream.resolve().as_posix()]
-    assert cons == [str(arch.resolve())]
+    assert cons == []
+    assert arch.is_file()
 
 
 def test_resolve_material_files_empty_when_missing(tmp_path):

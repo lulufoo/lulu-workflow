@@ -42,19 +42,9 @@ def test_transition_table_has_topic_doc_stage():
     assert "topic_doc_stage" in data
 
 
-def test_topic_doc_stage_has_four_keys():
+def test_no_feature_stages_reference_old_topic_docs():
     data = load("transition-table.json")
-    assert set(data["topic_doc_stage"].keys()) == {
-        "lulu-bet",
-        "lulu-spec",
-        "lulu-approach",
-        "lulu-design",
-    }
-
-
-def test_topic_doc_stage_key_count():
-    data = load("transition-table.json")
-    assert len(data["topic_doc_stage"]) == 4
+    assert data["topic_doc_stage"] == {}
 
 
 def test_transition_table_null_entries_feature():

@@ -65,16 +65,15 @@ def test_lulu_bet_topic_cycle_empty_docs(tmp_path):
     assert result == {"docs": {}}
 
 
-def test_lulu_bet_feature_cycle_topic_blueprint_loaded(tmp_path):
+def test_lulu_bet_feature_does_not_load_topic_blueprint(tmp_path):
     topic_id = "topic-20260101000000-aabbccdd"
     _write_cycles_json(tmp_path, "feature-a", {"name": "x", "topic_id": topic_id})
     _write_cycles_json(tmp_path, topic_id, {"name": "t"})
     doc = _write_topic_delivered_ref(tmp_path, topic_id, "lulu-blueprint")
 
     result = build_context_loading("feature-a", "lulu-bet", cache_dir=tmp_path)
-    assert result["docs"] == {
-        "product_blueprint": str(doc.resolve()),
-    }
+    assert result["docs"] == {}
+    assert doc.is_file()
 
 
 def test_lulu_bet_feature_cycle_omits_missing_topic(tmp_path):
@@ -83,7 +82,7 @@ def test_lulu_bet_feature_cycle_omits_missing_topic(tmp_path):
     assert result == {"docs": {}}
 
 
-def test_lulu_approach_feature_cycle_product_spec_and_tech_arch(tmp_path):
+def test_lulu_approach_feature_loads_product_spec_but_not_topic_arch(tmp_path):
     topic_id = "topic-20260101000000-aabbccdd"
     _write_cycles_json(tmp_path, "feature-a", {"name": "x", "topic_id": topic_id})
     _write_cycles_json(tmp_path, topic_id, {"name": "t"})
@@ -92,7 +91,8 @@ def test_lulu_approach_feature_cycle_product_spec_and_tech_arch(tmp_path):
 
     result = build_context_loading("feature-a", "lulu-approach", cache_dir=tmp_path)
     assert result["docs"]["product_spec"] == upstream_doc.resolve().as_posix()
-    assert result["docs"]["tech_arch"] == str(topic_doc.resolve())
+    assert result["docs"] == {"product_spec": upstream_doc.resolve().as_posix()}
+    assert topic_doc.is_file()
 
 
 def test_lulu_approach_feature_cycle_omits_undelivered_upstream(tmp_path):

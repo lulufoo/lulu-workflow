@@ -515,8 +515,8 @@ class TestGatePasses:
         result = _run_start("decision", tmp_path)
         assert result.returncode == 0, result.stderr
 
-    def test_topic_doc_reported_not_merged_into_norm_refs(self, tmp_path):
-        """Delivered topic blueprint is reported on start stdout; compose writes empty norm refs."""
+    def test_topic_blueprint_not_reported_or_merged_into_norm_refs(self, tmp_path):
+        """Feature Spec does not consume a historical Topic Blueprint."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
         _make_cycles_json(cd, _TOPIC_ID)
@@ -533,7 +533,8 @@ class TestGatePasses:
         )
         result = _run_start("lulu-spec", tmp_path)
         payload = _assert_start_ok(result)
-        assert payload.get("topic_doc") == str(topic_doc.resolve())
+        assert "topic_doc" not in payload
+        assert topic_doc.is_file()
         resolved = json.loads(
             (cd / _CYCLE_ID / "lulu-spec" / "revision1" / "resolved-refs.json").read_text(encoding="utf-8")
         )
@@ -668,8 +669,8 @@ class TestGetTopicDoc:
         result = _run_start("lulu-spec", tmp_path)
         _assert_topic_unresolved(result, "lulu-spec")
 
-    def test_topic_delivered_doc_printed_from_delivered_refs(self, tmp_path):
-        """Topic's lulu-blueprint delivered → start JSON reports topic_doc."""
+    def test_old_topic_doc_not_printed_from_delivered_refs(self, tmp_path):
+        """Historical Topic Blueprint is not returned by a new Feature start."""
         cd = _cache_dir(tmp_path)
         _make_cycles_json(cd, _CYCLE_ID, extra={"topic_id": _TOPIC_ID})
         _make_cycles_json(cd, _TOPIC_ID)
@@ -685,7 +686,8 @@ class TestGetTopicDoc:
         )
         result = _run_start("lulu-spec", tmp_path)
         payload = _assert_start_ok(result)
-        assert payload.get("topic_doc") == str(topic_doc.resolve())
+        assert "topic_doc" not in payload
+        assert topic_doc.is_file()
 
 
 # ---------------------------------------------------------------------------

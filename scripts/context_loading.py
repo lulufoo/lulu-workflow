@@ -39,8 +39,6 @@ _REVISION_PAT = re.compile(r"^(revision|r|s)\d+$")
 # Predecessor / topic stage → self-describing context_docs key.
 _STAGE_DOC_KEY: dict[str, str] = {
     "lulu-spec": "product_spec",
-    "lulu-arch": "tech_arch",
-    "lulu-blueprint": "product_blueprint",
 }
 
 
